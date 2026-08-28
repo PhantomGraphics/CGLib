@@ -1,0 +1,12 @@
+{
+  "name": "load_material",
+  "steps": [
+    { "label": "Load cube_material.gltf",
+      "command": "LoadFile:scenarios/models/cube_material.gltf",
+      "expect_prefix": "OK:" },
+    { "label": "MeshCount = 1",      "command": "GetMeshCount",     "expect": "MeshCount:1" },
+    { "label": "MaterialCount = 1",  "command": "GetMaterialCount", "expect": "MaterialCount:1" },
+    { "label": "TextureCount = 0",   "command": "GetTextureCount",  "expect": "TextureCount:0" },
+    { "label": "App still alive",    "command": "GetStatus",        "expect": "OK" }
+  ]
+}

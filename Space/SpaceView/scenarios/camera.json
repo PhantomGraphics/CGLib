@@ -1,0 +1,9 @@
+{
+  "name": "camera",
+  "steps": [
+    { "label": "Scroll away from center", "command": "Scroll:-10", "expect": "OK" },
+    { "label": "Camera distance is greater than 4", "command": "GetCameraDistance", "expect_range": "4.1,100.0" },
+    { "label": "Reset camera", "command": "ResetCamera", "expect": "OK" },
+    { "label": "Camera distance reset to 4", "command": "GetCameraDistance", "expect_range": "3.9,4.1" }
+  ]
+}

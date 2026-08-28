@@ -1,0 +1,14 @@
+{
+  "name": "edge_vertex_colors",
+  "steps": [
+    { "label": "Load box_vertex_colors.gltf (COLOR_0 is not supported -- must load without crashing)",
+      "command": "LoadFile:scenarios/models/box_vertex_colors.gltf",
+      "expect_prefix": "OK:" },
+    { "label": "Has meshes",     "command": "GetMeshCount",     "expect_not": "MeshCount:0" },
+    { "label": "Has primitives", "command": "GetPrimitiveCount", "expect_not": "PrimitiveCount:0" },
+    { "label": "App still alive", "command": "GetStatus", "expect": "OK" },
+    { "label": "Save screenshot (known limitation: vertex colors are ignored, base color factor used instead)",
+      "command": "SaveScreenshot:scenarios/screenshots/edge_vertex_colors.png",
+      "expect_prefix": "OK:" }
+  ]
+}

@@ -1,0 +1,238 @@
+{
+  "asset": {
+    "version": "2.0"
+  },
+  "scene": 0,
+  "scenes": [
+    {
+      "nodes": [
+        0
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "name": "hips",
+      "translation": [
+        0.0,
+        0.9,
+        0.0
+      ],
+      "children": [
+        1,
+        3,
+        4,
+        5,
+        6
+      ]
+    },
+    {
+      "name": "spine",
+      "translation": [
+        0.0,
+        0.2,
+        0.0
+      ],
+      "children": [
+        2
+      ]
+    },
+    {
+      "name": "head",
+      "translation": [
+        0.0,
+        0.3,
+        0.0
+      ],
+      "mesh": 0,
+      "skin": 0
+    },
+    {
+      "name": "leftUpperArm",
+      "translation": [
+        -0.2,
+        0.1,
+        0.0
+      ]
+    },
+    {
+      "name": "rightUpperArm",
+      "translation": [
+        0.2,
+        0.1,
+        0.0
+      ]
+    },
+    {
+      "name": "leftUpperLeg",
+      "translation": [
+        -0.1,
+        -0.9,
+        0.0
+      ]
+    },
+    {
+      "name": "rightUpperLeg",
+      "translation": [
+        0.1,
+        -0.9,
+        0.0
+      ]
+    }
+  ],
+  "meshes": [
+    {
+      "name": "Head",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0
+          },
+          "targets": [
+            {
+              "POSITION": 1
+            },
+            {
+              "POSITION": 2
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "skins": [
+    {
+      "name": "Humanoid",
+      "joints": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "skeletonRoot": 0
+    }
+  ],
+  "accessors": [
+    {
+      "bufferView": 0,
+      "componentType": 5126,
+      "count": 3,
+      "type": "VEC3",
+      "min": [
+        -0.1,
+        -0.1,
+        0.0
+      ],
+      "max": [
+        0.1,
+        0.15,
+        0.0
+      ]
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5126,
+      "count": 3,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "componentType": 5126,
+      "count": 3,
+      "type": "VEC3"
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteOffset": 0,
+      "byteLength": 36
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 36,
+      "byteLength": 36
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 72,
+      "byteLength": 36
+    }
+  ],
+  "buffers": [
+    {
+      "byteLength": 108,
+      "uri": "data:application/octet-stream;base64,zczMvc3MzL0AAAAAzczMPc3MzL0AAAAAAAAAAJqZGT4AAAAAAAAAAI/C9bwAAAAAAAAAAI/C9bwAAAAAAAAAAI/C9bwAAAAACtejPAAAAAAAAAAACtejvAAAAAAAAAAAAAAAAArXozwAAAAA"
+    }
+  ],
+  "extensionsUsed": [
+    "VRMC_vrm"
+  ],
+  "extensions": {
+    "VRMC_vrm": {
+      "specVersion": "1.0",
+      "meta": {
+        "name": "SyntheticVRM1Avatar",
+        "version": "1.0",
+        "authors": [
+          "synthetic-generator"
+        ],
+        "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/"
+      },
+      "humanoid": {
+        "humanBones": {
+          "hips": {
+            "node": 0
+          },
+          "spine": {
+            "node": 1
+          },
+          "head": {
+            "node": 2
+          },
+          "leftUpperArm": {
+            "node": 3
+          },
+          "rightUpperArm": {
+            "node": 4
+          },
+          "leftUpperLeg": {
+            "node": 5
+          },
+          "rightUpperLeg": {
+            "node": 6
+          }
+        }
+      },
+      "expressions": {
+        "preset": {
+          "blink": {
+            "morphTargetBinds": [
+              {
+                "node": 2,
+                "index": 0,
+                "weight": 1.0
+              }
+            ],
+            "isBinary": false
+          }
+        },
+        "custom": {
+          "smile": {
+            "morphTargetBinds": [
+              {
+                "node": 2,
+                "index": 1,
+                "weight": 1.0
+              }
+            ],
+            "isBinary": false
+          }
+        }
+      }
+    }
+  }
+}

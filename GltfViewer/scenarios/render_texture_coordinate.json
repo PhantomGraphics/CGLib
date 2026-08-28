@@ -1,0 +1,15 @@
+{
+  "name": "render_texture_coordinate",
+  "steps": [
+    { "label": "Load texture_coordinate.gltf",
+      "command": "LoadFile:scenarios/models/texture_coordinate.gltf",
+      "expect_prefix": "OK:" },
+    { "label": "Has meshes",     "command": "GetMeshCount",      "expect_not": "MeshCount:0" },
+    { "label": "Has materials", "command": "GetMaterialCount",  "expect_not": "MaterialCount:0" },
+    { "label": "Has primitives", "command": "GetPrimitiveCount", "expect_not": "PrimitiveCount:0" },
+    { "label": "Has textures (UV wrap/tile check)", "command": "GetTextureCount", "expect_not": "TextureCount:0" },
+    { "label": "Save screenshot",
+      "command": "SaveScreenshot:scenarios/screenshots/render_texture_coordinate.png",
+      "expect_prefix": "OK:" }
+  ]
+}

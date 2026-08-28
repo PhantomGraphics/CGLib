@@ -1,0 +1,17 @@
+{
+  "name": "multi_load",
+  "steps": [
+    { "label": "Load triangle (1 mesh)",
+      "command": "LoadFile:scenarios/models/triangle.gltf",
+      "expect_prefix": "OK:" },
+    { "label": "MeshCount = 1", "command": "GetMeshCount", "expect": "MeshCount:1" },
+
+    { "label": "Load multi_mesh (3 meshes)",
+      "command": "LoadFile:scenarios/models/multi_mesh.gltf",
+      "expect_prefix": "OK:" },
+    { "label": "MeshCount = 3",       "command": "GetMeshCount",      "expect": "MeshCount:3" },
+    { "label": "NodeCount = 3",       "command": "GetNodeCount",      "expect": "NodeCount:3" },
+    { "label": "PrimitiveCount = 3",  "command": "GetPrimitiveCount", "expect": "PrimitiveCount:3" },
+    { "label": "App alive after multi-load", "command": "GetStatus",  "expect": "OK" }
+  ]
+}

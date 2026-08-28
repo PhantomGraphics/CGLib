@@ -1,0 +1,11 @@
+{
+  "name": "signed_distance",
+  "steps": [
+    { "label": "Select SignedDistance", "command": "SetAlgorithm:SignedDistance", "expect": "OK" },
+    { "label": "Run SignedDistance", "command": "Run", "expect": "OK" },
+    { "label": "Result not dirty", "command": "GetDirty", "expect": "Dirty:0" },
+    { "label": "Point count greater than 0", "command": "GetPointCount", "expect_prefix": "PointCount:", "expect_not": "PointCount:0" },
+    { "label": "Point position minimum is in range", "command": "GetPointPositionMin", "expect_range": "-2.0,2.0" },
+    { "label": "Point position maximum is in range", "command": "GetPointPositionMax", "expect_range": "-2.0,2.0" }
+  ]
+}

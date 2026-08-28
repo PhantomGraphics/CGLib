@@ -1,0 +1,26 @@
+{
+  "name": "cloud_shadow",
+  "steps": [
+    { "label": "Clear world",             "command": "ClearWorld",                       "expect": "OK" },
+    { "label": "Create cloud sphere",     "command": "CreateSphere:0:0:0:10:1",          "expect_prefix": "OK:" },
+    { "label": "Apply cloud TF preset",   "command": "SetPBVRTFPreset:1",                "expect": "OK" },
+    { "label": "Switch to PBVR render",   "command": "SetPBVRRenderMode:1",              "expect": "OK" },
+    { "label": "Use GPU generation",      "command": "SetPBVRUseGPU:1",                  "expect": "OK" },
+    { "label": "Bigger particles",        "command": "SetPBVRParticleSize:16",           "expect": "OK" },
+    { "label": "Higher density",          "command": "SetPBVRDensityScale:3.0",          "expect": "OK" },
+    { "label": "Enable self-shadow",      "command": "SetPBVRShadowEnabled:1",           "expect": "OK" },
+    { "label": "Set extinction",          "command": "SetPBVRExtinction:4.0",            "expect": "OK" },
+    { "label": "Set shadow layers",       "command": "SetPBVRShadowLayers:8",            "expect": "OK" },
+    { "label": "Set light direction",     "command": "SetPBVRLightDir:45:60",            "expect": "OK" },
+    { "label": "Shadow enabled query",    "command": "GetPBVRShadowEnabled",             "expect": "ShadowEnabled:1" },
+    { "label": "Warm-up frame 1",         "command": "GetSceneCount",                    "expect": "SceneCount:1" },
+    { "label": "Warm-up frame 2",         "command": "GetSceneCount",                    "expect": "SceneCount:1" },
+    { "label": "Warm-up frame 3",         "command": "GetSceneCount",                    "expect": "SceneCount:1" },
+    { "label": "Warm-up frame 4",         "command": "GetSceneCount",                    "expect": "SceneCount:1" },
+    { "label": "Warm-up frame 5",         "command": "GetSceneCount",                    "expect": "SceneCount:1" },
+    { "label": "Screenshot (self-shadow)","command": "Screenshot:screenshots/cloud_shadow.png", "expect_prefix": "OK:" },
+    { "label": "Bright pixel (lit side)", "command": "GetPixelBrightness:700,350",       "store_as": "b_lit" },
+    { "label": "Dark pixel (shadow side)","command": "GetPixelBrightness:560,520",       "store_as": "b_dark" }
+  ],
+  "post_assert": "b_lit > b_dark"
+}

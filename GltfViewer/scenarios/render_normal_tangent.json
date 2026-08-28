@@ -1,0 +1,16 @@
+{
+  "name": "render_normal_tangent",
+  "steps": [
+    { "label": "Load normal_tangent.gltf (regular + mirrored tangent.w)",
+      "command": "LoadFile:scenarios/models/normal_tangent.gltf",
+      "expect_prefix": "OK:" },
+    { "label": "Has meshes",     "command": "GetMeshCount",      "expect_not": "MeshCount:0" },
+    { "label": "Has materials", "command": "GetMaterialCount",  "expect_not": "MaterialCount:0" },
+    { "label": "SceneCount = 1", "command": "GetSceneCount",     "expect":     "SceneCount:1" },
+    { "label": "Has primitives", "command": "GetPrimitiveCount", "expect_not": "PrimitiveCount:0" },
+    { "label": "Has textures (normal map)", "command": "GetTextureCount", "expect_not": "TextureCount:0" },
+    { "label": "Save screenshot",
+      "command": "SaveScreenshot:scenarios/screenshots/render_normal_tangent.png",
+      "expect_prefix": "OK:" }
+  ]
+}

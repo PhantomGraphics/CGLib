@@ -1,0 +1,14 @@
+{
+  "name": "render_orientation",
+  "steps": [
+    { "label": "Load orientation.gltf",
+      "command": "LoadFile:scenarios/models/orientation.gltf",
+      "expect_prefix": "OK:" },
+    { "label": "Has meshes",     "command": "GetMeshCount",      "expect_not": "MeshCount:0" },
+    { "label": "Has nodes (rotation variants)", "command": "GetNodeCount", "expect_not": "NodeCount:0" },
+    { "label": "Has primitives", "command": "GetPrimitiveCount", "expect_not": "PrimitiveCount:0" },
+    { "label": "Save screenshot",
+      "command": "SaveScreenshot:scenarios/screenshots/render_orientation.png",
+      "expect_prefix": "OK:" }
+  ]
+}

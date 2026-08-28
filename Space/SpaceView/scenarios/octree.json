@@ -1,0 +1,9 @@
+{
+  "name": "octree",
+  "steps": [
+    { "label": "Select Octree", "command": "SetAlgorithm:Octree", "expect": "OK" },
+    { "label": "Run Octree", "command": "Run", "expect": "OK" },
+    { "label": "Result not dirty", "command": "GetDirty", "expect": "Dirty:0" },
+    { "label": "Line indices greater than 0", "command": "GetLineCount", "expect_prefix": "LineCount:", "expect_not": "LineCount:0" }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "name": "edge_emissive_strength",
+  "steps": [
+    { "label": "Load emissive_strength.gltf (KHR_materials_emissive_strength not supported -- must load without crashing)",
+      "command": "LoadFile:scenarios/models/emissive_strength.gltf",
+      "expect_prefix": "OK:" },
+    { "label": "Has meshes",     "command": "GetMeshCount",     "expect_not": "MeshCount:0" },
+    { "label": "Has materials", "command": "GetMaterialCount", "expect_not": "MaterialCount:0" },
+    { "label": "App still alive", "command": "GetStatus", "expect": "OK" },
+    { "label": "Save screenshot (known limitation: emissive strength multiplier ignored, base emissiveFactor only)",
+      "command": "SaveScreenshot:scenarios/screenshots/edge_emissive_strength.png",
+      "expect_prefix": "OK:" }
+  ]
+}

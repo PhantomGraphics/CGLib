@@ -1,0 +1,10 @@
+{
+  "name": "ibl_control",
+  "steps": [
+    { "label": "Default IBL is off (placeholder env, not a real HDRI)", "command": "GetUseIBL", "expect": "Val:0" },
+    { "label": "Enable IBL",         "command": "SetUseIBL:1", "expect": "OK" },
+    { "label": "IBL is now on",      "command": "GetUseIBL",   "expect": "Val:1" },
+    { "label": "Disable IBL again",  "command": "SetUseIBL:0", "expect": "OK" },
+    { "label": "IBL is back off",    "command": "GetUseIBL",   "expect": "Val:0" }
+  ]
+}

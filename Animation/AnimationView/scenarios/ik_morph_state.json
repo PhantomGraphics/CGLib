@@ -1,0 +1,13 @@
+{
+  "name": "IKMorphStateTest",
+  "steps": [
+    { "label": "Check initial IK count (hardcoded skeleton has none)", "command": "GetIKCount",         "expect": "IKCount:0" },
+    { "label": "Check initial morph count",                            "command": "GetMorphCount",      "expect": "MorphCount:0" },
+    { "label": "Enable IK",                                            "command": "SetIKEnabled:1",     "expect": "OK:SetIKEnabled" },
+    { "label": "Disable IK",                                           "command": "SetIKEnabled:0",     "expect": "OK:SetIKEnabled" },
+    { "label": "Re-enable IK",                                         "command": "SetIKEnabled:1",     "expect": "OK:SetIKEnabled" },
+    { "label": "Get time",                                             "command": "GetTime",            "expect": "Time:0.000" },
+    { "label": "Play",                                                 "command": "Play",               "expect": "OK:Play" },
+    { "label": "Stop",                                                 "command": "Stop",               "expect": "OK:Stop" }
+  ]
+}

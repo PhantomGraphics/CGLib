@@ -1,0 +1,109 @@
+#version 450
+
+layout(local_size_x = 256) in;
+
+// Must match Crystal::Particles::ParticleGpu (ParticleGpu.h) exactly.
+struct Particle {
+    vec4 position; // xyz = world position, w = life (1 = spawned, 0 = dead)
+    vec4 velocity; // xyz = velocity, w = billboard size
+    vec4 color;    // rgba at spawn time
+    vec4 colorEnd; // rgba at death
+};
+
+layout(std430, binding = 0) buffer ParticleBuffer {
+    Particle particles[];
+};
+
+// Must match Crystal::Particles::ParticleSimulator::SimUBO exactly.
+layout(std140, binding = 1) uniform SimParams {
+    vec4  originDt;    // xyz = emitter origin, w = dt
+    vec4  gravityDrag; // xyz = gravity, w = drag
+    vec4  initialColor;
+    vec4  endColor;
+    vec4  speedParams; // x=speed, y=speedVariance, z=lifeTime, w=size
+    uvec4 counts;      // x=maxParticles, y=emitStart, z=emitCount, w=seed
+    vec4  shapeParams; // x=shapeRadius, y=shape(0=Point,1=Sphere,2=Box)
+} sim;
+
+// lowbias32 integer hash (Chris Wellons) -- deterministic per (seed, particle index),
+// good enough spatial/temporal decorrelation for visual particle spawning.
+uint hash(uint x)
+{
+    x ^= x >> 16;
+    x *= 0x7feb352du;
+    x ^= x >> 15;
+    x *= 0x846ca68bu;
+    x ^= x >> 16;
+    return x;
+}
+
+float rand01(uint seed)
+{
+    return float(hash(seed)) / 4294967295.0;
+}
+
+void main()
+{
+    uint idx = gl_GlobalInvocationID.x;
+    uint maxParticles = sim.counts.x;
+    if (idx >= maxParticles)
+        return;
+
+    uint emitStart = sim.counts.y % max(maxParticles, 1u);
+    uint emitCount = sim.counts.z;
+    uint seed      = sim.counts.w;
+
+    bool spawn = false;
+    if (emitCount > 0u) {
+        uint rel = (idx + maxParticles - emitStart) % maxParticles;
+        spawn = rel < emitCount;
+    }
+
+    Particle p = particles[idx];
+
+    if (spawn) {
+        uint s = seed * 9781u + idx * 6271u + 1u;
+        vec3 r0 = vec3(rand01(s), rand01(s + 101u), rand01(s + 202u));
+
+        uint  shape       = uint(sim.shapeParams.y + 0.5);
+        float shapeRadius = sim.shapeParams.x;
+
+        float theta = r0.x * 6.2831853;
+        float z     = r0.y * 2.0 - 1.0;
+        float rxy   = sqrt(max(0.0, 1.0 - z * z));
+        vec3  dir   = vec3(rxy * cos(theta), z, rxy * sin(theta));
+
+        vec3 offset = vec3(0.0);
+        if (shape == 1u) {
+            // Sphere: uniform direction scaled into the sphere's volume.
+            offset = dir * shapeRadius * pow(r0.z, 1.0 / 3.0);
+        } else if (shape == 2u) {
+            // Box: uniform in [-shapeRadius, shapeRadius]^3.
+            offset = (r0 * 2.0 - 1.0) * shapeRadius;
+        }
+        // Point shape: offset stays zero, only `dir` (for velocity) is randomized.
+
+        float speed = sim.speedParams.x + (r0.z * 2.0 - 1.0) * sim.speedParams.y;
+
+        p.position = vec4(sim.originDt.xyz + offset, 1.0);
+        p.velocity = vec4(dir * speed, sim.speedParams.w);
+        p.color    = sim.initialColor;
+        p.colorEnd = sim.endColor;
+    } else if (p.position.w > 0.0) {
+        float dt       = sim.originDt.w;
+        float lifeTime = max(sim.speedParams.z, 1e-4);
+
+        p.position.w -= dt / lifeTime;
+
+        vec3 vel = p.velocity.xyz;
+        vel += sim.gravityDrag.xyz * dt;
+        vel *= max(0.0, 1.0 - sim.gravityDrag.w * dt);
+        p.velocity.xyz = vel;
+        p.position.xyz += vel * dt;
+
+        if (p.position.w < 0.0)
+            p.position.w = 0.0;
+    }
+
+    particles[idx] = p;
+}

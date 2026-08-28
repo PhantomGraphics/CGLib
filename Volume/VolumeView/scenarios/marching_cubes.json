@@ -1,0 +1,10 @@
+{
+  "name": "marching_cubes",
+  "steps": [
+    { "label": "Clear world",                "command": "ClearWorld",                       "expect": "OK" },
+    { "label": "Create box SDF",             "command": "CreateBox:-10:-10:-10:10:10:10:1", "expect_prefix": "OK:" },
+    { "label": "Set active scene to idx 0",  "command": "SetActiveScene:0",                 "expect": "OK" },
+    { "label": "Run marching cubes iso=0",   "command": "MarchingCubes:0",                  "expect_prefix": "OK:" },
+    { "label": "Polygon count > 0",          "command": "GetPolygonCount",                  "expect_prefix": "PolygonCount:", "expect_not": "PolygonCount:0" }
+  ]
+}

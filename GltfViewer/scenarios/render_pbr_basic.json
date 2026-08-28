@@ -1,0 +1,16 @@
+{
+  "name": "render_pbr_basic",
+  "steps": [
+    { "label": "Load pbr_basic.gltf",
+      "command": "LoadFile:scenarios/models/pbr_basic.gltf",
+      "expect_prefix": "OK:" },
+    { "label": "MeshCount = 1",      "command": "GetMeshCount",      "expect":     "MeshCount:1" },
+    { "label": "MaterialCount = 1",  "command": "GetMaterialCount",  "expect":     "MaterialCount:1" },
+    { "label": "SceneCount = 1",     "command": "GetSceneCount",     "expect":     "SceneCount:1" },
+    { "label": "PrimitiveCount = 1", "command": "GetPrimitiveCount", "expect":     "PrimitiveCount:1" },
+    { "label": "Has textures",       "command": "GetTextureCount",   "expect_not": "TextureCount:0" },
+    { "label": "Save screenshot",
+      "command": "SaveScreenshot:scenarios/screenshots/render_pbr_basic.png",
+      "expect_prefix": "OK:" }
+  ]
+}

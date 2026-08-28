@@ -1,0 +1,11 @@
+{
+  "name": "PlayTPoseTest",
+  "steps": [
+    { "label": "Get initial time", "command": "GetTime",             "expect": "Time:0.000" },
+    { "label": "Show bones",       "command": "SetVisible:Bones:1",  "expect": "OK:SetVisible:Bones" },
+    { "label": "Show mesh",        "command": "SetVisible:Mesh:1",   "expect": "OK:SetVisible:Mesh" },
+    { "label": "Set speed",        "command": "SetSpeed:1.0",        "expect": "OK:SetSpeed" },
+    { "label": "Play",             "command": "Play",                "expect": "OK:Play" },
+    { "label": "Stop",             "command": "Stop",                "expect": "OK:Stop" }
+  ]
+}

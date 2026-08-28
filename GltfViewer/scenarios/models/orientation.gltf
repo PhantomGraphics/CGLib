@@ -1,0 +1,145 @@
+{
+  "asset": {
+    "version": "2.0"
+  },
+  "scene": 0,
+  "scenes": [
+    {
+      "nodes": [
+        0,
+        1,
+        2,
+        3
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "name": "Rot0",
+      "mesh": 0,
+      "translation": [
+        -0.75,
+        0.0,
+        0.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "name": "Rot90",
+      "mesh": 0,
+      "translation": [
+        -0.25,
+        0.0,
+        0.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071067811865476,
+        0.7071067811865476
+      ]
+    },
+    {
+      "name": "Rot180",
+      "mesh": 0,
+      "translation": [
+        0.25,
+        0.0,
+        0.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        1.0,
+        6.123233995736766e-17
+      ]
+    },
+    {
+      "name": "Rot270",
+      "mesh": 0,
+      "translation": [
+        0.75,
+        0.0,
+        0.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.7071067811865476,
+        -0.7071067811865475
+      ]
+    }
+  ],
+  "meshes": [
+    {
+      "name": "Tri",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1
+          },
+          "indices": 2
+        }
+      ]
+    }
+  ],
+  "accessors": [
+    {
+      "bufferView": 0,
+      "componentType": 5126,
+      "count": 3,
+      "type": "VEC3",
+      "min": [
+        -0.4,
+        -0.4,
+        0.0
+      ],
+      "max": [
+        0.4,
+        0.4,
+        0.0
+      ]
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5126,
+      "count": 3,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "componentType": 5123,
+      "count": 3,
+      "type": "SCALAR"
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteOffset": 0,
+      "byteLength": 36
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 36,
+      "byteLength": 36
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 72,
+      "byteLength": 6
+    }
+  ],
+  "buffers": [
+    {
+      "byteLength": 78,
+      "uri": "data:application/octet-stream;base64,zczMvs3MzL4AAAAAzczMPs3MzL4AAAAAAAAAAM3MzD4AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAABAAIA"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "name": "dense_box_create",
+  "steps": [
+    { "label": "Clear world",               "command": "ClearWorld",                          "expect": "OK" },
+    { "label": "Create dense box 20x20x20", "command": "CreateDenseBox:-10:-10:-10:10:10:10:20:20:20", "expect_prefix": "OK:" },
+    { "label": "Dense scene count is 1",    "command": "GetDenseSceneCount",                  "expect": "DenseSceneCount:1" },
+    { "label": "Create sparse box SDF",     "command": "CreateBox:-10:-10:-10:10:10:10:1",    "expect_prefix": "OK:" },
+    { "label": "Set active sparse scene",   "command": "SetActiveScene:0",                    "expect": "OK" },
+    { "label": "Dense from sparse",         "command": "DenseFromSparse:1.0",                 "expect_prefix": "OK:" },
+    { "label": "Dense scene count is 2",    "command": "GetDenseSceneCount",                  "expect": "DenseSceneCount:2" },
+    { "label": "Set active dense to idx 1", "command": "SetActiveDenseScene:1",               "expect": "OK" },
+    { "label": "Dense marching cubes",      "command": "DenseMarchingCubes:0.0",              "expect_prefix": "OK:" },
+    { "label": "Polygon mesh created",      "command": "GetPolygonCount",                     "expect_prefix": "PolygonCount:", "expect_not": "PolygonCount:0" }
+  ]
+}

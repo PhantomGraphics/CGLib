@@ -1,0 +1,72 @@
+﻿################################################################################
+# この .gitignore ファイルは Microsoft(R) Visual Studio によって自動的に作成されました。
+################################################################################
+
+/.vs/CGLib2024
+/CGLib2024/.vs/CGLib2024/v17
+/CGLib2024/x64/Debug
+/x64/Debug
+/Math/x64/Debug
+/MathTest/x64/Debug
+/packages/Microsoft.googletest.v140.windesktop.msvcstl.static.rt-dyn.1.8.1.4
+/Graphics/x64/Debug
+/GraphicsTest/x64/Debug
+/packages
+/Shader/x64/Debug
+/UI/x64/Debug
+/UISample/x64/Debug
+/UISample/imgui.ini
+/Graphics/x64/Release
+/Math/x64/Release
+/Shader/x64/Release
+/UI/x64/Release
+/GraphicsTest/x64/Release
+/MathTest/x64/Release
+/UISample/x64/Release
+/Graphics/Graphics/x64/Debug
+/Math/Math/x64/Debug
+/Math/Math/x64/Release
+/Shader/Shader/x64/Debug
+/UI/UI/x64/Debug
+/Graphics/Graphics/x64/Release
+/Shader/Shader/x64/Release
+/UI/UI/x64/Release
+/VulkanGraphics/x64/Debug
+/VulkanGraphics/x64/Release
+/Graphics/Graphics/Debug/Graphics.tlog
+/UISample/UISample/x64/Debug
+/Math/Debug
+/Math/Math/Debug
+/Graphics/Graphics/Release/Graphics.tlog
+/Math/Math/Release
+/Math/Release
+/VulkanGraphics/VulkanGraphics/x64/Debug
+/VulkanGraphics/VulkanGraphics/x64/Debug
+/UIWidgets/x64/Debug
+/UIWidgets/UIWidgets/x64/Debug
+/UIWidgets/UIWidgets/x64/Release
+/UIWidgets/x64/Release
+/VulkanGraphics/VulkanGraphics/x64/Release
+/GraphicsTest/GraphicsTest/x64/Debug
+/Graphics/Debug/Graphics.tlog
+/UIWidgets/Debug
+/ThirdParty/pugixml/Pugixml/x64
+/ThirdParty/pugixml/x64
+/VulkanGraphics/VulkanGraphicsTest/x64/Debug
+/VulkanGraphics/VulkanGraphicsTest/x64/Release
+/MathTest/MathTest/x64/Debug
+/build_linux
+/build
+
+# Leftover MSBuild build artifacts under the modules merged in from Crystal/
+# (docs/todo/PLAN_merge_crystal_into_cglib.md, 2026-08-21) -- pre-existing per-path
+# entries above only cover this file's original modules (Math/Graphics/VulkanGraphics/
+# UIWidgets), so these wildcard rules cover the newly added ones instead of listing
+# every path individually.
+**/x64/
+*.tlog
+*.log
+*.recipe
+*.lastbuildstate
+*.vcxproj.FileListAbsolute.txt
+.vs/

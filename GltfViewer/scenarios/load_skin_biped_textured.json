@@ -1,0 +1,15 @@
+{
+  "name": "load_skin_biped_textured",
+  "steps": [
+    { "label": "Load skin_biped_textured.gltf",
+      "command": "LoadFile:scenarios/models/skin_biped_textured.gltf",
+      "expect_prefix": "OK:" },
+    { "label": "Has meshes",  "command": "GetMeshCount",  "expect_not": "MeshCount:0" },
+    { "label": "Has skins (JOINTS_0/WEIGHTS_0 parsed)", "command": "GetSkinCount", "expect_not": "SkinCount:0" },
+    { "label": "Has joint hierarchy nodes", "command": "GetNodeCount", "expect_not": "NodeCount:0" },
+    { "label": "Has textures", "command": "GetTextureCount", "expect_not": "TextureCount:0" },
+    { "label": "Save screenshot",
+      "command": "SaveScreenshot:scenarios/screenshots/load_skin_biped_textured.png",
+      "expect_prefix": "OK:" }
+  ]
+}

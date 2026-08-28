@@ -1,0 +1,15 @@
+{
+  "name": "kdtree",
+  "steps": [
+    { "label": "Select KDTree", "command": "SetAlgorithm:KDTree", "expect": "OK" },
+    { "label": "Run KDTree", "command": "Run", "expect": "OK" },
+    { "label": "Result not dirty", "command": "GetDirty", "expect": "Dirty:0" },
+    { "label": "Line indices greater than 0", "command": "GetLineCount", "expect_prefix": "LineCount:", "expect_not": "LineCount:0" },
+    { "label": "Set k=1", "command": "SetParam:k:1", "expect": "OK" },
+    { "label": "Run with k=1", "command": "Run", "expect": "OK" },
+    { "label": "Record k=1 line count", "command": "GetLineCount", "expect_prefix": "LineCount:", "store_as": "k1_lines", "strip_prefix": "LineCount:" },
+    { "label": "Set k=10", "command": "SetParam:k:10", "expect": "OK" },
+    { "label": "Run with k=10", "command": "Run", "expect": "OK" },
+    { "label": "Line count changed with k=10", "command": "GetLineCount", "expect_prefix": "LineCount:", "expect_not": "LineCount:${k1_lines}" }
+  ]
+}

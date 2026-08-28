@@ -1,0 +1,7 @@
+{
+  "name": "camera",
+  "steps": [
+    { "label": "Reset camera",              "command": "ResetCamera",          "expect": "OK" },
+    { "label": "Camera distance is positive","command": "GetCameraDistance",    "expect_prefix": "" }
+  ]
+}

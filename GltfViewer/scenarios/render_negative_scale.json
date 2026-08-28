@@ -1,0 +1,14 @@
+{
+  "name": "render_negative_scale",
+  "steps": [
+    { "label": "Load negative_scale.gltf",
+      "command": "LoadFile:scenarios/models/negative_scale.gltf",
+      "expect_prefix": "OK:" },
+    { "label": "Has meshes",     "command": "GetMeshCount",      "expect_not": "MeshCount:0" },
+    { "label": "Has nodes (negative-scale variants)", "command": "GetNodeCount", "expect_not": "NodeCount:0" },
+    { "label": "Has primitives", "command": "GetPrimitiveCount", "expect_not": "PrimitiveCount:0" },
+    { "label": "Save screenshot (check winding/normals are not inverted)",
+      "command": "SaveScreenshot:scenarios/screenshots/render_negative_scale.png",
+      "expect_prefix": "OK:" }
+  ]
+}

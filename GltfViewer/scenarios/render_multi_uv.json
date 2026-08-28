@@ -1,0 +1,16 @@
+{
+  "name": "render_multi_uv",
+  "steps": [
+    { "label": "Load multi_uv.gltf",
+      "command": "LoadFile:scenarios/models/multi_uv.gltf",
+      "expect_prefix": "OK:" },
+    { "label": "Has meshes",     "command": "GetMeshCount",      "expect_not": "MeshCount:0" },
+    { "label": "Has materials", "command": "GetMaterialCount",  "expect_not": "MaterialCount:0" },
+    { "label": "Has primitives", "command": "GetPrimitiveCount", "expect_not": "PrimitiveCount:0" },
+    { "label": "Has textures (only TEXCOORD_0 is used; extra UV sets ignored)",
+      "command": "GetTextureCount", "expect_not": "TextureCount:0" },
+    { "label": "Save screenshot",
+      "command": "SaveScreenshot:scenarios/screenshots/render_multi_uv.png",
+      "expect_prefix": "OK:" }
+  ]
+}

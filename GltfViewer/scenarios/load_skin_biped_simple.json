@@ -1,0 +1,14 @@
+{
+  "name": "load_skin_biped_simple",
+  "steps": [
+    { "label": "Load skin_biped_simple.gltf",
+      "command": "LoadFile:scenarios/models/skin_biped_simple.gltf",
+      "expect_prefix": "OK:" },
+    { "label": "Has meshes",  "command": "GetMeshCount",  "expect_not": "MeshCount:0" },
+    { "label": "Has skins (JOINTS_0/WEIGHTS_0 parsed)", "command": "GetSkinCount", "expect_not": "SkinCount:0" },
+    { "label": "Has joint nodes", "command": "GetNodeCount", "expect_not": "NodeCount:0" },
+    { "label": "Save screenshot (static bind pose -- no animation playback in this renderer)",
+      "command": "SaveScreenshot:scenarios/screenshots/load_skin_biped_simple.png",
+      "expect_prefix": "OK:" }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "name": "create_sphere",
+  "steps": [
+    { "label": "Clear world",        "command": "ClearWorld",                      "expect": "OK" },
+    { "label": "Create sphere r=10", "command": "CreateSphere:0:0:0:10:1",         "expect_prefix": "OK:" },
+    { "label": "Scene count is 1",   "command": "GetSceneCount",                   "expect": "SceneCount:1" },
+    { "label": "Voxel count > 0",    "command": "GetTotalVoxelCount",              "expect_prefix": "TotalVoxelCount:", "expect_not": "TotalVoxelCount:0" }
+  ]
+}

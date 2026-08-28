@@ -1,0 +1,17 @@
+{
+  "name": "load_vrm0_sample",
+  "steps": [
+    { "label": "Load vrm0_synthetic.vrm (VRM 0.x)",
+      "command": "LoadFile:scenarios/models/vrm0_synthetic.vrm",
+      "expect_prefix": "OK:" },
+    { "label": "Has meshes",  "command": "GetMeshCount",  "expect_not": "MeshCount:0" },
+    { "label": "Has skin (humanoid rig)", "command": "GetSkinCount", "expect_not": "SkinCount:0" },
+    { "label": "Detected as VRM 0.x", "command": "GetVrmSpecVersion", "expect": "Val:0" },
+    { "label": "Humanoid bones mapped", "command": "GetVrmHumanBoneCount", "expect_not": "Count:0" },
+    { "label": "Expressions parsed", "command": "GetVrmExpressionCount", "expect_not": "Count:0" },
+    { "label": "Drive first expression to 0.5", "command": "SetVrmExpressionWeight:0:0.5", "expect": "OK" },
+    { "label": "Save screenshot (bind pose + expression applied)",
+      "command": "SaveScreenshot:scenarios/screenshots/vrm0_synthetic.png",
+      "expect_prefix": "OK:" }
+  ]
+}

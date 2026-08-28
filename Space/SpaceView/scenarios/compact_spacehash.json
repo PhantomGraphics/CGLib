@@ -1,0 +1,9 @@
+{
+  "name": "compact_spacehash",
+  "steps": [
+    { "label": "Select CompactSpaceHash", "command": "SetAlgorithm:CompactSpaceHash", "expect": "OK" },
+    { "label": "Run CompactSpaceHash", "command": "Run", "expect": "OK" },
+    { "label": "Result not dirty", "command": "GetDirty", "expect": "Dirty:0" },
+    { "label": "Line indices greater than 0", "command": "GetLineCount", "expect_prefix": "LineCount:", "expect_not": "LineCount:0" }
+  ]
+}

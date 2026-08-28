@@ -1,0 +1,11 @@
+{
+  "name": "load_obj_stl",
+  "steps": [
+    { "label": "Load OBJ quad", "command": "LoadFile:../../CGApp/CGStudio/TestData/test_quad.obj", "expect_prefix": "OK" },
+    { "label": "One mesh loaded", "command": "GetMeshCount", "expect": "MeshCount:1" },
+    { "label": "Screenshot OBJ", "command": "SaveScreenshot:scenarios/screenshots/gltfviewer_obj_smoke.png", "expect_prefix": "OK" },
+    { "label": "Load STL triangle", "command": "LoadFile:../../CGApp/CGStudio/TestData/test_triangle.stl", "expect_prefix": "OK" },
+    { "label": "One mesh loaded (STL)", "command": "GetMeshCount", "expect": "MeshCount:1" },
+    { "label": "Screenshot STL", "command": "SaveScreenshot:scenarios/screenshots/gltfviewer_stl_smoke.png", "expect_prefix": "OK" }
+  ]
+}

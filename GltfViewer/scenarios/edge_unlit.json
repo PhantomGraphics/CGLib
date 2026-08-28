@@ -1,0 +1,14 @@
+{
+  "name": "edge_unlit",
+  "steps": [
+    { "label": "Load unlit.gltf (KHR_materials_unlit not supported -- must load without crashing)",
+      "command": "LoadFile:scenarios/models/unlit.gltf",
+      "expect_prefix": "OK:" },
+    { "label": "Has meshes",     "command": "GetMeshCount",     "expect_not": "MeshCount:0" },
+    { "label": "Has materials", "command": "GetMaterialCount", "expect_not": "MaterialCount:0" },
+    { "label": "App still alive", "command": "GetStatus", "expect": "OK" },
+    { "label": "Save screenshot (known limitation: unlit materials render fully lit via normal PBR pipeline)",
+      "command": "SaveScreenshot:scenarios/screenshots/edge_unlit.png",
+      "expect_prefix": "OK:" }
+  ]
+}

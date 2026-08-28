@@ -1,0 +1,13 @@
+{
+  "name": "vdb_roundtrip",
+  "steps": [
+    { "label": "Clear world",                  "command": "ClearWorld",                   "expect": "OK" },
+    { "label": "Create sphere",                "command": "CreateSphere:0:0:0:10:1",       "expect_prefix": "OK:" },
+    { "label": "Record original voxel count",  "command": "GetVoxelCount",                 "expect_prefix": "VoxelCount:", "store_as": "orig_vox", "strip_prefix": "VoxelCount:" },
+    { "label": "Export VDB",                   "command": "ExportVDB:test_roundtrip.vdb", "expect": "OK" },
+    { "label": "Clear world",                  "command": "ClearWorld",                   "expect": "OK" },
+    { "label": "Import VDB",                   "command": "ImportVDB:test_roundtrip.vdb", "expect_prefix": "OK:" },
+    { "label": "Scene count is 1 after import","command": "GetSceneCount",                 "expect": "SceneCount:1" },
+    { "label": "Voxel count matches original", "command": "GetVoxelCount",                 "expect": "VoxelCount:${orig_vox}" }
+  ]
+}

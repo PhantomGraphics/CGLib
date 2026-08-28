@@ -1,0 +1,20 @@
+{
+  "samples": [
+    {
+      "name": "Sphere",
+      "desc": "Sphere surface -- radius 1.0, 10,000 points, for SignedDistance quantitative testing",
+      "source": "synthetic",
+      "generator": "sphere",
+      "output": "sphere.ply",
+      "params": { "radius": 1.0, "nPoints": 10000 }
+    },
+    {
+      "name": "Plane",
+      "desc": "Plane -- 5x5, with noise, 10,000 points, for SignedDistance quantitative testing",
+      "source": "synthetic",
+      "generator": "plane",
+      "output": "plane.ply",
+      "params": { "size": 5.0, "nPoints": 10000, "noise": 0.01 }
+    }
+  ]
+}
