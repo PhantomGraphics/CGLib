@@ -1,4 +1,4 @@
-# Linux (clang) + Windows (VS2026) build for InputCore (Crystal::Input --
+# Linux (clang) + Windows (VS2026) build for InputCore (Phantom::Input --
 # per-frame GLFW keyboard/gamepad polling into GameAction states).
 #
 # This is a standalone CMake build, separate from the MSBuild/.vcxproj-based
@@ -66,7 +66,7 @@ endif()
 if(INPUT_GLFW_INCLUDE_DIR)
 
 # ---------------------------------------------------------------------------
-# Input (Crystal::Input)
+# Input (Phantom::Input)
 # ---------------------------------------------------------------------------
 
 add_library(InputCore STATIC

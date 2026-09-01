@@ -54,13 +54,13 @@ cmake --build --preset windows-debug
 
 ## Architecture
 
-### Crystal::Space（`Space/`）— コアライブラリ
+### Phantom::Space（`Space/`）— コアライブラリ
 
-`Crystal::Space` 名前空間。空間分割構造（`Octree`/`KDTree`/`BVH`/`SpaceHash`/`CompactSpaceHash`/`ZIndexedSearcher`）と、テンプレートの静的メソッド群として実装された幾何クエリ（`IntersectionCalculator`/`DistanceCalculator`/`SignedDistanceCalculator`/`Intersection2d`）を提供する。全クラスの API・計算量・サンプルコードは `readme.md` を参照。
+`Phantom::Space` 名前空間。空間分割構造（`Octree`/`KDTree`/`BVH`/`SpaceHash`/`CompactSpaceHash`/`ZIndexedSearcher`）と、テンプレートの静的メソッド群として実装された幾何クエリ（`IntersectionCalculator`/`DistanceCalculator`/`SignedDistanceCalculator`/`Intersection2d`）を提供する。全クラスの API・計算量・サンプルコードは `readme.md` を参照。
 
 ### SpaceView（`SpaceView/`）— スタンドアロン ImGui + Vulkan アプリ
 
-`VkSpaceApp : VkAppBase` 直下。**`VKSpace` 名前空間**（`Crystal::Space` ではない点に注意）。
+`VkSpaceApp : VkAppBase` 直下。**`VKSpace` 名前空間**（`Phantom::Space` ではない点に注意）。
 
 - `World`（`World.h`）— OpenGL に依存しない軽量な状態保持クラス。パネルが `SpaceResult`（ワイヤーフレーム線・サンプル点のバッファ）へ書き込み、`markDirty()` でレンダラーへ再アップロードを伝える。
 - `SpaceMenuPanel` — 5 アルゴリズム（SpaceHash/CompactSpaceHash/KDTree/Octree/SignedDistance）を切り替えるメニュー。各アルゴリズムのパネル（`SpaceHashPanel`/`CompactSpaceHashPanel`/`KDTreePanel`/`OctreePanel`/`SignedDistancePanel`）は `IAlgorithmView`（`getName()`/`onImGui()`/`run()`/`setParam()`）を実装する。

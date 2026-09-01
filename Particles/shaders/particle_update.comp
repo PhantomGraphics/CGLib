@@ -2,7 +2,7 @@
 
 layout(local_size_x = 256) in;
 
-// Must match Crystal::Particles::ParticleGpu (ParticleGpu.h) exactly.
+// Must match Phantom::Particles::ParticleGpu (ParticleGpu.h) exactly.
 struct Particle {
     vec4 position; // xyz = world position, w = life (1 = spawned, 0 = dead)
     vec4 velocity; // xyz = velocity, w = billboard size
@@ -14,7 +14,7 @@ layout(std430, binding = 0) buffer ParticleBuffer {
     Particle particles[];
 };
 
-// Must match Crystal::Particles::ParticleSimulator::SimUBO exactly.
+// Must match Phantom::Particles::ParticleSimulator::SimUBO exactly.
 layout(std140, binding = 1) uniform SimParams {
     vec4  originDt;    // xyz = emitter origin, w = dt
     vec4  gravityDrag; // xyz = gravity, w = drag

@@ -1,4 +1,4 @@
-# Linux (clang) + Windows (VS2026) build for Crystal::Space (Space core library),
+# Linux (clang) + Windows (VS2026) build for Phantom::Space (Space core library),
 # SpaceTest (GoogleTest), and SpaceView (standalone ImGui + Vulkan viewer).
 #
 # This is a standalone CMake build, separate from the MSBuild/.vcxproj-based
@@ -7,7 +7,7 @@
 # ProjectReference graph uses -- untouched by this file).
 #
 # SpaceCore/VkAppBaseCore/VkRendererCore/etc. are now defined once in
-# ../../cmake/CrystalCoreLibs.cmake and ../../cmake/CrystalVulkanApp.cmake
+# ../../cmake/PhantomCoreLibs.cmake and ../../cmake/PhantomVulkanApp.cmake
 # (Phase 4 §5.4 item 1 dedup, docs/todo/PLAN_crossplatform_non_cgapp_build.md)
 # -- this file just calls them and adds SpaceTest/SpaceView on top, so it
 # also works standalone (`cmake -S CGLib/Space -B ...`) exactly as before,
@@ -47,13 +47,13 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 
 if(MSVC)
-    set(CRYSTAL_WARN_FLAGS /W3)
+    set(PHANTOM_WARN_FLAGS /W3)
     # Matches BuildConfig.props' `/utf-8 %(AdditionalOptions)` applied repo-wide --
     # several sources have Japanese comments not valid in the legacy MSVC source
     # code page, so this is required, not cosmetic.
     add_compile_options(/utf-8)
 else()
-    set(CRYSTAL_WARN_FLAGS -Wall)
+    set(PHANTOM_WARN_FLAGS -Wall)
 endif()
 
 set(SPACE_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
@@ -65,13 +65,13 @@ include(PhantomGTest)
 include(PhantomCoreLibs)
 include(PhantomVulkanApp)
 
-crystal_add_space_core()
+phantom_add_space_core()
 
 # --- SpaceTest (GoogleTest) ---
 
-crystal_find_gtest()
+phantom_find_gtest()
 
-if(CRYSTAL_GTEST_FOUND)
+if(PHANTOM_GTEST_FOUND)
     enable_testing()
 
     file(GLOB SPACETEST_SOURCES ${SPACE_ROOT}/SpaceTest/*.cpp)
@@ -80,7 +80,7 @@ if(CRYSTAL_GTEST_FOUND)
     add_executable(SpaceTest ${SPACETEST_SOURCES})
     target_include_directories(SpaceTest PRIVATE ${REPO_ROOT} ${SPACE_ROOT}/SpaceTest)
     target_link_libraries(SpaceTest PRIVATE SpaceCore GTest::gtest GTest::gtest_main)
-    target_compile_options(SpaceTest PRIVATE ${CRYSTAL_WARN_FLAGS})
+    target_compile_options(SpaceTest PRIVATE ${PHANTOM_WARN_FLAGS})
 
     include(GoogleTest)
     gtest_discover_tests(SpaceTest)
@@ -90,17 +90,17 @@ endif()
 # SpaceView (VkSpaceApp : VkAppBase) -- standalone ImGui + Vulkan viewer
 # ---------------------------------------------------------------------------
 
-crystal_find_vulkan_headers()
+phantom_find_vulkan_headers()
 
-if(CRYSTAL_VULKAN_INCLUDE_DIR)
+if(PHANTOM_VULKAN_INCLUDE_DIR)
 
-crystal_find_vulkan_loader()
-crystal_find_glfw_loader()
+phantom_find_vulkan_loader()
+phantom_find_glfw_loader()
 
-if(CRYSTAL_VULKAN_LIBRARY AND CRYSTAL_GLFW_LIBRARY)
+if(PHANTOM_VULKAN_LIBRARY AND PHANTOM_GLFW_LIBRARY)
 
-crystal_add_vkappbase_core()
-crystal_add_vkrenderer_core()
+phantom_add_vkappbase_core()
+phantom_add_vkrenderer_core()
 
 add_executable(SpaceView
     ${SPACE_ROOT}/SpaceView/CompactSpaceHashPanel.cpp
@@ -124,10 +124,10 @@ target_link_libraries(SpaceView PRIVATE
     SpaceCore
     VkAppBaseCore
     VkRendererCore
-    ${CRYSTAL_VULKAN_LIBRARY}
-    ${CRYSTAL_GLFW_LIBRARY}
+    ${PHANTOM_VULKAN_LIBRARY}
+    ${PHANTOM_GLFW_LIBRARY}
 )
-target_compile_options(SpaceView PRIVATE ${CRYSTAL_WARN_FLAGS})
+target_compile_options(SpaceView PRIVATE ${PHANTOM_WARN_FLAGS})
 
 # loadSPVRepo() (VulkanSPVResolver.h) resolves "shaders/*.spv" relative to the
 # running binary's directory on Windows, and to the current working directory

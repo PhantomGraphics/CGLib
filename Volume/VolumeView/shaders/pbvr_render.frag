@@ -3,7 +3,7 @@
 layout(location = 0) in vec4 fragColor;
 layout(location = 1) in vec4 lightClipPos;
 
-// Layout must match Crystal::Volume::PBVRPipeline::UBO (PBVRPipeline.h).
+// Layout must match Phantom::Volume::PBVRPipeline::UBO (PBVRPipeline.h).
 layout(binding = 0) uniform UBO {
     mat4 mvp;
     float particleSize;
@@ -16,7 +16,7 @@ layout(binding = 0) uniform UBO {
     float shadowEnabled;
 } ubo;
 
-// Opacity Shadow Map (Crystal::Volume::OpacityShadowMapPass). Only bound/sampled when
+// Opacity Shadow Map (Phantom::Volume::OpacityShadowMapPass). Only bound/sampled when
 // shadowEnabled != 0; unused otherwise (see PBVRPipeline::create()'s enableShadowSampler).
 layout(binding = 1) uniform sampler2DArray shadowMap;
 

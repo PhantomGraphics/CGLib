@@ -1,6 +1,6 @@
 @echo off
 rem ============================================================
-rem  Crystal/VkRenderer/Shaders/compile_shaders.bat
+rem  CGLib/Renderer/VkRenderer/Shaders/compile_shaders.bat
 rem
 rem  Compile all VkRenderer GLSL shaders to SPIR-V using glslc.
 rem  Requires the VULKAN_SDK environment variable to be set

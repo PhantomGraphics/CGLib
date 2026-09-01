@@ -12,7 +12,7 @@ namespace VKG {
 
 /// @brief Base class derived from VkAppBase that standardizes a 2-pass offscreen renderer.
 ///
-/// This is the Vulkan counterpart of the OpenGL `RendererBase` (Crystal/AppBase/).
+/// This is the Vulkan counterpart of the OpenGL `RendererBase` (CGLib/AppBase/).
 /// It can be used for ID picking, post-processing, shadow maps, etc.
 ///
 /// The class holds a single `VulkanOffscreen` and advances the frame loop like:

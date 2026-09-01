@@ -4,10 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-CGLib は Crystal2024 フレームワークの基盤ライブラリ群。数学・グラフィックス・UI・Vulkan 抽象化の 4 モジュール
-（Math/Graphics/VulkanGraphics/UIWidgets、本ファイルが扱う範囲）に加え、2026-08-21 に旧 `Crystal` submodule
+CGLib は Phantom フレームワークの基盤ライブラリ群。数学・グラフィックス・UI・Vulkan 抽象化の 4 モジュール
+（Math/Graphics/VulkanGraphics/UIWidgets、本ファイルが扱う範囲）に加え、2026-08-21 にかつて別サブモジュールだった
 （`Animation`/`File`/`Gizmo`/`GltfRenderer`/`GltfViewer`/`Input`/`Numerics`/`Particles`/`PostProcess`/`Renderer`/
-`Scene`/`Space`/`VkAppBase`/`Volume`）がフラットに統合された（`docs/todo/PLAN_merge_crystal_into_cglib.md`）。
+`Scene`/`Space`/`VkAppBase`/`Volume`）がフラットに統合された。
 モジュール一覧・依存関係・各モジュールのクラス仕様は `CGLib/README.md` を参照（本ファイルは Math/Graphics/
 VulkanGraphics/UIWidgets のビルド・規約のみを扱う）。
 
@@ -53,25 +53,25 @@ Math  ←  Graphics
 VulkanGraphics  ←  UIWidgets (Phantom2026.sln 側)
 ```
 
-### Crystal::Math（`Math/`）
+### Phantom::Math（`Math/`）
 
 Math 型はすべて **GLM の薄いエイリアス**。`Vector3d<T>` = `glm::vec<3,T>`。演算はメンバー関数ではなく**フリー関数**（`getLengthSquared`, `getDistance`, `areSame` など）で提供される。GLM の `glm::dot`, `glm::cross`, `glm::normalize` はそのまま使う。
 
 ```cpp
 Vector3df v(1, 2, 3);               // float 版
 Vector3dd vd(1.0, 2.0, 3.0);       // double 版
-auto len = getLength(v);            // Crystal::Math フリー関数
+auto len = getLength(v);            // Phantom::Math フリー関数
 auto n   = glm::normalize(v);       // GLM 直接使用 OK
 ```
 
 幾何プリミティブ（`Ray3d`, `Plane3d`, `Box3d`, `Sphere3d` など）も同様にテンプレート型。
 
-### Crystal::Graphics（`Graphics/`）
+### Phantom::Graphics（`Graphics/`）
 
 `Camera` クラスが中心。`getViewMatrix()` / `getProjectionMatrix()` で GLM ベースの行列を返す。  
 画像 I/O は `ImageFileReader` / `ImageFileWriter`（STB 経由）。`ColorMap` は科学可視化用のカラーテーブル管理。
 
-### Crystal::UI（`UIWidgets/`）
+### Phantom::UI（`UIWidgets/`）
 
 **Composite パターン**。`IWindow` が基底、`IView` がデフォルト実装（子を順に `show()`）。  
 `children` は**非所有の生ポインタ**リスト。ライフタイム管理は呼び出し元の責任。コピー禁止 (`UnCopyable` 継承)。

@@ -1,4 +1,4 @@
-# Cross-platform CMake build for the Numerics core library (Crystal::Numerics)
+# Cross-platform CMake build for the Numerics core library (Phantom::Numerics)
 # and its GoogleTest suite (NumericsTest).
 #
 # This is a standalone CMake build, separate from the MSBuild/.vcxproj-based
@@ -6,7 +6,7 @@
 # NumericsTest.vcxproj, driven by Phantom2026.sln). Part of
 # docs/todo/PLAN_crossplatform_non_cgapp_build.md Phase 1 -- follows the same
 # pattern as ../../Physics/CMakeLists.txt / ../../PointCloud/CMakeLists.txt.
-# NumericsCore itself is now defined once in ../../cmake/CrystalCoreLibs.cmake
+# NumericsCore itself is now defined once in ../../cmake/PhantomCoreLibs.cmake
 # (Phase 4 §5.4 item 1 dedup) -- this file just calls it and adds NumericsTest
 # on top, so it also works standalone (`cmake -S CGLib/Numerics -B ...`)
 # exactly as before, and identically when add_subdirectory()'d from the root
@@ -45,22 +45,22 @@ set(NUMERICS_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
 
 if(MSVC)
     add_compile_options(/utf-8)
-    set(CRYSTAL_WARN_FLAGS /W3)
+    set(PHANTOM_WARN_FLAGS /W3)
 else()
-    set(CRYSTAL_WARN_FLAGS -Wall)
+    set(PHANTOM_WARN_FLAGS -Wall)
 endif()
 
 list(APPEND CMAKE_MODULE_PATH ${REPO_ROOT}/cmake)
 include(PhantomGTest)
 include(PhantomCoreLibs)
 
-crystal_add_numerics_core()
+phantom_add_numerics_core()
 
 # --- NumericsTest (GoogleTest) ---
 
-crystal_find_gtest()
+phantom_find_gtest()
 
-if(CRYSTAL_GTEST_FOUND)
+if(PHANTOM_GTEST_FOUND)
     enable_testing()
 
     add_executable(NumericsTest
@@ -78,7 +78,7 @@ if(CRYSTAL_GTEST_FOUND)
         GTest::gtest
         GTest::gtest_main
     )
-    target_compile_options(NumericsTest PRIVATE ${CRYSTAL_WARN_FLAGS})
+    target_compile_options(NumericsTest PRIVATE ${PHANTOM_WARN_FLAGS})
 
     include(GoogleTest)
     gtest_discover_tests(NumericsTest)

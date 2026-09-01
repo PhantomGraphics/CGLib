@@ -1,4 +1,4 @@
-# Linux (clang) + Windows (VS2026) build for ParticlesCore (Crystal::Particles
+# Linux (clang) + Windows (VS2026) build for ParticlesCore (Phantom::Particles
 # -- GPU particle emitter/pool/simulator + Vulkan billboard renderer).
 #
 # This is a standalone CMake build, separate from the MSBuild/.vcxproj-based
@@ -74,7 +74,7 @@ endif()
 if(PARTICLES_VULKAN_INCLUDE_DIR)
 
 # ---------------------------------------------------------------------------
-# Particles (Crystal::Particles)
+# Particles (Phantom::Particles)
 # ---------------------------------------------------------------------------
 
 add_library(ParticlesCore STATIC

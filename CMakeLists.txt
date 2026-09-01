@@ -1,18 +1,18 @@
-# Cross-platform CMake build for CGLib's four modules (Crystal::Math / Crystal::Graphics /
-# Crystal::VKG (VulkanGraphics) / Crystal::UI (UIWidgets)) and their GoogleTest suites.
+# Cross-platform CMake build for CGLib's four modules (Phantom::Math / Phantom::Graphics /
+# Phantom::VKG (VulkanGraphics) / Phantom::UI (UIWidgets)) and their GoogleTest suites.
 #
 # This is a standalone CMake build, separate from the MSBuild/.vcxproj-based Windows build
-# (CGLib2024.sln, which remains the build used by the rest of the repo's ProjectReference
+# (Phantom2026.sln, which remains the build used by the rest of the repo's ProjectReference
 # graph -- see CGLib/.vcxproj files, still hand-maintained and unaffected by this file). It
 # exists to (a) validate that CGLib compiles cleanly with clang on Linux, and (b) let CGLib be
 # opened/built standalone in Visual Studio 2026's native "Open Folder" CMake mode without
 # touching the .vcxproj-based solution. Math/Graphics/VulkanGraphics/UIWidgets are now defined
-# once in ../cmake/CrystalCoreLibs.cmake and ../cmake/CrystalVulkanApp.cmake (Phase 4 §5.4
+# once in ../cmake/PhantomCoreLibs.cmake and ../cmake/PhantomVulkanApp.cmake (Phase 4 §5.4
 # item 1 dedup, docs/todo/PLAN_crossplatform_non_cgapp_build.md) -- this file (the original
 # home of all four) just calls them and adds the *Test targets on top, so this file alone
 # still builds Math/Graphics/VulkanGraphics/UIWidgets standalone exactly as before, without
-# needing any of the modules formerly under the separate Crystal/ submodule (now merged in
-# flat under this same CGLib/ directory, docs/todo/PLAN_merge_crystal_into_cglib.md) --
+# needing any of the modules formerly under a separate internal submodule (now merged in
+# flat under this same CGLib/ directory) --
 # those are add_subdirectory()'d individually from the root CMakeLists.txt instead.
 #
 # --- Linux (WSL/clang) usage -- avoid /mnt/c/... for speed on a Linux-native checkout ---
@@ -34,7 +34,7 @@
 #     the same prebuilt NuGet package (`Microsoft.googletest.v140.windesktop.msvcstl.static.rt-
 #     dyn`) already restored under the repo-root `packages/` for the .vcxproj-based Test
 #     projects -- no new dependency introduced. If that package isn't present yet, restore it
-#     once via any .vcxproj-based build/NuGet restore (e.g. opening CGLib2024.sln) first.
+#     once via any .vcxproj-based build/NuGet restore (e.g. opening Phantom2026.sln) first.
 #   - Vulkan headers (VulkanGraphics/UIWidgets): Windows defaults to `$ENV{VULKAN_SDK}/Include`
 #     (same LunarG SDK the .vcxproj build uses). Linux has no repo-vendored copy, so point
 #     VULKAN_INCLUDE_DIR at any vulkan/vulkan.h provider (KhronosGroup/Vulkan-Headers checkout,
@@ -69,13 +69,13 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 
 if(MSVC)
-    set(CRYSTAL_WARN_FLAGS /W3)
+    set(PHANTOM_WARN_FLAGS /W3)
     # Matches BuildConfig.props' `/utf-8 %(AdditionalOptions)` applied repo-wide to the
     # .vcxproj build -- several sources have Japanese comments that aren't valid in the
     # legacy MSVC source code page, so this is required, not cosmetic.
     add_compile_options(/utf-8)
 else()
-    set(CRYSTAL_WARN_FLAGS -Wall)
+    set(PHANTOM_WARN_FLAGS -Wall)
 endif()
 
 set(CGLIB_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
@@ -86,15 +86,15 @@ include(PhantomGTest)
 include(PhantomCoreLibs)
 include(PhantomVulkanApp)
 
-crystal_find_gtest()
+phantom_find_gtest()
 
 # ---------------------------------------------------------------------------
-# Math (Crystal::Math)
+# Math (Phantom::Math)
 # ---------------------------------------------------------------------------
 
-crystal_add_math_core()
+phantom_add_math_core()
 
-if(CRYSTAL_GTEST_FOUND)
+if(PHANTOM_GTEST_FOUND)
     enable_testing()
 
     file(GLOB MATHTEST_SOURCES ${CGLIB_ROOT}/MathTest/*.cpp)
@@ -103,26 +103,26 @@ if(CRYSTAL_GTEST_FOUND)
     add_executable(MathTest ${MATHTEST_SOURCES})
     target_include_directories(MathTest PRIVATE ${CGLIB_ROOT} ${CGLIB_ROOT}/MathTest)
     target_link_libraries(MathTest PRIVATE MathCore GTest::gtest GTest::gtest_main)
-    target_compile_options(MathTest PRIVATE ${CRYSTAL_WARN_FLAGS})
+    target_compile_options(MathTest PRIVATE ${PHANTOM_WARN_FLAGS})
 
     include(GoogleTest)
     gtest_discover_tests(MathTest)
 endif()
 
 # ---------------------------------------------------------------------------
-# Graphics (Crystal::Graphics) -- depends on Math
+# Graphics (Phantom::Graphics) -- depends on Math
 # ---------------------------------------------------------------------------
 
-crystal_add_graphics_core()
+phantom_add_graphics_core()
 
-if(CRYSTAL_GTEST_FOUND)
+if(PHANTOM_GTEST_FOUND)
     file(GLOB GRAPHICSTEST_SOURCES ${CGLIB_ROOT}/GraphicsTest/*.cpp)
     list(FILTER GRAPHICSTEST_SOURCES EXCLUDE REGEX "pch\\.cpp$")
 
     add_executable(GraphicsTest ${GRAPHICSTEST_SOURCES})
     target_include_directories(GraphicsTest PRIVATE ${CGLIB_ROOT} ${CGLIB_ROOT}/GraphicsTest)
     target_link_libraries(GraphicsTest PRIVATE GraphicsCore MathCore GTest::gtest GTest::gtest_main)
-    target_compile_options(GraphicsTest PRIVATE ${CRYSTAL_WARN_FLAGS})
+    target_compile_options(GraphicsTest PRIVATE ${PHANTOM_WARN_FLAGS})
 
     include(GoogleTest)
     gtest_discover_tests(GraphicsTest)
@@ -135,33 +135,33 @@ endif()
 # docs/todo/PLAN_crossplatform_non_cgapp_build.md Phase 3 §5.3 instead of
 # getting its own top-level CMakeLists.txt, since it has no dependents within
 # this repo's non-CGApp scope to build/test it against -- compiling cleanly
-# is the completion criterion, same as the Phase 3 Crystal/ peripheral libs.
+# is the completion criterion, same as the Phase 3 peripheral libs.
 # ---------------------------------------------------------------------------
 
 add_library(PugixmlCore STATIC ${CGLIB_ROOT}/ThirdParty/pugixml/pugixml.cpp)
 target_include_directories(PugixmlCore PRIVATE ${CGLIB_ROOT}/ThirdParty/pugixml)
-target_compile_options(PugixmlCore PRIVATE ${CRYSTAL_WARN_FLAGS})
+target_compile_options(PugixmlCore PRIVATE ${PHANTOM_WARN_FLAGS})
 
 # ---------------------------------------------------------------------------
 # Vulkan headers/loader discovery (shared by VulkanGraphics + UIWidgets)
 # ---------------------------------------------------------------------------
 
-crystal_find_vulkan_headers()
+phantom_find_vulkan_headers()
 
-if(CRYSTAL_VULKAN_INCLUDE_DIR)
+if(PHANTOM_VULKAN_INCLUDE_DIR)
 
 # ---------------------------------------------------------------------------
-# VulkanGraphics (Crystal::VKG) -- depends on Vulkan headers + vendored glm/VMA
+# VulkanGraphics (Phantom::VKG) -- depends on Vulkan headers + vendored glm/VMA
 # ---------------------------------------------------------------------------
 
-crystal_add_vulkangraphics_core()
+phantom_add_vulkangraphics_core()
 
 # The system/SDK Vulkan loader (NOT any app-bundled copy such as Blender's) -- only needed to
 # link VulkanGraphicsTest; VulkanGraphicsCore itself only needs headers to compile.
-crystal_find_vulkan_loader()
-crystal_find_glfw_loader()
+phantom_find_vulkan_loader()
+phantom_find_glfw_loader()
 
-if(CRYSTAL_GTEST_FOUND AND CRYSTAL_VULKAN_LIBRARY AND CRYSTAL_GLFW_LIBRARY)
+if(PHANTOM_GTEST_FOUND AND PHANTOM_VULKAN_LIBRARY AND PHANTOM_GLFW_LIBRARY)
     file(GLOB VULKANGRAPHICSTEST_SOURCES ${CGLIB_ROOT}/VulkanGraphics/VulkanGraphicsTest/*.cpp)
 
     add_executable(VulkanGraphicsTest ${VULKANGRAPHICSTEST_SOURCES})
@@ -171,12 +171,12 @@ if(CRYSTAL_GTEST_FOUND AND CRYSTAL_VULKAN_LIBRARY AND CRYSTAL_GLFW_LIBRARY)
     )
     target_link_libraries(VulkanGraphicsTest PRIVATE
         VulkanGraphicsCore
-        ${CRYSTAL_VULKAN_LIBRARY}
-        ${CRYSTAL_GLFW_LIBRARY}
+        ${PHANTOM_VULKAN_LIBRARY}
+        ${PHANTOM_GLFW_LIBRARY}
         GTest::gtest
         GTest::gtest_main
     )
-    target_compile_options(VulkanGraphicsTest PRIVATE ${CRYSTAL_WARN_FLAGS})
+    target_compile_options(VulkanGraphicsTest PRIVATE ${PHANTOM_WARN_FLAGS})
 
     # Windows' PostBuildEvent copies shaders/*.spv next to the .exe; mirror that here so
     # loadSPV("shaders/test.comp.spv") (a cwd-relative lookup) resolves when run from the
@@ -193,15 +193,15 @@ if(CRYSTAL_GTEST_FOUND AND CRYSTAL_VULKAN_LIBRARY AND CRYSTAL_GLFW_LIBRARY)
     # as a single ctest entry instead so `cmake --build` always succeeds; running it is opt-in.
     add_test(NAME VulkanGraphicsTest COMMAND VulkanGraphicsTest)
 else()
-    if(CRYSTAL_GTEST_FOUND)
+    if(PHANTOM_GTEST_FOUND)
         message(WARNING "CGLib: Vulkan and/or GLFW loader not found -- VulkanGraphicsTest is skipped (VulkanGraphicsCore itself still builds). Pass -DVULKAN_LIBRARY=... -DGLFW_LIBRARY=... to enable it.")
     endif()
 endif()
 
 # ---------------------------------------------------------------------------
-# UIWidgets (Crystal::UI) -- ImGui core+backends, depends on Graphics + Vulkan/GLFW headers
+# UIWidgets (Phantom::UI) -- ImGui core+backends, depends on Graphics + Vulkan/GLFW headers
 # ---------------------------------------------------------------------------
 
-crystal_add_uiwidgets_core()
+phantom_add_uiwidgets_core()
 
-endif() # CRYSTAL_VULKAN_INCLUDE_DIR
+endif() # PHANTOM_VULKAN_INCLUDE_DIR

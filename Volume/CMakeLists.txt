@@ -1,12 +1,12 @@
-# Cross-platform CMake build for the Volume core library (Crystal::Volume,
+# Cross-platform CMake build for the Volume core library (Phantom::Volume,
 # standalone -- i.e. without Physics), its GoogleTest suite (VolumeTest), and
 # VolumeRenderer/VolumeView (Vulkan app).
 #
 # This is a standalone CMake build, separate from the MSBuild/.vcxproj-based
 # Windows build (Volume/Volume/Volume.vcxproj + Volume/VolumeTest/
 # VolumeTest.vcxproj, driven by Phantom2026.sln). VolumeCore/VolumeRenderer/
-# VkAppBaseCore/etc. are now defined once in ../../cmake/CrystalCoreLibs.cmake
-# and ../../cmake/CrystalVulkanApp.cmake (Phase 4 §5.4 item 1 dedup,
+# VkAppBaseCore/etc. are now defined once in ../../cmake/PhantomCoreLibs.cmake
+# and ../../cmake/PhantomVulkanApp.cmake (Phase 4 §5.4 item 1 dedup,
 # docs/todo/PLAN_crossplatform_non_cgapp_build.md) -- this file just calls
 # them and adds VolumeTest/VolumeView on top, so it also works standalone
 # (`cmake -S CGLib/Volume -B ...`) exactly as before, and identically when
@@ -29,7 +29,7 @@ project(VolumeCoreLinux LANGUAGES CXX)
 # Matches Volume.vcxproj/VolumeTest.vcxproj: neither overrides
 # <LanguageStandard>, so both build under BuildConfig.props' repo-wide C++17
 # default (VolumeRenderer/VolumeView below are promoted to C++20 per-target,
-# see cmake/CrystalVulkanApp.cmake).
+# see cmake/PhantomVulkanApp.cmake).
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -40,9 +40,9 @@ set(CGLIB_ROOT ${REPO_ROOT}/CGLib)
 
 if(MSVC)
     add_compile_options(/utf-8)
-    set(CRYSTAL_WARN_FLAGS /W3)
+    set(PHANTOM_WARN_FLAGS /W3)
 else()
-    set(CRYSTAL_WARN_FLAGS -Wall)
+    set(PHANTOM_WARN_FLAGS -Wall)
 endif()
 
 list(APPEND CMAKE_MODULE_PATH ${REPO_ROOT}/cmake)
@@ -50,13 +50,13 @@ include(PhantomGTest)
 include(PhantomCoreLibs)
 include(PhantomVulkanApp)
 
-crystal_add_volume_core()
+phantom_add_volume_core()
 
 # --- VolumeTest (GoogleTest) ---
 
-crystal_find_gtest()
+phantom_find_gtest()
 
-if(CRYSTAL_GTEST_FOUND)
+if(PHANTOM_GTEST_FOUND)
     enable_testing()
 
     add_executable(VolumeTest
@@ -76,7 +76,7 @@ if(CRYSTAL_GTEST_FOUND)
         GTest::gtest
         GTest::gtest_main
     )
-    target_compile_options(VolumeTest PRIVATE ${CRYSTAL_WARN_FLAGS})
+    target_compile_options(VolumeTest PRIVATE ${PHANTOM_WARN_FLAGS})
 
     include(GoogleTest)
     gtest_discover_tests(VolumeTest)
@@ -85,7 +85,7 @@ else()
 endif()
 
 # ---------------------------------------------------------------------------
-# VolumeRenderer (Crystal::VKR PBVR pipeline) + VolumeView (VkVolumeView) --
+# VolumeRenderer (Phantom::VKR PBVR pipeline) + VolumeView (VkVolumeView) --
 # standalone ImGui + Vulkan volume viewer. Skipped with a warning (not a hard
 # error) if Vulkan/GLFW aren't found, so Volume/VolumeTest above still build.
 #
@@ -94,21 +94,21 @@ endif()
 # .vcxproj's <ProjectReference> list directly, not assumed).
 # ---------------------------------------------------------------------------
 
-crystal_find_vulkan_headers()
+phantom_find_vulkan_headers()
 
-if(CRYSTAL_VULKAN_INCLUDE_DIR)
+if(PHANTOM_VULKAN_INCLUDE_DIR)
 
-crystal_find_vulkan_loader()
-crystal_find_glfw_loader()
+phantom_find_vulkan_loader()
+phantom_find_glfw_loader()
 
-if(CRYSTAL_VULKAN_LIBRARY AND CRYSTAL_GLFW_LIBRARY)
+if(PHANTOM_VULKAN_LIBRARY AND PHANTOM_GLFW_LIBRARY)
 
-crystal_add_numerics_core()
-crystal_add_scene_core()
-crystal_add_file_core()
-crystal_add_vkappbase_core()
-crystal_add_vkrenderer_core()
-crystal_add_volumerenderer_core()
+phantom_add_numerics_core()
+phantom_add_scene_core()
+phantom_add_file_core()
+phantom_add_vkappbase_core()
+phantom_add_vkrenderer_core()
+phantom_add_volumerenderer_core()
 
 add_executable(VolumeView
     ${VOLUME_ROOT}/VolumeView/main.cpp
@@ -148,10 +148,10 @@ target_link_libraries(VolumeView PRIVATE
     SceneCore
     VkAppBaseCore
     VkRendererCore
-    ${CRYSTAL_VULKAN_LIBRARY}
-    ${CRYSTAL_GLFW_LIBRARY}
+    ${PHANTOM_VULKAN_LIBRARY}
+    ${PHANTOM_GLFW_LIBRARY}
 )
-target_compile_options(VolumeView PRIVATE ${CRYSTAL_WARN_FLAGS})
+target_compile_options(VolumeView PRIVATE ${PHANTOM_WARN_FLAGS})
 target_compile_features(VolumeView PRIVATE cxx_std_20)
 
 # loadSPVRepo() (VulkanSPVResolver.h) resolves "shaders/*.spv" relative to the

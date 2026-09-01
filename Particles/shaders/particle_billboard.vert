@@ -1,6 +1,6 @@
 #version 450
 
-// Must match Crystal::Particles::ParticleGpu (ParticleGpu.h) exactly.
+// Must match Phantom::Particles::ParticleGpu (ParticleGpu.h) exactly.
 struct Particle {
     vec4 position;
     vec4 velocity;

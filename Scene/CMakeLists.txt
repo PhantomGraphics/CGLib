@@ -1,4 +1,4 @@
-# Cross-platform CMake build for the Scene core library (Crystal::Scene) and
+# Cross-platform CMake build for the Scene core library (Phantom::Scene) and
 # its GoogleTest suite (SceneTest).
 #
 # This is a standalone CMake build, separate from the MSBuild/.vcxproj-based
@@ -6,7 +6,7 @@
 # driven by Phantom2026.sln). Part of
 # docs/todo/PLAN_crossplatform_non_cgapp_build.md Phase 1 -- follows the same
 # pattern as ../../Physics/CMakeLists.txt / ../../PointCloud/CMakeLists.txt.
-# SceneCore itself is now defined once in ../../cmake/CrystalCoreLibs.cmake
+# SceneCore itself is now defined once in ../../cmake/PhantomCoreLibs.cmake
 # (Phase 4 §5.4 item 1 dedup) -- this file just calls it and adds SceneTest
 # on top, so it also works standalone (`cmake -S CGLib/Scene -B ...`)
 # exactly as before, and identically when add_subdirectory()'d from the root
@@ -23,7 +23,7 @@
 # CMake package config under /usr/lib/x86_64-linux-gnu/cmake/GTest).
 #
 # NOTE on Scene's on-disk source list (ParticleSystemIdPresenter.cpp etc. NOT
-# part of SceneCore): see cmake/CrystalCoreLibs.cmake's crystal_add_scene_core().
+# part of SceneCore): see cmake/PhantomCoreLibs.cmake's phantom_add_scene_core().
 
 cmake_minimum_required(VERSION 3.20)
 
@@ -42,22 +42,22 @@ set(SCENE_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
 
 if(MSVC)
     add_compile_options(/utf-8)
-    set(CRYSTAL_WARN_FLAGS /W3)
+    set(PHANTOM_WARN_FLAGS /W3)
 else()
-    set(CRYSTAL_WARN_FLAGS -Wall)
+    set(PHANTOM_WARN_FLAGS -Wall)
 endif()
 
 list(APPEND CMAKE_MODULE_PATH ${REPO_ROOT}/cmake)
 include(PhantomGTest)
 include(PhantomCoreLibs)
 
-crystal_add_scene_core()
+phantom_add_scene_core()
 
 # --- SceneTest (GoogleTest) ---
 
-crystal_find_gtest()
+phantom_find_gtest()
 
-if(CRYSTAL_GTEST_FOUND)
+if(PHANTOM_GTEST_FOUND)
     enable_testing()
 
     add_executable(SceneTest
@@ -73,7 +73,7 @@ if(CRYSTAL_GTEST_FOUND)
         GTest::gtest
         GTest::gtest_main
     )
-    target_compile_options(SceneTest PRIVATE ${CRYSTAL_WARN_FLAGS})
+    target_compile_options(SceneTest PRIVATE ${PHANTOM_WARN_FLAGS})
 
     include(GoogleTest)
     gtest_discover_tests(SceneTest)

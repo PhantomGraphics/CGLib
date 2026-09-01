@@ -1,4 +1,4 @@
-# Crystal::Space
+# Phantom::Space
 
 A C++ library providing 3D spatial data structures and geometric query algorithms,
 intended for use in real-time graphics, simulation, and computational geometry pipelines.
@@ -20,8 +20,8 @@ CGLib/Space/
 
 ## Namespace
 
-All public symbols live in `Crystal::Space`.
-Math types (vectors, boxes, rays, etc.) live in `Crystal::Math`.
+All public symbols live in `Phantom::Space`.
+Math types (vectors, boxes, rays, etc.) live in `Phantom::Math`.
 
 ---
 
@@ -224,12 +224,12 @@ interface of its own.
 ## Dependencies
 
 ```
-Crystal::Math (CGLib)
+Phantom::Math (CGLib)
   ├── Vector3d<T>, Box3d<T>, Ray3d<T>, Plane3d<T>
   ├── Triangle3d<T>, Sphere3d<T>, Rectangle3d<T>
   └── Line3d<T>, Line2d<T>, Circle2d<T>
 
-Crystal::Space (this library)
+Phantom::Space (this library)
   └── consumed by SpaceView (UI / visualization layer)
 ```
 
@@ -249,4 +249,4 @@ Crystal::Space (this library)
   `SignedDistanceCalculator`, `Intersection2d` are header-only templates.
   Explicit instantiations for `float` are defined in the corresponding `.cpp` files.
 - **SpaceView** is a separate Visual C++ project (`SpaceView.vcxproj`) and depends on
-  `Crystal::UI`, `Crystal::Renderer`, and `Crystal::Scene` frameworks in addition to `Space`.
+  `Phantom::UI`, `Phantom::Renderer`, and `Phantom::Scene` frameworks in addition to `Space`.

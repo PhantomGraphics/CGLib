@@ -1,4 +1,4 @@
-# Linux (clang) + Windows (VS2026) build for GizmoCore (Crystal::Gizmo -- 3-axis
+# Linux (clang) + Windows (VS2026) build for GizmoCore (Phantom::Gizmo -- 3-axis
 # translate/rotate/scale transform gizmo geometry + Vulkan sub-renderer).
 #
 # This is a standalone CMake build, separate from the MSBuild/.vcxproj-based
@@ -74,7 +74,7 @@ endif()
 if(GIZMO_VULKAN_INCLUDE_DIR)
 
 # ---------------------------------------------------------------------------
-# Gizmo (Crystal::Gizmo) -- vcxproj target name "Gizmo", RootNamespace/output VkGizmo
+# Gizmo (Phantom::Gizmo) -- vcxproj target name "Gizmo", RootNamespace/output VkGizmo
 # ---------------------------------------------------------------------------
 
 add_library(GizmoCore STATIC

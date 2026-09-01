@@ -1,13 +1,13 @@
-# CGLib2024 — 内部仕様ドキュメント
+# CGLib — 内部仕様ドキュメント
 
-Crystal2024 プロジェクト共通グラフィクスライブラリ。  
+Phantom プロジェクト共通グラフィクスライブラリ。  
 Vulkan ベースのレンダリング基盤と、数学・画像処理・ImGui UI・シーングラフ・ファイル I/O・空間データ構造・
 ボリューム処理を提供するスタティックライブラリ群。
 
-> 2026-08-21、旧 `Crystal` submodule（`CGApp2024.git`）配下の全プロジェクトを本リポジトリへフラットに
-> 統合した（`docs/todo/PLAN_merge_crystal_into_cglib.md`）。本ファイルは旧 `CGLib/README.md` と
-> 旧 `Crystal/README.md` を統合したもの — 以下「Math〜UIWidgets」までが旧 CGLib 由来、
-> 「Scene〜GltfViewer」までが旧 Crystal 由来のセクション。
+> 2026-08-21、かつて別サブモジュールだったプロジェクト群を本リポジトリへフラットに
+> 統合した。本ファイルは旧 `CGLib/README.md` とそのサブモジュールの README を
+> 統合したもの — 以下「Math〜UIWidgets」までが従来の CGLib 由来、
+> 「Scene〜GltfViewer」までが統合されたモジュール由来のセクション。
 
 ---
 
@@ -18,7 +18,7 @@ flowchart LR
     Math["Math\n(静的ライブラリ)"]
     Graphics["Graphics\n(静的ライブラリ)"]
     VulkanGraphics["VulkanGraphics\n(VKG)"]
-    UIWidgets["UIWidgets\n(Crystal::UI)"]
+    UIWidgets["UIWidgets\n(Phantom::UI)"]
     Numerics
     File
     Space
@@ -46,15 +46,15 @@ flowchart LR
 
 | モジュール | 名前空間 | 役割 |
 |---|---|---|
-| Math | `Crystal::Math` | ベクトル・行列・クォータニオン・幾何プリミティブ |
-| Graphics | `Crystal::Graphics` | カメラ・色・画像 I/O |
+| Math | `Phantom::Math` | ベクトル・行列・クォータニオン・幾何プリミティブ |
+| Graphics | `Phantom::Graphics` | カメラ・色・画像 I/O |
 | VulkanGraphics | `VKG` | Vulkan オブジェクト抽象化 |
-| UIWidgets | `Crystal::UI` | ImGui ベースの UI フレームワーク |
-| Numerics | `Crystal::Numerics` | Eigen による固有値・SVD 演算 |
-| File | `Crystal::File` | OBJ / glTF / PLY / STL 読み書き |
-| Space | `Crystal::Space` | 空間分割・交差・距離計算 |
-| Volume | `Crystal::Volume` | スパースボリューム・Marching Cubes |
-| Scene | `Crystal::Scene` | シーングラフ + Presenter パターン |
+| UIWidgets | `Phantom::UI` | ImGui ベースの UI フレームワーク |
+| Numerics | `Phantom::Numerics` | Eigen による固有値・SVD 演算 |
+| File | `Phantom::File` | OBJ / glTF / PLY / STL 読み書き |
+| Space | `Phantom::Space` | 空間分割・交差・距離計算 |
+| Volume | `Phantom::Volume` | スパースボリューム・Marching Cubes |
+| Scene | `Phantom::Scene` | シーングラフ + Presenter パターン |
 | VkRenderer | `VKG` | Vulkan サブレンダラー |
 | VkAppBase | `VKG` | Vulkan アプリケーション基盤 |
 | GltfRenderer | — | glTF シーン専用レンダラー |
@@ -63,7 +63,7 @@ flowchart LR
 
 ## Math モジュール
 
-**ファイル:** `CGLib/Math/` — `Crystal::Math` 名前空間
+**ファイル:** `CGLib/Math/` — `Phantom::Math` 名前空間
 
 ### 線形代数型
 
@@ -123,7 +123,7 @@ IVolume3d<T>         getPosition(u, v, w) → Vector3d<T>
 
 ## Graphics モジュール
 
-**ファイル:** `CGLib/Graphics/` — `Crystal::Graphics` 名前空間
+**ファイル:** `CGLib/Graphics/` — `Phantom::Graphics` 名前空間
 
 ### Camera
 
@@ -247,7 +247,7 @@ std::vector<char> loadSPV("shader.spv");
 
 ## UIWidgets モジュール
 
-**ファイル:** `CGLib/UIWidgets/` — `Crystal::UI` 名前空間  
+**ファイル:** `CGLib/UIWidgets/` — `Phantom::UI` 名前空間  
 ImGui をラップした Composite パターン UI フレームワーク。レンダリングバックエンドは呼び出し元（`VkAppBase`）が管理し、本ライブラリはバックエンド非依存のウィジェット層を提供する。
 
 > **注意:** OpenGL 廃止に伴い削除された旧 `UI` モジュール（`UI.vcxproj`）の後継が本モジュール。
@@ -314,7 +314,7 @@ Math モジュールの型をそのまま ImGui で表示・編集できるウ�
 
 ## シーングラフ (Scene)
 
-**ファイル:** `CGLib/Scene/` — **名前空間:** `Crystal::Scene`
+**ファイル:** `CGLib/Scene/` — **名前空間:** `Phantom::Scene`
 
 ### ノード階層
 
@@ -344,7 +344,7 @@ SceneBase               ID, name, visibility, AABB
 
 ### シェイププリミティブ
 
-**名前空間:** `Crystal::Shape`
+**名前空間:** `Phantom::Shape`
 
 | シェイプ | 描画プリミティブ | 構成要素 |
 |---|---|---|
@@ -382,7 +382,7 @@ IVkRenderer / IVkSubRenderer   レンダラーインターフェース
 
 ## ファイル I/O (File)
 
-**ファイル:** `CGLib/File/` — **名前空間:** `Crystal::File`
+**ファイル:** `CGLib/File/` — **名前空間:** `Phantom::File`
 
 | フォーマット | 読み込み | 書き出し | 主要クラス |
 |---|---|---|---|
@@ -405,7 +405,7 @@ struct GLTFMaterial {
 
 ## 空間データ構造 (Space)
 
-**ファイル:** `CGLib/Space/` — **名前空間:** `Crystal::Space`
+**ファイル:** `CGLib/Space/` — **名前空間:** `Phantom::Space`
 
 ### 空間分割
 
@@ -447,7 +447,7 @@ struct GLTFMaterial {
 
 ## ボリューム処理 (Volume)
 
-**ファイル:** `CGLib/Volume/` — **名前空間:** `Crystal::Volume`
+**ファイル:** `CGLib/Volume/` — **名前空間:** `Phantom::Volume`
 
 ### `SparseVolume<T>`
 
@@ -484,12 +484,12 @@ struct GLTFMaterial {
 
 ## 数値計算 (Numerics)
 
-**ファイル:** `CGLib/Numerics/` — **名前空間:** `Crystal::Numerics`  
+**ファイル:** `CGLib/Numerics/` — **名前空間:** `Phantom::Numerics`  
 Math 型と Eigen 3.4.0 の橋渡しレイヤー。
 
 | クラス | 説明 |
 |---|---|
-| `Converter` | Crystal ↔ Eigen の行列・ベクトル変換 (静的メソッド群) |
+| `Converter` | Phantom ↔ Eigen の行列・ベクトル変換 (静的メソッド群) |
 | `SVD2d` | 2×2 対称行列の固有値分解 (`Eigen::SelfAdjointEigenSolver`) |
 | `SVD3d` | 3×3 固有値分解 (`calculate()`) / Jacobi SVD (`calculateJacobi()`) |
 
@@ -547,7 +547,7 @@ struct SVDResult {
 
 ---
 
-## テスト構成（旧 Crystal 側モジュール）
+## テスト構成（統合されたモジュール側）
 
 | テストプロジェクト | 対象モジュール |
 |---|---|

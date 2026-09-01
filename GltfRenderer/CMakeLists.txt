@@ -1,4 +1,4 @@
-# Linux (clang) + Windows (VS2026) build for Crystal::Gltf/Crystal::Vrm
+# Linux (clang) + Windows (VS2026) build for Phantom::Gltf/Phantom::Vrm
 # (GltfRenderer core library), GltfRendererTest (GoogleTest), and GltfViewer
 # (standalone ImGui + Vulkan glTF/VRM viewer).
 #
@@ -6,8 +6,8 @@
 # Windows build (GltfRenderer/GltfRenderer.vcxproj, GltfRenderer/
 # GltfRendererTest/GltfRendererTest.vcxproj, GltfViewer/GltfViewer.vcxproj,
 # driven by Phantom2026.sln). GltfRendererCore/FileCore/AnimationCore/etc. are
-# now defined once in ../../cmake/CrystalCoreLibs.cmake and
-# ../../cmake/CrystalVulkanApp.cmake (Phase 4 §5.4 item 1 dedup,
+# now defined once in ../../cmake/PhantomCoreLibs.cmake and
+# ../../cmake/PhantomVulkanApp.cmake (Phase 4 §5.4 item 1 dedup,
 # docs/todo/PLAN_crossplatform_non_cgapp_build.md) -- this file just calls
 # them and adds GltfRendererTest/GltfViewer on top, so it also works
 # standalone (`cmake -S CGLib/GltfRenderer -B ...`) exactly as before, and
@@ -48,10 +48,10 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 
 if(MSVC)
-    set(CRYSTAL_WARN_FLAGS /W3)
+    set(PHANTOM_WARN_FLAGS /W3)
     add_compile_options(/utf-8)
 else()
-    set(CRYSTAL_WARN_FLAGS -Wall)
+    set(PHANTOM_WARN_FLAGS -Wall)
 endif()
 
 set(GLTFR_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
@@ -64,23 +64,23 @@ include(PhantomGTest)
 include(PhantomCoreLibs)
 include(PhantomVulkanApp)
 
-crystal_find_gtest()
+phantom_find_gtest()
 
-crystal_find_vulkan_headers()
+phantom_find_vulkan_headers()
 
-if(CRYSTAL_VULKAN_INCLUDE_DIR)
+if(PHANTOM_VULKAN_INCLUDE_DIR)
 
-crystal_find_vulkan_loader()
-crystal_find_glfw_loader()
+phantom_find_vulkan_loader()
+phantom_find_glfw_loader()
 
-if(CRYSTAL_VULKAN_LIBRARY AND CRYSTAL_GLFW_LIBRARY)
+if(PHANTOM_VULKAN_LIBRARY AND PHANTOM_GLFW_LIBRARY)
 
-crystal_add_vkappbase_core()
-crystal_add_gltfrenderer_core()
+phantom_add_vkappbase_core()
+phantom_add_gltfrenderer_core()
 
 # --- GltfRendererTest (GoogleTest) ---
 
-if(CRYSTAL_GTEST_FOUND)
+if(PHANTOM_GTEST_FOUND)
     enable_testing()
 
     add_executable(GltfRendererTest
@@ -102,9 +102,9 @@ if(CRYSTAL_GTEST_FOUND)
         GltfRendererCore
         GTest::gtest
         GTest::gtest_main
-        ${CRYSTAL_VULKAN_LIBRARY}
+        ${PHANTOM_VULKAN_LIBRARY}
     )
-    target_compile_options(GltfRendererTest PRIVATE ${CRYSTAL_WARN_FLAGS})
+    target_compile_options(GltfRendererTest PRIVATE ${PHANTOM_WARN_FLAGS})
 
     include(GoogleTest)
     gtest_discover_tests(GltfRendererTest)
@@ -113,7 +113,7 @@ else()
 endif()
 
 # ---------------------------------------------------------------------------
-# GltfViewer (Crystal::Gltf app) -- standalone ImGui + Vulkan glTF/VRM viewer
+# GltfViewer (Phantom::Gltf app) -- standalone ImGui + Vulkan glTF/VRM viewer
 # ---------------------------------------------------------------------------
 
 add_executable(GltfViewer
@@ -128,10 +128,10 @@ target_include_directories(GltfViewer PRIVATE
 target_link_libraries(GltfViewer PRIVATE
     GltfRendererCore
     VkAppBaseCore
-    ${CRYSTAL_VULKAN_LIBRARY}
-    ${CRYSTAL_GLFW_LIBRARY}
+    ${PHANTOM_VULKAN_LIBRARY}
+    ${PHANTOM_GLFW_LIBRARY}
 )
-target_compile_options(GltfViewer PRIVATE ${CRYSTAL_WARN_FLAGS})
+target_compile_options(GltfViewer PRIVATE ${PHANTOM_WARN_FLAGS})
 
 # loadSPVRepo() resolves "shaders/*.spv" relative to the binary's own
 # directory on Windows, and to CWD on Linux -- mirror Windows' PostBuildEvent

@@ -2,9 +2,9 @@
 # この .gitignore ファイルは Microsoft(R) Visual Studio によって自動的に作成されました。
 ################################################################################
 
-/.vs/CGLib2024
-/CGLib2024/.vs/CGLib2024/v17
-/CGLib2024/x64/Debug
+/.vs/CGLib
+/CGLib/.vs/CGLib/v17
+/CGLib/x64/Debug
 /x64/Debug
 /Math/x64/Debug
 /MathTest/x64/Debug
@@ -58,8 +58,8 @@
 /build_linux
 /build
 
-# Leftover MSBuild build artifacts under the modules merged in from Crystal/
-# (docs/todo/PLAN_merge_crystal_into_cglib.md, 2026-08-21) -- pre-existing per-path
+# Leftover MSBuild build artifacts under the modules merged in flat from a
+# former internal submodule (2026-08-21) -- pre-existing per-path
 # entries above only cover this file's original modules (Math/Graphics/VulkanGraphics/
 # UIWidgets), so these wildcard rules cover the newly added ones instead of listing
 # every path individually.

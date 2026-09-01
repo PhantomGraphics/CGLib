@@ -1,4 +1,4 @@
-# Linux (clang) + Windows (VS2026) build for PostProcessCore (Crystal::
+# Linux (clang) + Windows (VS2026) build for PostProcessCore (Phantom::
 # PostProcess -- bloom/tonemap/SSAO/FXAA fullscreen Vulkan post effects).
 #
 # This is a standalone CMake build, separate from the MSBuild/.vcxproj-based
@@ -74,7 +74,7 @@ endif()
 if(POSTPROCESS_VULKAN_INCLUDE_DIR)
 
 # ---------------------------------------------------------------------------
-# PostProcess (Crystal::PostProcess)
+# PostProcess (Phantom::PostProcess)
 # ---------------------------------------------------------------------------
 
 add_library(PostProcessCore STATIC

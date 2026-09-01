@@ -1,4 +1,4 @@
-# Cross-platform CMake build for the Animation core library (Crystal::Animation),
+# Cross-platform CMake build for the Animation core library (Phantom::Animation),
 # its GoogleTest suite (AnimationTest), and AnimationRenderer/AnimationView
 # (Vulkan app).
 #
@@ -6,7 +6,7 @@
 # Windows build (Animation/Animation/Animation.vcxproj + Animation/AnimationTest/
 # AnimationTest.vcxproj, driven by Phantom2026.sln). AnimationCore/
 # GltfRendererCore/VkAppBaseCore/etc. are now defined once in
-# ../../cmake/CrystalCoreLibs.cmake and ../../cmake/CrystalVulkanApp.cmake
+# ../../cmake/PhantomCoreLibs.cmake and ../../cmake/PhantomVulkanApp.cmake
 # (Phase 4 §5.4 item 1 dedup, docs/todo/PLAN_crossplatform_non_cgapp_build.md)
 # -- this file just calls them and adds AnimationTest/AnimationRenderer/
 # AnimationView on top, so it also works standalone
@@ -34,7 +34,7 @@
 #     scope per the plan's "all CGApp-external projects" mandate) but
 #     AnimationView does not link it.
 #   - AnimationView.vcxproj also lists a ProjectReference on VkRenderer.vcxproj,
-#     but nothing under AnimationView/*.cpp actually calls into Crystal::VKR
+#     but nothing under AnimationView/*.cpp actually calls into Phantom::VKR
 #     (confirmed by grep) -- a stale/vestigial reference, not linked here.
 
 cmake_minimum_required(VERSION 3.20)
@@ -55,9 +55,9 @@ set(CGLIB_ROOT ${REPO_ROOT}/CGLib)
 
 if(MSVC)
     add_compile_options(/utf-8)
-    set(CRYSTAL_WARN_FLAGS /W3)
+    set(PHANTOM_WARN_FLAGS /W3)
 else()
-    set(CRYSTAL_WARN_FLAGS -Wall)
+    set(PHANTOM_WARN_FLAGS -Wall)
 endif()
 
 list(APPEND CMAKE_MODULE_PATH ${REPO_ROOT}/cmake)
@@ -65,13 +65,13 @@ include(PhantomGTest)
 include(PhantomCoreLibs)
 include(PhantomVulkanApp)
 
-crystal_add_animation_core()
+phantom_add_animation_core()
 
 # --- AnimationTest (GoogleTest) ---
 
-crystal_find_gtest()
+phantom_find_gtest()
 
-if(CRYSTAL_GTEST_FOUND)
+if(PHANTOM_GTEST_FOUND)
     enable_testing()
 
     add_executable(AnimationTest
@@ -89,7 +89,7 @@ if(CRYSTAL_GTEST_FOUND)
         GTest::gtest
         GTest::gtest_main
     )
-    target_compile_options(AnimationTest PRIVATE ${CRYSTAL_WARN_FLAGS})
+    target_compile_options(AnimationTest PRIVATE ${PHANTOM_WARN_FLAGS})
 
     include(GoogleTest)
     gtest_discover_tests(AnimationTest)
@@ -101,23 +101,23 @@ endif()
 # AnimationRenderer + AnimationView -- Phase 2 item 4.
 # ---------------------------------------------------------------------------
 
-crystal_find_vulkan_headers()
+phantom_find_vulkan_headers()
 
-if(CRYSTAL_VULKAN_INCLUDE_DIR)
+if(PHANTOM_VULKAN_INCLUDE_DIR)
 
-crystal_find_vulkan_loader()
-crystal_find_glfw_loader()
+phantom_find_vulkan_loader()
+phantom_find_glfw_loader()
 
-if(CRYSTAL_VULKAN_LIBRARY AND CRYSTAL_GLFW_LIBRARY)
+if(PHANTOM_VULKAN_LIBRARY AND PHANTOM_GLFW_LIBRARY)
 
-crystal_add_vkappbase_core()
-crystal_add_vkrenderer_core()
-crystal_add_gltfrenderer_core()
+phantom_add_vkappbase_core()
+phantom_add_vkrenderer_core()
+phantom_add_gltfrenderer_core()
 
 set(ANIMATIONVIEW_ROOT ${ANIMATION_ROOT}/AnimationView)
 set(ANIMATIONRENDERER_ROOT ${ANIMATION_ROOT}/AnimationRenderer)
 
-# --- AnimationRenderer (Crystal::Animation MMD skinned-mesh/bone-wire
+# --- AnimationRenderer (Phantom::Animation MMD skinned-mesh/bone-wire
 # renderer) -- built per plan scope, but NOT linked into AnimationView below
 # (see file-header NOTE: AnimationView.vcxproj doesn't reference it).
 
@@ -132,7 +132,7 @@ target_include_directories(AnimationRenderer PRIVATE
     ${CGLIB_ROOT}/ThirdParty/stb
 )
 target_link_libraries(AnimationRenderer PRIVATE AnimationCore VulkanGraphicsCore VkRendererCore)
-target_compile_options(AnimationRenderer PRIVATE ${CRYSTAL_WARN_FLAGS})
+target_compile_options(AnimationRenderer PRIVATE ${PHANTOM_WARN_FLAGS})
 target_compile_features(AnimationRenderer PRIVATE cxx_std_20)
 
 # --- AnimationView (standalone ImGui + Vulkan MMD animation viewer) ---
@@ -151,10 +151,10 @@ target_link_libraries(AnimationView PRIVATE
     FileCore
     AnimationCore
     VkAppBaseCore
-    ${CRYSTAL_VULKAN_LIBRARY}
-    ${CRYSTAL_GLFW_LIBRARY}
+    ${PHANTOM_VULKAN_LIBRARY}
+    ${PHANTOM_GLFW_LIBRARY}
 )
-target_compile_options(AnimationView PRIVATE ${CRYSTAL_WARN_FLAGS})
+target_compile_options(AnimationView PRIVATE ${PHANTOM_WARN_FLAGS})
 target_compile_features(AnimationView PRIVATE cxx_std_20)
 
 add_custom_command(TARGET AnimationView POST_BUILD

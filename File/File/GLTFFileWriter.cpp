@@ -226,7 +226,7 @@ bool GLTFFileWriter::write(std::ostream& stream, const GLTFFile& gltf)
 	std::vector<std::pair<std::string, std::string>> sections;
 
 	// asset
-	sections.push_back({ "asset", R"({"version": "2.0", "generator": "Crystal"})" });
+	sections.push_back({ "asset", R"({"version": "2.0", "generator": "Phantom"})" });
 
 	// scene
 	if (!gltf.scenes.empty()) {

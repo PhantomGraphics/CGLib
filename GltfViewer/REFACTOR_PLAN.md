@@ -21,7 +21,7 @@
 ## 目標アーキテクチャ
 
 ```
-Crystal/
+CGLib/
 ├── GltfRenderer/               ← 新規: 静的ライブラリ
 │   ├── GltfRenderer.vcxproj
 │   ├── Gltf/                   ← 既存から移動
@@ -440,7 +440,7 @@ IMGUI_TEST_ENGINE_ENABLE_COROUTINE_STDTHREAD_IMPL=1
 ```
 [DONE] Step 1  GltfRenderer.vcxproj 新規作成 + ファイル移動
                → CGLib/GltfRenderer/ 以下に全ファイル配置済み
-               → CGApp2024.sln に追加済み
+               → Phantom2026.sln に追加済み
                → Debug|x64 ビルド確認済み (2026-04-28)
 
 [DONE] Step 2  CameraUBO.h を切り出し、インクルードを更新

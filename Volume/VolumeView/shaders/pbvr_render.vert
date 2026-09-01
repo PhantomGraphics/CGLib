@@ -3,7 +3,7 @@
 layout(location = 0) in vec3 inPos;
 layout(location = 1) in vec4 inColor;
 
-// Layout must match Crystal::Volume::PBVRPipeline::UBO (PBVRPipeline.h).
+// Layout must match Phantom::Volume::PBVRPipeline::UBO (PBVRPipeline.h).
 layout(binding = 0) uniform UBO {
     mat4 mvp;
     float particleSize;

@@ -1,4 +1,4 @@
-# Linux (clang) + Windows (VS2026) build for Crystal::VKR (VkRenderer, the
+# Linux (clang) + Windows (VS2026) build for Phantom::VKR (VkRenderer, the
 # shared line/point/triangle/tex/skybox Vulkan renderer library) and
 # VkRendererView (standalone ImGui + Vulkan viewer that exercises it).
 #
@@ -7,7 +7,7 @@
 # VkRendererView.vcxproj, driven by Phantom2026.sln, which remains the build
 # the rest of the repo's ProjectReference graph uses -- untouched by this
 # file). VkRendererCore/VkAppBaseCore/etc. are now defined once in
-# ../../cmake/CrystalCoreLibs.cmake and ../../cmake/CrystalVulkanApp.cmake
+# ../../cmake/PhantomCoreLibs.cmake and ../../cmake/PhantomVulkanApp.cmake
 # (Phase 4 §5.4 item 1 dedup, docs/todo/PLAN_crossplatform_non_cgapp_build.md)
 # -- this file just calls them and adds VkRendererView on top, so it also
 # works standalone (`cmake -S CGLib/Renderer -B ...`) exactly as before,
@@ -46,10 +46,10 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 
 if(MSVC)
-    set(CRYSTAL_WARN_FLAGS /W3)
+    set(PHANTOM_WARN_FLAGS /W3)
     add_compile_options(/utf-8)
 else()
-    set(CRYSTAL_WARN_FLAGS -Wall)
+    set(PHANTOM_WARN_FLAGS -Wall)
 endif()
 
 set(RENDERER_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
@@ -60,17 +60,17 @@ list(APPEND CMAKE_MODULE_PATH ${REPO_ROOT}/cmake)
 include(PhantomCoreLibs)
 include(PhantomVulkanApp)
 
-crystal_find_vulkan_headers()
+phantom_find_vulkan_headers()
 
-if(CRYSTAL_VULKAN_INCLUDE_DIR)
+if(PHANTOM_VULKAN_INCLUDE_DIR)
 
-crystal_find_vulkan_loader()
-crystal_find_glfw_loader()
+phantom_find_vulkan_loader()
+phantom_find_glfw_loader()
 
-if(CRYSTAL_VULKAN_LIBRARY AND CRYSTAL_GLFW_LIBRARY)
+if(PHANTOM_VULKAN_LIBRARY AND PHANTOM_GLFW_LIBRARY)
 
-crystal_add_vkappbase_core()
-crystal_add_vkrenderer_core()
+phantom_add_vkappbase_core()
+phantom_add_vkrenderer_core()
 
 # ---------------------------------------------------------------------------
 # VkRendererView -- standalone ImGui + Vulkan viewer exercising VkRenderer
@@ -89,10 +89,10 @@ target_include_directories(VkRendererView PRIVATE
 target_link_libraries(VkRendererView PRIVATE
     VkRendererCore
     VkAppBaseCore
-    ${CRYSTAL_VULKAN_LIBRARY}
-    ${CRYSTAL_GLFW_LIBRARY}
+    ${PHANTOM_VULKAN_LIBRARY}
+    ${PHANTOM_GLFW_LIBRARY}
 )
-target_compile_options(VkRendererView PRIVATE ${CRYSTAL_WARN_FLAGS})
+target_compile_options(VkRendererView PRIVATE ${PHANTOM_WARN_FLAGS})
 
 # loadSPVRepo() (VulkanSPVResolver.h) resolves "shaders/*.spv" relative to the
 # running binary's directory on Windows, and to the current working directory

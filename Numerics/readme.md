@@ -4,10 +4,10 @@
 
 `CGLib/Numerics` is a static library that wraps [Eigen 3.4.0](ThirdParty/eigen-3.4.0)
 to provide eigenvalue decomposition and singular value decomposition (SVD) for small
-fixed-size matrices, expressed in Crystal's own math types (`CGLib/Math`).
+fixed-size matrices, expressed in Phantom's own math types (`CGLib/Math`).
 
 It is intentionally thin: no new algorithms are implemented here.
-The value it adds is a **type-bridging layer** that allows the rest of the Crystal
+The value it adds is a **type-bridging layer** that allows the rest of the Phantom
 codebase to call Eigen solvers without taking a direct dependency on Eigen headers.
 
 ---
@@ -17,7 +17,7 @@ codebase to call Eigen solvers without taking a direct dependency on Eigen heade
 ```
 CGLib/Numerics/
   Numerics/
-    Converter.h / .cpp   -- Crystal <-> Eigen type conversion utilities
+    Converter.h / .cpp   -- Phantom <-> Eigen type conversion utilities
     SVD2d.h   / .cpp     -- Eigenvalue decomposition for 2x2 symmetric matrices
     SVD3d.h   / .cpp     -- Eigenvalue / SVD decomposition for 3x3 matrices
     pch.h     / .cpp     -- Precompiled header
@@ -32,11 +32,11 @@ CGLib/Numerics/
 
 ## Classes
 
-### `Crystal::Numerics::Converter`
+### `Phantom::Numerics::Converter`
 
 A pure-static utility class.  Converts element-by-element between:
 
-| Crystal type    | Eigen type      |
+| Phantom type    | Eigen type      |
 |-----------------|-----------------|
 | `Math::Matrix2dd` | `Eigen::Matrix2d` |
 | `Math::Matrix3dd` | `Eigen::Matrix3d` |
@@ -46,11 +46,11 @@ A pure-static utility class.  Converts element-by-element between:
 | `Math::Vector4dd` | `Eigen::Vector4d` |
 
 The `dd` suffix denotes double-precision.
-Crystal matrices index as `[row][col]`; Eigen matrices index as `(row, col)`.
+Phantom matrices index as `[row][col]`; Eigen matrices index as `(row, col)`.
 
 ---
 
-### `Crystal::Numerics::SVD2d`
+### `Phantom::Numerics::SVD2d`
 
 Eigenvalue decomposition for **2x2 symmetric** matrices.
 
@@ -71,7 +71,7 @@ restricted to symmetric matrices.
 
 ---
 
-### `Crystal::Numerics::SVD3d`
+### `Phantom::Numerics::SVD3d`
 
 Provides two decomposition methods for 3x3 matrices:
 
@@ -134,11 +134,11 @@ This difference follows Eigen's convention:
 
 ## Notes for AI models
 
-- The `dd` suffix on Crystal math types means **double-double** precision
+- The `dd` suffix on Phantom math types means **double-double** precision
   (in practice, `double`-precision; the naming convention is from the library).
 - `SVD2d` and `SVD3d` reuse the name "SVD" loosely.  `calculate()` is an
   eigendecomposition (symmetric-only), while `calculateJacobi()` is a true SVD.
 - `Converter` is the only class that includes Eigen headers.  All other classes
-  in the public API use only Crystal math types, keeping the Eigen dependency
+  in the public API use only Phantom math types, keeping the Eigen dependency
   internal.
-- All types live in the `Crystal::Numerics` namespace.
+- All types live in the `Phantom::Numerics` namespace.

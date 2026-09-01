@@ -1,8 +1,8 @@
 # VkRendererView 実装計画
 
-既存の `RendererView`（OpenGL + Crystal::UI フレームワーク）を
+既存の `RendererView`（OpenGL + Phantom::UI フレームワーク）を
 `VkAppBase` フレームワーク上の Vulkan 版として作り直す計画。
-参照: `VkSpaceView_plan.md`、`CGLib/VkAppBase/`、`Crystal/VkRenderer/`
+参照: `VkSpaceView_plan.md`、`CGLib/VkAppBase/`、`CGLib/Renderer/VkRenderer/`
 
 ---
 
@@ -10,10 +10,10 @@
 
 | 項目 | RendererView (OpenGL) | VkRendererView (Vulkan) |
 |------|----------------------|------------------------|
-| フレームワーク | `Crystal::UI::Window / Canvas` | `VKG::VkAppBase` |
+| フレームワーク | `Phantom::UI::Window / Canvas` | `VKG::VkAppBase` |
 | レンダリング | OpenGL (`IScreenShader` 派生クラス群) | Vulkan (`IVkRenderer` 派生クラス群) |
-| UI | `Crystal::UI::IMenu` / `MenuItem` | ImGui メニューバー |
-| カメラ | `Crystal::Graphics::Camera` | GLM + GLFW コールバック |
+| UI | `Phantom::UI::IMenu` / `MenuItem` | ImGui メニューバー |
+| カメラ | `Phantom::Graphics::Camera` | GLM + GLFW コールバック |
 | レンダラー切替 | `IScreenShader* activeRenderer` ポインタ | `IVkRenderer* activeRenderer_` ポインタ |
 
 対応するレンダラー一覧:
@@ -39,7 +39,7 @@ CGLib/Renderer/VkRendererView/
 ├── VkRendererApp.h / .cpp          ← VkAppBase 派生、カメラ・メニュー管理
 ├── VkRendererSubRenderer.h / .cpp  ← IVkSubRenderer、全レンダラーを束ねる
 │
-└── shaders/                        ← Crystal/VkRenderer/Shaders/ からコピー
+└── shaders/                        ← CGLib/Renderer/VkRenderer/Shaders/ からコピー
     ├── point.vert.spv / point.frag.spv
     ├── line.vert.spv  / line.frag.spv
     ├── triangle.vert.spv / triangle.frag.spv
@@ -61,11 +61,11 @@ CGLib/Renderer/VkRendererView/
 // VkRendererSubRenderer.h
 #pragma once
 #include "CGLib/VkAppBase/IVkSubRenderer.h"
-#include "Crystal/VkRenderer/VkPointRenderer.h"
-#include "Crystal/VkRenderer/VkLineRenderer.h"
-#include "Crystal/VkRenderer/VkTriangleRenderer.h"
-#include "Crystal/VkRenderer/VkTexRenderer.h"
-#include "Crystal/VkRenderer/VkSkyBoxRenderer.h"
+#include "CGLib/Renderer/VkRenderer/VkPointRenderer.h"
+#include "CGLib/Renderer/VkRenderer/VkLineRenderer.h"
+#include "CGLib/Renderer/VkRenderer/VkTriangleRenderer.h"
+#include "CGLib/Renderer/VkRenderer/VkTexRenderer.h"
+#include "CGLib/Renderer/VkRenderer/VkSkyBoxRenderer.h"
 #include <glm/glm.hpp>
 
 namespace VKRenderer {
@@ -197,14 +197,14 @@ int main() {
 
 ## 4. シェーダー
 
-`Crystal/VkRenderer/Shaders/` に既存 SPIR-V が存在する。
+`CGLib/Renderer/VkRenderer/Shaders/` に既存 SPIR-V が存在する。
 `VkRendererView/shaders/` へコピーし、`loadShader()` で読み込む。
 
 ```cpp
 static std::vector<uint32_t> loadShader(const std::string& name) {
     const std::array<std::string, 3> cands = {
         "shaders/" + name,
-        "../../Crystal/VkRenderer/Shaders/" + name,
+        "../../CGLib/Renderer/VkRenderer/Shaders/" + name,
         "../VkRenderer/Shaders/" + name,
     };
     for (const auto& p : cands)
@@ -234,7 +234,7 @@ static std::vector<uint32_t> loadShader(const std::string& name) {
 | `ConfigurationType` | `Application` |
 | C++ 標準 | `stdcpp17` |
 | UTF-8 | `AdditionalOptions: /utf-8` |
-| インクルードパス | `..\..\CGLib\VkAppBase\imgui;..\..\Crystal\VkRenderer;..\..\CGLib\UI` |
+| インクルードパス | `..\..\CGLib\VkAppBase\imgui;..\..\CGLib\Renderer\VkRenderer;..\..\CGLib\UI` |
 | プロジェクト参照 | `VulkanGraphics`, `VkAppBase`, `VkRenderer` |
 | 追加ライブラリ | `vulkan-1.lib; glfw3.lib` |
 | GLFW targets | `glfw.targets` インポート |
@@ -326,5 +326,5 @@ static std::vector<uint32_t> loadShader(const std::string& name) {
 | `RendererView/main.cpp` の `Renderer` | `VkRendererSubRenderer` | 構造を移植、GL呼出をVK呼出に変換 |
 | `RendererView/main.cpp` の `RendererMenu` | `VkRendererApp::onImGui()` | ImGui メニューバーへ書き直し |
 | `VkSpaceView/VkSpaceApp.cpp` | `VkRendererApp.cpp` | カメラコールバックパターン流用 |
-| `Crystal/VkRenderer/Shaders/*.spv` | `shaders/` | コピー |
+| `CGLib/Renderer/VkRenderer/Shaders/*.spv` | `shaders/` | コピー |
 | `VkAppBase/VkRendererBase` | (参考) | オフスクリーン2パスが必要な場合に継承候補 |
