@@ -78,13 +78,15 @@ void ScenarioBrowserPanel::tickQueue() {
 void ScenarioBrowserPanel::onImGui() {
     tickQueue();
 
+    if (!visible_) return;
+
     if (!initialized_) {
         refresh();
         initialized_ = true;
     }
 
     ImGui::SetNextWindowSize(ImVec2(440, 380), ImGuiCond_FirstUseEver);
-    if (!ImGui::Begin("Scenario Browser")) {
+    if (!ImGui::Begin("Scenario Browser", &visible_)) {
         ImGui::End();
         return;
     }

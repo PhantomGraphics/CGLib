@@ -12,6 +12,8 @@ class ScenarioBrowserPanel : public ::VKG::IVkUIPanel {
 public:
     void setHost(IScenarioHost* host) { host_ = host; }
     void setDefaultFolder(const std::string& folder);
+    void setVisible(bool visible) { visible_ = visible; }
+    bool isVisible() const { return visible_; }
 
     void onImGui() override;
 
@@ -31,6 +33,7 @@ private:
 
     IScenarioHost* host_ = nullptr;
     bool           initialized_ = false;
+    bool           visible_ = true;
 
     char folderBuf_[260] = "scenarios";
     std::vector<Entry> entries_;
