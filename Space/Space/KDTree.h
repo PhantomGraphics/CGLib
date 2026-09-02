@@ -106,7 +106,7 @@ namespace Phantom {
 			// Flat, index-based node storage (contiguous std::vector<Node>) instead of a tree of
 			// individually heap-allocated Node objects: avoids pointer-chasing across scattered
 			// allocations during traversal, which profiling showed was the dominant cost of
-			// neighbor search (see docs/todo/PLAN_pointcloud_feature_gap_analysis.md). -1 means "no
+			// neighbor search (see internal design notes). -1 means "no
 			// child". `positions` doubles as the staging buffer (appended to by addPoint()) and the
 			// build()-time snapshot indexed by nodes: no virtual dispatch and no separate item
 			// storage, just a flat value copy.

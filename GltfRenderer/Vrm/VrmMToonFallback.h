@@ -10,8 +10,8 @@ namespace Phantom::Gltf {
 // Best-effort MToon -> flat PBR flattening, applied to an already-built GltfDocument's materials
 // in place. No real toon shading (rim light, shading step, outline) is reproduced -- this mirrors
 // SkeletonGltfConverter's precedent of dropping MMD toon/sphere/edge shading for the same flat-PBR
-// renderer (GltfSceneRenderer). See docs/todo/PLAN_mmd_gltf_unification.md's Context section for
-// the same design call made there.
+// renderer (GltfSceneRenderer). The internal design notes record the same design call
+// made there.
 class VrmMToonFallback {
 public:
     // VRM 1.0's MToon ("VRMC_materials_mtoon") reuses the material's own standard glTF

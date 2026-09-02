@@ -121,7 +121,7 @@ namespace Phantom::Gltf
 
     // A morph target displaces POSITION by a per-vertex offset, blended by the owning mesh/node's
     // weight for that target index. MMD has no normal/tangent morphs, so only POSITION is modeled
-    // (see docs/todo/PLAN_mmd_gltf_unification.md Phase 2).
+    // (see internal design notes Phase 2).
     struct GltfMorphTarget {
         int positionAccessor = -1; // POSITION displacement (Vec3), one element per base vertex
     };

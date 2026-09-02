@@ -41,7 +41,7 @@ namespace
 	// previous serial `pairs.insert()` per thread (which was O(total pairs)
 	// and entirely unparallelized -- a fixed cost dragging down search()'s
 	// scaling regardless of thread count, see
-	// docs/issue/wcsph_parallel_scaling_profile.md section 11.4/12.1). Each
+	// internal design notes section 11.4/12.1). Each
 	// thread's slice lands at the same [start, start+size) offset every run
 	// (computed purely from sizes), so the resulting order in `dst` is
 	// identical to what the old serial insert loop produced -- required
@@ -103,7 +103,7 @@ void IndexedSortBasedSearcher::search()
 	// Chunk count tracks the actual OpenMP thread count instead of a
 	// hardcoded "optimization for quad core" value -- the previous constant
 	// (8) silently capped this search's parallelism at 8 threads regardless
-	// of OMP_NUM_THREADS/hardware (docs/issue/wcsph_parallel_scaling_profile.md
+	// of OMP_NUM_THREADS/hardware (internal design notes
 	// section 6.1).
 #ifdef _OPENMP
 	const int threads = std::max(1, omp_get_max_threads());

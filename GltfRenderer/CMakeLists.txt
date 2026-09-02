@@ -8,7 +8,7 @@
 # driven by Phantom2026.sln). GltfRendererCore/FileCore/AnimationCore/etc. are
 # now defined once in ../../cmake/PhantomCoreLibs.cmake and
 # ../../cmake/PhantomVulkanApp.cmake (Phase 4 §5.4 item 1 dedup,
-# docs/todo/PLAN_crossplatform_non_cgapp_build.md) -- this file just calls
+# internal design notes) -- this file just calls
 # them and adds GltfRendererTest/GltfViewer on top, so it also works
 # standalone (`cmake -S CGLib/GltfRenderer -B ...`) exactly as before, and
 # identically when add_subdirectory()'d from the root CMakeLists.txt.

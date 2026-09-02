@@ -19,7 +19,7 @@ namespace Phantom::Particles {
 // Drives a fixed-capacity GPU particle pool with a single compute dispatch per frame:
 // ParticleEmitter decides which ring-buffer slots to (re)spawn this frame, the shader
 // respawns those and integrates gravity/drag for everyone else. See
-// shaders/particle_update.comp for the per-particle logic and docs/todo/PLAN_universe_app.md
+// shaders/particle_update.comp for the per-particle logic and internal design notes
 // Phase B for the overall design.
 class ParticleSimulator {
 public:

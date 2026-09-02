@@ -20,7 +20,7 @@ namespace Phantom::Animation {
 // PMX(+VMD) skeletal animation viewer. Rendering is delegated entirely to
 // Phantom::Gltf::GltfSceneRenderer (the same renderer every other glTF-consuming app in this
 // repo uses) -- there is no MMD-specific rendering code left here (see
-// docs/todo/PLAN_mmd_gltf_unification.md Phase 8: MmdMeshRenderer/GpuSkinnedRenderer/
+// internal design notes Phase 8: MmdMeshRenderer/GpuSkinnedRenderer/
 // BoneWireRenderer/SkinnedMeshRenderer were all removed from this app; the underlying
 // Phantom::Animation::AnimationRenderer library they lived in has no other consumer left).
 class AnimationViewApp : public ::VKG::VkAppBase, public ::IScenarioHost {

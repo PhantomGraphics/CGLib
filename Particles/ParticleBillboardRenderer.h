@@ -18,8 +18,7 @@ namespace Phantom::Particles {
 // buffer is bound, the vertex shader derives a quad corner from gl_VertexIndex % 6 and the
 // particle index from gl_VertexIndex / 6 (see shaders/particle_billboard.vert), reading
 // position/velocity(.w=size)/color directly from the same storage buffer ParticleSimulator
-// writes. Managed directly by the owning app/renderer (not an IVkSubRenderer), matching
-// CGApp/CGStudio/GridRenderer's pattern.
+// writes. Managed directly by the owning app/renderer (not an IVkSubRenderer).
 class ParticleBillboardRenderer {
 public:
     struct Shaders {

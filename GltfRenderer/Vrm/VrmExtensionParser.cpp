@@ -67,8 +67,8 @@ void parseBindsV0(const Json& binds, const GltfDocument& doc, std::vector<VrmMor
 VrmHumanoid VrmExtensionParser::parseHumanoid(const Json& vrmRoot, VrmSpecVersion ver) {
     VrmHumanoid humanoid;
     // Malformed/unexpected-shape VRM JSON degrades to an empty humanoid rather than throwing --
-    // matching UniverseSceneIO.cpp's "try/catch is the one allowed exception boundary, for
-    // external library input" convention (docs/guide/conventions.md).
+    // per the project's "try/catch is the one allowed exception boundary, for
+    // external library input" convention.
     try {
         if (!vrmRoot.is_object() || !vrmRoot.contains("humanoid")) return humanoid;
         const Json& humanBones = vrmRoot["humanoid"].value("humanBones", Json());

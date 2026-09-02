@@ -16,7 +16,7 @@ namespace Phantom::PostProcess {
 // Dual-pass Kawase bloom: bright-pass extract -> N same-resolution Kawase blur iterations
 // (ping-ponging between two offscreen targets) -> additive composite with the original HDR
 // input. Runs at the chain's native resolution (no down/upsample mip chain); see the
-// "実装上の注意事項" note in docs/todo/PLAN_universe_app.md for why a resolution pyramid was
+// "実装上の注意事項" note in internal design notes for why a resolution pyramid was
 // deferred -- it's a pure performance optimization, not a correctness requirement.
 class BloomEffect : public IPostEffect {
 public:

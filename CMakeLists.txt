@@ -8,7 +8,7 @@
 # opened/built standalone in Visual Studio 2026's native "Open Folder" CMake mode without
 # touching the .vcxproj-based solution. Math/Graphics/VulkanGraphics/UIWidgets are now defined
 # once in ../cmake/PhantomCoreLibs.cmake and ../cmake/PhantomVulkanApp.cmake (Phase 4 §5.4
-# item 1 dedup, docs/todo/PLAN_crossplatform_non_cgapp_build.md) -- this file (the original
+# item 1 dedup, internal design notes) -- this file (the original
 # home of all four) just calls them and adds the *Test targets on top, so this file alone
 # still builds Math/Graphics/VulkanGraphics/UIWidgets standalone exactly as before, without
 # needing any of the modules formerly under a separate internal submodule (now merged in
@@ -132,7 +132,7 @@ endif()
 # Pugixml (ThirdParty/pugixml) -- header-ish XML parser, no external deps.
 # CGLib/ThirdParty/pugixml/Pugixml.vcxproj is its own vcxproj on the Windows
 # side (listed in Phantom2026.sln), absorbed here per
-# docs/todo/PLAN_crossplatform_non_cgapp_build.md Phase 3 §5.3 instead of
+# internal design notes Phase 3 §5.3 instead of
 # getting its own top-level CMakeLists.txt, since it has no dependents within
 # this repo's non-CGApp scope to build/test it against -- compiling cleanly
 # is the completion criterion, same as the Phase 3 peripheral libs.

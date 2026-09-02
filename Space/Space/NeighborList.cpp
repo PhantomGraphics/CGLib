@@ -9,7 +9,7 @@ void CSRNeighborList::build(const std::vector<Vector3df>& positions, const float
 		// IndexedParticle::toIndex() divides by the search radius, so a
 		// zero/negative one would bin every position into an undefined cell.
 		// Callers that have not set an effect length yet (see
-		// docs/todo/PLAN_sph_scale_invariance.md Phase 5) get an empty
+		// internal design notes Phase 5) get an empty
 		// neighborhood -- an inert solver rather than undefined behavior.
 		this->build(positions.size(), std::vector<ParticlePair>{});
 		return;

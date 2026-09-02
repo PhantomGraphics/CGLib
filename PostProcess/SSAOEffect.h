@@ -20,7 +20,7 @@ namespace Phantom::PostProcess {
 //
 // This library does not produce that G-buffer itself -- Phase A only builds the
 // standalone PostProcess library, and the main scene pass doesn't yet output an MRT normal
-// attachment (see docs/todo/PLAN_universe_app.md Phase C/E, and the "不足ライブラリ分析"
+// attachment (see internal design notes Phase C/E, and the "不足ライブラリ分析"
 // table's "マルチライト" row). Wire setGBuffer() to whatever produces those two views once
 // that MRT extension exists; until then, this effect simply has nothing to sample.
 class SSAOEffect : public IPostEffect {

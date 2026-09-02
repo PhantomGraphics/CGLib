@@ -17,7 +17,7 @@ namespace {
 // GltfReader silently discarded "matrix" nodes (treating them as identity), which broke any
 // skinned model whose exporter emits joint transforms as raw matrices instead of decomposed TRS
 // (confirmed against real files: RiggedFigure.glb, CesiumMan.glb -- see
-// docs/issue/CODEBASE_ISSUES.md #6.2).
+// internal design notes #6.2).
 const char* kMatrixNodeGltf = R"JSON(
 {
   "asset": { "version": "2.0" },

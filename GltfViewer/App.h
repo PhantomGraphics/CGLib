@@ -99,7 +99,7 @@ namespace Phantom::Gltf {
         // renderer_ -- without this, GltfSceneRenderer defaults every joint to identity, which
         // renders any multi-joint skinned mesh (VRM avatars always are) fragmented/disjointed.
         // Safe to call before renderer_.onInit() (updateSkinMatrices() is a trivial setter).
-        // No-op if doc_ has no skins. See docs/issue/CODEBASE_ISSUES.md §6.2.
+        // No-op if doc_ has no skins. See internal design notes §6.2.
         void applySkinBindPose();
 
         // Recomputes and re-uploads every morph-targeted primitive's blended positions from

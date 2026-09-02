@@ -4,11 +4,8 @@ A VRM file is an ordinary glTF/glb document plus a root "extensions.VRM" (0.x) o
 "extensions.VRMC_vrm" (1.0) object carrying a humanoid bone map and named facial expressions
 (built from the document's own glTF morph targets) -- see CGLib/GltfRenderer/Vrm/VrmReader.h.
 No real character mesh/texture is needed to exercise that: a handful of empty "bone" nodes plus
-one small mesh with 2 morph targets is enough. This replaces the real-data samples
-(AliciaSolid_vrm-0.51 / Seed-san, the latter under a redistribution-restricted license) that used
-to back load_vrm0_sample.json / load_vrm1_sample.json -- see
-docs/todo/PLAN_scenario_test_synthetic_assets.md Phase 3. The real samples still exist for
-reinforcement testing under ThirdPartyScenarios/GltfViewer/ (non-public, root-repo-only).
+one small mesh with 2 morph targets is enough. This synthetic pair backs
+load_vrm0_sample.json / load_vrm1_sample.json without any third-party character asset.
 """
 import struct
 import base64

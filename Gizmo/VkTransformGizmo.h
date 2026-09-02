@@ -19,7 +19,7 @@ namespace Phantom::Gizmo {
 
 enum class GizmoMode { Translate, Rotate, Scale };
 
-// Transform of the manipulated object (mirrors CGStudio::Transform)
+// Transform of the manipulated object
 struct GizmoTransform {
     std::array<float, 3> translation      = {0.f, 0.f, 0.f};
     std::array<float, 3> rotationEulerDeg = {0.f, 0.f, 0.f};

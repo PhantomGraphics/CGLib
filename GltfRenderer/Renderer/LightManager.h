@@ -13,7 +13,7 @@ namespace Phantom::Gltf {
 // CPU-side description of a single light. Consumed by LightManager::buildGpuBuffer() into
 // LightGpu; not yet sampled by GltfSceneRenderer's PBR shader (which still uses the single
 // lightPos/lightColor pair in GlobalUBO) -- LightManager exists as forward-looking scaffolding
-// for Universe's multi-light UniverseRenderer (see docs/todo/PLAN_universe_app.md Phase E).
+// for a future multi-light renderer.
 struct LightEntry {
     enum class Type { Directional = 0, Point = 1, Spot = 2 };
 

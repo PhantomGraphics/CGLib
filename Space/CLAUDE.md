@@ -14,7 +14,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Build
 
 CMake が唯一のビルド手段（2026-08-19、`.vcxproj` は全削除済み。詳細は
-`docs/todo/PLAN_crossplatform_non_cgapp_build.md` Phase 5、親リポジトリ `../../CLAUDE.md` の Build 節を参照）。
+内部設計メモ Phase 5、親リポジトリ `../../CLAUDE.md` の Build 節を参照）。
 
 ```powershell
 # リポジトリルートから、Space単体を設定・ビルド
@@ -50,7 +50,7 @@ cmake --build --preset windows-debug
 .\build\windows-debug\CGLib\Space\SpaceView.exe --run-scenario CGLib\Space\SpaceView\scenarios\octree.json
 ```
 
-シナリオ JSON は `CGLib\Space\SpaceView\scenarios\` にあり、`camera.json`・`octree.json`・`kdtree.json`・`spacehash.json`・`compact_spacehash.json`・`signed_distance.json` の 6 本。実装方法・JSON フォーマットは `docs/guide/scenario_test_guide.md` を参照。
+シナリオ JSON は `CGLib\Space\SpaceView\scenarios\` にあり、`camera.json`・`octree.json`・`kdtree.json`・`spacehash.json`・`compact_spacehash.json`・`signed_distance.json` の 6 本。実装方法・JSON フォーマットはシナリオテストガイドを参照。
 
 ## Architecture
 
@@ -64,14 +64,14 @@ cmake --build --preset windows-debug
 
 - `World`（`World.h`）— OpenGL に依存しない軽量な状態保持クラス。パネルが `SpaceResult`（ワイヤーフレーム線・サンプル点のバッファ）へ書き込み、`markDirty()` でレンダラーへ再アップロードを伝える。
 - `SpaceMenuPanel` — 5 アルゴリズム（SpaceHash/CompactSpaceHash/KDTree/Octree/SignedDistance）を切り替えるメニュー。各アルゴリズムのパネル（`SpaceHashPanel`/`CompactSpaceHashPanel`/`KDTreePanel`/`OctreePanel`/`SignedDistancePanel`）は `IAlgorithmView`（`getName()`/`onImGui()`/`run()`/`setParam()`）を実装する。
-- `VkSpaceCommandDispatcher : IScenarioDispatcher` — コマンド文字列ディスパッチャ。`SetAlgorithm:<name>`／`Run`／`SetParam:<name>:<value>`／`GetLineCount`／`GetPointCount`／`GetPointPositionMin`／`GetPointPositionMax`／`GetDirty`／`ResetCamera`／`GetCameraDistance`／`Scroll:<dy>` を処理する（`docs/guide/scenario_test_guide.md` 参照）。
+- `VkSpaceCommandDispatcher : IScenarioDispatcher` — コマンド文字列ディスパッチャ。`SetAlgorithm:<name>`／`Run`／`SetParam:<name>:<value>`／`GetLineCount`／`GetPointCount`／`GetPointPositionMin`／`GetPointPositionMax`／`GetDirty`／`ResetCamera`／`GetCameraDistance`／`Scroll:<dy>` を処理する（シナリオテストガイド参照）。
 - `VkSpaceRenderer` — `World` の `SpaceResult` を線・点として描画。カメラリセット (`resetCamera()`)・スクロールズーム (`handleScroll()`) を持つ。
 
 **新しいアルゴリズムを追加する場合:** `IAlgorithmView` を実装したパネルを追加し、`SpaceMenuPanel::AlgoType` に列挙値を追加、`viewOf()`/`algoName()`/`setActive()` に配線する。
 
 ## Key Conventions
 
-- **例外禁止**: このリポジトリ全体の規約（`docs/guide/conventions.md`）に従い、`throw`/`try`/`catch` は使わない。エラーは `bool`/`std::optional` で返す。
+- **例外禁止**: このリポジトリ全体の規約に従い、`throw`/`try`/`catch` は使わない。エラーは `bool`/`std::optional` で返す。
 - **非所有ポインタ**: `Octree`/`KDTree` は挿入されたアイテムの所有権を持たない。呼び出し元が寿命管理する。
 - **Non-copyable**: `Octree`/`KDTree`/`SpaceHash`/`CompactSpaceHash`/`ZIndexedSearcher` は `UnCopyable` を継承。`unique_ptr`/`shared_ptr` で保持する。
 - **KDTree の build/query 分離**: `addPoint()` を必要な回数呼んだ後に必ず `build()` を呼ぶこと。`build()` 前のクエリは未定義動作。

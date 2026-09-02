@@ -8,7 +8,7 @@
 namespace Phantom::PostProcess {
 
 // Owns an ordered list of IPostEffect stages and wires each one's input to the previous
-// stage's output. Typical use (see docs/todo/PLAN_universe_app.md Phase E):
+// stage's output. Typical use (see internal design notes Phase E):
 //
 //   PostProcessChain chain;
 //   chain.addEffect(std::make_unique<BloomEffect>(...));

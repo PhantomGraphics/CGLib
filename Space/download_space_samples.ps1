@@ -2,9 +2,7 @@
 <#
 .SYNOPSIS
   Space サンプルデータ 生成
-  合成点群を CGLib\Space\samples\ に生成する（実データのダウンロードは行わない -- Stanford Bunny/Armadillo
-  は SpaceView のどのシナリオからも参照されていなかった死んだ設定だったため撤去した、
-  docs/todo/PLAN_scenario_test_synthetic_assets.md Phase 6）。
+  合成点群を CGLib\Space\samples\ に生成する（実データのダウンロードは行わない）。
   ソース定義: CGLib\Space\download_space_samples.json
 #>
 $ErrorActionPreference = 'Stop'

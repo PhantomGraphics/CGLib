@@ -3,7 +3,7 @@
 #
 # This is a standalone CMake build, separate from the MSBuild/.vcxproj-based
 # Windows build (Particles.vcxproj, driven by Phantom2026.sln, untouched by
-# this file). Part of docs/todo/PLAN_crossplatform_non_cgapp_build.md Phase 3:
+# this file). Part of internal design notes Phase 3:
 # Particles is only consumed by CGApp (Universe/CGStudio), which is out of
 # this plan's scope, so unlike Phase 2's apps there is no runtime
 # verification available here -- successful compilation is the completion

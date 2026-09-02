@@ -4,7 +4,7 @@
 # This is a standalone CMake build, separate from the MSBuild/.vcxproj-based
 # Windows build (Scene/Scene/Scene.vcxproj + Scene/SceneTest/SceneTest.vcxproj,
 # driven by Phantom2026.sln). Part of
-# docs/todo/PLAN_crossplatform_non_cgapp_build.md Phase 1 -- follows the same
+# internal design notes Phase 1 -- follows the same
 # pattern as ../../Physics/CMakeLists.txt / ../../PointCloud/CMakeLists.txt.
 # SceneCore itself is now defined once in ../../cmake/PhantomCoreLibs.cmake
 # (Phase 4 §5.4 item 1 dedup) -- this file just calls it and adds SceneTest

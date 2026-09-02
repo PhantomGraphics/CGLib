@@ -71,7 +71,7 @@ TEST(STLBinaryFileWriterTest, TestWriteBinaryShortHeaderIsZeroPadded)
     // stream.write(header.c_str(), 80) unconditionally. Earlier tests never caught this since
     // they always padded the header to exactly 79 characters.
     STLFile stl;
-    stl.header = "CGStudio";
+    stl.header = "Phantom";
 
     STLFileWriter writer;
     std::stringstream ss;
@@ -79,8 +79,8 @@ TEST(STLBinaryFileWriterTest, TestWriteBinaryShortHeaderIsZeroPadded)
 
     const std::string data = ss.str();
     ASSERT_GE(data.size(), 80u);
-    EXPECT_EQ(0, data.compare(0, 8, "CGStudio"));
-    for (size_t i = 8; i < 80; ++i)
+    EXPECT_EQ(0, data.compare(0, 7, "Phantom"));
+    for (size_t i = 7; i < 80; ++i)
         EXPECT_EQ('\0', data[i]) << "byte " << i;
 }
 

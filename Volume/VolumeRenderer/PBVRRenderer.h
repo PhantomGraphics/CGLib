@@ -54,7 +54,7 @@ public:
         return useGPU_ ? static_cast<size_t>(gpuVertexCount_) : particleSet_.count();
     }
 
-    // Self-shadow (experimental, Opacity Shadow Map). See docs/idea/pbvr.md.
+    // Self-shadow (experimental, Opacity Shadow Map). See internal design notes.
     void setLightDir(float azimuthDeg, float elevationDeg);
     void setShadowEnabled(bool b) { shadowEnabled_ = b; }
     void setExtinction(float sigma) { sigma_ = std::max(0.0f, sigma); }

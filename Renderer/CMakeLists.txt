@@ -8,7 +8,7 @@
 # the rest of the repo's ProjectReference graph uses -- untouched by this
 # file). VkRendererCore/VkAppBaseCore/etc. are now defined once in
 # ../../cmake/PhantomCoreLibs.cmake and ../../cmake/PhantomVulkanApp.cmake
-# (Phase 4 §5.4 item 1 dedup, docs/todo/PLAN_crossplatform_non_cgapp_build.md)
+# (Phase 4 §5.4 item 1 dedup, internal design notes)
 # -- this file just calls them and adds VkRendererView on top, so it also
 # works standalone (`cmake -S CGLib/Renderer -B ...`) exactly as before,
 # and identically when add_subdirectory()'d from the root CMakeLists.txt.

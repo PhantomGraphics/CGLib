@@ -24,7 +24,7 @@ namespace Phantom::Gltf {
     // scene, walking the node hierarchy the same way GltfSceneRenderer::traverseNode() does
     // (TRS/matrix nodes, recursive children) and accumulating each vertex transformed by its
     // node's local-to-document matrix. Intended for rough physics-collider sizing (see
-    // docs/todo/PLAN_cgstudio_universe_pipeline.md Phase 4) -- not a substitute for a real
+    // internal design notes Phase 4) -- not a substitute for a real
     // convex hull or mesh collider.
     GltfAabb computeGltfBounds(const GltfDocument& doc);
 

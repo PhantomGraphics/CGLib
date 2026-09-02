@@ -15,7 +15,7 @@ namespace Phantom::Gltf {
 // self-contained keyframe data that can be written directly into glTF animation channels.
 // glTF's channels/samplers only interpolate a node's local TRS -- there is no runtime concept of
 // solving an IK constraint -- so IK-resolved poses must be baked into keyframes ahead of time
-// (see docs/todo/PLAN_mmd_gltf_unification.md Phase 3).
+// (see internal design notes Phase 3).
 class MmdAnimationBaker {
 public:
     // Resamples every bone referenced by any IKChain::chainBones at sampleRateHz, running

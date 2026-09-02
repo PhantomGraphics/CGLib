@@ -9,7 +9,7 @@ namespace Phantom::Gltf {
 // Evaluates real glTF animation channels/samplers against a GltfDocument's node hierarchy.
 // Depends only on GltfDocument -- no Phantom::Animation dependency -- so the same implementation
 // works for MMD-derived documents (via MmdToGltfConverter) and any real .gltf/.glb file's own
-// animations (see docs/todo/PLAN_mmd_gltf_unification.md Phase 4).
+// animations (see internal design notes Phase 4).
 class GltfAnimationEvaluator {
 public:
     // Evaluates doc.animations[animationIndex]'s Translation/Rotation/Scale channels at timeSec,

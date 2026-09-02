@@ -9,7 +9,7 @@ namespace {
 
 // Reads one whitespace-delimited token and parses it as a number via
 // std::from_chars (exceptions are forbidden in this codebase, see
-// docs/guide/conventions.md). Returns false if the token is missing or
+// the project's coding conventions). Returns false if the token is missing or
 // not a valid number.
 template<typename T>
 bool readNumber(std::istream& stream, T& out)

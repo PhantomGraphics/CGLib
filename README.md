@@ -175,7 +175,7 @@ class Image {
 
 > **注意:** OpenGL 廃止に伴い `CGLib/Shader/` は削除済み（OpenGL ベースだった旧 `AppBase`/
 > `Renderer` 等も同様に廃止済み）。当時 `.sln`/`.vcxproj` に残っていた無効な参照も、
-> `docs/todo/PLAN_crossplatform_non_cgapp_build.md` Phase 5 での `.vcxproj` 全廃に伴い解消済み。
+> 内部設計メモ Phase 5 での `.vcxproj` 全廃に伴い解消済み。
 
 ---
 

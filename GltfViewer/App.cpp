@@ -26,8 +26,7 @@ using namespace Phantom::Gltf;
 namespace {
 
 // .obj/.stl are converted to a GltfDocument on the fly (Phantom::Gltf::ObjToGltfConverter/
-// StlToGltfConverter, shared with CGStudio/Universe -- see
-// docs/todo/PLAN_obj_stl_gltfrenderer_shared_import.md); anything else still goes through
+// StlToGltfConverter); anything else still goes through
 // GltfReader::load() as a real .gltf/.glb file.
 std::string lowerExtension(const std::filesystem::path& path) {
     std::string ext = path.extension().string();

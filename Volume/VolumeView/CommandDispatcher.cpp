@@ -129,7 +129,7 @@ std::vector<std::string> CommandDispatcher::collectResponses() {
 
 void CommandDispatcher::processQueue() {
     // If a pixel read is pending, check whether the result is available before processing
-    // any new commands from the input queue (mirrors CGApp/CGStudio/CommandDispatcher.cpp).
+    // any new commands from the input queue.
     if (pixelReadPending_) {
         uint8_t data[4];
         if (app_ && app_->pollPixelRead(data)) {
@@ -396,7 +396,7 @@ std::string CommandDispatcher::route(const std::string& cmd) {
         return cmdDeleteDense(id);
     }
 
-    // --- PBVR self-shadow (experimental, see docs/idea/pbvr.md) ---
+    // --- PBVR self-shadow (experimental, see internal design notes) ---
 
     if (parts[0] == "SetPBVRRenderMode" && parts.size() == 2) {
         if (!menuPanel_) return "Error:no menu panel";

@@ -13,7 +13,7 @@ namespace Phantom::Particles {
 // ParticleSimulator's compute shader branch-free and allocation-free, at the cost of older
 // particles being recycled early once the emit rate exceeds what maxParticles can hold for
 // a full lifeTime -- an accepted trade-off for a fixed-capacity GPU pool (see "GPU パーティクルの同期"
-// in docs/todo/PLAN_universe_app.md).
+// in internal design notes).
 class ParticleEmitter {
 public:
     // Ring-buffer range of particle indices to force-spawn this frame (count may exceed

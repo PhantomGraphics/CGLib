@@ -7,14 +7,12 @@ namespace Phantom::Gltf {
 
 // Converts an already-parsed Phantom::File::OBJFile (see Phantom::File::OBJFileReader) into a
 // GltfDocument, so OBJ meshes can flow through the same GltfDocument-consuming code every glTF
-// asset already does (CGStudio's GltfImporter::extract(), GltfSceneRenderer::traverseNode()) --
-// see docs/todo/PLAN_obj_stl_gltfrenderer_shared_import.md. File I/O stays the caller's
+// asset already does (e.g. GltfSceneRenderer::traverseNode()). File I/O stays the caller's
 // responsibility (OBJFileReader::read()) so this converter is trivially unit-testable.
 class ObjToGltfConverter {
 public:
     // One GltfMesh (single GltfPrimitive) + GltfNode per non-empty OBJGroup, all parented under
-    // doc.scenes[0]. Each face is fan-triangulated (mirrors the old
-    // CGApp/CGStudio/MeshImporter.cpp::appendObjFace() logic); vertices are fully expanded (no
+    // doc.scenes[0]. Each face is fan-triangulated; vertices are fully expanded (no
     // sharing across triangles) with sequential indices, matching how OBJFace's separate
     // position/normal/texCoord index streams don't line up cleanly with a single shared vertex
     // buffer. A group name of "" is left as-is (glTF's own "unnamed mesh" convention) --

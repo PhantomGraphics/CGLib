@@ -7,7 +7,7 @@
 # AnimationTest.vcxproj, driven by Phantom2026.sln). AnimationCore/
 # GltfRendererCore/VkAppBaseCore/etc. are now defined once in
 # ../../cmake/PhantomCoreLibs.cmake and ../../cmake/PhantomVulkanApp.cmake
-# (Phase 4 §5.4 item 1 dedup, docs/todo/PLAN_crossplatform_non_cgapp_build.md)
+# (Phase 4 §5.4 item 1 dedup, internal design notes)
 # -- this file just calls them and adds AnimationTest/AnimationRenderer/
 # AnimationView on top, so it also works standalone
 # (`cmake -S CGLib/Animation -B ...`) exactly as before, and identically

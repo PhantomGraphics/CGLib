@@ -8,7 +8,7 @@
 namespace Phantom::Animation {
 
 // Everything the app needs to play back a PMX(+VMD) model loaded via
-// Phantom::Gltf::MmdToGltfConverter (see docs/todo/PLAN_mmd_gltf_unification.md Phase 8).
+// Phantom::Gltf::MmdToGltfConverter (see internal design notes Phase 8).
 // Unlike the pre-migration version, this holds no Phantom::Animation types at all -- IK baking,
 // skeleton/mesh conversion, and morph-weight baking all already happened once, at load time,
 // inside MmdToGltfConverter::convert(). Per-frame pose comes from

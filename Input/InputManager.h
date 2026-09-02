@@ -42,7 +42,7 @@ public:
     // Forces isPressed()/getAxis() for this action to a fixed digital value (1.f/0.f for
     // getAxis) until injectAction() is called again for it or clearInjectedActions() runs --
     // lets a scenario test (no real keyboard/gamepad) drive character input deterministically
-    // (see CGApp/Universe/UniverseCommandDispatcher's "InjectInput" command).
+    // (e.g. an "InjectInput" scenario command).
     void injectAction(GameAction action, bool pressed) { injected_[static_cast<size_t>(action)] = pressed ? 1 : 0; }
     void clearInjectedActions() { injected_.fill(-1); }
 

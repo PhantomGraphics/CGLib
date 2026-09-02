@@ -14,7 +14,7 @@ VulkanGraphics/UIWidgets のビルド・規約のみを扱う）。
 ## Build
 
 CMake が唯一のビルド手段（2026-08-19、`.vcxproj` は全削除済み。詳細は
-`docs/todo/PLAN_crossplatform_non_cgapp_build.md` Phase 5、親リポジトリ `../CLAUDE.md` の Build 節を参照）。
+内部設計メモ Phase 5、親リポジトリ `../CLAUDE.md` の Build 節を参照）。
 
 ```powershell
 # リポジトリルートから、CGLib単体を設定・ビルド

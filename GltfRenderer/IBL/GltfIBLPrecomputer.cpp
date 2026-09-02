@@ -16,7 +16,7 @@
 using namespace Phantom::Gltf;
 
 // Logs to stderr and returns failRet instead of throwing (this module must not use
-// exceptions -- see docs/guide/conventions.md). Mirrors CGLib/VulkanGraphics's VKG_CHECK.
+// exceptions -- see the project's coding conventions). Mirrors CGLib/VulkanGraphics's VKG_CHECK.
 #define GLTF_IBL_CHECK(expr, msg, failRet) \
     do { \
         if ((expr) != VK_SUCCESS) { \

@@ -6,7 +6,7 @@
 # and producing VkGizmo.lib -- note the stray, solution-unreferenced duplicate
 # Gizmo.vcxproj that also lives in this directory; it is not built by
 # Phantom2026.sln and is left untouched here). Part of
-# docs/todo/PLAN_crossplatform_non_cgapp_build.md Phase 3: Gizmo is only
+# internal design notes Phase 3: Gizmo is only
 # consumed by CGApp (Universe/CGStudio), which is out of this plan's scope, so
 # unlike Phase 2's apps there is no runtime/--screenshot verification
 # available here -- successful compilation is the completion criterion.

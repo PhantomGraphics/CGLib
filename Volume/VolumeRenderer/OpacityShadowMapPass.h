@@ -15,7 +15,7 @@ namespace Phantom::VKG { class VulkanContext; }
 namespace Phantom::Volume {
 
 // Multi-layer opacity accumulation target for the PBVR self-shadow experiment
-// (docs/idea/pbvr.md, docs/todo/PLAN_volume_cloud_opacity_shadow.md).
+// (internal design notes).
 //
 // Holds a single VkImage with `layerCount` array layers (VK_FORMAT_R32_SFLOAT, no depth).
 // Layer i is meant to be filled by additively blending the light-space PBVR particle set

@@ -145,8 +145,7 @@ with open(os.path.join(OUT, "multi_mesh.gltf"), "w", encoding="utf-8") as f:
 print("multi_mesh.gltf  MeshCount=3 NodeCount=3 PrimitiveCount=3")
 
 # ---------------------------------------------------------------------------
-# Phase 4 (docs/todo/PLAN_scenario_test_synthetic_assets.md): synthetic
-# replacements for Khronos glTF-Sample-Assets models (DamagedHelmet/WaterBottle/
+# Synthetic replacements for Khronos glTF-Sample-Assets models (DamagedHelmet/WaterBottle/
 # AntiqueCamera/Avocado/Corset/Duck/CesiumMan/RiggedFigure/RiggedSimple/
 # MultiUVTest/NegativeScaleTest/NormalTangentTest/NormalTangentMirrorTest/
 # OrientationTest/TextureCoordinateTest/BoxVertexColors/AlphaBlendModeTest/
@@ -154,8 +153,6 @@ print("multi_mesh.gltf  MeshCount=3 NodeCount=3 PrimitiveCount=3")
 # *features* (PBR materials, UV sets, skinning, extensions), not to look
 # realistic, so procedural checkerboard/gradient/flat-normal PNG textures over
 # minimal geometry cover the same ground without any third-party asset.
-# Real-data versions of the 19 replaced scenarios still exist for reinforcement
-# testing under ThirdPartyScenarios/GltfViewer/ (non-public, root-repo-only).
 # ---------------------------------------------------------------------------
 import zlib
 
@@ -626,3 +623,34 @@ write_gltf("unlit.gltf", {
     "buffers": [buf.buffer_entry()],
 })
 print("unlit.gltf  MeshCount=1 MaterialCount=1 PrimitiveCount=1")
+
+# ---------------------------------------------------------------------------
+# test_quad.obj / test_triangle.stl -- tiny mesh-import smoke test inputs for
+# load_obj_stl.json (the OBJ->glTF and ASCII-STL->glTF converter paths).
+# ---------------------------------------------------------------------------
+with open(os.path.join(OUT, "test_quad.obj"), "w", encoding="utf-8", newline="\n") as f:
+    f.write(
+        "# Minimal synthetic quad for GltfViewer OBJ smoke test\n"
+        "v -0.5 -0.5 0.0\n"
+        "v 0.5 -0.5 0.0\n"
+        "v 0.5 0.5 0.0\n"
+        "v -0.5 0.5 0.0\n"
+        "vn 0.0 0.0 1.0\n"
+        "f 1//1 2//1 3//1\n"
+        "f 1//1 3//1 4//1\n"
+    )
+print("test_quad.obj  vertices=4 faces=2")
+
+with open(os.path.join(OUT, "test_triangle.stl"), "w", encoding="utf-8", newline="\n") as f:
+    f.write(
+        "solid triangle\n"
+        "  facet normal 0.0 0.0 1.0\n"
+        "    outer loop\n"
+        "      vertex -0.5 -0.5 0.0\n"
+        "      vertex 0.5 -0.5 0.0\n"
+        "      vertex 0.0 0.5 0.0\n"
+        "    endloop\n"
+        "  endfacet\n"
+        "endsolid triangle\n"
+    )
+print("test_triangle.stl  facets=1")

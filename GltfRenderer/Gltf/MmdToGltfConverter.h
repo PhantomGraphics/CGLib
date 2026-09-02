@@ -29,7 +29,7 @@ struct MmdToGltfLoadStats {
 // shape, textures, skin, baked bone animation, morph targets, and baked morph-weight animation
 // all in one document (mirrors ObjToGltfConverter::convert()/StlToGltfConverter::convert(), just
 // with a PMX+VMD pair instead of a single input file -- see
-// docs/todo/PLAN_mmd_gltf_unification.md Phase 6).
+// internal design notes Phase 6).
 class MmdToGltfConverter {
 public:
     // vmdPath empty (or unreadable) -> no animation/morph-weight channels, bind pose only (same

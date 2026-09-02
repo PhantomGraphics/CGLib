@@ -25,7 +25,7 @@ void writeText(std::ostream& s, const std::string& utf8) {
 // Hand-crafted minimal PMX 2.0 binary: encoding=UTF-8, all index sizes=1 byte, 2 bones
 // (Root -> Child, no IK), 2 vertices (BDEF1, one bound to each bone), 1 triangle, 1 material,
 // no textures, no morphs. Exercises PMXFileReader's full parse path (see PMXFileReader.cpp)
-// without needing a real downloaded MMD sample model (docs/todo/PLAN_mmd_gltf_unification.md
+// without needing a real downloaded MMD sample model (internal design notes
 // Phase 10 -- AnimationTest has no reusable PMX/VMD binary fixture to borrow).
 bool writeMinimalPmx(const std::filesystem::path& path) {
     std::ofstream f(path, std::ios::binary);

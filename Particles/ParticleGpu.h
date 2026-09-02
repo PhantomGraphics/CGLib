@@ -21,7 +21,7 @@ static_assert(sizeof(ParticleGpu) == 64, "ParticleGpu layout changed -- update t
 
 enum class ParticleEmitterShape : uint32_t { Point = 0, Sphere = 1, Box = 2 };
 
-// CPU-side emitter configuration. Mirrors docs/todo/PLAN_universe_app.md Phase B.
+// CPU-side emitter configuration. Mirrors internal design notes Phase B.
 struct EmitterParams {
     glm::vec3 origin        = { 0.f, 0.f, 0.f };
     float     emitRate      = 50.f;  // particles/sec

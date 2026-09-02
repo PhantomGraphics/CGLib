@@ -18,7 +18,7 @@ namespace Phantom {
 		 * radius -- but as two flat arrays (offsets + indices) instead of one
 		 * separately heap-allocated std::vector<int> per particle. The
 		 * per-particle allocations dominate cost when the list is rebuilt every
-		 * simulation step (see docs/issue/wcsph_parallel_scaling_profile.md
+		 * simulation step (see internal design notes
 		 * section 4).
 		 *
 		 * This is the single entry point every SPH solver in Phantom::Physics
