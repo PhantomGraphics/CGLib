@@ -1,7 +1,9 @@
 #include "gtest/gtest.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
+#include <cstdio>
 #include <cstring>
 #include <limits>
 
@@ -348,4 +350,36 @@ TEST(TerrainGenerator, DifferentSeedChangesHeights) {
 
 TEST(TerrainGenerator, GeneratorVersionIsOne) {
     EXPECT_EQ(kTerrainGeneratorVersion, 1u);
+}
+
+// Not a correctness test -- a repeatable timing harness for
+// docs/todo/PLAN_cgstudio_terrain_generation.md Phase 5. Run with:
+//   TerrainTest.exe --gtest_also_run_disabled_tests --gtest_filter=*Benchmark*
+TEST(TerrainGenerator, DISABLED_Benchmark) {
+    for (uint32_t seg : {128u, 512u, 1024u}) {
+        TerrainSettings s;
+        s.segmentsX = seg;
+        s.segmentsZ = seg;
+        s.heightScale = 3.0f;
+        s.octaves = 6;
+
+        constexpr int kRuns = 5;
+        double bestMs = 1e30;
+        TerrainMesh mesh;
+        for (int r = 0; r < kRuns; ++r) {
+            const auto t0 = std::chrono::steady_clock::now();
+            ASSERT_EQ(generate(s, mesh), TerrainError::None);
+            const auto t1 = std::chrono::steady_clock::now();
+            bestMs = std::min(bestMs, std::chrono::duration<double, std::milli>(t1 - t0).count());
+        }
+
+        // Dominant working set: the vertex + index buffers plus the transient height grid.
+        const double meshMiB =
+            (mesh.vertices.size() * sizeof(TerrainVertex) +
+             mesh.indices.size() * sizeof(uint32_t) +
+             mesh.vertices.size() * sizeof(float)) / (1024.0 * 1024.0);
+
+        std::printf("[benchmark] %4ux%-4u  %10zu verts  %11zu idx  best %8.2f ms  ~%.1f MiB\n",
+                    seg, seg, mesh.vertices.size(), mesh.indices.size(), bestMs, meshMiB);
+    }
 }
