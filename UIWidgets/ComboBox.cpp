@@ -5,12 +5,13 @@ using namespace Phantom::UI;
 
 void ComboBox::onShow()
 {
-	auto str = name.c_str();
-	if (ImGui::BeginCombo(str, s_currentItem)) {
-		for (int i = 0; i < items.size(); ++i) {
-			const bool is_selected = (s_currentItem == items[i].c_str());
+	const char* preview = selectedIndex >= 0 && selectedIndex < static_cast<int>(items.size())
+		? items[static_cast<std::size_t>(selectedIndex)].c_str() : nullptr;
+	if (ImGui::BeginCombo(name.c_str(), preview)) {
+		for (int i = 0; i < static_cast<int>(items.size()); ++i) {
+			const bool is_selected = selectedIndex == i;
 			if (ImGui::Selectable(items[i].c_str(), is_selected))
-				s_currentItem = items[i].c_str();
+				selectedIndex = i;
 			if (is_selected)
 				ImGui::SetItemDefaultFocus();
 		}

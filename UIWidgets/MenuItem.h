@@ -49,7 +49,7 @@ protected:
 	 * @brief 項目が選択されたときに登録済みコールバックを呼ぶ．
 	 */
 	void onPushed() override {
-		this->func();
+		if (this->func) this->func();
 	}
 
 private:

@@ -127,6 +127,7 @@ function(phantom_add_uiwidgets_core)
     phantom_add_graphics_core()
     set(_imgui_dir ${CGLIB_ROOT}/ThirdParty/imgui)
     add_library(UIWidgetsCore STATIC
+        ${CGLIB_ROOT}/UIWidgets/Immediate.cpp
         ${CGLIB_ROOT}/UIWidgets/BoolView.cpp
         ${CGLIB_ROOT}/UIWidgets/Box3dView.cpp
         ${CGLIB_ROOT}/UIWidgets/Button.cpp

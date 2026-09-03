@@ -45,18 +45,21 @@ public:
 	 * @return 選択中の項目文字列．未選択の場合は空文字列．
 	 */
 	std::string getSelectedItem() const {
-		return s_currentItem;
+		return selectedIndex >= 0 && selectedIndex < static_cast<int>(items.size())
+			? items[static_cast<std::size_t>(selectedIndex)] : std::string{};
 	}
 
 	/**
 	 * @brief インデックスを指定して選択状態を設定する．
 	 * @param index 選択する項目のインデックス（0 始まり）．
 	 */
-	void setSelected(const int index) { s_currentItem = items[index].c_str(); }
+	void setSelected(const int index) {
+		selectedIndex = index >= 0 && index < static_cast<int>(items.size()) ? index : -1;
+	}
 
 private:
 	std::vector<std::string> items; ///< 選択肢のリスト．
-	const char* s_currentItem = nullptr; ///< 現在選択中の項目（items の要素を参照）．
+	int selectedIndex = -1; ///< 現在選択中の項目。文字列ポインターの無効化を避けるため添字で保持する。
 };
 
 	}

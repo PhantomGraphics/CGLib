@@ -7,6 +7,6 @@ void Button::onShow()
 {
 	auto str = name.c_str();
 	if (ImGui::Button(str)) {
-		func();
+		if (func) func();
 	}
 }
