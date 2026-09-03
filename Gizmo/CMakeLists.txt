@@ -1,28 +1,10 @@
-# Linux (clang) + Windows (VS2026) build for GizmoCore (Phantom::Gizmo -- 3-axis
-# translate/rotate/scale transform gizmo geometry + Vulkan sub-renderer).
+# Gizmo core library (Phantom::Gizmo -- 3-axis transform gizmo geometry + Vulkan sub-renderer). Compile-only: needs Vulkan headers, links nothing here.
 #
-# This is a standalone CMake build, separate from the MSBuild/.vcxproj-based
-# Windows build (VkGizmo.vcxproj, listed as project "Gizmo" in Phantom2026.sln
-# and producing VkGizmo.lib -- note the stray, solution-unreferenced duplicate
-# Gizmo.vcxproj that also lives in this directory; it is not built by
-# Phantom2026.sln and is left untouched here). Part of
-# internal design notes Phase 3: Gizmo is only
-# consumed by CGApp (Universe/CGStudio), which is out of this plan's scope, so
-# unlike Phase 2's apps there is no runtime/--screenshot verification
-# available here -- successful compilation is the completion criterion.
-#
-# Usage (Linux, from WSL -- avoid /mnt/c/... for speed on a Linux-native checkout):
-#   cmake -S CGLib/Gizmo -B CGLib/Gizmo/build_linux \
-#       -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang \
-#       -DCMAKE_BUILD_TYPE=Debug \
-#       -DVULKAN_INCLUDE_DIR=/path/to/Vulkan-Headers/include
-#   cmake --build CGLib/Gizmo/build_linux -j
-#
-# GizmoCore only needs Vulkan/VkAppBase *headers* (IVkSubRenderer.h,
-# VulkanBuffer.h/VulkanDescriptorPool.h/VulkanPipeline.h are declarations
-# implemented elsewhere) -- it links against nothing here, so unlike the
-# Phase 2 app CMakeLists there is no need to build VulkanGraphicsCore/
-# VkAppBaseCore or discover a Vulkan/GLFW loader, just the SDK's headers.
+# Part of CGLib's standalone CMake build. Usable on its own
+#   cmake -S CGLib/Gizmo -B build/Gizmo -DCMAKE_BUILD_TYPE=Debug && cmake --build build/Gizmo
+# or configured together with every other module from the top-level CGLib/CMakeLists.txt.
+# The shared *Core builders live in cmake/PhantomCoreLibs.cmake / cmake/PhantomVulkanApp.cmake;
+# this file adds the module's test / app targets on top. See docs/standalone-repository-plan.md.
 
 cmake_minimum_required(VERSION 3.20)
 
@@ -44,8 +26,9 @@ else()
 endif()
 
 set(GIZMO_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
-set(REPO_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/../..)
-set(CGLIB_ROOT ${REPO_ROOT}/CGLib)
+if(NOT DEFINED CGLIB_ROOT)
+    set(CGLIB_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/..)
+endif()
 
 # ---------------------------------------------------------------------------
 # Vulkan headers discovery (compile-only -- no loader/link step needed)

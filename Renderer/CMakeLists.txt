@@ -1,34 +1,10 @@
-# Linux (clang) + Windows (VS2026) build for Phantom::VKR (VkRenderer, the
-# shared line/point/triangle/tex/skybox Vulkan renderer library) and
-# VkRendererView (standalone ImGui + Vulkan viewer that exercises it).
+# VkRenderer core library (Phantom::VKR -- shared line/point/triangle/tex/skybox Vulkan renderers) and the VkRendererView app.
 #
-# This is a standalone CMake build, separate from the MSBuild/.vcxproj-based
-# Windows build (VkRenderer/VkRenderer.vcxproj, VkRendererView/
-# VkRendererView.vcxproj, driven by Phantom2026.sln, which remains the build
-# the rest of the repo's ProjectReference graph uses -- untouched by this
-# file). VkRendererCore/VkAppBaseCore/etc. are now defined once in
-# ../../cmake/PhantomCoreLibs.cmake and ../../cmake/PhantomVulkanApp.cmake
-# (Phase 4 §5.4 item 1 dedup, internal design notes)
-# -- this file just calls them and adds VkRendererView on top, so it also
-# works standalone (`cmake -S CGLib/Renderer -B ...`) exactly as before,
-# and identically when add_subdirectory()'d from the root CMakeLists.txt.
-#
-# Usage (Linux, from WSL -- avoid /mnt/c/... for speed on a Linux-native checkout):
-#   cmake -S CGLib/Renderer -B CGLib/Renderer/build_linux \
-#       -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang \
-#       -DCMAKE_BUILD_TYPE=Debug \
-#       -DVULKAN_INCLUDE_DIR=/path/to/Vulkan-Headers/include \
-#       -DVULKAN_LIBRARY=/path/to/libvulkan.so \
-#       -DGLFW_LIBRARY=/path/to/libglfw.so
-#   cmake --build CGLib/Renderer/build_linux -j
-#
-# VkRendererView has no dedicated GoogleTest project (VkRendererView.vcxproj
-# has no corresponding *Test project in Phantom2026.sln), so unlike Space/
-# PointCloud there is no ctest target here -- build success + the runtime
-# --screenshot check are the only verification available.
-#
-# VkRendererView is skipped with a warning (not a hard error) if Vulkan/GLFW
-# aren't found, same as SpaceView/PointCloudView.
+# Part of CGLib's standalone CMake build. Usable on its own
+#   cmake -S CGLib/Renderer -B build/Renderer -DCMAKE_BUILD_TYPE=Debug && cmake --build build/Renderer
+# or configured together with every other module from the top-level CGLib/CMakeLists.txt.
+# The shared *Core builders live in cmake/PhantomCoreLibs.cmake / cmake/PhantomVulkanApp.cmake;
+# this file adds the module's test / app targets on top. See docs/standalone-repository-plan.md.
 
 cmake_minimum_required(VERSION 3.20)
 
@@ -45,18 +21,12 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE Debug CACHE STRING "Build type" FORCE)
 endif()
 
-if(MSVC)
-    set(PHANTOM_WARN_FLAGS /W3)
-    add_compile_options(/utf-8)
-else()
-    set(PHANTOM_WARN_FLAGS -Wall)
-endif()
-
 set(RENDERER_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
-set(REPO_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/../..)
-set(CGLIB_ROOT ${REPO_ROOT}/CGLib)
-
-list(APPEND CMAKE_MODULE_PATH ${REPO_ROOT}/cmake)
+if(NOT DEFINED CGLIB_ROOT)
+    set(CGLIB_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/..)
+endif()
+list(APPEND CMAKE_MODULE_PATH ${CGLIB_ROOT}/cmake)
+include(CGLibCommon)
 include(PhantomCoreLibs)
 include(PhantomVulkanApp)
 

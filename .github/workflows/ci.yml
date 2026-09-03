@@ -1,0 +1,113 @@
+# CI for CGLib's standalone CMake build (docs/standalone-repository-plan.md
+# Phase 5, milestone M1 scope: CPU-only configure/build/test on Windows and
+# Linux, plus a Linux Vulkan-enabled compile).
+#
+# The build references nothing outside this repository. GoogleTest comes from
+# the system package on Linux and from the pinned FetchContent fallback on
+# Windows (no NuGet, no packages/ directory).
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  cpu-linux:
+    name: CPU-only / Linux / ${{ matrix.cc }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { cc: gcc,   cxx: g++ }
+          - { cc: clang, cxx: clang++ }
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build tools + GoogleTest
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build clang libgtest-dev libomp-dev
+
+      - name: Configure
+        run: >
+          cmake --preset linux-cpu-debug
+          -DCMAKE_C_COMPILER=${{ matrix.cc }}
+          -DCMAKE_CXX_COMPILER=${{ matrix.cxx }}
+
+      - name: Build
+        run: cmake --build --preset linux-cpu-debug -j
+
+      - name: Assert every CPU test executable was built (no implicit skip)
+        working-directory: build/linux-cpu-debug
+        run: |
+          ctest -N
+          for t in MathTest GraphicsTest NumericsTest SpaceTest SceneTest FileTest AnimationTest VolumeTest; do
+            find . \( -name "$t" -o -name "$t.exe" \) -type f | grep -q . \
+              || { echo "::error::expected test executable '$t' was not built (implicit skip)"; exit 1; }
+          done
+
+      - name: Test
+        run: ctest --preset linux-cpu-debug
+
+  cpu-windows:
+    name: CPU-only / Windows / MSVC
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Ninja
+        run: choco install ninja -y
+
+      - uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Configure
+        run: cmake --preset windows-cpu-debug
+        shell: cmd
+
+      - name: Build
+        run: cmake --build --preset windows-cpu-debug -j
+        shell: cmd
+
+      - name: Assert every CPU test executable was built (no implicit skip)
+        working-directory: build/windows-cpu-debug
+        shell: bash
+        run: |
+          ctest -N
+          for t in MathTest GraphicsTest NumericsTest SpaceTest SceneTest FileTest AnimationTest VolumeTest; do
+            find . \( -name "$t" -o -name "$t.exe" \) -type f | grep -q . \
+              || { echo "::error::expected test executable '$t' was not built (implicit skip)"; exit 1; }
+          done
+
+      - name: Test
+        run: ctest --preset windows-cpu-debug
+        shell: cmd
+
+  vulkan-linux:
+    name: Vulkan compile / Linux / Clang
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build tools + Vulkan/GLFW/GoogleTest
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build clang \
+            libvulkan-dev libglfw3-dev libgtest-dev libomp-dev
+
+      - name: Configure (Vulkan required)
+        run: >
+          cmake --preset linux-debug
+          -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
+          -DCGLIB_ENABLE_VULKAN=ON
+
+      - name: Build
+        run: cmake --build --preset linux-debug -j
+
+      # No GPU/ICD on CI runners -- "links successfully" is the bar for the
+      # Vulkan targets; the GPU integration tests are a manual release gate.
+      - name: Test (non-GPU)
+        run: ctest --preset linux-debug

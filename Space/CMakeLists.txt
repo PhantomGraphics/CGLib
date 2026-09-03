@@ -1,32 +1,10 @@
-# Linux (clang) + Windows (VS2026) build for Phantom::Space (Space core library),
-# SpaceTest (GoogleTest), and SpaceView (standalone ImGui + Vulkan viewer).
+# Space core library (Phantom::Space -- Octree / KDTree / BVH / SpaceHash / Z-order spatial queries), its GoogleTest suite, and the SpaceView Vulkan app.
 #
-# This is a standalone CMake build, separate from the MSBuild/.vcxproj-based
-# Windows build (Space.vcxproj/SpaceTest.vcxproj/SpaceView.vcxproj, driven by
-# Phantom2026.sln, which remains the build the rest of the repo's
-# ProjectReference graph uses -- untouched by this file).
-#
-# SpaceCore/VkAppBaseCore/VkRendererCore/etc. are now defined once in
-# ../../cmake/PhantomCoreLibs.cmake and ../../cmake/PhantomVulkanApp.cmake
-# (Phase 4 §5.4 item 1 dedup, internal design notes)
-# -- this file just calls them and adds SpaceTest/SpaceView on top, so it
-# also works standalone (`cmake -S CGLib/Space -B ...`) exactly as before,
-# and identically when add_subdirectory()'d from the root CMakeLists.txt.
-#
-# Usage (Linux, from WSL -- avoid /mnt/c/... for speed on a Linux-native checkout):
-#   cmake -S CGLib/Space -B CGLib/Space/build_linux \
-#       -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang \
-#       -DCMAKE_BUILD_TYPE=Debug \
-#       -DVULKAN_INCLUDE_DIR=/path/to/Vulkan-Headers/include \
-#       -DVULKAN_LIBRARY=/path/to/libvulkan.so \
-#       -DGLFW_LIBRARY=/path/to/libglfw.so
-#   cmake --build CGLib/Space/build_linux -j
-#   ctest --test-dir CGLib/Space/build_linux --output-on-failure
-#
-# Space/SpaceTest build regardless of Vulkan availability (Space itself has no
-# Vulkan dependency -- only CGLib/Math). SpaceView additionally needs Vulkan
-# headers + a Vulkan loader + a GLFW loader to link; it is skipped with a
-# warning (not a hard error) if any of those aren't found.
+# Part of CGLib's standalone CMake build. Usable on its own
+#   cmake -S CGLib/Space -B build/Space -DCMAKE_BUILD_TYPE=Debug && cmake --build build/Space
+# or configured together with every other module from the top-level CGLib/CMakeLists.txt.
+# The shared *Core builders live in cmake/PhantomCoreLibs.cmake / cmake/PhantomVulkanApp.cmake;
+# this file adds the module's test / app targets on top. See docs/standalone-repository-plan.md.
 
 cmake_minimum_required(VERSION 3.20)
 
@@ -46,21 +24,12 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE Debug CACHE STRING "Build type" FORCE)
 endif()
 
-if(MSVC)
-    set(PHANTOM_WARN_FLAGS /W3)
-    # Matches BuildConfig.props' `/utf-8 %(AdditionalOptions)` applied repo-wide --
-    # several sources have Japanese comments not valid in the legacy MSVC source
-    # code page, so this is required, not cosmetic.
-    add_compile_options(/utf-8)
-else()
-    set(PHANTOM_WARN_FLAGS -Wall)
-endif()
-
 set(SPACE_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
-set(REPO_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/../..)
-set(CGLIB_ROOT ${REPO_ROOT}/CGLib)
-
-list(APPEND CMAKE_MODULE_PATH ${REPO_ROOT}/cmake)
+if(NOT DEFINED CGLIB_ROOT)
+    set(CGLIB_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/..)
+endif()
+list(APPEND CMAKE_MODULE_PATH ${CGLIB_ROOT}/cmake)
+include(CGLibCommon)
 include(PhantomGTest)
 include(PhantomCoreLibs)
 include(PhantomVulkanApp)
@@ -143,6 +112,6 @@ else()
     message(WARNING "Space: Vulkan and/or GLFW loader not found -- SpaceView is skipped (Space/SpaceTest still build). Pass -DVULKAN_LIBRARY=... -DGLFW_LIBRARY=... to enable it.")
 endif()
 
-else()
+elseif(NOT DEFINED CGLIB_ENABLE_VULKAN OR CGLIB_ENABLE_VULKAN)
     message(WARNING "Space: vulkan/vulkan.h not found -- SpaceView is skipped. Pass -DVULKAN_INCLUDE_DIR=/path/to/include to enable it (on Windows, check $ENV{VULKAN_SDK} is set).")
 endif()

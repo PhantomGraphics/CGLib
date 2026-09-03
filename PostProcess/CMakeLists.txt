@@ -1,28 +1,10 @@
-# Linux (clang) + Windows (VS2026) build for PostProcessCore (Phantom::
-# PostProcess -- bloom/tonemap/SSAO/FXAA fullscreen Vulkan post effects).
+# PostProcess core library (Phantom::PostProcess -- bloom/tonemap/SSAO/FXAA fullscreen Vulkan effects). Compile-only: needs Vulkan headers.
 #
-# This is a standalone CMake build, separate from the MSBuild/.vcxproj-based
-# Windows build (PostProcess.vcxproj, driven by Phantom2026.sln, untouched by
-# this file). Part of internal design notes Phase 3:
-# PostProcess is only consumed by CGApp (Universe/CGStudio), which is out of
-# this plan's scope, so unlike Phase 2's apps there is no runtime
-# verification available here -- successful compilation is the completion
-# criterion.
-#
-# Usage (Linux, from WSL -- avoid /mnt/c/... for speed on a Linux-native checkout):
-#   cmake -S CGLib/PostProcess -B CGLib/PostProcess/build_linux \
-#       -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang \
-#       -DCMAKE_BUILD_TYPE=Debug \
-#       -DVULKAN_INCLUDE_DIR=/path/to/Vulkan-Headers/include
-#   cmake --build CGLib/PostProcess/build_linux -j
-#
-# PostProcessCore only needs Vulkan *headers* (VulkanContext.h/
-# VulkanCommandPool.h/VulkanImage.h/VulkanOffscreen.h/VulkanSampler.h/
-# VulkanBuffer.h/VulkanDescriptorPool.h are declarations implemented
-# elsewhere, and are pulled in via the sources' own
-# "../../CGLib/VulkanGraphics/..." relative includes, so no CGLib include dir
-# is needed for those) -- it links against nothing here, so unlike the
-# Phase 2 app CMakeLists there is no loader discovery/link step.
+# Part of CGLib's standalone CMake build. Usable on its own
+#   cmake -S CGLib/PostProcess -B build/PostProcess -DCMAKE_BUILD_TYPE=Debug && cmake --build build/PostProcess
+# or configured together with every other module from the top-level CGLib/CMakeLists.txt.
+# The shared *Core builders live in cmake/PhantomCoreLibs.cmake / cmake/PhantomVulkanApp.cmake;
+# this file adds the module's test / app targets on top. See docs/standalone-repository-plan.md.
 
 cmake_minimum_required(VERSION 3.20)
 
@@ -44,8 +26,9 @@ else()
 endif()
 
 set(POSTPROCESS_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
-set(REPO_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/../..)
-set(CGLIB_ROOT ${REPO_ROOT}/CGLib)
+if(NOT DEFINED CGLIB_ROOT)
+    set(CGLIB_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/..)
+endif()
 
 # ---------------------------------------------------------------------------
 # Vulkan headers discovery (compile-only -- no loader/link step needed)

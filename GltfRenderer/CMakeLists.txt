@@ -1,37 +1,10 @@
-# Linux (clang) + Windows (VS2026) build for Phantom::Gltf/Phantom::Vrm
-# (GltfRenderer core library), GltfRendererTest (GoogleTest), and GltfViewer
-# (standalone ImGui + Vulkan glTF/VRM viewer).
+# GltfRenderer core library (Phantom::Gltf / Phantom::Vrm -- glTF/VRM loading and rendering), its GoogleTest suite, and the GltfViewer app.
 #
-# This is a standalone CMake build, separate from the MSBuild/.vcxproj-based
-# Windows build (GltfRenderer/GltfRenderer.vcxproj, GltfRenderer/
-# GltfRendererTest/GltfRendererTest.vcxproj, GltfViewer/GltfViewer.vcxproj,
-# driven by Phantom2026.sln). GltfRendererCore/FileCore/AnimationCore/etc. are
-# now defined once in ../../cmake/PhantomCoreLibs.cmake and
-# ../../cmake/PhantomVulkanApp.cmake (Phase 4 §5.4 item 1 dedup,
-# internal design notes) -- this file just calls
-# them and adds GltfRendererTest/GltfViewer on top, so it also works
-# standalone (`cmake -S CGLib/GltfRenderer -B ...`) exactly as before, and
-# identically when add_subdirectory()'d from the root CMakeLists.txt.
-#
-# Usage (Linux, from WSL -- avoid /mnt/c/... for speed on a Linux-native checkout):
-#   cmake -S CGLib/GltfRenderer -B CGLib/GltfRenderer/build_linux \
-#       -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang \
-#       -DCMAKE_BUILD_TYPE=Debug \
-#       -DVULKAN_INCLUDE_DIR=/path/to/Vulkan-Headers/include \
-#       -DVULKAN_LIBRARY=/path/to/libvulkan.so \
-#       -DGLFW_LIBRARY=/path/to/libglfw.so
-#   cmake --build CGLib/GltfRenderer/build_linux -j
-#   ctest --test-dir CGLib/GltfRenderer/build_linux --output-on-failure
-#
-# NOTE on Vulkan being required even for GltfRendererTest (unlike File/
-# Animation/Physics/PointCloud, whose *Test targets stay outside the Vulkan
-# gate): GltfRendererCore's own source list includes Renderer/
-# GltfSceneRenderer.cpp / ShadowMapPass.cpp / LightManager.cpp, which use
-# CGLib::VKG (VulkanGraphics) types directly -- confirmed by
-# GltfRendererTest.vcxproj itself linking vulkan-1.lib even though none of its
-# *Test.cpp files touch rendering. So GltfRendererCore has no
-# Vulkan-independent subset to split out; the whole target (and therefore its
-# test binary) lives inside this file's Vulkan/GLFW discovery gate.
+# Part of CGLib's standalone CMake build. Usable on its own
+#   cmake -S CGLib/GltfRenderer -B build/GltfRenderer -DCMAKE_BUILD_TYPE=Debug && cmake --build build/GltfRenderer
+# or configured together with every other module from the top-level CGLib/CMakeLists.txt.
+# The shared *Core builders live in cmake/PhantomCoreLibs.cmake / cmake/PhantomVulkanApp.cmake;
+# this file adds the module's test / app targets on top. See docs/standalone-repository-plan.md.
 
 cmake_minimum_required(VERSION 3.20)
 
@@ -47,19 +20,13 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE Debug CACHE STRING "Build type" FORCE)
 endif()
 
-if(MSVC)
-    set(PHANTOM_WARN_FLAGS /W3)
-    add_compile_options(/utf-8)
-else()
-    set(PHANTOM_WARN_FLAGS -Wall)
-endif()
-
 set(GLTFR_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
-set(REPO_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/../..)
-set(CGLIB_ROOT ${REPO_ROOT}/CGLib)
+if(NOT DEFINED CGLIB_ROOT)
+    set(CGLIB_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/..)
+endif()
 set(GLTFVIEWER_ROOT ${CGLIB_ROOT}/GltfViewer)
-
-list(APPEND CMAKE_MODULE_PATH ${REPO_ROOT}/cmake)
+list(APPEND CMAKE_MODULE_PATH ${CGLIB_ROOT}/cmake)
+include(CGLibCommon)
 include(PhantomGTest)
 include(PhantomCoreLibs)
 include(PhantomVulkanApp)

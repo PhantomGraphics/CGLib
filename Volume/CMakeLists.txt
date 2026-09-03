@@ -1,26 +1,10 @@
-# Cross-platform CMake build for the Volume core library (Phantom::Volume,
-# standalone -- i.e. without Physics), its GoogleTest suite (VolumeTest), and
-# VolumeRenderer/VolumeView (Vulkan app).
+# Volume core library (Phantom::Volume -- level sets, marching cubes, sparse volume trees), its GoogleTest suite, and the VolumeRenderer + VolumeView Vulkan app.
 #
-# This is a standalone CMake build, separate from the MSBuild/.vcxproj-based
-# Windows build (Volume/Volume/Volume.vcxproj + Volume/VolumeTest/
-# VolumeTest.vcxproj, driven by Phantom2026.sln). VolumeCore/VolumeRenderer/
-# VkAppBaseCore/etc. are now defined once in ../../cmake/PhantomCoreLibs.cmake
-# and ../../cmake/PhantomVulkanApp.cmake (Phase 4 §5.4 item 1 dedup,
-# internal design notes) -- this file just calls
-# them and adds VolumeTest/VolumeView on top, so it also works standalone
-# (`cmake -S CGLib/Volume -B ...`) exactly as before, and identically when
-# add_subdirectory()'d from the root CMakeLists.txt.
-#
-# Usage (from WSL, in a Linux-native checkout -- avoid /mnt/c/... for speed):
-#   cmake -S CGLib/Volume -B CGLib/Volume/build_linux \
-#       -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang \
-#       -DCMAKE_BUILD_TYPE=Debug
-#   cmake --build CGLib/Volume/build_linux -j
-#   ctest --test-dir CGLib/Volume/build_linux --output-on-failure
-#
-# Prerequisite: libgtest-dev (provides libgtest.a/libgtest_main.a + the GTest
-# CMake package config under /usr/lib/x86_64-linux-gnu/cmake/GTest).
+# Part of CGLib's standalone CMake build. Usable on its own
+#   cmake -S CGLib/Volume -B build/Volume -DCMAKE_BUILD_TYPE=Debug && cmake --build build/Volume
+# or configured together with every other module from the top-level CGLib/CMakeLists.txt.
+# The shared *Core builders live in cmake/PhantomCoreLibs.cmake / cmake/PhantomVulkanApp.cmake;
+# this file adds the module's test / app targets on top. See docs/standalone-repository-plan.md.
 
 cmake_minimum_required(VERSION 3.20)
 
@@ -30,22 +14,16 @@ project(VolumeCoreLinux LANGUAGES CXX)
 # <LanguageStandard>, so both build under BuildConfig.props' repo-wide C++17
 # default (VolumeRenderer/VolumeView below are promoted to C++20 per-target,
 # see cmake/PhantomVulkanApp.cmake).
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-set(REPO_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/../..)
 set(VOLUME_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
-set(CGLIB_ROOT ${REPO_ROOT}/CGLib)
-
-if(MSVC)
-    add_compile_options(/utf-8)
-    set(PHANTOM_WARN_FLAGS /W3)
-else()
-    set(PHANTOM_WARN_FLAGS -Wall)
+if(NOT DEFINED CGLIB_ROOT)
+    set(CGLIB_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/..)
 endif()
-
-list(APPEND CMAKE_MODULE_PATH ${REPO_ROOT}/cmake)
+list(APPEND CMAKE_MODULE_PATH ${CGLIB_ROOT}/cmake)
+include(CGLibCommon)
 include(PhantomGTest)
 include(PhantomCoreLibs)
 include(PhantomVulkanApp)
@@ -173,6 +151,6 @@ else()
     message(WARNING "Volume: Vulkan and/or GLFW loader not found -- VolumeView is skipped (Volume/VolumeTest still build). Pass -DVULKAN_LIBRARY=... -DGLFW_LIBRARY=... to enable it.")
 endif()
 
-else()
+elseif(NOT DEFINED CGLIB_ENABLE_VULKAN OR CGLIB_ENABLE_VULKAN)
     message(WARNING "Volume: vulkan/vulkan.h not found -- VolumeView is skipped. Pass -DVULKAN_INCLUDE_DIR=/path/to/include to enable it (on Windows, check $ENV{VULKAN_SDK} is set).")
 endif()

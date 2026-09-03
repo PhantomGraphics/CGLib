@@ -14,21 +14,40 @@ Math/Graphics/VulkanGraphics/UIWidgets のビルド・規約のみを扱う）�
 
 ## Build
 
-CMake が唯一のビルド手段（2026-08-19、`.vcxproj` は全削除済み。詳細は
-内部設計メモ Phase 5、親リポジトリ `../CLAUDE.md` の Build 節を参照）。
+CMake が唯一のビルド手段。**この `CGLib/` ディレクトリ自身がビルドのルート**であり、親
+ディレクトリのファイルは一切参照しない（`docs/standalone-repository-plan.md` M1、2026-09-03）。
+共通ビルドロジックは `cmake/`（`CGLibCommon.cmake` / `PhantomGTest.cmake` /
+`PhantomCoreLibs.cmake` / `PhantomVulkanApp.cmake`）に集約。
 
 ```powershell
-# リポジトリルートから、CGLib単体を設定・ビルド
-cmake -S CGLib -B CGLib/build_windows -DCMAKE_BUILD_TYPE=Debug
-cmake --build CGLib/build_windows
-
-# または、ルートの CMakePresets.json 経由でリポジトリ全体を一括ビルド
-cmake --preset windows-debug
+# CGLib ルートから、全モジュールを構成・ビルド・テスト
+cmake --preset windows-debug              # Vulkan SDK があれば Vulkan モジュールも自動 ON
 cmake --build --preset windows-debug
+ctest --preset windows-debug
+
+# CPU-only（Vulkan SDK 不要、Math/Graphics/Numerics/Space/Scene/File/Animation/Volume + tests）
+cmake --preset windows-cpu-debug
+cmake --build --preset windows-cpu-debug
+ctest --preset windows-cpu-debug
+
+# モジュール単独（各 <Module>/CMakeLists.txt 冒頭のコメント参照）
+cmake -S Space -B build/Space -DCMAKE_BUILD_TYPE=Debug && cmake --build build/Space
 ```
 
-ターゲット: `MathCore`, `MathTest`, `GraphicsCore`, `GraphicsTest`, `VulkanGraphicsCore`,
-`VulkanGraphicsTest`, `UIWidgetsCore`, `PugixmlCore`。
+主なオプション: `CGLIB_ENABLE_VULKAN`（SDK 自動検出、明示 ON で未検出時は `FATAL_ERROR`）、
+`CGLIB_BUILD_TESTING` / `CGLIB_BUILD_EXAMPLES` / `CGLIB_BUILD_VIEWERS` / `CGLIB_FETCH_GTEST`。
+GoogleTest は system → pinned FetchContent（`v1.15.2`）の順で解決。
+
+公開ターゲットには `CGLib::<Component>` alias（`CGLib::Math` / `CGLib::Graphics` /
+`CGLib::File` …）。`#include "CGLib/..."` はビルドツリーの転送ヘッダー
+（`<build>/_cglib_headers/`）で解決される（ソースは無改変）。
+
+主なターゲット: `MathCore`, `MathTest`, `GraphicsCore`, `GraphicsTest`, `NumericsCore`,
+`SpaceCore`, `SceneCore`, `FileCore`, `AnimationCore`, `VolumeCore`, `PugixmlCore`,
+`VulkanGraphicsCore`, `VulkanGraphicsTest`, `UIWidgetsCore`。
+
+> 私有の Phantom スーパープロジェクト側（`../CMakeLists.txt` が `CGLib/Numerics` 等を個別に
+> `add_subdirectory` する構成）は、この変更に追随した調整が別途必要。
 
 ## Tests
 
