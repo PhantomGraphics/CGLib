@@ -62,6 +62,26 @@ TEST(TerrainGenerator, ValidateRejectsNonFiniteFloats) {
     EXPECT_EQ(validate(s), TerrainError::InvalidSettings);
 }
 
+TEST(TerrainGenerator, ValidateRejectsFiniteValuesThatOverflowGenerationMath) {
+    TerrainSettings s = defaultSettings();
+    s.lacunarity = std::numeric_limits<float>::max();
+    EXPECT_EQ(validate(s), TerrainError::InvalidSettings);
+
+    s = defaultSettings();
+    s.width = std::numeric_limits<float>::max();
+    s.frequency = std::numeric_limits<float>::max();
+    EXPECT_EQ(validate(s), TerrainError::InvalidSettings);
+
+    s = defaultSettings();
+    s.width = std::numeric_limits<float>::denorm_min();
+    EXPECT_EQ(validate(s), TerrainError::InvalidSettings);
+
+    TerrainMesh mesh;
+    mesh.indices = {42};
+    EXPECT_EQ(generate(s, mesh), TerrainError::InvalidSettings);
+    EXPECT_EQ(mesh.indices, std::vector<uint32_t>({42}));
+}
+
 TEST(TerrainGenerator, ValidateRejectsFrequencyAndHeightScaleBounds) {
     TerrainSettings s = defaultSettings();
     s.frequency = 0.0f;

@@ -1,8 +1,10 @@
 #include "TerrainGenerator.h"
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstddef>
+#include <limits>
 
 namespace Phantom::Terrain {
 
@@ -139,6 +141,36 @@ TerrainError validate(const TerrainSettings& s) {
     }
     if (s.segmentsX > kMaxSegmentsPerAxis || s.segmentsZ > kMaxSegmentsPerAxis) {
         return TerrainError::MeshTooLarge;
+    }
+
+    // GradientNoise2D floors its coordinates and converts them to int. Ensure
+    // every octave stays inside that conversion range, and reject settings
+    // whose grid spacing or height slope would overflow the float arithmetic
+    // used for normals.
+    const double dx = static_cast<double>(s.width) / s.segmentsX;
+    const double dz = static_cast<double>(s.depth) / s.segmentsZ;
+    if (!(dx > 0.0) || !(dz > 0.0)) return TerrainError::InvalidSettings;
+
+    constexpr double kMaxNoiseCoordinate =
+        static_cast<double>(std::numeric_limits<int>::max()) - 2.0;
+    double maxNoiseCoordinate =
+        0.5 * std::max(static_cast<double>(s.width), static_cast<double>(s.depth)) *
+        static_cast<double>(s.frequency);
+    for (uint32_t octave = 0; octave < s.octaves; ++octave) {
+        if (!std::isfinite(maxNoiseCoordinate) || maxNoiseCoordinate > kMaxNoiseCoordinate) {
+            return TerrainError::InvalidSettings;
+        }
+        maxNoiseCoordinate *= static_cast<double>(s.lacunarity);
+    }
+
+    // Each gradient-noise sample is bounded by 2, hence normalized fBm is too.
+    // Keep height differences and the squared normal length representable.
+    const double maxAbsHeight = std::abs(static_cast<double>(s.heightOffset)) +
+                                2.0 * static_cast<double>(s.heightScale);
+    const double maxSlope = 2.0 * maxAbsHeight / std::min(dx, dz);
+    const double safeSlope = 0.5 * std::sqrt(static_cast<double>(std::numeric_limits<float>::max()));
+    if (!std::isfinite(maxAbsHeight) || !std::isfinite(maxSlope) || maxSlope > safeSlope) {
+        return TerrainError::InvalidSettings;
     }
 
     // Size math in 64-bit so a huge grid is rejected, never wrapped.
