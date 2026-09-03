@@ -115,6 +115,7 @@ add_subdirectory(File)
 add_subdirectory(Animation)
 add_subdirectory(Volume)
 add_subdirectory(Space)
+add_subdirectory(Terrain)
 
 # ---------------------------------------------------------------------------
 # Vulkan / GLFW modules
@@ -173,6 +174,7 @@ endif()
 set(CGLIB_ALIAS_MAP
     Math=MathCore  Graphics=GraphicsCore  Numerics=NumericsCore  Space=SpaceCore
     Scene=SceneCore  Volume=VolumeCore  File=FileCore  Animation=AnimationCore
+    Terrain=TerrainCore
     Pugixml=PugixmlCore
     VulkanGraphics=VulkanGraphicsCore  UI=UIWidgetsCore  VkAppBase=VkAppBaseCore
     VkRenderer=VkRendererCore  GltfRenderer=GltfRendererCore  VolumeRenderer=VolumeRenderer

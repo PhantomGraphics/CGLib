@@ -183,6 +183,21 @@ function(phantom_add_file_core)
     target_compile_features(FileCore PRIVATE cxx_std_20)
 endfunction()
 
+function(phantom_add_terrain_core)
+    if(TARGET TerrainCore)
+        return()
+    endif()
+    # CPU-only height-field terrain generation (Phantom::Terrain). Deliberately
+    # standalone -- no MathCore/GLM/Vulkan/JSON dependency (plan section 3.1);
+    # the seeded gradient noise is implemented in-module.
+    add_library(TerrainCore STATIC
+        ${CGLIB_ROOT}/Terrain/Terrain/TerrainGenerator.cpp
+    )
+    target_include_directories(TerrainCore PUBLIC ${REPO_ROOT})
+    target_compile_options(TerrainCore PRIVATE ${PHANTOM_WARN_FLAGS})
+    target_compile_features(TerrainCore PRIVATE cxx_std_20)
+endfunction()
+
 function(phantom_add_animation_core)
     if(TARGET AnimationCore)
         return()
