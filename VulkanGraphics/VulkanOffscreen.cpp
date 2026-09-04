@@ -85,7 +85,9 @@ bool VulkanOffscreen::create(const VulkanContext& ctx,
     depthAttach.format         = depthFormat;
     depthAttach.samples        = VK_SAMPLE_COUNT_1_BIT;
     depthAttach.loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    depthAttach.storeOp        = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    // Offscreen depth is commonly sampled by later passes (for example SSFR
+    // scene occlusion), so its contents must survive the render pass.
+    depthAttach.storeOp        = VK_ATTACHMENT_STORE_OP_STORE;
     depthAttach.stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     depthAttach.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     depthAttach.initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
