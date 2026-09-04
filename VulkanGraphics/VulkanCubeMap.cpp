@@ -138,7 +138,21 @@ bool VulkanCubeMap::create(const VulkanContext& ctx,
             std::fprintf(stderr, "[VKG] VulkanCubeMap: failed to load %s\n", facePaths[i].c_str());
             return false;
         }
-        if (i == 0) { faceW = w; faceH = h; }
+        if (i == 0) {
+            faceW = w;
+            faceH = h;
+            if (faceW <= 0 || faceH <= 0 || faceW != faceH) {
+                stbi_image_free(faceData[i]);
+                std::fprintf(stderr, "[VKG] VulkanCubeMap: faces must be non-empty square images\n");
+                return false;
+            }
+        } else if (w != faceW || h != faceH) {
+            for (int j = 0; j <= i; ++j) stbi_image_free(faceData[j]);
+            std::fprintf(stderr,
+                         "[VKG] VulkanCubeMap: face dimensions differ (%s is %dx%d, expected %dx%d)\n",
+                         facePaths[i].c_str(), w, h, faceW, faceH);
+            return false;
+        }
     }
 
     const VkDeviceSize faceBytes = static_cast<VkDeviceSize>(faceW) * faceH * 4;
@@ -155,6 +169,7 @@ bool VulkanCubeMap::create(const VulkanContext& ctx,
     VkDeviceMemory stagingMem = VK_NULL_HANDLE;
 
     if (vkCreateBuffer(device, &stagingBCI, nullptr, &stagingBuf) != VK_SUCCESS) {
+        for (auto* data : faceData) stbi_image_free(data);
         std::fprintf(stderr, "[VKG] VulkanCubeMap: staging buffer failed\n");
         return false;
     }
@@ -165,6 +180,7 @@ bool VulkanCubeMap::create(const VulkanContext& ctx,
     auto memType = ctx.findMemoryType(stagingReq.memoryTypeBits,
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     if (!memType) {
+        for (auto* data : faceData) stbi_image_free(data);
         vkDestroyBuffer(device, stagingBuf, nullptr);
         return false;
     }
@@ -175,6 +191,7 @@ bool VulkanCubeMap::create(const VulkanContext& ctx,
     stagingMAI.memoryTypeIndex = *memType;
 
     if (vkAllocateMemory(device, &stagingMAI, nullptr, &stagingMem) != VK_SUCCESS) {
+        for (auto* data : faceData) stbi_image_free(data);
         std::fprintf(stderr, "[VKG] VulkanCubeMap: staging memory failed\n");
         vkDestroyBuffer(device, stagingBuf, nullptr);
         return false;
@@ -223,7 +240,11 @@ bool VulkanCubeMap::create(const VulkanContext& ctx,
     vkDestroyBuffer(device, stagingBuf, nullptr);
     vkFreeMemory(device, stagingMem, nullptr);
 
-    return createViewAndSampler(device);
+    if (!createViewAndSampler(device)) {
+        destroy(device);
+        return false;
+    }
+    return true;
 }
 
 // ---------------------------------------------------------------------------

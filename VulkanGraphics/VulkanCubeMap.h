@@ -3,6 +3,7 @@
 #include <vulkan/vulkan.h>
 #include <array>
 #include <string>
+#include <utility>
 
 namespace Phantom::VKG {
 
@@ -31,6 +32,17 @@ public:
     bool createDummy(const VulkanContext& ctx, const VulkanCommandPool& pool);
 
     void destroy(VkDevice device);
+
+    /// Exchanges ownership of the Vulkan handles without destroying either map.
+    /// This supports transactional replacement: create a temporary map, bind its
+    /// handles, swap it into place, then destroy the old map now held by temp.
+    void swap(VulkanCubeMap& other) noexcept {
+        using std::swap;
+        swap(image_, other.image_);
+        swap(memory_, other.memory_);
+        swap(imageView_, other.imageView_);
+        swap(sampler_, other.sampler_);
+    }
 
     VkImageView getImageView() const { return imageView_; }
     VkSampler   getSampler()   const { return sampler_; }
