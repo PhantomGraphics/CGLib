@@ -16,6 +16,19 @@ void endMainMenuBar() { ImGui::EndMainMenuBar(); }
 bool beginMenu(const char* label) { return ImGui::BeginMenu(label); }
 void endMenu() { ImGui::EndMenu(); }
 bool menuItem(const char* label, bool selected) { return ImGui::MenuItem(label, nullptr, selected); }
+bool menuItem(const char* label, bool selected, bool enabled)
+{
+    return ImGui::MenuItem(label, nullptr, selected, enabled);
+}
+
+void tooltipOnHover(const char* text)
+{
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+        ImGui::SetTooltip("%s", text);
+}
+
+void beginDisabled(bool disabled) { ImGui::BeginDisabled(disabled); }
+void endDisabled() { ImGui::EndDisabled(); }
 
 void separator() { ImGui::Separator(); }
 void sameLine() { ImGui::SameLine(); }
@@ -56,6 +69,11 @@ bool combo(const char* label, int& current, const char* const items[], int itemC
     return ImGui::Combo(label, &current, items, itemCount);
 }
 bool collapsingHeader(const char* label) { return ImGui::CollapsingHeader(label); }
+bool collapsingHeader(const char* label, bool defaultOpen)
+{
+    return ImGui::CollapsingHeader(
+        label, defaultOpen ? ImGuiTreeNodeFlags_DefaultOpen : 0);
+}
 bool inputText(const char* label, char* buffer, std::size_t bufferSize)
 {
     return ImGui::InputText(label, buffer, bufferSize);

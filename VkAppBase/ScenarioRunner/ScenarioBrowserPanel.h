@@ -17,6 +17,16 @@ public:
 
     void onImGui() override;
 
+    // Content-only rendering for embedding into a host window (the caller has
+    // already called ImGui::Begin()). Runs the queue state machine and the
+    // one-time folder scan, then draws the controls without opening a window.
+    // onImGui() remains the standalone-window path.
+    void drawEmbedded();
+
+    // Advances the run-queue state machine. Call once per frame (the
+    // standalone onImGui() path does this itself).
+    void pumpQueue();
+
 private:
     struct Entry {
         std::string path;   // path passed to loadScenario()

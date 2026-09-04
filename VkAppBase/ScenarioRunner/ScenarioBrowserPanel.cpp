@@ -75,6 +75,10 @@ void ScenarioBrowserPanel::tickQueue() {
 
 // ---- rendering ----------------------------------------------------------
 
+void ScenarioBrowserPanel::pumpQueue() {
+    tickQueue();
+}
+
 void ScenarioBrowserPanel::onImGui() {
     tickQueue();
 
@@ -94,6 +98,18 @@ void ScenarioBrowserPanel::onImGui() {
     drawUI();
 
     ImGui::End();
+}
+
+void ScenarioBrowserPanel::drawEmbedded() {
+    // The queue state machine is pumped once per frame via pumpQueue() by the
+    // host app (so a queued run keeps advancing even when this page is not the
+    // one currently shown); do not tick it again here.
+    if (!initialized_) {
+        refresh();
+        initialized_ = true;
+    }
+
+    drawUI();
 }
 
 void ScenarioBrowserPanel::drawUI() {

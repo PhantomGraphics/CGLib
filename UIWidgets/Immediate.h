@@ -14,6 +14,16 @@ void endMainMenuBar();
 bool beginMenu(const char* label);
 void endMenu();
 bool menuItem(const char* label, bool selected = false);
+bool menuItem(const char* label, bool selected, bool enabled);
+
+// Shows a tooltip for the most recently submitted item while it is hovered
+// (including when that item was disabled via beginDisabled()).
+void tooltipOnHover(const char* text);
+
+// RAII-free disabled scope: widgets submitted between these calls are greyed
+// out and non-interactive. Calls must be balanced.
+void beginDisabled(bool disabled = true);
+void endDisabled();
 
 void separator();
 void sameLine();
@@ -30,6 +40,7 @@ bool button(const char* label);
 bool checkbox(const char* label, bool& value);
 bool combo(const char* label, int& current, const char* const items[], int itemCount);
 bool collapsingHeader(const char* label);
+bool collapsingHeader(const char* label, bool defaultOpen);
 bool inputText(const char* label, char* buffer, std::size_t bufferSize);
 bool sliderFloat(const char* label, float& value, float minimum, float maximum,
                  const char* format = "%.3f");
