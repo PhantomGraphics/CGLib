@@ -164,6 +164,7 @@ function(phantom_add_uiwidgets_core)
         ${CGLIB_ROOT}/UIWidgets/Row.cpp
         ${CGLIB_ROOT}/UIWidgets/Section.cpp
         ${CGLIB_ROOT}/UIWidgets/Separator.cpp
+        ${CGLIB_ROOT}/UIWidgets/Spacing.cpp
         ${CGLIB_ROOT}/UIWidgets/Sphere3dView.cpp
         ${CGLIB_ROOT}/UIWidgets/StringView.cpp
         ${CGLIB_ROOT}/UIWidgets/tinyfiledialogs.cpp

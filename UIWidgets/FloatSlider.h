@@ -34,6 +34,12 @@ public:
 		setter_ = std::move(setter);
 	}
 
+	/**
+	 * @brief 表示ラベルを毎フレーム供給する provider を登録する．
+	 *        ImGui の識別子は name のまま固定される（"provider()###name"）．
+	 */
+	void setLabelProvider(std::function<std::string()> fn) { labelProvider_ = std::move(fn); }
+
 	void onShow() override;
 
 private:
@@ -43,6 +49,7 @@ private:
 	std::string format_;
 	std::function<float()> getter_;
 	std::function<void(float)> setter_;
+	std::function<std::string()> labelProvider_;
 };
 
 	}
