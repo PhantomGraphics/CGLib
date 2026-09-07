@@ -14,5 +14,8 @@ BoolView::BoolView(const std::string& name, const bool value) :
 
 void BoolView::onShow()
 {
-	ImGui::Checkbox(name.c_str(), &value);
+	if (getter_) value = getter_();
+	if (ImGui::Checkbox(name.c_str(), &value)) {
+		if (setter_) setter_(value);
+	}
 }

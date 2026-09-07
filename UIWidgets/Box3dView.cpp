@@ -31,3 +31,16 @@ void Box3dView::setValue(const Box3df& value)
 	minView.setValue(value.getMin());
 	maxView.setValue(value.getMax());
 }
+
+void Box3dView::onShow()
+{
+	if (getter_) setValue(getter_());
+
+	const Box3df before = getValue();
+	IView::onShow();
+	const Box3df after = getValue();
+
+	if (setter_ && (before.getMin() != after.getMin() || before.getMax() != after.getMax())) {
+		setter_(after);
+	}
+}
