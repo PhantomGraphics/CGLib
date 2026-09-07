@@ -2,6 +2,8 @@
 
 #include "IWindow.h"
 
+#include <string>
+
 namespace Phantom {
 	namespace UI {
 
@@ -10,6 +12,8 @@ namespace Phantom {
  *
  * ImGui の MenuItem に対応する．
  * 項目が選択されたとき onPushed() が呼ばれる．
+ * 選択状態・有効状態・ツールチップは派生クラスが仮想フックで供給する
+ * （既定は「非選択・有効・ツールチップなし」）．
  * 具体的な処理は派生クラス（MenuItem）で実装する．
  */
 class IMenuItem : public IWindow
@@ -36,6 +40,15 @@ protected:
 	 * @brief メニュー項目が選択されたときに呼ばれる純粋仮想関数．
 	 */
 	virtual void onPushed() = 0;
+
+	/** @brief チェックマークを付けるか（既定 false）． */
+	virtual bool isSelected() const { return false; }
+
+	/** @brief 選択可能か（false なら淡色・非操作、既定 true）． */
+	virtual bool isEnabled() const { return true; }
+
+	/** @brief ホバー時のツールチップ文字列（空でツールチップなし）． */
+	virtual std::string tooltipText() const { return {}; }
 
 private:
 };
