@@ -32,8 +32,8 @@ static bool tryFloat(const std::string& s, float& out) {
 }
 
 // Walks up from the running executable's directory until it finds
-// "Phantom2026.sln", so scenario JSON files can reference repo-relative
-// paths via ${repo_root} instead of hardcoding a machine-specific absolute
+// "CMakePresets.json" (standalone C++ tree) or "Phantom2026.sln" (WPF tree),
+// so scenario JSON files can reference paths via ${repo_root} instead of an absolute
 // path (mirrors the same sentinel-file lookup the run_*_scenarios.ps1
 // runners use).
 static std::string detectRepoRoot() {
@@ -50,7 +50,8 @@ static std::string detectRepoRoot() {
 
     std::error_code ec;
     for (std::filesystem::path cur = dir; !cur.empty(); ) {
-        if (std::filesystem::exists(cur / "Phantom2026.sln", ec))
+        if (std::filesystem::exists(cur / "CMakePresets.json", ec) ||
+            std::filesystem::exists(cur / "Phantom2026.sln", ec))
             return cur.generic_string();
         std::filesystem::path parent = cur.parent_path();
         if (parent == cur) break;
