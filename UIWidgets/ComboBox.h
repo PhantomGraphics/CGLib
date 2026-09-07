@@ -3,6 +3,7 @@
 #include "IWindow.h"
 #include <vector>
 #include <string>
+#include <functional>
 
 namespace Phantom {
 	namespace UI {
@@ -57,9 +58,33 @@ public:
 		selectedIndex = index >= 0 && index < static_cast<int>(items.size()) ? index : -1;
 	}
 
+	/**
+	 * @brief 現在の選択インデックスを返す（未選択なら -1）．
+	 */
+	int getSelectedIndex() const { return selectedIndex; }
+
+	/**
+	 * @brief モデルとの binding を登録する（宣言的構成用）．
+	 * @param getter 描画時に呼び，選択すべきインデックスを返す（状態は変更しない）．
+	 * @param setter ユーザーが別の項目を選んだときだけ呼ばれる．
+	 */
+	void bind(std::function<int()> getter, std::function<void(int)> setter) {
+		indexGetter_ = std::move(getter);
+		indexSetter_ = std::move(setter);
+	}
+
+	/**
+	 * @brief 選択が変化したときに呼ばれるコールバックを登録する．
+	 *        bind() の setter と併用可（両方呼ばれる）．
+	 */
+	void setOnChange(std::function<void(int)> fn) { onChange_ = std::move(fn); }
+
 private:
 	std::vector<std::string> items; ///< 選択肢のリスト．
 	int selectedIndex = -1; ///< 現在選択中の項目。文字列ポインターの無効化を避けるため添字で保持する。
+	std::function<int()> indexGetter_;      ///< 任意のモデル getter．
+	std::function<void(int)> indexSetter_;  ///< 任意のモデル setter（変更時のみ）．
+	std::function<void(int)> onChange_;     ///< 任意の変更通知．
 };
 
 	}

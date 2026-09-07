@@ -2,6 +2,7 @@
 
 #include <string>
 #include <list>
+#include <functional>
 #include "../Util/UnCopyable.h"
 
 namespace Phantom {
@@ -40,9 +41,23 @@ public:
 	void clear() { children.clear(); }
 
 	/**
-	 * @brief このウィジェットを描画する．onShow() を呼び出す．
+	 * @brief このウィジェットを描画する．
+	 *
+	 * 表示条件（setVisibleWhen()）が登録されていて偽を返す場合は onShow() を
+	 * 呼ばずに何も描画しない．条件が未登録なら常に描画する（既定動作）．
+	 * 条件は構築時に一度だけ登録し，毎フレームこの場で評価される（状態は変更しない）．
 	 */
-	void show() { onShow(); }
+	void show() {
+		if (visibleWhen_ && !visibleWhen_()) return;
+		onShow();
+	}
+
+	/**
+	 * @brief 表示条件を登録する（宣言的構成用）．
+	 * @param fn 真を返すと描画，偽を返すと当該フレームは描画しない述語．
+	 *           nullptr を渡すと条件を解除する（常に描画）．
+	 */
+	void setVisibleWhen(std::function<bool()> fn) { visibleWhen_ = std::move(fn); }
 
 	/**
 	 * @brief 派生クラスで実装する描画処理．
@@ -55,6 +70,7 @@ public:
 protected:
 	std::string name;           ///< ウィジェットのラベル文字列．
 	std::list<IWindow*> children; ///< 子ウィジェットリスト（所有権なし）．
+	std::function<bool()> visibleWhen_; ///< 任意の表示条件．未設定なら常に描画．
 };
 
 	}

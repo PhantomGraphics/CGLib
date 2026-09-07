@@ -6,5 +6,8 @@ using namespace Phantom::UI;
 
 void IntView::onShow()
 {
-	ImGui::InputInt(name.c_str(), &value);
+	if (getter_) value = getter_();
+	if (ImGui::InputInt(name.c_str(), &value)) {
+		if (setter_) setter_(value);
+	}
 }

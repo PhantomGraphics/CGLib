@@ -147,6 +147,7 @@ function(phantom_add_uiwidgets_core)
         ${CGLIB_ROOT}/UIWidgets/IMenu.cpp
         ${CGLIB_ROOT}/UIWidgets/IMenuItem.cpp
         ${CGLIB_ROOT}/UIWidgets/IntView.cpp
+        ${CGLIB_ROOT}/UIWidgets/Label.cpp
         ${CGLIB_ROOT}/UIWidgets/Line3dView.cpp
         ${CGLIB_ROOT}/UIWidgets/Matrix2dView.cpp
         ${CGLIB_ROOT}/UIWidgets/Matrix3dView.cpp
@@ -154,6 +155,8 @@ function(phantom_add_uiwidgets_core)
         ${CGLIB_ROOT}/UIWidgets/Panel.cpp
         ${CGLIB_ROOT}/UIWidgets/Ray3dView.cpp
         ${CGLIB_ROOT}/UIWidgets/Rect3dView.cpp
+        ${CGLIB_ROOT}/UIWidgets/Row.cpp
+        ${CGLIB_ROOT}/UIWidgets/Section.cpp
         ${CGLIB_ROOT}/UIWidgets/Sphere3dView.cpp
         ${CGLIB_ROOT}/UIWidgets/StringView.cpp
         ${CGLIB_ROOT}/UIWidgets/tinyfiledialogs.cpp
