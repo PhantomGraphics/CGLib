@@ -147,6 +147,14 @@ namespace Phantom::Gltf
         // pass the same lightVP used for renderShadowCasters().
         void setShadowMap(VkImageView shadowView, VkSampler shadowSampler, const glm::mat4& lightVP);
         void clearShadowMap(); // disables shadowing, reverts to the fallback "always lit" texture
+
+        // Update only the light view-projection the main PBR pass samples the shadow
+        // map with (no descriptor write, unlike setShadowMap()). For callers that
+        // animate the light direction per frame and re-render the shadow caster
+        // pass with a matching lightVP -- safe to call every frame while frames are
+        // in flight. No-op-safe before setShadowMap() (the matrix just feeds the
+        // per-frame UBO in onUpdate()).
+        void setShadowLightVP(const glm::mat4& lightVP) { shadowVP_ = lightVP; }
         void setShadowParams(float bias, float strength) { shadowBias_ = bias; shadowStrength_ = strength; }
 
         // --- Stats ---
