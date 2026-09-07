@@ -137,9 +137,9 @@ namespace Phantom::Gltf
         void createShadowPipeline(VkRenderPass shadowRenderPass);
         bool hasShadowPipeline() const { return shadowPipeline_.getPipeline() != VK_NULL_HANDLE; }
 
-        // Draws every primitive's position-only geometry (already world-space baked, see
-        // GlobalUBO::model comment) through the shadow-caster pipeline via a push-constant
-        // lightVP. Must be called between a ShadowMapPass's begin()/end(). No-op if
+        // Draws every primitive's position-only geometry through the shadow-caster
+        // pipeline using the same per-instance model matrix as the PBR pass. Must be
+        // called between a ShadowMapPass's begin()/end(). No-op if
         // createShadowPipeline() was never called or found no shadow shaders.
         void renderShadowCasters(VkCommandBuffer cmd, const glm::mat4& lightVP);
 

@@ -68,7 +68,14 @@ bool VulkanImage::create(const VulkanContext& ctx,
         return false;
     }
 
-    vkBindImageMemory(ctx.getDevice(), image, memory, 0);
+    if (vkBindImageMemory(ctx.getDevice(), image, memory, 0) != VK_SUCCESS) {
+        std::fprintf(stderr, "[VKG] Failed to bind image memory\n");
+        vkFreeMemory(ctx.getDevice(), memory, nullptr);
+        vkDestroyImage(ctx.getDevice(), image, nullptr);
+        memory = VK_NULL_HANDLE;
+        image  = VK_NULL_HANDLE;
+        return false;
+    }
     return true;
 }
 

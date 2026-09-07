@@ -9,6 +9,7 @@
 #include <glm/gtc/quaternion.hpp>
 
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <cmath>
 #include <cstdio>
@@ -496,7 +497,8 @@ void GltfSceneRenderer::createShadowPipeline(VkRenderPass shadowRenderPass)
 
     cfg.cullMode    = VK_CULL_MODE_NONE; // avoid peter-panning on thin/back-facing casters
     cfg.blendEnable = false;
-    cfg.pushConstantRanges = { VkPushConstantRange{ VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4) } };
+    cfg.pushConstantRanges = { VkPushConstantRange{
+        VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4) * 2 } };
 
     shadowPipeline_.create(*ctx_, shadowRenderPass, cfg);
 }
@@ -507,8 +509,9 @@ void GltfSceneRenderer::renderShadowCasters(VkCommandBuffer cmd, const glm::mat4
         return;
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, shadowPipeline_.getPipeline());
+    const std::array<glm::mat4, 2> push{ lightVP, modelMatrix_ };
     vkCmdPushConstants(cmd, shadowPipeline_.getLayout(), VK_SHADER_STAGE_VERTEX_BIT,
-                       0, sizeof(glm::mat4), &lightVP);
+                       0, sizeof(push), push.data());
 
     for (auto& entry : primitives_) {
         VkBuffer     vbuf   = entry->mesh.vertexBuffer();
