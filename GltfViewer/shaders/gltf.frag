@@ -184,10 +184,10 @@ void main() {
 
     vec3 color = ambient + Lo + emissive;
 
-    // Tone mapping (Reinhard)
+    // Tone mapping (Reinhard). Output stays linear: the swapchain attachment is an
+    // sRGB format (VK_FORMAT_B8G8R8A8_SRGB), so the hardware applies the linear->sRGB
+    // OETF on store. Doing pow(1/2.2) here as well double-encoded the gamma.
     color = color / (color + vec3(1.0));
-    // Gamma correction
-    color = pow(color, vec3(1.0 / 2.2));
 
     outColor = vec4(color, baseColor.a);
 }
