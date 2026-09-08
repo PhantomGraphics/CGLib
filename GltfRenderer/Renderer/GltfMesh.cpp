@@ -121,9 +121,10 @@ bool GltfGpuMesh::build(const Phantom::VKG::VulkanContext& ctx, const Phantom::V
         vertices.data());
 
     bakeTransform_ = worldTransform;
-    // Only morphed primitives ever call updatePositions(), so only they pay for keeping a CPU
-    // mirror of the vertex array around after upload.
-    if (!prim.targets.empty())
+    // Only primitives that will be updated at runtime -- morph targets, or an explicit
+    // setKeepCpuVertices(true) for a deforming mesh -- pay for keeping a CPU mirror of the
+    // vertex array around after upload.
+    if (!prim.targets.empty() || keepCpuVertices_)
         vertices_ = std::move(vertices);
 
     if (prim.indicesAccessor >= 0) {
@@ -169,6 +170,26 @@ bool GltfGpuMesh::updatePositions(const Phantom::VKG::VulkanContext& ctx, const 
 
     for (size_t i = 0; i < vertices_.size(); ++i)
         vertices_[i].position = glm::vec3(bakeTransform_ * glm::vec4(positions[i], 1.f));
+
+    return vertexBuffer_.upload(ctx, pool, vertices_.data(), vertices_.size() * sizeof(Vertex));
+}
+
+bool GltfGpuMesh::updatePositionsAndNormals(const Phantom::VKG::VulkanContext& ctx, const Phantom::VKG::VulkanCommandPool& pool,
+                                            const std::vector<glm::vec3>& positions, const std::vector<glm::vec3>& normals)
+{
+    if (vertices_.empty() || positions.size() != vertices_.size() || normals.size() != vertices_.size()) {
+        std::fprintf(stderr, "[GltfMesh] updatePositionsAndNormals: size mismatch (got %zu/%zu, expected %zu)\n",
+                     positions.size(), normals.size(), vertices_.size());
+        return false;
+    }
+
+    const glm::mat3 normalMatrix = glm::transpose(glm::inverse(glm::mat3(bakeTransform_)));
+    for (size_t i = 0; i < vertices_.size(); ++i) {
+        vertices_[i].position = glm::vec3(bakeTransform_ * glm::vec4(positions[i], 1.f));
+        const glm::vec3 n = normalMatrix * normals[i];
+        const float len = glm::length(n);
+        vertices_[i].normal = (len > 1e-8f) ? (n / len) : glm::vec3(0.f, 1.f, 0.f);
+    }
 
     return vertexBuffer_.upload(ctx, pool, vertices_.data(), vertices_.size() * sizeof(Vertex));
 }

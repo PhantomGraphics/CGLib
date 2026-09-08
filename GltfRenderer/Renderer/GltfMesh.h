@@ -30,6 +30,12 @@ namespace Phantom::Gltf
             static std::vector<VkVertexInputAttributeDescription> getAttributeDescriptions();
         };
 
+        // Keep the CPU-side vertex mirror even for a primitive with no morph targets, so
+        // updatePositions()/updatePositionsAndNormals() can be used on it. Call before build().
+        // Used by GltfSceneRenderer::setDynamic() for deforming meshes (e.g. PhysicsView's
+        // soft bodies -- docs/todo/PLAN_physicsview_gltf_rendering.md Phase 3).
+        void setKeepCpuVertices(bool v) { keepCpuVertices_ = v; }
+
         // Returns false (no GPU resources created) if the primitive has no POSITION accessor.
         bool build(const Phantom::VKG::VulkanContext& ctx, const Phantom::VKG::VulkanCommandPool& pool,
             const GltfDocument& doc, const GltfPrimitive& prim,
@@ -45,6 +51,15 @@ namespace Phantom::Gltf
         // Returns false (no-op) if build() was never called or positions.size() mismatches.
         bool updatePositions(const Phantom::VKG::VulkanContext& ctx, const Phantom::VKG::VulkanCommandPool& pool,
             const std::vector<glm::vec3>& positions);
+
+        // Like updatePositions(), but also rewrites the normal attribute -- for a deforming mesh
+        // whose per-vertex normals are recomputed on the CPU every frame (the fixed build()-time
+        // normals of updatePositions() go stale as the mesh bends). Requires the CPU mirror
+        // (morph targets or setKeepCpuVertices(true)). Both arrays must match build()'s vertex
+        // count. The same worldTransform build() baked is re-applied (positions) along with its
+        // normal matrix (normals).
+        bool updatePositionsAndNormals(const Phantom::VKG::VulkanContext& ctx, const Phantom::VKG::VulkanCommandPool& pool,
+            const std::vector<glm::vec3>& positions, const std::vector<glm::vec3>& normals);
 
         VkBuffer    vertexBuffer() const { return vertexBuffer_.get(); }
         VkBuffer    indexBuffer()  const { return indexBuffer_.get(); }
@@ -66,6 +81,7 @@ namespace Phantom::Gltf
         // this primitive has morph targets.
         std::vector<Vertex> vertices_;
         glm::mat4            bakeTransform_ = glm::mat4(1.f); // worldTransform build() applied
+        bool                keepCpuVertices_ = false;        // see setKeepCpuVertices()
     };
 
 }

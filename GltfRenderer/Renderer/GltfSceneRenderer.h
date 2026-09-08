@@ -59,6 +59,18 @@ namespace Phantom::Gltf
         // SPIR-V module (VUID-VkShaderModuleCreateInfo-codeSize-01085).
         void setShaders(Shaders s) { shaders_ = std::move(s); }
 
+        // Mark every primitive of this document as runtime-deformable: keep the CPU vertex
+        // mirror so updateMorphedGeometry() works even without morph targets. Call before
+        // onInit()/loadDocument(). Used by PhysicsView's soft-body renderer (docs/todo/
+        // PLAN_physicsview_gltf_rendering.md Phase 3).
+        void setDynamic(bool v) { dynamic_ = v; }
+
+        // Face-culling mode of the main PBR pipeline. Defaults to VK_CULL_MODE_BACK_BIT
+        // (unchanged for every existing caller). PhysicsView's soft bodies keep the default
+        // and instead double-wind + view-flip the normal in the fragment shader; this hook
+        // exists for callers that would rather disable culling. Call before onInit().
+        void setCullMode(VkCullModeFlags m) { cullMode_ = m; }
+
         // --- IVkSubRenderer ---
         void onInit(Phantom::VKG::VulkanContext& ctx, const Phantom::VKG::VulkanCommandPool& pool,
             VkRenderPass rp, uint32_t framesInFlight) override;
@@ -112,6 +124,12 @@ namespace Phantom::Gltf
         // built primitive matches meshIndex/primIndex (e.g. it has no POSITION accessor, or the
         // document hasn't been loaded through onInit()/loadDocument() yet).
         bool updateMorphedPositions(int meshIndex, int primIndex, const std::vector<glm::vec3>& positions);
+
+        // Position + CPU-recomputed normal update for a deforming primitive (setDynamic(true)
+        // or morph targets). Same semantics as updateMorphedPositions() otherwise.
+        bool updateMorphedGeometry(int meshIndex, int primIndex,
+                                   const std::vector<glm::vec3>& positions,
+                                   const std::vector<glm::vec3>& normals);
 
         // --- Camera input handlers ---
         void handleMouseButton(bool pressed);
@@ -167,6 +185,8 @@ namespace Phantom::Gltf
         Shaders             shaders_;
         bool                ready_ = false;
         bool                visible_ = true;
+        bool                dynamic_ = false;
+        VkCullModeFlags     cullMode_ = VK_CULL_MODE_BACK_BIT;
         const GltfDocument* doc_ = nullptr;
         VkExtent2D          extent_ = { 1280, 720 };
 

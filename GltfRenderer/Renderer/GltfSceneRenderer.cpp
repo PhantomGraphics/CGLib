@@ -418,6 +418,7 @@ void GltfSceneRenderer::traverseNode(const GltfDocument& doc, int nodeIndex,
             entry->materialIndex = prim.materialIndex;
             entry->meshIndex     = node.meshIndex;
             entry->primIndex     = primIdx;
+            entry->mesh.setKeepCpuVertices(dynamic_);
             if (entry->mesh.build(ctx, pool, doc, prim, bakeTransform))
                 primitives_.push_back(std::move(entry));
         }
@@ -469,6 +470,7 @@ void GltfSceneRenderer::onInit(Phantom::VKG::VulkanContext& ctx, const Phantom::
     }
     cfg.descriptorSetLayouts = { globalSetLayout_.get(), materialSetLayout_.get() };
     cfg.blendEnable          = false;
+    cfg.cullMode             = cullMode_;
     pipeline_.create(ctx, renderPass, cfg);
 
     // Document-specific resources: only if a document was already set.
@@ -615,6 +617,18 @@ bool GltfSceneRenderer::updateMorphedPositions(int meshIndex, int primIndex, con
     for (auto& entry : primitives_) {
         if (entry->meshIndex == meshIndex && entry->primIndex == primIndex)
             return entry->mesh.updatePositions(*ctx_, *pool_, positions);
+    }
+    return false;
+}
+
+bool GltfSceneRenderer::updateMorphedGeometry(int meshIndex, int primIndex,
+                                              const std::vector<glm::vec3>& positions,
+                                              const std::vector<glm::vec3>& normals)
+{
+    if (!ready_ || !ctx_ || !pool_) return false;
+    for (auto& entry : primitives_) {
+        if (entry->meshIndex == meshIndex && entry->primIndex == primIndex)
+            return entry->mesh.updatePositionsAndNormals(*ctx_, *pool_, positions, normals);
     }
     return false;
 }
