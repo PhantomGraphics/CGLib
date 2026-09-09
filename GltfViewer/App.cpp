@@ -11,6 +11,7 @@
 #include "../../CGLib/VulkanGraphics/VulkanSPVResolver.h"
 #include "../../CGLib/VulkanGraphics/VulkanContext.h"
 #include "../../CGLib/VulkanGraphics/VulkanCommandPool.h"
+#include "../../CGLib/ThirdParty/tinyfiledialogs/tinyfiledialogs.h"
 #include "../../CGLib/UIWidgets/FileOpenDialog.h"
 #include "imgui.h"
 
@@ -79,9 +80,6 @@ App::App(const std::filesystem::path& gltfPath)
 
     panel_.setRenderer(&renderer_);
     panel_.setFilePath(gltfPath);
-    panel_.setOnFileOpen([this](const std::filesystem::path& p) {
-        pendingPath_ = p;
-    });
     panel_.setVrmState(&vrm_);
     panel_.setOnVrmExpressionChanged([this](int index, float weight) {
         setVrmExpressionWeight(index, weight);
@@ -451,6 +449,13 @@ void App::drawMainMenuBar() {
 
     if (ImGui::BeginMenu("File")) {
         if (ImGui::MenuItem("Open...")) {
+#ifdef _WIN32
+            const wchar_t* filters[] = { L"*.gltf", L"*.glb", L"*.vrm", L"*.obj", L"*.stl" };
+            const wchar_t* fileName = tinyfd_openFileDialogW(
+                L"Open glTF", L"", 5, filters, nullptr, 0);
+            if (fileName != nullptr && *fileName != L'\0')
+                pendingPath_ = std::filesystem::path(fileName);
+#else
             Phantom::UI::FileOpenDialog dlg("Open glTF");
             dlg.addFilter("*.gltf");
             dlg.addFilter("*.glb");
@@ -458,8 +463,9 @@ void App::drawMainMenuBar() {
             dlg.addFilter("*.obj");
             dlg.addFilter("*.stl");
             dlg.show();
-            const auto path = dlg.getFilePath();
-            if (!path.empty()) pendingPath_ = path;
+            const auto fileName = dlg.getFileName();
+            if (!fileName.empty()) pendingPath_ = std::filesystem::path(fileName);
+#endif
         }
         ImGui::Separator();
         if (ImGui::MenuItem("Quit")) getWindow().close();
