@@ -164,6 +164,8 @@ GltfDocument GltfReader::load(const Phantom::File::GLTFFile& src, const std::fil
         GltfNode node;
         node.name      = sn.name;
         node.meshIndex = sn.meshIndex;
+        node.cameraIndex = sn.cameraIndex;
+        node.lightIndex = sn.lightIndex;
         node.skin      = sn.skin;
         node.children  = sn.children;
         node.hasMatrix = sn.hasMatrix;
@@ -176,6 +178,11 @@ GltfDocument GltfReader::load(const Phantom::File::GLTFFile& src, const std::fil
         node.weights     = sn.morphWeights;
         doc.nodes.push_back(std::move(node));
     }
+
+    for (const auto& camera : src.cameras)
+        doc.cameras.push_back({camera.name, camera.type});
+    for (const auto& light : src.lights)
+        doc.lights.push_back({light.name, light.type});
 
     for (const auto& sk : src.skins) {
         GltfSkin skin;

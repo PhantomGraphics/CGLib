@@ -9,13 +9,12 @@
 
 namespace Phantom::Gltf {
 
-    class GltfSceneRenderer;
-
     class ControlPanel : public ::VKG::IVkUIPanel {
     public:
         ControlPanel();
-        void setRenderer(GltfSceneRenderer* r) { renderer_ = r; }
         void setFilePath(const std::filesystem::path& p) { filePath_ = p; }
+        void setVisible(bool visible) { visible_ = visible; }
+        bool isVisible() const { return visible_; }
         // Non-owning; caller (GltfViewerApp) must keep the pointee alive and update it on every
         // load (including back to a default-constructed VrmViewState for a non-VRM file) --
         // panel just reads through it each frame. Pass nullptr to hide the VRM section entirely.
@@ -23,17 +22,12 @@ namespace Phantom::Gltf {
         void setOnVrmExpressionChanged(std::function<void(int, float)> cb) { onVrmExpressionChanged_ = std::move(cb); }
         void onImGui() override;
     private:
-        GltfSceneRenderer* renderer_ = nullptr;
         std::filesystem::path filePath_;
+        bool visible_ = true;
 
         const VrmViewState* vrmState_ = nullptr;
         std::function<void(int, float)> onVrmExpressionChanged_;
 
-        // Light state
-        glm::vec3 lightPos_ = { 1.f, 2.f, 1.f };
-        glm::vec3 lightColor_ = { 1.f, 1.f, 1.f };
-        float     lightIntensity_ = 3.f;
-        bool      useIBL_ = true;
     };
 
 }

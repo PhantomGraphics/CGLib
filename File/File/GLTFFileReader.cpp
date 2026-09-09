@@ -232,6 +232,25 @@ bool GLTFFileReader::read(const std::filesystem::path& filename)
 		gltf.images.push_back(std::move(img));
 	}
 
+  // Cameras and punctual lights
+	for (cgltf_size ci = 0; ci < data->cameras_count; ++ci) {
+		const cgltf_camera& camera = data->cameras[ci];
+		GLTFCamera out;
+		out.name = camera.name ? camera.name : "";
+		out.type = camera.type == cgltf_camera_type_perspective ? "Perspective"
+		         : camera.type == cgltf_camera_type_orthographic ? "Orthographic" : "Unknown";
+		gltf.cameras.push_back(std::move(out));
+	}
+	for (cgltf_size li = 0; li < data->lights_count; ++li) {
+		const cgltf_light& light = data->lights[li];
+		GLTFLight out;
+		out.name = light.name ? light.name : "";
+		out.type = light.type == cgltf_light_type_directional ? "Directional"
+		         : light.type == cgltf_light_type_point ? "Point"
+		         : light.type == cgltf_light_type_spot ? "Spot" : "Unknown";
+		gltf.lights.push_back(std::move(out));
+	}
+
   // Nodes
 	for (cgltf_size ni = 0; ni < data->nodes_count; ++ni) {
 		const cgltf_node& cnode = data->nodes[ni];
@@ -272,6 +291,8 @@ bool GLTFFileReader::read(const std::filesystem::path& filename)
 		if (cnode.skin) {
 			node.skin = static_cast<int>(cnode.skin - data->skins);
 		}
+		if (cnode.camera) node.cameraIndex = static_cast<int>(cnode.camera - data->cameras);
+		if (cnode.light) node.lightIndex = static_cast<int>(cnode.light - data->lights);
 		for (cgltf_size ci = 0; ci < cnode.children_count; ++ci) {
 			node.children.push_back(static_cast<int>(cnode.children[ci] - data->nodes));
 		}

@@ -148,6 +148,8 @@ namespace Phantom::Gltf
     struct GltfNode {
         std::string       name;
         int               meshIndex = -1;
+        int               cameraIndex = -1;
+        int               lightIndex = -1;
         int               skin = -1; // index into GltfDocument::skins, -1 = not skinned
         std::vector<int>  children;
         // Transform (either matrix or TRS)
@@ -158,6 +160,9 @@ namespace Phantom::Gltf
         glm::vec3 scale = { 1.f, 1.f, 1.f };
         std::vector<float> weights; // overrides GltfMesh::weights when non-empty
     };
+
+    struct GltfCamera { std::string name; std::string type; };
+    struct GltfLight { std::string name; std::string type; };
 
     // A skin binds a mesh to a set of joint nodes for GPU skinning. joints[i]'s
     // inverseBindMatrices[i] transforms a vertex from bind-pose mesh space into joint i's local

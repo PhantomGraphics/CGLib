@@ -78,14 +78,17 @@ App::App(const std::filesystem::path& gltfPath)
     scenarioBrowser_.setHost(this);
     scenarioBrowser_.setDefaultFolder("scenarios");
 
-    panel_.setRenderer(&renderer_);
     panel_.setFilePath(gltfPath);
+    sceneGraphPanel_.setDocument(&doc_);
+    viewPanel_.setRenderer(&renderer_);
     panel_.setVrmState(&vrm_);
     panel_.setOnVrmExpressionChanged([this](int index, float weight) {
         setVrmExpressionWeight(index, weight);
     });
     add(&renderer_);
     add(&panel_);
+    add(&sceneGraphPanel_);
+    add(&viewPanel_);
     //add(&console_);
     add(&scenarioBrowser_);
 }
@@ -473,11 +476,34 @@ void App::drawMainMenuBar() {
     }
 
     if (ImGui::BeginMenu("View")) {
+        bool viewVisible = viewPanel_.isVisible();
+        if (ImGui::MenuItem("View Settings", nullptr, viewVisible))
+            viewPanel_.setVisible(!viewVisible);
+        ImGui::Separator();
         if (ImGui::MenuItem("Reset Camera")) frameCameraToDocument();
 
         bool useIBL = renderer_.getUseIBL() != 0;
         if (ImGui::MenuItem("Use IBL", nullptr, useIBL)) renderer_.setUseIBL(!useIBL);
 
+        ImGui::EndMenu();
+    }
+
+    if (ImGui::BeginMenu("Window")) {
+        bool controlVisible = panel_.isVisible();
+        if (ImGui::MenuItem("Control", nullptr, controlVisible))
+            panel_.setVisible(!controlVisible);
+
+        bool viewVisible = viewPanel_.isVisible();
+        if (ImGui::MenuItem("View", nullptr, viewVisible))
+            viewPanel_.setVisible(!viewVisible);
+
+        bool sceneGraphVisible = sceneGraphPanel_.isVisible();
+        if (ImGui::MenuItem("Scene Graph", nullptr, sceneGraphVisible))
+            sceneGraphPanel_.setVisible(!sceneGraphVisible);
+
+        bool scenarioVisible = scenarioBrowser_.isVisible();
+        if (ImGui::MenuItem("Scenario Browser", nullptr, scenarioVisible))
+            scenarioBrowser_.setVisible(!scenarioVisible);
         ImGui::EndMenu();
     }
 

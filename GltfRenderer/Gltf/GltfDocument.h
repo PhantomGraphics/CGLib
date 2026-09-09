@@ -18,6 +18,8 @@ struct GltfDocument {
     std::vector<GltfMaterial>   materials;
     std::vector<GltfMesh>       meshes;
     std::vector<GltfNode>       nodes;
+    std::vector<GltfCamera>     cameras;
+    std::vector<GltfLight>      lights;
     std::vector<GltfScene>      scenes;
     std::vector<GltfSkin>       skins;
     std::vector<GltfAnimation>  animations;

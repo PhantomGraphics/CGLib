@@ -7,6 +7,8 @@
 #include "../GltfRenderer/Renderer/GltfSceneRenderer.h"
 #include "CommandDispatcher.h"
 #include "ControlPanel.h"
+#include "SceneGraphPanel.h"
+#include "ViewPanel.h"
 #include "VrmViewState.h"
 #include <vulkan/vulkan.h>
 #include <filesystem>
@@ -55,6 +57,8 @@ namespace Phantom::Gltf {
         VrmViewState              vrm_;
         GltfSceneRenderer        renderer_;
         ControlPanel          panel_;
+        SceneGraphPanel       sceneGraphPanel_;
+        ViewPanel             viewPanel_;
         CommandDispatcher    dispatcher_;
         ScenarioRunner           runner_;
         //ScenarioConsole          console_;

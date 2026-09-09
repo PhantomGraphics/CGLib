@@ -104,10 +104,15 @@ namespace Phantom {
 		bool hasMatrix = false;
 		std::array<float, 16> matrix = { 1.f,0.f,0.f,0.f, 0.f,1.f,0.f,0.f, 0.f,0.f,1.f,0.f, 0.f,0.f,0.f,1.f };
 		int meshIndex = -1;
+		int cameraIndex = -1;
+		int lightIndex = -1;
 		int skin = -1;
 		std::vector<int> children;
 		std::vector<float> morphWeights; // overrides GLTFMesh::morphWeights when non-empty
 	};
+
+	struct GLTFCamera { std::string name; std::string type; };
+	struct GLTFLight { std::string name; std::string type; };
 
 	struct GLTFScene
 	{
@@ -124,6 +129,8 @@ namespace Phantom {
 		std::vector<GLTFNode> nodes;
 		std::vector<GLTFScene> scenes;
 		std::vector<GLTFSkin> skins;
+		std::vector<GLTFCamera> cameras;
+		std::vector<GLTFLight> lights;
 		int defaultScene = 0;
 		// Unrecognized top-level (root) glTF extensions, verbatim (name -> raw JSON object text).
 		// This is where profile extensions like VRM ("VRM" for 0.x, "VRMC_vrm" for 1.0) show up.
