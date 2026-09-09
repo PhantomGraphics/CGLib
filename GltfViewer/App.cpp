@@ -79,7 +79,10 @@ App::App(const std::filesystem::path& gltfPath)
     scenarioBrowser_.setDefaultFolder("scenarios");
 
     panel_.setFilePath(gltfPath);
+    panel_.setDocument(&doc_);
+    panel_.setSelectedNode(&selectedNode_);
     sceneGraphPanel_.setDocument(&doc_);
+    sceneGraphPanel_.setSelectedNode(&selectedNode_);
     viewPanel_.setRenderer(&renderer_);
     panel_.setVrmState(&vrm_);
     panel_.setOnVrmExpressionChanged([this](int index, float weight) {

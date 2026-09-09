@@ -25,6 +25,66 @@ void ControlPanel::onImGui() {
     }
     ImGui::Separator();
 
+    if (document_ && selectedNode_ &&
+        *selectedNode_ >= 0 && *selectedNode_ < static_cast<int>(document_->nodes.size())) {
+        const int nodeIndex = *selectedNode_;
+        const GltfNode& node = document_->nodes[nodeIndex];
+        const std::string nodeName = node.name.empty()
+            ? "Node " + std::to_string(nodeIndex) : node.name;
+
+        if (ImGui::CollapsingHeader("Selected Object", ImGuiTreeNodeFlags_DefaultOpen)) {
+            ImGui::Text("Name: %s", nodeName.c_str());
+            ImGui::Text("Node index: %d", nodeIndex);
+            ImGui::Separator();
+            ImGui::Text("Transform");
+            if (node.hasMatrix) {
+                for (int row = 0; row < 4; ++row) {
+                    ImGui::Text("  %.4f  %.4f  %.4f  %.4f",
+                        node.matrix[0][row], node.matrix[1][row],
+                        node.matrix[2][row], node.matrix[3][row]);
+                }
+            } else {
+                ImGui::Text("  Translation: %.4f, %.4f, %.4f",
+                    node.translation.x, node.translation.y, node.translation.z);
+                ImGui::Text("  Rotation:    %.4f, %.4f, %.4f, %.4f",
+                    node.rotation.x, node.rotation.y, node.rotation.z, node.rotation.w);
+                ImGui::Text("  Scale:       %.4f, %.4f, %.4f",
+                    node.scale.x, node.scale.y, node.scale.z);
+            }
+            ImGui::Text("Children: %d", static_cast<int>(node.children.size()));
+
+            if (node.meshIndex >= 0 && node.meshIndex < static_cast<int>(document_->meshes.size())) {
+                const GltfMesh& mesh = document_->meshes[node.meshIndex];
+                const std::string meshName = mesh.name.empty()
+                    ? "Mesh " + std::to_string(node.meshIndex) : mesh.name;
+                ImGui::Separator();
+                ImGui::Text("Mesh: %s", meshName.c_str());
+                ImGui::Text("Primitives: %d", static_cast<int>(mesh.primitives.size()));
+            }
+            if (node.skin >= 0 && node.skin < static_cast<int>(document_->skins.size())) {
+                const GltfSkin& skin = document_->skins[node.skin];
+                ImGui::Text("Skin: %s (%d joints)",
+                    skin.name.empty() ? "Skin " + std::to_string(node.skin) : skin.name,
+                    static_cast<int>(skin.joints.size()));
+            }
+            if (node.cameraIndex >= 0 && node.cameraIndex < static_cast<int>(document_->cameras.size())) {
+                const GltfCamera& camera = document_->cameras[node.cameraIndex];
+                ImGui::Separator();
+                ImGui::Text("Camera: %s (%s)",
+                    camera.name.empty() ? "Camera " + std::to_string(node.cameraIndex) : camera.name,
+                    camera.type.c_str());
+            }
+            if (node.lightIndex >= 0 && node.lightIndex < static_cast<int>(document_->lights.size())) {
+                const GltfLight& light = document_->lights[node.lightIndex];
+                ImGui::Text("Light: %s (%s)",
+                    light.name.empty() ? "Light " + std::to_string(node.lightIndex) : light.name,
+                    light.type.c_str());
+            }
+        }
+    } else {
+        ImGui::TextDisabled("Select an object in the Scene Graph.");
+    }
+
     if (vrmState_ && vrmState_->active) {
         ImGui::Separator();
         if (ImGui::CollapsingHeader("VRM", ImGuiTreeNodeFlags_DefaultOpen)) {

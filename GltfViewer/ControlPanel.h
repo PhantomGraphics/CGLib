@@ -4,6 +4,7 @@
 #include <glm/glm.hpp>
 #include "../../CGLib/VkAppBase/IVkSubRenderer.h"
 #include "VrmViewState.h"
+#include "../GltfRenderer/Gltf/GltfDocument.h"
 #include <filesystem>
 #include <functional>
 
@@ -13,6 +14,8 @@ namespace Phantom::Gltf {
     public:
         ControlPanel();
         void setFilePath(const std::filesystem::path& p) { filePath_ = p; }
+        void setDocument(const GltfDocument* document) { document_ = document; }
+        void setSelectedNode(const int* nodeIndex) { selectedNode_ = nodeIndex; }
         void setVisible(bool visible) { visible_ = visible; }
         bool isVisible() const { return visible_; }
         // Non-owning; caller (GltfViewerApp) must keep the pointee alive and update it on every
@@ -24,6 +27,8 @@ namespace Phantom::Gltf {
     private:
         std::filesystem::path filePath_;
         bool visible_ = true;
+        const GltfDocument* document_ = nullptr;
+        const int* selectedNode_ = nullptr;
 
         const VrmViewState* vrmState_ = nullptr;
         std::function<void(int, float)> onVrmExpressionChanged_;

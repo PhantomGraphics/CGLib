@@ -63,6 +63,7 @@ namespace Phantom::Gltf {
         ScenarioRunner           runner_;
         //ScenarioConsole          console_;
         ScenarioBrowserPanel     scenarioBrowser_;
+        int selectedNode_ = -1;
 
         std::optional<std::filesystem::path> pendingPath_;
 

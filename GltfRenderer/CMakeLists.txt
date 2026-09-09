@@ -89,6 +89,8 @@ add_executable(GltfViewer
     ${GLTFVIEWER_ROOT}/App.cpp
     ${GLTFVIEWER_ROOT}/ControlPanel.cpp
     ${GLTFVIEWER_ROOT}/SceneGraphPanel.cpp
+    ${GLTFVIEWER_ROOT}/World.cpp
+    ${GLTFVIEWER_ROOT}/WorldPanel.cpp
     ${GLTFVIEWER_ROOT}/ViewPanel.cpp
 )
 target_include_directories(GltfViewer PRIVATE
