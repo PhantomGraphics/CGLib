@@ -26,6 +26,77 @@ using namespace Phantom::Gltf;
 
 namespace {
 
+// Keep the viewer useful even when it is launched without a model.  The default
+// cube is represented by the same small in-memory glTF document used by loaded
+// assets, so all renderer, bounds, and scene-graph code follows one path.
+GltfDocument makeDefaultCubeDocument() {
+    GltfDocument doc;
+
+    const std::vector<glm::vec3> positions = {
+        {-1.f, -1.f,  1.f}, { 1.f, -1.f,  1.f}, { 1.f,  1.f,  1.f}, {-1.f,  1.f,  1.f}, // front
+        { 1.f, -1.f, -1.f}, {-1.f, -1.f, -1.f}, {-1.f,  1.f, -1.f}, { 1.f,  1.f, -1.f}, // back
+        {-1.f, -1.f, -1.f}, {-1.f, -1.f,  1.f}, {-1.f,  1.f,  1.f}, {-1.f,  1.f, -1.f}, // left
+        { 1.f, -1.f,  1.f}, { 1.f, -1.f, -1.f}, { 1.f,  1.f, -1.f}, { 1.f,  1.f,  1.f}, // right
+        {-1.f,  1.f,  1.f}, { 1.f,  1.f,  1.f}, { 1.f,  1.f, -1.f}, {-1.f,  1.f, -1.f}, // top
+        {-1.f, -1.f, -1.f}, { 1.f, -1.f, -1.f}, { 1.f, -1.f,  1.f}, {-1.f, -1.f,  1.f}, // bottom
+    };
+    const std::vector<glm::vec3> normals = {
+        { 0.f,  0.f,  1.f}, { 0.f,  0.f, -1.f}, {-1.f,  0.f,  0.f}, { 1.f,  0.f,  0.f},
+        { 0.f,  1.f,  0.f}, { 0.f, -1.f,  0.f},
+    };
+    const std::vector<glm::vec2> faceUv = {{0.f, 0.f}, {1.f, 0.f}, {1.f, 1.f}, {0.f, 1.f}};
+    std::vector<glm::vec2> texCoords;
+    texCoords.reserve(24);
+    for (int face = 0; face < 6; ++face)
+        texCoords.insert(texCoords.end(), faceUv.begin(), faceUv.end());
+
+    std::vector<glm::vec3> expandedNormals;
+    expandedNormals.reserve(24);
+    for (const auto& normal : normals)
+        for (int vertex = 0; vertex < 4; ++vertex)
+            expandedNormals.push_back(normal);
+
+    const std::vector<uint32_t> indices = {
+         0,  1,  2,  2,  3,  0,  4,  5,  6,  6,  7,  4,
+         8,  9, 10, 10, 11,  8, 12, 13, 14, 14, 15, 12,
+        16, 17, 18, 18, 19, 16, 20, 21, 22, 22, 23, 20
+    };
+
+    auto addAccessor = [&doc](const void* data, size_t byteSize, size_t count,
+                              GltfAccessorType type, GltfComponentType componentType) {
+        const int bufferIndex = static_cast<int>(doc.buffers.size());
+        GltfBuffer buffer;
+        buffer.data.resize(byteSize);
+        std::memcpy(buffer.data.data(), data, byteSize);
+        doc.buffers.push_back(std::move(buffer));
+
+        const int viewIndex = static_cast<int>(doc.bufferViews.size());
+        doc.bufferViews.push_back({bufferIndex, 0, byteSize, 0, 0});
+        doc.accessors.push_back({viewIndex, 0, componentType, type, count, false});
+        return static_cast<int>(doc.accessors.size() - 1);
+    };
+
+    GltfPrimitive primitive;
+    primitive.positionAccessor = addAccessor(positions.data(), positions.size() * sizeof(glm::vec3),
+                                            positions.size(), GltfAccessorType::Vec3,
+                                            GltfComponentType::Float);
+    primitive.normalAccessor = addAccessor(expandedNormals.data(), expandedNormals.size() * sizeof(glm::vec3),
+                                           expandedNormals.size(), GltfAccessorType::Vec3,
+                                           GltfComponentType::Float);
+    primitive.texCoord0Accessor = addAccessor(texCoords.data(), texCoords.size() * sizeof(glm::vec2),
+                                              texCoords.size(), GltfAccessorType::Vec2,
+                                              GltfComponentType::Float);
+    primitive.indicesAccessor = addAccessor(indices.data(), indices.size() * sizeof(uint32_t),
+                                            indices.size(), GltfAccessorType::Scalar,
+                                            GltfComponentType::UnsignedInt);
+
+    doc.meshes.push_back({"Default Cube", {primitive}, {}});
+    doc.nodes.push_back({"Default Cube", 0});
+    doc.scenes.push_back({"Default Scene", {0}});
+    doc.defaultScene = 0;
+    return doc;
+}
+
 // .obj/.stl are converted to a GltfDocument on the fly (Phantom::Gltf::ObjToGltfConverter/
 // StlToGltfConverter); anything else still goes through
 // GltfReader::load() as a real .gltf/.glb file.
@@ -64,13 +135,15 @@ App::App(const std::filesystem::path& gltfPath)
           ? "glTF Viewer"
           : "glTF Viewer - " + gltfPath.filename().string())
 {
-    if (!gltfPath.empty()) {
+    if (gltfPath.empty()) {
+        doc_ = makeDefaultCubeDocument();
+    } else {
         if (!loadDocumentForPath(gltfPath, doc_, vrm_)) {
             fprintf(stderr, "GltfViewer: failed to load '%s'\n", gltfPath.string().c_str());
         }
-        applySkinBindPose();
-        renderer_.setDocument(doc_);
     }
+    applySkinBindPose();
+    renderer_.setDocument(doc_);
     dispatcher_.setDocument(&doc_);
     dispatcher_.setRenderer(&renderer_);
     dispatcher_.setApp(this);

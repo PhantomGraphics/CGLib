@@ -2,11 +2,11 @@
   "name": "startup",
   "steps": [
     { "label": "App is alive",           "command": "GetStatus",        "expect": "OK" },
-    { "label": "No meshes (no model)",   "command": "GetMeshCount",     "expect": "MeshCount:0" },
-    { "label": "No nodes",               "command": "GetNodeCount",     "expect": "NodeCount:0" },
+    { "label": "Default cube mesh",       "command": "GetMeshCount",     "expect": "MeshCount:1" },
+    { "label": "Default cube node",       "command": "GetNodeCount",     "expect": "NodeCount:1" },
     { "label": "No materials",           "command": "GetMaterialCount", "expect": "MaterialCount:0" },
     { "label": "No textures",            "command": "GetTextureCount",  "expect": "TextureCount:0" },
-    { "label": "No scenes",              "command": "GetSceneCount",    "expect": "SceneCount:0" },
+    { "label": "Default scene",           "command": "GetSceneCount",    "expect": "SceneCount:1" },
     { "label": "Default cam dist is 3",  "command": "GetCamDist",       "expect": "Val:3" },
     { "label": "Default IBL is off (placeholder env, not a real HDRI -- see GltfViewerApp::onInit)",
       "command": "GetUseIBL", "expect": "Val:0" }
