@@ -154,7 +154,6 @@ bool VulkanContext::pickPhysicalDevice() {
 
     VkPhysicalDeviceProperties props;
     vkGetPhysicalDeviceProperties(physicalDevice_, &props);
-    deviceName_ = props.deviceName;
     std::cout << "[VKG] GPU: " << props.deviceName << "\n";
     return true;
 }
@@ -239,6 +238,20 @@ bool VulkanContext::createLogicalDevice() {
 // ============================================================
 //  Query helpers
 // ============================================================
+
+std::string VulkanContext::getDeviceName() const {
+    if (!physicalDevice_) return {};
+    VkPhysicalDeviceProperties props;
+    vkGetPhysicalDeviceProperties(physicalDevice_, &props);
+    return props.deviceName;
+}
+
+float VulkanContext::getTimestampPeriodNs() const {
+    if (!physicalDevice_) return 0.0f;
+    VkPhysicalDeviceProperties props;
+    vkGetPhysicalDeviceProperties(physicalDevice_, &props);
+    return props.limits.timestampComputeAndGraphics ? props.limits.timestampPeriod : 0.0f;
+}
 
 VkSampleCountFlagBits VulkanContext::getMaxUsableSampleCount() const {
     if (!physicalDevice_) return VK_SAMPLE_COUNT_1_BIT;
