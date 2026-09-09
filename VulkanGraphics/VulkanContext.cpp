@@ -154,6 +154,7 @@ bool VulkanContext::pickPhysicalDevice() {
 
     VkPhysicalDeviceProperties props;
     vkGetPhysicalDeviceProperties(physicalDevice_, &props);
+    deviceName_ = props.deviceName;
     std::cout << "[VKG] GPU: " << props.deviceName << "\n";
     return true;
 }

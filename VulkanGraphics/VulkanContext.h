@@ -87,6 +87,9 @@ public:
     /// requirement -- absence never fails initDevice().
     bool             supportsInt64BufferAtomics() const { return int64BufferAtomics_; }
 
+    /// @brief Physical device name (VkPhysicalDeviceProperties::deviceName), or "" if not yet initialised.
+    const std::string& getDeviceName() const { return deviceName_; }
+
     /// @brief Returns the VMA allocator.  Use this to create/destroy VMA buffers and images.
     VmaAllocator_T*  getAllocator()            const { return allocator_; }
 
@@ -125,6 +128,7 @@ private:
     uint32_t                 graphicsQueueFamily_  = 0;
     bool                     validation_           = false;
     bool                     int64BufferAtomics_   = false;
+    std::string              deviceName_;
     VmaAllocator_T*          allocator_            = nullptr;
 
     // Non-owning reference used only during initDevice().
