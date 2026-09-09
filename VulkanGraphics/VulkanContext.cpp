@@ -176,12 +176,29 @@ bool VulkanContext::createLogicalDevice() {
         queueCIs.push_back(qi);
     }
 
+    // Optional: 64-bit buffer atomics (used by GSView's GaussianPoint path for a
+    // packed depth/colour atomicMin). Query without failing device selection.
+    VkPhysicalDeviceShaderAtomicInt64Features atomic64Query{};
+    atomic64Query.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_INT64_FEATURES;
+    VkPhysicalDeviceFeatures2 features2Query{};
+    features2Query.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+    features2Query.pNext = &atomic64Query;
+    vkGetPhysicalDeviceFeatures2(physicalDevice_, &features2Query);
+    const bool wantAtomic64 = (features2Query.features.shaderInt64 == VK_TRUE) &&
+                              (atomic64Query.shaderBufferInt64Atomics == VK_TRUE);
+
     VkPhysicalDeviceFeatures features{};
     features.largePoints       = VK_TRUE; // required for gl_PointSize
     features.fillModeNonSolid  = VK_TRUE; // required for VK_POLYGON_MODE_LINE (wireframe)
+    if (wantAtomic64) features.shaderInt64 = VK_TRUE;
+
+    VkPhysicalDeviceShaderAtomicInt64Features atomic64Enable{};
+    atomic64Enable.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_INT64_FEATURES;
+    atomic64Enable.shaderBufferInt64Atomics = wantAtomic64 ? VK_TRUE : VK_FALSE;
 
     VkDeviceCreateInfo ci{};
     ci.sType                   = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+    ci.pNext                   = wantAtomic64 ? &atomic64Enable : nullptr;
     ci.queueCreateInfoCount    = (uint32_t)queueCIs.size();
     ci.pQueueCreateInfos       = queueCIs.data();
     ci.pEnabledFeatures        = &features;
@@ -192,6 +209,10 @@ bool VulkanContext::createLogicalDevice() {
 
     VKG_CHECK(vkCreateDevice(physicalDevice_, &ci, nullptr, &device_),
               "Failed to create logical device", false);
+
+    int64BufferAtomics_ = wantAtomic64;
+    if (!wantAtomic64)
+        std::cout << "[VKG] shaderBufferInt64Atomics not available (optional)\n";
 
     graphicsQueueFamily_ = indices.graphicsFamily.value();
     vkGetDeviceQueue(device_, graphicsQueueFamily_, 0, &graphicsQueue_);

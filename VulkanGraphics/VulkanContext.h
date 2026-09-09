@@ -79,6 +79,14 @@ public:
     uint32_t         getGraphicsQueueFamily()  const { return graphicsQueueFamily_; } ///< Returns the graphics queue family index.
     bool             isValidationEnabled()     const { return validation_; }     ///< Returns true when validation layers are active.
 
+    /// @brief Whether shaderInt64 + shaderBufferInt64Atomics were both available and enabled.
+    ///
+    /// Optional capability: when true, shaders may use uint64_t buffer atomics
+    /// (e.g. a packed depth/colour atomicMin). When false, callers must fall back
+    /// to a 32-bit-safe design or disable the feature. Not a device-selection
+    /// requirement -- absence never fails initDevice().
+    bool             supportsInt64BufferAtomics() const { return int64BufferAtomics_; }
+
     /// @brief Returns the VMA allocator.  Use this to create/destroy VMA buffers and images.
     VmaAllocator_T*  getAllocator()            const { return allocator_; }
 
@@ -116,6 +124,7 @@ private:
     VkQueue                  presentQueue_         = VK_NULL_HANDLE;
     uint32_t                 graphicsQueueFamily_  = 0;
     bool                     validation_           = false;
+    bool                     int64BufferAtomics_   = false;
     VmaAllocator_T*          allocator_            = nullptr;
 
     // Non-owning reference used only during initDevice().
