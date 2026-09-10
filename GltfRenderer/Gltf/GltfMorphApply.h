@@ -14,4 +14,11 @@ namespace Phantom::Gltf {
 std::vector<glm::vec3> applyMorphs(const GltfDocument& doc, const GltfPrimitive& prim,
                                     const std::vector<float>& weights);
 
+// Same blend for the NORMAL attribute: base normal + sum(weight[i] * target[i].normalAccessor),
+// renormalized per vertex. Targets whose normalAccessor is -1 contribute nothing (the caller's
+// position blend still moved those verts, but the source gave no normal delta for them).
+// Returns an empty vector if the primitive has no NORMAL accessor.
+std::vector<glm::vec3> applyMorphedNormals(const GltfDocument& doc, const GltfPrimitive& prim,
+                                            const std::vector<float>& weights);
+
 } // namespace Phantom::Gltf

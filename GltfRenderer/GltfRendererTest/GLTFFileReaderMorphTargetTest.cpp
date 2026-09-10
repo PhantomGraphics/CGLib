@@ -11,8 +11,9 @@ using namespace Phantom::File;
 
 namespace {
 
-// Single triangle, one morph target (a POSITION-only delta moving the third vertex up by 0.5),
-// mesh.weights=[0.25], and a made-up unrecognized root extension to exercise
+// Single triangle, one morph target (a POSITION delta moving the third vertex up by 0.5, plus a
+// NORMAL delta on the same vertex), mesh.weights=[0.25], and a made-up unrecognized root
+// extension to exercise
 // GLTFFile::rootExtensionsJson passthrough (this layer must not know or care what "VRM" is --
 // see GltfReader/VrmReader for the layers that interpret extension content).
 const char* kMorphTargetGltf = R"JSON(
@@ -76,13 +77,14 @@ TEST(GLTFFileReaderMorphTargetTest, ParsesMorphTargetPositionDeltasAndWeights)
 
     ASSERT_EQ(3u, prim.positions.size());
     ASSERT_EQ(1u, prim.targets.size());
-    ASSERT_EQ(3u, prim.targets[0].size());
-    EXPECT_FLOAT_EQ(0.0f, prim.targets[0][0].x);
-    EXPECT_FLOAT_EQ(0.0f, prim.targets[0][0].y);
-    EXPECT_FLOAT_EQ(0.0f, prim.targets[0][1].y);
-    EXPECT_FLOAT_EQ(0.0f, prim.targets[0][2].x);
-    EXPECT_FLOAT_EQ(0.5f, prim.targets[0][2].y);
-    EXPECT_FLOAT_EQ(0.0f, prim.targets[0][2].z);
+    ASSERT_EQ(3u, prim.targets[0].positionDeltas.size());
+    EXPECT_FLOAT_EQ(0.0f, prim.targets[0].positionDeltas[0].x);
+    EXPECT_FLOAT_EQ(0.0f, prim.targets[0].positionDeltas[0].y);
+    EXPECT_FLOAT_EQ(0.0f, prim.targets[0].positionDeltas[1].y);
+    EXPECT_FLOAT_EQ(0.0f, prim.targets[0].positionDeltas[2].x);
+    EXPECT_FLOAT_EQ(0.5f, prim.targets[0].positionDeltas[2].y);
+    EXPECT_FLOAT_EQ(0.0f, prim.targets[0].positionDeltas[2].z);
+    EXPECT_TRUE(prim.targets[0].normalDeltas.empty()); // this target carries no NORMAL attribute
 
     ASSERT_EQ(1u, gltf.meshes[0].morphWeights.size());
     EXPECT_FLOAT_EQ(0.25f, gltf.meshes[0].morphWeights[0]);

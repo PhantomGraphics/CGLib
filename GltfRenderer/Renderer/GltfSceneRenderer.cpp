@@ -466,11 +466,15 @@ void GltfSceneRenderer::setAnimationClip(int clipIndex)
     animClip_ = clamped;
     animDirty_ = true; // force a re-bake next onUpdate() (to the clip's t=0, or back to rest)
 
-    // Which nodes does this clip move? A channel target plus its whole subtree (a spinning
-    // pivot carries its children). Everything else stays at its build-time bake.
+    // Which nodes does this clip *move*? A TRS channel target plus its whole subtree (a spinning
+    // pivot carries its children). Everything else stays at its build-time bake. A Weights
+    // channel doesn't move its node -- it drives morph targets, applied separately via
+    // updateMorphedGeometry() -- so it must not mark the node for a transform re-bake here (that
+    // would overwrite the morph with base geometry every frame).
     animatedNode_.assign(doc_ ? doc_->nodes.size() : 0, 0);
     if (animClip_ >= 0) {
         for (const auto& ch : doc_->animations[animClip_].channels) {
+            if (ch.target.path == GltfAnimationPath::Weights) continue;
             if (ch.target.node < 0 || ch.target.node >= (int)animatedNode_.size()) continue;
             markSubtreeAnimated(ch.target.node);
         }

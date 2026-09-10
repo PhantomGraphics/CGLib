@@ -149,9 +149,11 @@ GltfDocument GltfReader::load(const Phantom::File::GLTFFile& src, const std::fil
             prim.jointsAccessor   = appendAccessor(doc, sp.joints,    GltfComponentType::UnsignedInt, GltfAccessorType::Vec4);
             prim.weightsAccessor  = appendAccessor(doc, sp.weights,  GltfComponentType::Float, GltfAccessorType::Vec4);
             prim.indicesAccessor  = appendAccessor(doc, sp.indices,   GltfComponentType::UnsignedInt, GltfAccessorType::Scalar);
-            for (const auto& targetDeltas : sp.targets) {
+            for (const auto& tgt : sp.targets) {
                 GltfMorphTarget target;
-                target.positionAccessor = appendAccessor(doc, targetDeltas, GltfComponentType::Float, GltfAccessorType::Vec3);
+                target.positionAccessor = appendAccessor(doc, tgt.positionDeltas, GltfComponentType::Float, GltfAccessorType::Vec3);
+                if (!tgt.normalDeltas.empty())
+                    target.normalAccessor = appendAccessor(doc, tgt.normalDeltas, GltfComponentType::Float, GltfAccessorType::Vec3);
                 prim.targets.push_back(target);
             }
             mesh.primitives.push_back(prim);

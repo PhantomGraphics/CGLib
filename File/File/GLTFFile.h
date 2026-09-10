@@ -23,6 +23,16 @@ namespace Phantom {
 		TriangleFan = 6,
 	};
 
+	// One morph target's per-vertex displacements from the primitive's base geometry
+	// (glTF "targets" -- see GLTFPrimitive::targets). `normalDeltas` is empty when the source
+	// primitive carried no NORMAL morph attribute; `positionDeltas` is always the same length
+	// as GLTFPrimitive::positions.
+	struct GLTFMorphTarget
+	{
+		std::vector<Math::Vector3df> positionDeltas;
+		std::vector<Math::Vector3df> normalDeltas;
+	};
+
 	struct GLTFPrimitive
 	{
 		std::vector<Math::Vector3df> positions;
@@ -34,9 +44,8 @@ namespace Phantom {
 		std::vector<unsigned int> indices;
 		int materialIndex = -1;
 		GLTFPrimitiveMode mode = GLTFPrimitiveMode::Triangles;
-		// Morph targets: each element is one target's per-vertex POSITION displacement, same
-		// length as `positions`. Empty = no morph targets (most primitives).
-		std::vector<std::vector<Math::Vector3df>> targets;
+		// Morph targets: one GLTFMorphTarget per glTF target. Empty = no morph targets (most primitives).
+		std::vector<GLTFMorphTarget> targets;
 	};
 
 	struct GLTFSkin

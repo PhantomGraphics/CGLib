@@ -119,11 +119,13 @@ namespace Phantom::Gltf
         bool                    doubleSided = false;
     };
 
-    // A morph target displaces POSITION by a per-vertex offset, blended by the owning mesh/node's
-    // weight for that target index. MMD has no normal/tangent morphs, so only POSITION is modeled
-    // (see internal design notes Phase 2).
+    // A morph target displaces POSITION (and optionally NORMAL) by a per-vertex offset, blended by
+    // the owning mesh/node's weight for that target index. MMD-derived documents only ever set
+    // positionAccessor; a real .gltf/.glb with exported NORMAL morph deltas also sets normalAccessor
+    // (TANGENT morph is still not modeled -- no tangent-morph render path).
     struct GltfMorphTarget {
         int positionAccessor = -1; // POSITION displacement (Vec3), one element per base vertex
+        int normalAccessor   = -1; // NORMAL displacement (Vec3), -1 if the source had none
     };
 
     struct GltfPrimitive {

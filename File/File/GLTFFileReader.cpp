@@ -122,25 +122,26 @@ bool GLTFFileReader::read(const std::filesystem::path& filename)
 				}
 			}
 
-			// Morph targets: each target only ever carries a POSITION displacement in practice
-			// (this reader ignores NORMAL/TANGENT morph deltas, matching GLTFPrimitive's own
-			// POSITION-only convention -- see GLTFFile.h).
+			// Morph targets: POSITION is always read; NORMAL is read when present (TANGENT morph
+			// deltas are still ignored -- the renderer has no tangent-morph path).
 			for (cgltf_size ti = 0; ti < cprim.targets_count; ++ti) {
 				const cgltf_morph_target& ctarget = cprim.targets[ti];
-				std::vector<Math::Vector3df> deltas;
+				GLTFMorphTarget target;
 				for (cgltf_size ai = 0; ai < ctarget.attributes_count; ++ai) {
 					const cgltf_attribute& attr = ctarget.attributes[ai];
-					if (attr.type != cgltf_attribute_type_position) continue;
+					std::vector<Math::Vector3df>* dst =
+						(attr.type == cgltf_attribute_type_position) ? &target.positionDeltas :
+						(attr.type == cgltf_attribute_type_normal)   ? &target.normalDeltas   : nullptr;
+					if (!dst) continue;
 					const cgltf_accessor* acc = attr.data;
-					deltas.resize(acc->count);
+					dst->resize(acc->count);
 					for (cgltf_size vi = 0; vi < acc->count; ++vi) {
 						float v[3] = {};
 						cgltf_accessor_read_float(acc, vi, v, 3);
-						deltas[vi] = { v[0], v[1], v[2] };
+						(*dst)[vi] = { v[0], v[1], v[2] };
 					}
-					break;
 				}
-				prim.targets.push_back(std::move(deltas));
+				prim.targets.push_back(std::move(target));
 			}
 
 			mesh.primitives.push_back(std::move(prim));
