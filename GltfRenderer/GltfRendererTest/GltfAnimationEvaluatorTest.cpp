@@ -3,6 +3,11 @@
 #include "../Gltf/GltfAccessorBuilder.h"
 #include "../Gltf/GltfAnimationEvaluator.h"
 
+#define GLM_FORCE_RADIANS
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/quaternion.hpp>
+#include <glm/gtc/matrix_inverse.hpp>
+
 using namespace Phantom::Gltf;
 
 namespace {
@@ -265,4 +270,190 @@ TEST(GltfAnimationEvaluatorTest, CubicSplineInterpolatesWithHermiteBasis)
     EXPECT_NEAR(5.f, mid[0][3][0], 1e-4f); // (2*.125 - 3*.25 + 1)*0 + (-2*.125 + 3*.25)*10 = 5
     auto key = GltfAnimationEvaluator::evaluateNodeGlobalTransforms(doc, 0, 2.f);
     EXPECT_NEAR(20.f, key[0][3][0], 1e-4f);
+}
+
+// -----------------------------------------------------------------------
+// Nested chains with several animated nodes at different depths, plus a
+// Scale channel -- mirrors testdata/blender_input_crane (Slew_Pivot rotates,
+// Trolley slides along it, Payload_Lift drops from the trolley, Cable stretches).
+// -----------------------------------------------------------------------
+
+namespace {
+
+int appendScalarTimes(GltfDocument& doc, const std::vector<float>& times)
+{
+    return appendAccessor(doc, times, GltfComponentType::Float, GltfAccessorType::Scalar);
+}
+
+int appendVec3Sampler(GltfDocument& doc, GltfAnimation& anim, int timesAcc,
+                       const std::vector<glm::vec3>& values)
+{
+    GltfAnimationSampler s;
+    s.interpolation = GltfInterpolation::Linear;
+    s.input  = timesAcc;
+    s.output = appendAccessor(doc, values, GltfComponentType::Float, GltfAccessorType::Vec3);
+    const int idx = static_cast<int>(anim.samplers.size());
+    anim.samplers.push_back(s);
+    return idx;
+}
+
+int appendQuatSampler(GltfDocument& doc, GltfAnimation& anim, int timesAcc,
+                       const std::vector<glm::vec4>& values)
+{
+    GltfAnimationSampler s;
+    s.interpolation = GltfInterpolation::Linear;
+    s.input  = timesAcc;
+    s.output = appendAccessor(doc, values, GltfComponentType::Float, GltfAccessorType::Vec4);
+    const int idx = static_cast<int>(anim.samplers.size());
+    anim.samplers.push_back(s);
+    return idx;
+}
+
+// Root(0) -> Slew(1, rotation) -> Trolley(2, translation) -> Payload(3, translation, mesh),
+// plus Slew -> Cable(4, scale, mesh). One clip, all channels LINEAR, 0..2s.
+GltfDocument makeCraneLikeDoc()
+{
+    GltfDocument doc;
+
+    GltfNode root;    root.name = "Root";    root.children = {1};
+    doc.nodes.push_back(root);                                                    // 0
+    GltfNode slew;    slew.name = "Slew";    slew.children = {2, 4};
+    doc.nodes.push_back(slew);                                                    // 1
+    GltfNode trolley; trolley.name = "Trolley"; trolley.translation = glm::vec3(2.f, 0.f, 0.f);
+    trolley.children = {3};
+    doc.nodes.push_back(trolley);                                                 // 2
+    GltfNode payload; payload.name = "Payload"; payload.translation = glm::vec3(0.f, -1.f, 0.f);
+    payload.meshIndex = 0;
+    doc.nodes.push_back(payload);                                                 // 3
+    GltfNode cable;   cable.name = "Cable";   cable.meshIndex = 0;   cable.children = {5};
+    doc.nodes.push_back(cable);                                                   // 4
+    GltfNode tip;     tip.name = "CableTip"; tip.translation = glm::vec3(0.f, -1.f, 0.f);
+    tip.meshIndex = 0;
+    doc.nodes.push_back(tip);                                                     // 5
+
+    GltfScene scene; scene.nodes = {0}; doc.scenes.push_back(scene);
+    doc.defaultScene = 0;
+    GltfMesh mesh; doc.meshes.push_back(mesh);
+
+    GltfAnimation anim;
+    const int t = appendScalarTimes(doc, {0.f, 2.f});
+
+    // Slew(1): identity -> +90deg about Y.
+    anim.channels.push_back({appendQuatSampler(doc, anim, t,
+        {glm::vec4(0, 0, 0, 1), glm::vec4(0, 0.70710678f, 0, 0.70710678f)}),
+        {1, GltfAnimationPath::Rotation}});
+    // Trolley(2): local X 2 -> 4.
+    anim.channels.push_back({appendVec3Sampler(doc, anim, t,
+        {glm::vec3(2, 0, 0), glm::vec3(4, 0, 0)}), {2, GltfAnimationPath::Translation}});
+    // Payload(3): local Y -1 -> -3.
+    anim.channels.push_back({appendVec3Sampler(doc, anim, t,
+        {glm::vec3(0, -1, 0), glm::vec3(0, -3, 0)}), {3, GltfAnimationPath::Translation}});
+    // Cable(4): local scale 1 -> 3 on Y.
+    anim.channels.push_back({appendVec3Sampler(doc, anim, t,
+        {glm::vec3(1, 1, 1), glm::vec3(1, 3, 1)}), {4, GltfAnimationPath::Scale}});
+
+    doc.animations.push_back(anim);
+    return doc;
+}
+
+} // namespace
+
+TEST(GltfAnimationEvaluatorTest, NestedAnimatedNodesCompoundThroughTheChain)
+{
+    const GltfDocument doc = makeCraneLikeDoc();
+    auto g = GltfAnimationEvaluator::evaluateNodeGlobalTransforms(doc, 0, 2.f);
+    ASSERT_EQ(6u, g.size());
+
+    // Slew is a pure +90deg-about-Y rotation: +X maps to -Z.
+    const glm::vec3 mappedX = glm::vec3(g[1] * glm::vec4(1.f, 0.f, 0.f, 0.f));
+    EXPECT_NEAR(0.f,  mappedX.x, 1e-4f);
+    EXPECT_NEAR(-1.f, mappedX.z, 1e-4f);
+
+    // Trolley local (4,0,0) under Slew's rotation -> global (0,0,-4).
+    EXPECT_NEAR(0.f,  g[2][3][0], 1e-4f);
+    EXPECT_NEAR(-4.f, g[2][3][2], 1e-4f);
+
+    // Payload adds local (0,-3,0) (rotation about Y leaves Y untouched) -> global (0,-3,-4).
+    EXPECT_NEAR(0.f,  g[3][3][0], 1e-4f);
+    EXPECT_NEAR(-3.f, g[3][3][1], 1e-4f);
+    EXPECT_NEAR(-4.f, g[3][3][2], 1e-4f);
+}
+
+namespace {
+
+// Base(0) -> Tip(1), Tip at local (0,1,0). Skin joints {0,1} with bind-pose inverse bind
+// matrices. Base has a rotation channel: identity -> +90deg about Z at t=2. Mirrors the
+// soft-robot fixture (a root joint's rotation carries the whole chain through skinning).
+GltfDocument makeSkinnedChainDoc()
+{
+    GltfDocument doc;
+
+    GltfNode base; base.name = "Base"; base.children = {1};
+    doc.nodes.push_back(base);                                        // 0
+    GltfNode tip;  tip.name = "Tip";  tip.translation = glm::vec3(0.f, 1.f, 0.f); tip.meshIndex = 0;
+    tip.skin = 0;
+    doc.nodes.push_back(tip);                                         // 1
+
+    GltfScene scene; scene.nodes = {0}; doc.scenes.push_back(scene);
+    doc.defaultScene = 0;
+    GltfMesh mesh; doc.meshes.push_back(mesh);
+
+    GltfSkin skin;
+    skin.joints = {0, 1};
+    // Bind pose: Base at origin, Tip at (0,1,0). IBM = inverse(bindGlobal).
+    skin.inverseBindMatrices = {
+        glm::mat4(1.f),
+        glm::inverse(glm::translate(glm::mat4(1.f), glm::vec3(0.f, 1.f, 0.f))),
+    };
+    doc.skins.push_back(skin);
+
+    GltfAnimation anim;
+    const int t = appendScalarTimes(doc, {0.f, 2.f});
+    anim.channels.push_back({appendQuatSampler(doc, anim, t,
+        {glm::vec4(0, 0, 0, 1), glm::vec4(0, 0, 0.70710678f, 0.70710678f)}),
+        {0, GltfAnimationPath::Rotation}});
+    doc.animations.push_back(anim);
+    return doc;
+}
+
+} // namespace
+
+TEST(GltfAnimationEvaluatorTest, SkinnedChainParentJointRotationCarriesChild)
+{
+    const GltfDocument doc = makeSkinnedChainDoc();
+
+    // Bind pose: both skin matrices are identity (jointGlobal == bindGlobal).
+    auto s0 = GltfAnimationEvaluator::evaluateSkin(doc, 0, 0, 0.f);
+    ASSERT_EQ(2u, s0.size());
+    EXPECT_NEAR(0.f, glm::length(glm::vec3(s0[1][3])), 1e-4f);
+
+    // t=2: Base rotates +90deg about Z. A vertex at the tip's bind position (0,1,0) is skinned
+    // by joint 1: skinMat1 * (0,1,0,1). skinMat1 = baseRot * tipLocal * ibm1, and
+    // baseRot*tipLocal places the tip origin at baseRot*(0,1,0) = (-1,0,0); ibm1 first pulls the
+    // vertex back to the tip's local frame, so the net effect on (0,1,0) is a move to (-1,0,0).
+    auto s2 = GltfAnimationEvaluator::evaluateSkin(doc, 0, 0, 2.f);
+    const glm::vec3 skinned = glm::vec3(s2[1] * glm::vec4(0.f, 1.f, 0.f, 1.f));
+    EXPECT_NEAR(-1.f, skinned.x, 1e-4f);
+    EXPECT_NEAR(0.f,  skinned.y, 1e-4f);
+    EXPECT_NEAR(0.f,  skinned.z, 1e-4f);
+}
+
+TEST(GltfAnimationEvaluatorTest, ScaleChannelStretchesChildOffsets)
+{
+    const GltfDocument doc = makeCraneLikeDoc();
+
+    // Cable(4) has only a Scale channel on Y; CableTip(5) sits at local (0,-1,0). The Slew
+    // rotation is about Y, so it never touches the tip's Y -- only Cable's scale does.
+    auto g0 = GltfAnimationEvaluator::evaluateNodeGlobalTransforms(doc, 0, 0.f);
+    EXPECT_NEAR(1.f, g0[4][1][1], 1e-4f);       // scale identity at t=0
+    EXPECT_NEAR(-1.f, g0[5][3][1], 1e-4f);      // tip 1 unit down
+
+    auto g2 = GltfAnimationEvaluator::evaluateNodeGlobalTransforms(doc, 0, 2.f);
+    EXPECT_NEAR(3.f, g2[4][1][1], 1e-4f);       // Y scaled 3x
+    EXPECT_NEAR(-3.f, g2[5][3][1], 1e-4f);      // tip offset stretched to 3 units down
+
+    // Halfway the scale is linearly interpolated to 2.
+    auto g1 = GltfAnimationEvaluator::evaluateNodeGlobalTransforms(doc, 0, 1.f);
+    EXPECT_NEAR(2.f,  g1[4][1][1], 1e-4f);
+    EXPECT_NEAR(-2.f, g1[5][3][1], 1e-4f);
 }
