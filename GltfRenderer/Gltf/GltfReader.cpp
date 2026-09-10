@@ -196,6 +196,60 @@ GltfDocument GltfReader::load(const Phantom::File::GLTFFile& src, const std::fil
         doc.skins.push_back(std::move(skin));
     }
 
+    for (const auto& sa : src.animations) {
+        GltfAnimation anim;
+        anim.name = sa.name;
+
+        anim.samplers.reserve(sa.samplers.size());
+        for (const auto& ss : sa.samplers) {
+            GltfAnimationSampler samp;
+            switch (ss.interpolation) {
+            case Phantom::File::GLTFInterpolation::Step:        samp.interpolation = GltfInterpolation::Step;        break;
+            case Phantom::File::GLTFInterpolation::CubicSpline: samp.interpolation = GltfInterpolation::CubicSpline; break;
+            default:                                            samp.interpolation = GltfInterpolation::Linear;      break;
+            }
+
+            samp.input = appendAccessor(doc, ss.times, GltfComponentType::Float, GltfAccessorType::Scalar);
+
+            // Repack the flat value floats into the accessor element type the evaluator reads
+            // (Vec3 for translation/scale, Vec4 xyzw for rotation, Scalar for weights). For
+            // CUBICSPLINE the flat array is already 3x (inTangent/value/outTangent per keyframe)
+            // and stays that way -- the evaluator indexes 3k+1 for the value.
+            const int comp = ss.components > 0 ? ss.components : 3;
+            if (comp == 4) {
+                std::vector<glm::vec4> v(ss.values.size() / 4);
+                for (size_t i = 0; i < v.size(); ++i)
+                    v[i] = glm::vec4(ss.values[i*4+0], ss.values[i*4+1], ss.values[i*4+2], ss.values[i*4+3]);
+                samp.output = appendAccessor(doc, v, GltfComponentType::Float, GltfAccessorType::Vec4);
+            } else if (comp == 3) {
+                std::vector<glm::vec3> v(ss.values.size() / 3);
+                for (size_t i = 0; i < v.size(); ++i)
+                    v[i] = glm::vec3(ss.values[i*3+0], ss.values[i*3+1], ss.values[i*3+2]);
+                samp.output = appendAccessor(doc, v, GltfComponentType::Float, GltfAccessorType::Vec3);
+            } else {
+                samp.output = appendAccessor(doc, ss.values, GltfComponentType::Float, GltfAccessorType::Scalar);
+            }
+
+            anim.samplers.push_back(samp);
+        }
+
+        anim.channels.reserve(sa.channels.size());
+        for (const auto& sc : sa.channels) {
+            GltfAnimationChannel chan;
+            chan.samplerIndex = sc.sampler;
+            chan.target.node  = sc.targetNode;
+            switch (sc.path) {
+            case Phantom::File::GLTFAnimationPath::Rotation: chan.target.path = GltfAnimationPath::Rotation;    break;
+            case Phantom::File::GLTFAnimationPath::Scale:    chan.target.path = GltfAnimationPath::Scale;       break;
+            case Phantom::File::GLTFAnimationPath::Weights:  chan.target.path = GltfAnimationPath::Weights;     break;
+            default:                                        chan.target.path = GltfAnimationPath::Translation; break;
+            }
+            anim.channels.push_back(chan);
+        }
+
+        doc.animations.push_back(std::move(anim));
+    }
+
     for (const auto& ss : src.scenes) {
         GltfScene scene;
         scene.name  = ss.name;

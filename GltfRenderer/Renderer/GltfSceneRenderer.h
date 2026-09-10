@@ -86,6 +86,20 @@ namespace Phantom::Gltf
         // --- Dynamic document loading (call after onInit for hot-reload) ---
         void loadDocument(const GltfDocument& doc);
 
+        // --- Object animation (node TRS clips; unskinned meshes) ---
+        // Opt-in: with no clip set (the default) the renderer behaves exactly as before -- node
+        // transforms stay baked at their build-time pose. setAnimationClip(i) picks
+        // doc.animations[i]; onUpdate() then re-bakes each primitive under an animated node with
+        // that node's world matrix at setAnimationTime()'s seconds (CPU transform + vertex
+        // re-upload, reusing the morph/dynamic path -- no shader or pipeline change). Skinned
+        // meshes are unaffected (their pose comes from updateSkinMatrices()). Pass -1 to stop
+        // and restore the rest pose. animationCount()/animationDuration() report what's loaded.
+        void  setAnimationClip(int clipIndex);
+        void  setAnimationTime(float seconds);
+        int   animationCount() const;
+        float animationDuration(int clipIndex) const;
+        int   activeAnimationClip() const { return animClip_; }
+
         // --- External camera override ---
         void setCamera(const glm::mat4& view, const glm::mat4& proj, const glm::vec3& eye);
         void clearCameraOverride() { useExternalCamera_ = false; }
@@ -254,8 +268,20 @@ namespace Phantom::Gltf
             int         materialIndex = -1;
             int         meshIndex = -1; // doc.meshes[] index this primitive came from (see updateMorphedPositions())
             int         primIndex = -1; // index within that mesh's primitives[]
+            int         nodeIndex = -1; // doc.nodes[] index (object animation)
+            glm::mat4   restWorld{ 1.f }; // build-time bake transform (rest pose)
+            std::vector<glm::vec3> localPos; // accessor-space positions, only kept for object animation
+            std::vector<glm::vec3> localNrm;
         };
         std::vector<std::unique_ptr<PrimitiveEntry>> primitives_;
+
+        // Object animation state (see setAnimationClip()).
+        int               animClip_  = -1;
+        float             animTime_  = 0.f;
+        bool              animDirty_ = false;   // clip/time changed since the last applyObjectAnimation()
+        std::vector<uint8_t> animatedNode_;     // per node: 1 if the active clip moves it (or an ancestor)
+        void applyObjectAnimation();
+        void markSubtreeAnimated(int nodeIndex);
 
         // Materials
         std::vector<std::unique_ptr<GltfGpuMaterial>> materials_;

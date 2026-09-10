@@ -27,6 +27,15 @@ public:
                                                     int animationIndex, int nodeIndex,
                                                     int targetCount, float timeSec);
 
+    // Per-node global (model-space) transform for every node in doc, with
+    // doc.animations[animationIndex]'s Translation/Rotation/Scale channels evaluated at timeSec.
+    // Index i is node i; nodes not reached from the default scene stay identity. Pass
+    // animationIndex < 0 for the static bind pose. This is the object-animation counterpart of
+    // evaluateSkin() -- callers that render whole nodes (not skinned joints) use it to place
+    // each mesh (see GltfSceneRenderer's object-animation path).
+    static std::vector<glm::mat4> evaluateNodeGlobalTransforms(const GltfDocument& doc,
+                                                                int animationIndex, float timeSec);
+
     // Latest keyframe time across every sampler in anim (0 if it has none).
     static float duration(const GltfAnimation& anim, const GltfDocument& doc);
 };

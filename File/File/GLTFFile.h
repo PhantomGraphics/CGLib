@@ -114,6 +114,34 @@ namespace Phantom {
 	struct GLTFCamera { std::string name; std::string type; };
 	struct GLTFLight { std::string name; std::string type; };
 
+	enum class GLTFInterpolation { Linear, Step, CubicSpline };
+	enum class GLTFAnimationPath { Translation, Rotation, Scale, Weights };
+
+	struct GLTFAnimationSampler
+	{
+		std::vector<float> times;   // keyframe times, seconds (input accessor, SCALAR/FLOAT)
+		std::vector<float> values;  // flattened output accessor values; element stride is
+		                            // `components`, tripled for CubicSpline (inTangent, value,
+		                            // outTangent per keyframe -- see the glTF spec)
+		int components = 0;         // 3 (translation/scale), 4 (rotation xyzw), or the morph
+		                            // target count (weights)
+		GLTFInterpolation interpolation = GLTFInterpolation::Linear;
+	};
+
+	struct GLTFAnimationChannel
+	{
+		int targetNode = -1;
+		GLTFAnimationPath path = GLTFAnimationPath::Translation;
+		int sampler = -1;
+	};
+
+	struct GLTFAnimation
+	{
+		std::string name;
+		std::vector<GLTFAnimationSampler> samplers;
+		std::vector<GLTFAnimationChannel> channels;
+	};
+
 	struct GLTFScene
 	{
 		std::string name;
@@ -131,6 +159,7 @@ namespace Phantom {
 		std::vector<GLTFSkin> skins;
 		std::vector<GLTFCamera> cameras;
 		std::vector<GLTFLight> lights;
+		std::vector<GLTFAnimation> animations;
 		int defaultScene = 0;
 		// Unrecognized top-level (root) glTF extensions, verbatim (name -> raw JSON object text).
 		// This is where profile extensions like VRM ("VRM" for 0.x, "VRMC_vrm" for 1.0) show up.

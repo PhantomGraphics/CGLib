@@ -61,6 +61,31 @@ Bracket findBracket(const std::vector<float>& times, float timeSec) {
     return {lo, hi, alpha};
 }
 
+// Hermite basis for CUBICSPLINE (glTF spec's "Appendix C"): p0/p1 are the keyframe values,
+// m0/m1 the (already dt-scaled) out-/in-tangents, s in [0,1].
+template<typename T>
+T hermite(const T& p0, const T& m0, const T& p1, const T& m1, float s) {
+    const float s2 = s * s;
+    const float s3 = s2 * s;
+    return (2.f*s3 - 3.f*s2 + 1.f) * p0
+         + (s3 - 2.f*s2 + s)       * m0
+         + (-2.f*s3 + 3.f*s2)      * p1
+         + (s3 - s2)               * m1;
+}
+
+// For CUBICSPLINE the output accessor holds three elements per keyframe: in-tangent, value,
+// out-tangent. LINEAR/STEP hold one (the value).
+size_t valueElem(GltfInterpolation interp, size_t keyframe) {
+    return interp == GltfInterpolation::CubicSpline ? keyframe * 3 + 1 : keyframe;
+}
+
+// STEP holds the value of the last keyframe at-or-before timeSec. findBracket() returns
+// alpha==1 exactly when timeSec has reached times[hi] (or is past the range), so hi is the
+// right index there; otherwise lo.
+size_t stepKeyframe(const Bracket& b) {
+    return (b.alpha >= 1.f) ? b.hi : b.lo;
+}
+
 glm::vec3 evaluateVec3Sampler(const GltfDocument& doc, const GltfAnimationSampler& sampler,
                                float timeSec, const glm::vec3& fallback) {
     if (sampler.input < 0 || sampler.output < 0) return fallback;
@@ -68,6 +93,20 @@ glm::vec3 evaluateVec3Sampler(const GltfDocument& doc, const GltfAnimationSample
     if (times.empty()) return fallback;
     GltfAccessorView values(doc, sampler.output);
     const Bracket b = findBracket(times, timeSec);
+
+    if (sampler.interpolation == GltfInterpolation::Step)
+        return values.get<glm::vec3>(valueElem(sampler.interpolation, stepKeyframe(b)));
+    if (b.lo == b.hi)
+        return values.get<glm::vec3>(valueElem(sampler.interpolation, b.lo));
+
+    if (sampler.interpolation == GltfInterpolation::CubicSpline) {
+        const float dt = times[b.hi] - times[b.lo];
+        const glm::vec3 p0 = values.get<glm::vec3>(b.lo * 3 + 1);
+        const glm::vec3 m0 = values.get<glm::vec3>(b.lo * 3 + 2) * dt;
+        const glm::vec3 p1 = values.get<glm::vec3>(b.hi * 3 + 1);
+        const glm::vec3 m1 = values.get<glm::vec3>(b.hi * 3 + 0) * dt;
+        return hermite(p0, m0, p1, m1, b.alpha);
+    }
     return glm::mix(values.get<glm::vec3>(b.lo), values.get<glm::vec3>(b.hi), b.alpha);
 }
 
@@ -83,6 +122,22 @@ glm::quat evaluateQuatSampler(const GltfDocument& doc, const GltfAnimationSample
     if (times.empty()) return fallback;
     GltfAccessorView values(doc, sampler.output);
     const Bracket b = findBracket(times, timeSec);
+
+    if (sampler.interpolation == GltfInterpolation::Step)
+        return glm::normalize(readQuatXYZW(values, valueElem(sampler.interpolation, stepKeyframe(b))));
+    if (b.lo == b.hi)
+        return glm::normalize(readQuatXYZW(values, valueElem(sampler.interpolation, b.lo)));
+
+    if (sampler.interpolation == GltfInterpolation::CubicSpline) {
+        // Spec: Hermite-interpolate the raw xyzw, then normalize.
+        const float dt = times[b.hi] - times[b.lo];
+        const glm::vec4 p0 = values.get<glm::vec4>(b.lo * 3 + 1);
+        const glm::vec4 m0 = values.get<glm::vec4>(b.lo * 3 + 2) * dt;
+        const glm::vec4 p1 = values.get<glm::vec4>(b.hi * 3 + 1);
+        const glm::vec4 m1 = values.get<glm::vec4>(b.hi * 3 + 0) * dt;
+        const glm::vec4 q = glm::normalize(hermite(p0, m0, p1, m1, b.alpha));
+        return glm::quat(q.w, q.x, q.y, q.z);
+    }
     return glm::normalize(glm::slerp(readQuatXYZW(values, b.lo), readQuatXYZW(values, b.hi), b.alpha));
 }
 
@@ -94,10 +149,28 @@ std::vector<float> evaluateWeightsSampler(const GltfDocument& doc, const GltfAni
     if (times.empty()) return result;
     GltfAccessorView values(doc, sampler.output); // flattened: keyframe-major, target-minor
     const Bracket b = findBracket(times, timeSec);
+    const size_t tc     = static_cast<size_t>(targetCount);
+    const bool   cubic  = (sampler.interpolation == GltfInterpolation::CubicSpline);
+    const bool   isStep = (sampler.interpolation == GltfInterpolation::Step);
+    const bool   step   = isStep || (b.lo == b.hi);
+    const size_t stride = cubic ? tc * 3 : tc;      // floats per keyframe block
+    const size_t vbase  = cubic ? tc : 0;          // offset of the "value" sub-block
+    const size_t loKey  = isStep ? stepKeyframe(b) : b.lo;
+
     for (int i = 0; i < targetCount; ++i) {
-        const float w0 = values.get<float>(b.lo * static_cast<size_t>(targetCount) + i);
-        const float w1 = values.get<float>(b.hi * static_cast<size_t>(targetCount) + i);
-        result[i] = glm::mix(w0, w1, b.alpha);
+        const size_t iu = static_cast<size_t>(i);
+        const float w0 = values.get<float>(loKey * stride + vbase + iu);
+        if (step) { result[i] = w0; continue; }
+        if (cubic) {
+            const float dt = times[b.hi] - times[b.lo];
+            const float m0 = values.get<float>(b.lo * stride + tc * 2 + iu) * dt; // out-tangent
+            const float p1 = values.get<float>(b.hi * stride + tc + iu);
+            const float m1 = values.get<float>(b.hi * stride + iu) * dt;          // in-tangent
+            result[i] = hermite(w0, m0, p1, m1, b.alpha);
+        } else {
+            const float w1 = values.get<float>(b.hi * stride + iu);
+            result[i] = glm::mix(w0, w1, b.alpha);
+        }
     }
     return result;
 }
@@ -188,6 +261,12 @@ std::vector<glm::mat4> GltfAnimationEvaluator::evaluateSkin(const GltfDocument& 
         skinMatrices[j] = globalTransforms[node] * ibm;
     }
     return skinMatrices;
+}
+
+std::vector<glm::mat4> GltfAnimationEvaluator::evaluateNodeGlobalTransforms(const GltfDocument& doc,
+                                                                            int animationIndex, float timeSec)
+{
+    return computeGlobalTransforms(doc, animationIndex, timeSec);
 }
 
 std::vector<float> GltfAnimationEvaluator::evaluateMorphWeights(const GltfDocument& doc,

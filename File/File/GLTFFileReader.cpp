@@ -337,6 +337,59 @@ bool GLTFFileReader::read(const std::filesystem::path& filename)
 		gltf.skins.push_back(std::move(skin));
 	}
 
+  // Animations
+	for (cgltf_size ai = 0; ai < data->animations_count; ++ai) {
+		const cgltf_animation& canim = data->animations[ai];
+		GLTFAnimation anim;
+		anim.name = canim.name ? canim.name : "";
+
+		anim.samplers.reserve(canim.samplers_count);
+		for (cgltf_size si = 0; si < canim.samplers_count; ++si) {
+			const cgltf_animation_sampler& csamp = canim.samplers[si];
+			GLTFAnimationSampler samp;
+			switch (csamp.interpolation) {
+			case cgltf_interpolation_type_step:         samp.interpolation = GLTFInterpolation::Step;        break;
+			case cgltf_interpolation_type_cubic_spline: samp.interpolation = GLTFInterpolation::CubicSpline; break;
+			default:                                    samp.interpolation = GLTFInterpolation::Linear;      break;
+			}
+
+			if (csamp.input) {
+				const cgltf_accessor* in = csamp.input;
+				samp.times.resize(in->count);
+				for (cgltf_size k = 0; k < in->count; ++k)
+					cgltf_accessor_read_float(in, k, &samp.times[k], 1);
+			}
+			if (csamp.output) {
+				const cgltf_accessor* out = csamp.output;
+				const cgltf_size comp = cgltf_num_components(out->type);
+				samp.components = static_cast<int>(comp);
+				samp.values.resize(out->count * comp);
+				for (cgltf_size k = 0; k < out->count; ++k)
+					cgltf_accessor_read_float(out, k, &samp.values[k * comp], comp);
+			}
+			anim.samplers.push_back(std::move(samp));
+		}
+
+		anim.channels.reserve(canim.channels_count);
+		for (cgltf_size ci = 0; ci < canim.channels_count; ++ci) {
+			const cgltf_animation_channel& cchan = canim.channels[ci];
+			GLTFAnimationChannel chan;
+			if (cchan.target_node)
+				chan.targetNode = static_cast<int>(cchan.target_node - data->nodes);
+			if (cchan.sampler)
+				chan.sampler = static_cast<int>(cchan.sampler - canim.samplers);
+			switch (cchan.target_path) {
+			case cgltf_animation_path_type_rotation: chan.path = GLTFAnimationPath::Rotation;    break;
+			case cgltf_animation_path_type_scale:    chan.path = GLTFAnimationPath::Scale;       break;
+			case cgltf_animation_path_type_weights:  chan.path = GLTFAnimationPath::Weights;     break;
+			default:                                 chan.path = GLTFAnimationPath::Translation; break;
+			}
+			anim.channels.push_back(chan);
+		}
+
+		gltf.animations.push_back(std::move(anim));
+	}
+
   // Scenes
 	for (cgltf_size si = 0; si < data->scenes_count; ++si) {
 		const cgltf_scene& cscene = data->scenes[si];

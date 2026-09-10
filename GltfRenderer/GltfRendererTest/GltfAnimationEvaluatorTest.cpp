@@ -186,3 +186,83 @@ TEST(GltfAnimationEvaluatorTest, DurationIsLatestKeyframeAcrossSamplers)
     // Translation ends at t=1, rotation at t=2, weights at t=1 -> max is 2.
     EXPECT_FLOAT_EQ(2.f, GltfAnimationEvaluator::duration(doc.animations[0], doc));
 }
+
+// -----------------------------------------------------------------------
+// evaluateNodeGlobalTransforms  (object animation -- Blender->Universe Phase 3)
+// -----------------------------------------------------------------------
+
+namespace {
+
+// Parent node 0 (rotation-animated) with child node 1 (mesh) offset by +1 on X. Used to check
+// that a child inherits its animated ancestor's transform, and STEP/CUBICSPLINE interpolation.
+GltfDocument makeObjectAnimDoc(GltfInterpolation interp)
+{
+    GltfDocument doc;
+
+    GltfNode parent; parent.name = "Pivot"; parent.children = {1};
+    doc.nodes.push_back(parent);
+    GltfNode child;  child.name = "Blade"; child.translation = glm::vec3(1.f, 0.f, 0.f); child.meshIndex = 0;
+    doc.nodes.push_back(child);
+
+    GltfScene scene; scene.nodes = {0}; doc.scenes.push_back(scene);
+    doc.defaultScene = 0;
+
+    GltfMesh mesh; doc.meshes.push_back(mesh);
+
+    GltfAnimation anim;
+    GltfAnimationSampler s;
+    s.interpolation = interp;
+    std::vector<float> times = {0.f, 1.f, 2.f};
+    s.input = appendAccessor(doc, times, GltfComponentType::Float, GltfAccessorType::Scalar);
+
+    // Translation on the pivot: 0 -> 10 -> 20 on X.
+    if (interp == GltfInterpolation::CubicSpline) {
+        // [inTangent, value, outTangent] per keyframe. Zero tangents = flat Hermite segments.
+        std::vector<glm::vec3> v = {
+            {0,0,0}, {0,0,0},  {0,0,0},   // key 0: value 0
+            {0,0,0}, {10,0,0}, {0,0,0},   // key 1: value 10
+            {0,0,0}, {20,0,0}, {0,0,0},   // key 2: value 20
+        };
+        s.output = appendAccessor(doc, v, GltfComponentType::Float, GltfAccessorType::Vec3);
+    } else {
+        std::vector<glm::vec3> v = {{0,0,0}, {10,0,0}, {20,0,0}};
+        s.output = appendAccessor(doc, v, GltfComponentType::Float, GltfAccessorType::Vec3);
+    }
+    anim.samplers.push_back(s);
+    anim.channels.push_back({0, {0, GltfAnimationPath::Translation}});
+    doc.animations.push_back(anim);
+    return doc;
+}
+
+} // namespace
+
+TEST(GltfAnimationEvaluatorTest, NodeGlobalTransformsPropagateToChildren)
+{
+    const GltfDocument doc = makeObjectAnimDoc(GltfInterpolation::Linear);
+    // t=0.5 -> pivot translated (5,0,0); child sits at local (1,0,0) -> global (6,0,0).
+    auto g = GltfAnimationEvaluator::evaluateNodeGlobalTransforms(doc, 0, 0.5f);
+    ASSERT_EQ(2u, g.size());
+    EXPECT_NEAR(5.f, g[0][3][0], 1e-4f);
+    EXPECT_NEAR(6.f, g[1][3][0], 1e-4f);
+}
+
+TEST(GltfAnimationEvaluatorTest, StepInterpolationHoldsLeftKeyframe)
+{
+    GltfDocument doc = makeObjectAnimDoc(GltfInterpolation::Step);
+    // STEP: any time in [0,1) holds key 0's value (0), not a blend toward 10.
+    auto mid = GltfAnimationEvaluator::evaluateNodeGlobalTransforms(doc, 0, 0.99f);
+    EXPECT_NEAR(0.f, mid[0][3][0], 1e-4f);
+    auto onKey = GltfAnimationEvaluator::evaluateNodeGlobalTransforms(doc, 0, 1.f);
+    EXPECT_NEAR(10.f, onKey[0][3][0], 1e-4f);
+}
+
+TEST(GltfAnimationEvaluatorTest, CubicSplineInterpolatesWithHermiteBasis)
+{
+    GltfDocument doc = makeObjectAnimDoc(GltfInterpolation::CubicSpline);
+    // Zero tangents -> Hermite reduces to smoothstep: at s=0.5, value = 0.5*(v0+v1) only when
+    // symmetric; the 2s^3-3s^2 basis gives exactly the midpoint for equal endpoints spacing.
+    auto mid = GltfAnimationEvaluator::evaluateNodeGlobalTransforms(doc, 0, 0.5f);
+    EXPECT_NEAR(5.f, mid[0][3][0], 1e-4f); // (2*.125 - 3*.25 + 1)*0 + (-2*.125 + 3*.25)*10 = 5
+    auto key = GltfAnimationEvaluator::evaluateNodeGlobalTransforms(doc, 0, 2.f);
+    EXPECT_NEAR(20.f, key[0][3][0], 1e-4f);
+}

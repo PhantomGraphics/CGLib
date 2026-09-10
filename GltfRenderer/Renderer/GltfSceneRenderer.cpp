@@ -1,5 +1,7 @@
 ﻿#include "GltfSceneRenderer.h"
 #include "GltfMaterial.h"
+#include "../Gltf/GltfAnimationEvaluator.h"
+#include "../Gltf/GltfAccessorView.h"
 
 #include "../../../CGLib/VulkanGraphics/VulkanContext.h"
 #include "../../../CGLib/VulkanGraphics/VulkanCommandPool.h"
@@ -410,7 +412,14 @@ void GltfSceneRenderer::traverseNode(const GltfDocument& doc, int nodeIndex,
         // Per glTF spec, a skinned mesh's world position comes entirely from its joint matrices
         // (supplied per-frame via updateSkinMatrices()) -- the mesh-holding node's own transform
         // is ignored, not composed with it. Baking `world` here as well would double-apply it.
-        const glm::mat4& bakeTransform = (node.skin >= 0) ? glm::mat4(1.f) : world;
+        const bool skinned = (node.skin >= 0);
+        const glm::mat4& bakeTransform = skinned ? glm::mat4(1.f) : world;
+
+        // Object animation (this document has clips and the mesh isn't skinned): keep a CPU
+        // mirror plus the accessor-space positions/normals so onUpdate() can re-bake the whole
+        // primitive with its node's animated world matrix each frame.
+        const bool objectAnimatable = !skinned && !doc.animations.empty();
+
         for (int primIdx = 0; primIdx < static_cast<int>(mesh.primitives.size()); ++primIdx) {
             const auto& prim = mesh.primitives[primIdx];
             if (prim.positionAccessor < 0) continue;
@@ -418,7 +427,25 @@ void GltfSceneRenderer::traverseNode(const GltfDocument& doc, int nodeIndex,
             entry->materialIndex = prim.materialIndex;
             entry->meshIndex     = node.meshIndex;
             entry->primIndex     = primIdx;
-            entry->mesh.setKeepCpuVertices(dynamic_);
+            entry->nodeIndex     = nodeIndex;
+            entry->restWorld     = bakeTransform;
+            entry->mesh.setKeepCpuVertices(dynamic_ || objectAnimatable);
+
+            if (objectAnimatable) {
+                GltfAccessorView posView(doc, prim.positionAccessor);
+                entry->localPos.resize(posView.count());
+                for (size_t i = 0; i < entry->localPos.size(); ++i)
+                    entry->localPos[i] = posView.get<glm::vec3>(i);
+                if (prim.normalAccessor >= 0) {
+                    GltfAccessorView nView(doc, prim.normalAccessor);
+                    entry->localNrm.resize(nView.count());
+                    for (size_t i = 0; i < entry->localNrm.size(); ++i)
+                        entry->localNrm[i] = nView.get<glm::vec3>(i);
+                } else {
+                    entry->localNrm.assign(entry->localPos.size(), glm::vec3(0.f, 1.f, 0.f));
+                }
+            }
+
             if (entry->mesh.build(ctx, pool, doc, prim, bakeTransform))
                 primitives_.push_back(std::move(entry));
         }
@@ -426,6 +453,79 @@ void GltfSceneRenderer::traverseNode(const GltfDocument& doc, int nodeIndex,
 
     for (int child : node.children)
         traverseNode(doc, child, world, ctx, pool);
+}
+
+// ============================================================
+//  Object animation (node TRS)  — CPU re-bake per frame
+// ============================================================
+
+void GltfSceneRenderer::setAnimationClip(int clipIndex)
+{
+    const int clamped = (doc_ && clipIndex >= 0 && clipIndex < (int)doc_->animations.size()) ? clipIndex : -1;
+    if (clamped == animClip_) return;
+    animClip_ = clamped;
+    animDirty_ = true; // force a re-bake next onUpdate() (to the clip's t=0, or back to rest)
+
+    // Which nodes does this clip move? A channel target plus its whole subtree (a spinning
+    // pivot carries its children). Everything else stays at its build-time bake.
+    animatedNode_.assign(doc_ ? doc_->nodes.size() : 0, 0);
+    if (animClip_ >= 0) {
+        for (const auto& ch : doc_->animations[animClip_].channels) {
+            if (ch.target.node < 0 || ch.target.node >= (int)animatedNode_.size()) continue;
+            markSubtreeAnimated(ch.target.node);
+        }
+    }
+}
+
+void GltfSceneRenderer::markSubtreeAnimated(int nodeIndex)
+{
+    if (nodeIndex < 0 || nodeIndex >= (int)animatedNode_.size() || animatedNode_[nodeIndex]) return;
+    animatedNode_[nodeIndex] = 1;
+    for (int child : doc_->nodes[nodeIndex].children)
+        markSubtreeAnimated(child);
+}
+
+void GltfSceneRenderer::setAnimationTime(float seconds)
+{
+    if (seconds != animTime_) { animTime_ = seconds; animDirty_ = true; }
+}
+
+int GltfSceneRenderer::animationCount() const
+{
+    return doc_ ? static_cast<int>(doc_->animations.size()) : 0;
+}
+
+float GltfSceneRenderer::animationDuration(int clipIndex) const
+{
+    if (!doc_ || clipIndex < 0 || clipIndex >= (int)doc_->animations.size()) return 0.f;
+    return GltfAnimationEvaluator::duration(doc_->animations[clipIndex], *doc_);
+}
+
+void GltfSceneRenderer::applyObjectAnimation()
+{
+    if (!ready_ || !ctx_ || !pool_ || !doc_ || !animDirty_) return;
+    animDirty_ = false;
+
+    // Clip disabled: restore every animated primitive to its rest-pose bake once.
+    if (animClip_ < 0) {
+        for (auto& e : primitives_) {
+            if (e->nodeIndex < 0 || e->localPos.empty()) continue;
+            e->mesh.setBakeTransform(e->restWorld);
+            e->mesh.updatePositionsAndNormals(*ctx_, *pool_, e->localPos, e->localNrm);
+        }
+        return;
+    }
+
+    const std::vector<glm::mat4> globals =
+        GltfAnimationEvaluator::evaluateNodeGlobalTransforms(*doc_, animClip_, animTime_);
+
+    for (auto& e : primitives_) {
+        if (e->nodeIndex < 0 || e->localPos.empty()) continue;
+        if (e->nodeIndex >= (int)globals.size() || e->nodeIndex >= (int)animatedNode_.size()) continue;
+        if (!animatedNode_[e->nodeIndex]) continue; // static node -- leave its build-time bake
+        e->mesh.setBakeTransform(globals[e->nodeIndex]);
+        e->mesh.updatePositionsAndNormals(*ctx_, *pool_, e->localPos, e->localNrm);
+    }
 }
 
 // ============================================================
@@ -608,6 +708,11 @@ void GltfSceneRenderer::loadDocument(const GltfDocument& doc)
         clearDocumentResources();
     }
     doc_ = &doc;
+    // Node/clip indices from the previous document don't carry over.
+    animClip_ = -1;
+    animTime_ = 0.f;
+    animDirty_ = false;
+    animatedNode_.clear();
     if (ctx_) buildDocumentResources();
 }
 
@@ -662,6 +767,8 @@ void GltfSceneRenderer::setLight(const glm::vec4& pos, const glm::vec4& color)
 
 void GltfSceneRenderer::onUpdate(uint32_t frameIndex) {
     if (!ready_) return;
+
+    applyObjectAnimation(); // no-op unless a clip is set and the time/clip changed
 
     GlobalUBO cam{};
     cam.model          = modelMatrix_;

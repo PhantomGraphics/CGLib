@@ -36,6 +36,13 @@ namespace Phantom::Gltf
         // soft bodies -- docs/todo/PLAN_physicsview_gltf_rendering.md Phase 3).
         void setKeepCpuVertices(bool v) { keepCpuVertices_ = v; }
 
+        // Replaces the world transform build() baked in. The next updatePositions()/
+        // updatePositionsAndNormals() call re-bakes the supplied (accessor-space) positions
+        // with this matrix instead. Used by GltfSceneRenderer's object-animation path to move a
+        // whole primitive per frame without a per-draw uniform. Requires the CPU mirror
+        // (setKeepCpuVertices(true)).
+        void setBakeTransform(const glm::mat4& m) { bakeTransform_ = m; }
+
         // Returns false (no GPU resources created) if the primitive has no POSITION accessor.
         bool build(const Phantom::VKG::VulkanContext& ctx, const Phantom::VKG::VulkanCommandPool& pool,
             const GltfDocument& doc, const GltfPrimitive& prim,

@@ -3,7 +3,11 @@
 #include "../File/GLTFFileReader.h"
 #include "../File/GLTFFileWriter.h"
 
+#include <cstdint>
 #include <cstdio>
+#include <fstream>
+#include <string>
+#include <vector>
 
 using namespace Phantom::File;
 
@@ -91,4 +95,78 @@ TEST(GLTFFileWriterTest, TestWriteAndReadRoundTrip)
     EXPECT_EQ(0, dst.defaultScene);
 
     std::remove(filePath.string().c_str());
+}
+
+// GLTFFileWriter can't emit animations, so exercise the reader against a hand-written minimal
+// glTF: one node rotation-animated by a 2-keyframe LINEAR sampler. Verifies the animation
+// channel/sampler parsing added for the Blender->Universe authoring loop (Phase 3).
+TEST(GLTFFileReaderTest, ParsesRotationAnimationChannel)
+{
+    // Binary blob: input times [0,1] (2 x f32) then output quats identity, 180deg-about-Y
+    // (2 x vec4 f32, xyzw). 8 + 32 = 40 bytes.
+    std::vector<float> blob = {
+        0.f, 1.f,
+        0.f, 0.f, 0.f, 1.f,
+        0.f, 1.f, 0.f, 0.f,
+    };
+    const auto dir = std::filesystem::temp_directory_path();
+    const auto binPath  = dir / "gltf_anim_test.bin";
+    const auto gltfPath = dir / "gltf_anim_test.gltf";
+    {
+        std::ofstream bin(binPath, std::ios::binary);
+        bin.write(reinterpret_cast<const char*>(blob.data()),
+                  static_cast<std::streamsize>(blob.size() * sizeof(float)));
+    }
+
+    const std::string gltf = R"({
+  "asset": { "version": "2.0" },
+  "nodes": [ { "name": "Spin" } ],
+  "scenes": [ { "nodes": [0] } ],
+  "scene": 0,
+  "buffers": [ { "uri": "gltf_anim_test.bin", "byteLength": 40 } ],
+  "bufferViews": [
+    { "buffer": 0, "byteOffset": 0,  "byteLength": 8 },
+    { "buffer": 0, "byteOffset": 8,  "byteLength": 32 }
+  ],
+  "accessors": [
+    { "bufferView": 0, "componentType": 5126, "count": 2, "type": "SCALAR", "min": [0.0], "max": [1.0] },
+    { "bufferView": 1, "componentType": 5126, "count": 2, "type": "VEC4" }
+  ],
+  "animations": [ {
+    "name": "Spin4s",
+    "samplers": [ { "input": 0, "output": 1, "interpolation": "LINEAR" } ],
+    "channels": [ { "sampler": 0, "target": { "node": 0, "path": "rotation" } } ]
+  } ]
+})";
+    {
+        std::ofstream f(gltfPath);
+        f << gltf;
+    }
+
+    GLTFFileReader reader;
+    ASSERT_TRUE(reader.read(gltfPath));
+    const GLTFFile g = reader.getGLTF();
+
+    ASSERT_EQ(1u, g.animations.size());
+    EXPECT_EQ("Spin4s", g.animations[0].name);
+    ASSERT_EQ(1u, g.animations[0].samplers.size());
+    ASSERT_EQ(1u, g.animations[0].channels.size());
+
+    const auto& s = g.animations[0].samplers[0];
+    EXPECT_EQ(GLTFInterpolation::Linear, s.interpolation);
+    ASSERT_EQ(2u, s.times.size());
+    EXPECT_FLOAT_EQ(0.f, s.times[0]);
+    EXPECT_FLOAT_EQ(1.f, s.times[1]);
+    EXPECT_EQ(4, s.components);
+    ASSERT_EQ(8u, s.values.size());
+    EXPECT_FLOAT_EQ(1.f, s.values[3]); // identity quat w
+    EXPECT_FLOAT_EQ(1.f, s.values[5]); // second quat y
+
+    const auto& ch = g.animations[0].channels[0];
+    EXPECT_EQ(0, ch.targetNode);
+    EXPECT_EQ(0, ch.sampler);
+    EXPECT_EQ(GLTFAnimationPath::Rotation, ch.path);
+
+    std::remove(gltfPath.string().c_str());
+    std::remove(binPath.string().c_str());
 }
