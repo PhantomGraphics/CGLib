@@ -137,13 +137,14 @@ namespace Phantom::Gltf
         // GltfAnimationEvaluator::evaluateMorphWeights()'s per-frame weights. No-op (false) if no
         // built primitive matches meshIndex/primIndex (e.g. it has no POSITION accessor, or the
         // document hasn't been loaded through onInit()/loadDocument() yet).
-        bool updateMorphedPositions(int meshIndex, int primIndex, const std::vector<glm::vec3>& positions);
+        // nodeIndex restricts updates to one instance; -1 updates all instances of the mesh.
+        bool updateMorphedPositions(int meshIndex, int primIndex, const std::vector<glm::vec3>& positions, int nodeIndex = -1);
 
         // Position + CPU-recomputed normal update for a deforming primitive (setDynamic(true)
         // or morph targets). Same semantics as updateMorphedPositions() otherwise.
         bool updateMorphedGeometry(int meshIndex, int primIndex,
                                    const std::vector<glm::vec3>& positions,
-                                   const std::vector<glm::vec3>& normals);
+                                   const std::vector<glm::vec3>& normals, int nodeIndex = -1);
 
         // --- Camera input handlers ---
         void handleMouseButton(bool pressed);

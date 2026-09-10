@@ -720,26 +720,40 @@ void GltfSceneRenderer::loadDocument(const GltfDocument& doc)
     if (ctx_) buildDocumentResources();
 }
 
-bool GltfSceneRenderer::updateMorphedPositions(int meshIndex, int primIndex, const std::vector<glm::vec3>& positions)
+bool GltfSceneRenderer::updateMorphedPositions(int meshIndex, int primIndex, const std::vector<glm::vec3>& positions, int nodeIndex)
 {
     if (!ready_ || !ctx_ || !pool_) return false;
+    applyObjectAnimation(); // Update bake matrices before uploading local-space morph geometry.
+    bool updated = false;
     for (auto& entry : primitives_) {
-        if (entry->meshIndex == meshIndex && entry->primIndex == primIndex)
-            return entry->mesh.updatePositions(*ctx_, *pool_, positions);
+        if (entry->meshIndex != meshIndex || entry->primIndex != primIndex ||
+            (nodeIndex >= 0 && entry->nodeIndex != nodeIndex)) continue;
+        if (!entry->mesh.updatePositions(*ctx_, *pool_, positions)) return false;
+        // Preserve deformation when a later object-animation update re-bakes this entry.
+        if (!entry->localPos.empty()) entry->localPos = positions;
+        updated = true;
     }
-    return false;
+    return updated;
 }
 
 bool GltfSceneRenderer::updateMorphedGeometry(int meshIndex, int primIndex,
                                               const std::vector<glm::vec3>& positions,
-                                              const std::vector<glm::vec3>& normals)
+                                              const std::vector<glm::vec3>& normals, int nodeIndex)
 {
     if (!ready_ || !ctx_ || !pool_) return false;
+    applyObjectAnimation();
+    bool updated = false;
     for (auto& entry : primitives_) {
-        if (entry->meshIndex == meshIndex && entry->primIndex == primIndex)
-            return entry->mesh.updatePositionsAndNormals(*ctx_, *pool_, positions, normals);
+        if (entry->meshIndex != meshIndex || entry->primIndex != primIndex ||
+            (nodeIndex >= 0 && entry->nodeIndex != nodeIndex)) continue;
+        if (!entry->mesh.updatePositionsAndNormals(*ctx_, *pool_, positions, normals)) return false;
+        if (!entry->localPos.empty()) {
+            entry->localPos = positions;
+            entry->localNrm = normals;
+        }
+        updated = true;
     }
-    return false;
+    return updated;
 }
 
 void GltfSceneRenderer::setCamera(const glm::mat4& view, const glm::mat4& proj,

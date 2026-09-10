@@ -22,7 +22,7 @@ public:
                                                 int animationIndex, int skinIndex, float timeSec);
 
     // Evaluates doc.animations[animationIndex]'s Weights channel targeting nodeIndex at timeSec.
-    // Returns targetCount zeros (= no deformation) if no such channel exists.
+    // Without a channel, uses node weights, then mesh weights, then zeros.
     static std::vector<float> evaluateMorphWeights(const GltfDocument& doc,
                                                     int animationIndex, int nodeIndex,
                                                     int targetCount, float timeSec);

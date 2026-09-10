@@ -274,6 +274,13 @@ std::vector<float> GltfAnimationEvaluator::evaluateMorphWeights(const GltfDocume
                                                                   int targetCount, float timeSec)
 {
     std::vector<float> result(targetCount > 0 ? targetCount : 0, 0.f);
+    if (nodeIndex >= 0 && nodeIndex < static_cast<int>(doc.nodes.size())) {
+        const auto& node = doc.nodes[nodeIndex];
+        const std::vector<float>* defaults = &node.weights;
+        if (defaults->empty() && node.meshIndex >= 0 && node.meshIndex < static_cast<int>(doc.meshes.size()))
+            defaults = &doc.meshes[node.meshIndex].weights;
+        std::copy_n(defaults->begin(), std::min(result.size(), defaults->size()), result.begin());
+    }
     if (animationIndex < 0 || animationIndex >= static_cast<int>(doc.animations.size())) return result;
 
     const GltfAnimation& anim = doc.animations[animationIndex];

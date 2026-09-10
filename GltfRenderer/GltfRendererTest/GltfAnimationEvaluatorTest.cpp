@@ -457,3 +457,31 @@ TEST(GltfAnimationEvaluatorTest, ScaleChannelStretchesChildOffsets)
     EXPECT_NEAR(2.f,  g1[4][1][1], 1e-4f);
     EXPECT_NEAR(-2.f, g1[5][3][1], 1e-4f);
 }
+
+TEST(GltfAnimationEvaluatorTest, MorphDefaultsUseNodeThenMeshWithoutChannel)
+{
+    auto doc = makeDoc();
+    doc.meshes.resize(1);
+    doc.meshes[0].weights = {0.25f, 0.75f};
+    doc.nodes[0].meshIndex = 0;
+    EXPECT_EQ((std::vector<float>{0.25f, 0.75f}),
+        GltfAnimationEvaluator::evaluateMorphWeights(doc, 0, 0, 2, 0.5f));
+    doc.nodes[0].weights = {0.8f, 0.2f};
+    EXPECT_EQ((std::vector<float>{0.8f, 0.2f}),
+        GltfAnimationEvaluator::evaluateMorphWeights(doc, 0, 0, 2, 0.5f));
+    EXPECT_EQ((std::vector<float>{0.8f, 0.2f}),
+        GltfAnimationEvaluator::evaluateMorphWeights(doc, -1, 0, 2, 0.f));
+}
+
+TEST(GltfAnimationEvaluatorTest, SharedMeshNodesKeepIndependentMorphWeights)
+{
+    auto doc = makeDoc();
+    doc.meshes.resize(1);
+    doc.nodes[0].meshIndex = doc.nodes[1].meshIndex = 0;
+    doc.nodes[0].weights = {0.8f, 0.2f};
+    doc.nodes[1].weights = {0.9f, 0.9f};
+    EXPECT_EQ((std::vector<float>{0.8f, 0.2f}),
+        GltfAnimationEvaluator::evaluateMorphWeights(doc, 0, 0, 2, 0.5f));
+    EXPECT_EQ((std::vector<float>{0.5f, 0.25f}),
+        GltfAnimationEvaluator::evaluateMorphWeights(doc, 0, 1, 2, 0.5f));
+}
