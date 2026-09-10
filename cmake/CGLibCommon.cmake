@@ -29,12 +29,20 @@ endif()
 get_filename_component(CGLIB_ROOT "${CGLIB_ROOT}" ABSOLUTE)
 
 # --- Warning flags + MSVC /utf-8 (several sources carry Japanese comments that
-# are invalid in the legacy MSVC source code page -- required, not cosmetic).
+# are invalid in the legacy MSVC source code page -- required, not cosmetic) +
+# /EHsc.
 # add_compile_options() is directory-scoped, so this must run in every
 # directory that include()s this file, not once behind a guard.
+#
+# /EHsc: this CMake build was leaving CMAKE_CXX_FLAGS empty (no exception model),
+# so MSVC emitted C4530 and a `throw` reaching even a same-function `catch`
+# std::terminate'd instead of unwinding. That broke the try/catch the codebase
+# deliberately uses at external-library (nlohmann/cgltf) boundaries -- e.g.
+# VrmExtensionParser::parseHumanoid() aborted GltfRendererTest in Debug. The
+# private CGApp msbuild layer already compiles with /EHsc; match it here.
 if(MSVC)
     set(PHANTOM_WARN_FLAGS /W3)
-    add_compile_options(/utf-8)
+    add_compile_options(/utf-8 /EHsc)
 else()
     set(PHANTOM_WARN_FLAGS -Wall)
 endif()
