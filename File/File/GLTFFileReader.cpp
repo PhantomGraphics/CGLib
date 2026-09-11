@@ -78,12 +78,22 @@ bool GLTFFileReader::read(const std::filesystem::path& filename)
 					}
 				}
 				else if (attr.type == cgltf_attribute_type_texcoord) {
+					if (attr.index != 0) {
+						// TEXCOORD_1 (or higher): no renderer path samples a second UV set yet.
+						// Note it instead of overwriting TEXCOORD_0's already-read texCoords.
+						prim.hasSecondUV = true;
+						continue;
+					}
 					prim.texCoords.resize(acc->count);
 					for (cgltf_size vi = 0; vi < acc->count; ++vi) {
 						float v[2] = {};
 						cgltf_accessor_read_float(acc, vi, v, 2);
 						prim.texCoords[vi] = { v[0], v[1] };
 					}
+				}
+				else if (attr.type == cgltf_attribute_type_color) {
+					// Vertex color (COLOR_0): not read/applied anywhere downstream yet.
+					prim.hasVertexColor = true;
 				}
 				else if (attr.type == cgltf_attribute_type_tangent) {
 					prim.tangents.resize(acc->count);
@@ -178,20 +188,48 @@ bool GLTFFileReader::read(const std::filesystem::path& filename)
 			if (pbr.base_color_texture.texture) {
 				mat.pbrMetallicRoughness.baseColorTextureIndex =
 					static_cast<int>(pbr.base_color_texture.texture - data->textures);
+				mat.pbrMetallicRoughness.baseColorTexCoord = pbr.base_color_texture.texcoord;
 			}
 			if (pbr.metallic_roughness_texture.texture) {
 				mat.pbrMetallicRoughness.metallicRoughnessTextureIndex =
 					static_cast<int>(pbr.metallic_roughness_texture.texture - data->textures);
+				mat.pbrMetallicRoughness.metallicRoughnessTexCoord = pbr.metallic_roughness_texture.texcoord;
 			}
+			mat.hasUnsupportedTextureTransform = mat.hasUnsupportedTextureTransform
+				|| pbr.base_color_texture.has_transform
+				|| pbr.metallic_roughness_texture.has_transform;
 		}
 
 		if (cmat.normal_texture.texture) {
 			mat.normalTextureIndex =
 				static_cast<int>(cmat.normal_texture.texture - data->textures);
+			mat.normalTexCoord    = cmat.normal_texture.texcoord;
+			mat.normalTextureScale = cmat.normal_texture.scale;
+			mat.hasUnsupportedTextureTransform = mat.hasUnsupportedTextureTransform || cmat.normal_texture.has_transform;
+		}
+		if (cmat.occlusion_texture.texture) {
+			mat.occlusionTextureIndex =
+				static_cast<int>(cmat.occlusion_texture.texture - data->textures);
+			mat.occlusionTexCoord      = cmat.occlusion_texture.texcoord;
+			mat.occlusionTextureStrength = cmat.occlusion_texture.scale; // cgltf: "equivalent to strength for occlusion_texture"
+			mat.hasUnsupportedTextureTransform = mat.hasUnsupportedTextureTransform || cmat.occlusion_texture.has_transform;
 		}
 		if (cmat.emissive_texture.texture) {
 			mat.emissiveTextureIndex =
 				static_cast<int>(cmat.emissive_texture.texture - data->textures);
+			mat.emissiveTexCoord = cmat.emissive_texture.texcoord;
+			mat.hasUnsupportedTextureTransform = mat.hasUnsupportedTextureTransform || cmat.emissive_texture.has_transform;
+		}
+
+		switch (cmat.alpha_mode) {
+		case cgltf_alpha_mode_mask:  mat.alphaMode = GLTFAlphaMode::Mask;  break;
+		case cgltf_alpha_mode_blend: mat.alphaMode = GLTFAlphaMode::Blend; break;
+		default:                     mat.alphaMode = GLTFAlphaMode::Opaque; break;
+		}
+		mat.alphaCutoff = cmat.alpha_cutoff;
+
+		if (cmat.has_emissive_strength) {
+			mat.emissiveStrength = cmat.emissive_strength.emissive_strength;
 		}
 
 		for (cgltf_size ei = 0; ei < cmat.extensions_count; ++ei) {

@@ -165,6 +165,8 @@ bool GltfGpuMaterial::build(const Phantom::VKG::VulkanContext& ctx, const Phanto
     uboData.normalScale             = gltfMat.normalTexture.scale;
     uboData.occlusionStrength       = gltfMat.occlusionTexture.strength;
     uboData.emissiveFactor          = gltfMat.emissiveFactor;
+    uboData.alphaMode               = static_cast<int>(gltfMat.alphaMode);
+    uboData.alphaCutoff             = gltfMat.alphaCutoff;
     uboData.hasBaseColorTex         = 0;
     uboData.hasMetallicRoughnessTex = 0;
     uboData.hasNormalTex            = 0;

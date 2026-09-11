@@ -48,7 +48,9 @@ struct MaterialUBO {
     int       hasNormalTex;
     int       hasOcclusionTex;
     int       hasEmissiveTex;
-    float     _pad[3];
+    int       alphaMode;    // 0=Opaque, 1=Mask, 2=Blend (Phantom::Gltf::GltfAlphaMode)
+    float     alphaCutoff;  // meaningful only when alphaMode == 1 (Mask)
+    float     _pad[1];
 };
 
 }

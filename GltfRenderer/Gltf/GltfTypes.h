@@ -109,14 +109,22 @@ namespace Phantom::Gltf
         GltfTextureInfo  metallicRoughnessTexture;
     };
 
+    enum class GltfAlphaMode { Opaque, Mask, Blend };
+
     struct GltfMaterial {
         std::string             name;
         GltfPbrMetallicRoughness pbrMetallicRoughness;
         GltfTextureInfo         normalTexture;
         GltfTextureInfo         occlusionTexture;
         GltfTextureInfo         emissiveTexture;
-        glm::vec3               emissiveFactor = { 0.f, 0.f, 0.f };
+        glm::vec3               emissiveFactor = { 0.f, 0.f, 0.f }; // KHR_materials_emissive_strength is
+                                                                     // pre-multiplied in here by GltfReader
+        GltfAlphaMode           alphaMode = GltfAlphaMode::Opaque;
+        float                   alphaCutoff = 0.5f; // meaningful only when alphaMode == Mask
         bool                    doubleSided = false;
+        // KHR_texture_transform was present on a texture slot but is not applied by any renderer
+        // path (UVs are sampled untransformed). Surfaced by ImportReport, not silently dropped.
+        bool                    hasUnsupportedTextureTransform = false;
     };
 
     // A morph target displaces POSITION (and optionally NORMAL) by a per-vertex offset, blended by
@@ -139,6 +147,10 @@ namespace Phantom::Gltf
         int indicesAccessor = -1;
         int materialIndex = -1;
         std::vector<GltfMorphTarget> targets; // empty = no morph targets
+        // Source carried a TEXCOORD_1 (or higher) / COLOR_0 attribute that no renderer path reads
+        // (only TEXCOORD_0 is sampled, vertex color is never applied). Surfaced by ImportReport.
+        bool hasSecondUV = false;
+        bool hasVertexColor = false;
     };
 
     struct GltfMesh {

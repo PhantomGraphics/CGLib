@@ -37,7 +37,7 @@ namespace Phantom {
 	{
 		std::vector<Math::Vector3df> positions;
 		std::vector<Math::Vector3df> normals;
-		std::vector<Math::Vector2df> texCoords;
+		std::vector<Math::Vector2df> texCoords;   // TEXCOORD_0 only -- see hasSecondUV
 		std::vector<Math::Vector4df> tangents;
 		std::vector<std::array<int, 4>> joints;   // JOINTS_0 (node indices into GLTFSkin::joints, widened to int regardless of source component type)
 		std::vector<Math::Vector4df> weights;     // WEIGHTS_0
@@ -46,6 +46,14 @@ namespace Phantom {
 		GLTFPrimitiveMode mode = GLTFPrimitiveMode::Triangles;
 		// Morph targets: one GLTFMorphTarget per glTF target. Empty = no morph targets (most primitives).
 		std::vector<GLTFMorphTarget> targets;
+		// The source primitive also carried a TEXCOORD_1 (and/or higher) attribute, but only
+		// TEXCOORD_0 is read into `texCoords` above -- no renderer path samples a second UV set yet.
+		// Surfaced by ImportReport so KHR_texture_transform's texCoord override / a material's
+		// non-zero texCoord slot does not silently render with the wrong (or no) UVs.
+		bool hasSecondUV = false;
+		// The source primitive carried a COLOR_0 attribute, but it is not read/applied anywhere
+		// in this layer or the renderer -- surfaced by ImportReport instead of silently ignored.
+		bool hasVertexColor = false;
 	};
 
 	struct GLTFSkin
@@ -63,13 +71,17 @@ namespace Phantom {
 		std::vector<float> morphWeights; // default morph target weights, one per target index (usually all 0)
 	};
 
+	enum class GLTFAlphaMode { Opaque, Mask, Blend };
+
 	struct GLTFPBRMetallicRoughness
 	{
 		std::array<float, 4> baseColorFactor = { 1.0f, 1.0f, 1.0f, 1.0f };
 		float metallicFactor = 1.0f;
 		float roughnessFactor = 1.0f;
 		int baseColorTextureIndex = -1;
+		int baseColorTexCoord = 0;           // which TEXCOORD_n set the texture sampler reads
 		int metallicRoughnessTextureIndex = -1;
+		int metallicRoughnessTexCoord = 0;
 	};
 
 	struct GLTFMaterial
@@ -77,9 +89,23 @@ namespace Phantom {
 		std::string name;
 		GLTFPBRMetallicRoughness pbrMetallicRoughness;
 		int normalTextureIndex = -1;
+		int normalTexCoord = 0;
+		float normalTextureScale = 1.0f;
+		int occlusionTextureIndex = -1;
+		int occlusionTexCoord = 0;
+		float occlusionTextureStrength = 1.0f;
 		int emissiveTextureIndex = -1;
+		int emissiveTexCoord = 0;
 		std::array<float, 3> emissiveFactor = { 0.0f, 0.0f, 0.0f };
+		// KHR_materials_emissive_strength multiplier; 1.0 when the extension is absent (spec default).
+		float emissiveStrength = 1.0f;
+		GLTFAlphaMode alphaMode = GLTFAlphaMode::Opaque;
+		float alphaCutoff = 0.5f;             // meaningful only when alphaMode == Mask
 		bool doubleSided = false;
+		// KHR_texture_transform (UV offset/scale/rotation) was present on at least one of this
+		// material's texture slots, but nothing downstream applies it -- surfaced by ImportReport
+		// instead of silently rendering with the untransformed UVs.
+		bool hasUnsupportedTextureTransform = false;
 		// Unrecognized glTF extensions on this material, verbatim (name -> raw JSON object text,
 		// null-terminated substring as extracted by cgltf). Empty for ordinary glTF files. This
 		// layer has no concept of what any given extension means (e.g. VRMC_materials_mtoon) --

@@ -117,10 +117,28 @@ GltfDocument GltfReader::load(const Phantom::File::GLTFFile& src, const std::fil
         mat.pbrMetallicRoughness.metallicFactor  = m.pbrMetallicRoughness.metallicFactor;
         mat.pbrMetallicRoughness.roughnessFactor = m.pbrMetallicRoughness.roughnessFactor;
         mat.pbrMetallicRoughness.baseColorTexture.index          = m.pbrMetallicRoughness.baseColorTextureIndex;
+        mat.pbrMetallicRoughness.baseColorTexture.texCoord       = m.pbrMetallicRoughness.baseColorTexCoord;
         mat.pbrMetallicRoughness.metallicRoughnessTexture.index  = m.pbrMetallicRoughness.metallicRoughnessTextureIndex;
-        mat.normalTexture.index   = m.normalTextureIndex;
-        mat.emissiveTexture.index = m.emissiveTextureIndex;
-        mat.emissiveFactor = glm::vec3(m.emissiveFactor[0], m.emissiveFactor[1], m.emissiveFactor[2]);
+        mat.pbrMetallicRoughness.metallicRoughnessTexture.texCoord = m.pbrMetallicRoughness.metallicRoughnessTexCoord;
+        mat.normalTexture.index      = m.normalTextureIndex;
+        mat.normalTexture.texCoord   = m.normalTexCoord;
+        mat.normalTexture.scale      = m.normalTextureScale;
+        mat.occlusionTexture.index    = m.occlusionTextureIndex;
+        mat.occlusionTexture.texCoord = m.occlusionTexCoord;
+        mat.occlusionTexture.strength = m.occlusionTextureStrength;
+        mat.emissiveTexture.index    = m.emissiveTextureIndex;
+        mat.emissiveTexture.texCoord = m.emissiveTexCoord;
+        // KHR_materials_emissive_strength is a plain multiplier on emissiveFactor (defaults to 1
+        // when the extension is absent) -- pre-multiply here rather than add a shader/UBO field.
+        mat.emissiveFactor = glm::vec3(m.emissiveFactor[0], m.emissiveFactor[1], m.emissiveFactor[2])
+                            * m.emissiveStrength;
+        switch (m.alphaMode) {
+        case Phantom::File::GLTFAlphaMode::Mask:  mat.alphaMode = GltfAlphaMode::Mask;  break;
+        case Phantom::File::GLTFAlphaMode::Blend: mat.alphaMode = GltfAlphaMode::Blend; break;
+        default:                                  mat.alphaMode = GltfAlphaMode::Opaque; break;
+        }
+        mat.alphaCutoff = m.alphaCutoff;
+        mat.hasUnsupportedTextureTransform = m.hasUnsupportedTextureTransform;
         doc.materials.push_back(std::move(mat));
     }
 
@@ -149,6 +167,8 @@ GltfDocument GltfReader::load(const Phantom::File::GLTFFile& src, const std::fil
             prim.jointsAccessor   = appendAccessor(doc, sp.joints,    GltfComponentType::UnsignedInt, GltfAccessorType::Vec4);
             prim.weightsAccessor  = appendAccessor(doc, sp.weights,  GltfComponentType::Float, GltfAccessorType::Vec4);
             prim.indicesAccessor  = appendAccessor(doc, sp.indices,   GltfComponentType::UnsignedInt, GltfAccessorType::Scalar);
+            prim.hasSecondUV      = sp.hasSecondUV;
+            prim.hasVertexColor   = sp.hasVertexColor;
             for (const auto& tgt : sp.targets) {
                 GltfMorphTarget target;
                 target.positionAccessor = appendAccessor(doc, tgt.positionDeltas, GltfComponentType::Float, GltfAccessorType::Vec3);
