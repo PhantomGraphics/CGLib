@@ -51,12 +51,11 @@ namespace Phantom::Gltf
         GltfSceneRenderer& operator=(const GltfSceneRenderer&) = delete;
 
         // --- Setup (call before onInit) ---
-        // onInit() consumes vertSpv/fragSpv via std::move when building the main
-        // pipeline, leaving shaders_ empty afterward. If a caller re-runs
-        // onCleanup()+onInit() to hot-reload (rather than the lighter
-        // loadDocument(), which does not touch the pipeline), setShaders() must be
-        // called again beforehand or the next onInit() will crash with an empty
-        // SPIR-V module (VUID-VkShaderModuleCreateInfo-codeSize-01085).
+        // onInit() copies vertSpv/fragSpv when building the main pipeline (and its
+        // pipelineDoubleSided_ variant) -- shaders_ is left intact afterward, so a caller that
+        // re-runs onCleanup()+onInit() to hot-reload (rather than the lighter loadDocument(),
+        // which does not touch the pipeline) does not strictly need to call setShaders() again.
+        // Still call it for a real shader hot-reload (new SPIR-V bytes).
         void setShaders(Shaders s) { shaders_ = std::move(s); }
 
         // Mark every primitive of this document as runtime-deformable: keep the CPU vertex
@@ -251,8 +250,12 @@ namespace Phantom::Gltf
         VkImageView envView_ = VK_NULL_HANDLE;
         VkSampler   envSampler_ = VK_NULL_HANDLE;
 
-        // Pipeline
+        // Pipeline. pipelineDoubleSided_ is identical to pipeline_ except cullMode=NONE --
+        // selected per-primitive in onRender() for materials with GltfMaterial::doubleSided set
+        // (see GltfGpuMaterial::doubleSided()), so a doubleSided material's back faces are drawn
+        // while every other material still respects cullMode_ (usually back-face culling).
         Phantom::VKG::VulkanPipeline pipeline_;
+        Phantom::VKG::VulkanPipeline pipelineDoubleSided_;
 
         // Shadow mapping (Phase C)
         Phantom::VKG::VulkanPipeline shadowPipeline_; // depth-only, push-constant lightVP only

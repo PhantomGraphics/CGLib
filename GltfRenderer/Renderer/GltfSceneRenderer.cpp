@@ -563,10 +563,11 @@ void GltfSceneRenderer::onInit(Phantom::VKG::VulkanContext& ctx, const Phantom::
         fprintf(stderr, "[GltfSceneRenderer] global descriptor setup failed; rendering may be incomplete\n");
     updateGlobalDescriptorSets(device);
 
-    // Graphics pipeline with 2 descriptor set layouts
+    // Graphics pipeline with 2 descriptor set layouts. Config is reused (not moved-from) below
+    // to also build pipelineDoubleSided_ -- VulkanPipeline::create() takes it by const&.
     Phantom::VKG::PipelineConfig cfg;
-    cfg.vertSpv = std::move(shaders_.vertSpv);
-    cfg.fragSpv = std::move(shaders_.fragSpv);
+    cfg.vertSpv = shaders_.vertSpv;
+    cfg.fragSpv = shaders_.fragSpv;
     {
         auto bd = GltfGpuMesh::Vertex::getBindingDescription();
         cfg.bindingDescs = {bd};
@@ -576,6 +577,9 @@ void GltfSceneRenderer::onInit(Phantom::VKG::VulkanContext& ctx, const Phantom::
     cfg.blendEnable          = false;
     cfg.cullMode             = cullMode_;
     pipeline_.create(ctx, renderPass, cfg);
+
+    cfg.cullMode = VK_CULL_MODE_NONE;
+    pipelineDoubleSided_.create(ctx, renderPass, cfg);
 
     // Document-specific resources: only if a document was already set.
     if (doc_) buildDocumentResources();
@@ -833,21 +837,31 @@ void GltfSceneRenderer::onUpdate(uint32_t frameIndex) {
 void GltfSceneRenderer::onRender(VkCommandBuffer cmd, uint32_t frameIndex) {
     if (!ready_ || !visible_ || primitives_.empty()) return;
 
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_.getPipeline());
-
-    // Bind global descriptor set (set=0) once for all primitives
+    // Bind global descriptor set (set=0) once for all primitives. pipeline_ and
+    // pipelineDoubleSided_ share the same descriptor set layouts (see onInit()), so either
+    // pipeline's layout works here regardless of which one ends up bound first below.
     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
                             pipeline_.getLayout(), 0, 1, &globalDescSets_[frameIndex], 0, nullptr);
 
+    VkPipeline boundPipeline = VK_NULL_HANDLE; // force the first iteration to bind explicitly
     for (auto& entry : primitives_) {
         int matIdx = (entry->materialIndex >= 0 && entry->materialIndex < (int)materials_.size())
                    ? entry->materialIndex : 0;
         auto& mat = materials_[matIdx];
 
+        // doubleSided materials draw through the no-cull pipeline variant instead of cullMode_
+        // (see GltfMaterial::doubleSided / GltfGpuMaterial::doubleSided()).
+        const bool doubleSided = mat->doubleSided();
+        auto& matPipeline = doubleSided ? pipelineDoubleSided_ : pipeline_;
+        if (matPipeline.getPipeline() != boundPipeline) {
+            vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, matPipeline.getPipeline());
+            boundPipeline = matPipeline.getPipeline();
+        }
+
         // Bind per-material descriptor set (set=1)
         VkDescriptorSet ds = mat->descriptorSet(frameIndex);
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                pipeline_.getLayout(), 1, 1, &ds, 0, nullptr);
+                                matPipeline.getLayout(), 1, 1, &ds, 0, nullptr);
 
         VkBuffer     vbuf   = entry->mesh.vertexBuffer();
         VkDeviceSize offset = 0;
@@ -871,6 +885,7 @@ void GltfSceneRenderer::onCleanup(VkDevice device) {
     ready_ = false;
 
     pipeline_.destroy(device);
+    pipelineDoubleSided_.destroy(device);
     shadowPipeline_.destroy(device);
 
     for (auto& entry : primitives_) entry->mesh.destroy(device);
