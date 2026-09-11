@@ -157,6 +157,7 @@ bool GltfGpuMaterial::build(const Phantom::VKG::VulkanContext& ctx, const Phanto
     fallbackView_    = fallbackView;
     fallbackSampler_ = fallbackSampler;
     doubleSided_     = gltfMat.doubleSided;
+    alphaMode_       = gltfMat.alphaMode;
 
     MaterialUBO uboData{};
     uboData.baseColorFactor         = gltfMat.pbrMetallicRoughness.baseColorFactor;

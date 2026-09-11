@@ -16,6 +16,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <limits>
 
 using namespace Phantom::Gltf;
 
@@ -431,6 +432,21 @@ void GltfSceneRenderer::traverseNode(const GltfDocument& doc, int nodeIndex,
             entry->restWorld     = bakeTransform;
             entry->mesh.setKeepCpuVertices(dynamic_ || objectAnimatable);
 
+            {
+                // AABB center in accessor space -- used only for alpha-BLEND back-to-front sort
+                // ordering (onRender()), cheap enough to compute for every primitive unconditionally
+                // rather than only when this document turns out to have a BLEND material.
+                GltfAccessorView centerView(doc, prim.positionAccessor);
+                glm::vec3 mn(std::numeric_limits<float>::max());
+                glm::vec3 mx(std::numeric_limits<float>::lowest());
+                for (size_t i = 0; i < centerView.count(); ++i) {
+                    const glm::vec3 p = centerView.get<glm::vec3>(i);
+                    mn = glm::min(mn, p);
+                    mx = glm::max(mx, p);
+                }
+                entry->localCenter = (mn + mx) * 0.5f;
+            }
+
             if (objectAnimatable) {
                 GltfAccessorView posView(doc, prim.positionAccessor);
                 entry->localPos.resize(posView.count());
@@ -564,7 +580,7 @@ void GltfSceneRenderer::onInit(Phantom::VKG::VulkanContext& ctx, const Phantom::
     updateGlobalDescriptorSets(device);
 
     // Graphics pipeline with 2 descriptor set layouts. Config is reused (not moved-from) below
-    // to also build pipelineDoubleSided_ -- VulkanPipeline::create() takes it by const&.
+    // to also build the other 3 variants -- VulkanPipeline::create() takes it by const&.
     Phantom::VKG::PipelineConfig cfg;
     cfg.vertSpv = shaders_.vertSpv;
     cfg.fragSpv = shaders_.fragSpv;
@@ -575,11 +591,23 @@ void GltfSceneRenderer::onInit(Phantom::VKG::VulkanContext& ctx, const Phantom::
     }
     cfg.descriptorSetLayouts = { globalSetLayout_.get(), materialSetLayout_.get() };
     cfg.blendEnable          = false;
+    cfg.depthWrite           = true;
     cfg.cullMode             = cullMode_;
     pipeline_.create(ctx, renderPass, cfg);
 
     cfg.cullMode = VK_CULL_MODE_NONE;
     pipelineDoubleSided_.create(ctx, renderPass, cfg);
+
+    // Alpha BLEND variants: standard src-alpha/one-minus-src-alpha blend, depth test on but depth
+    // write off (so overlapping BLEND surfaces don't occlude each other by depth alone -- draw
+    // order does that instead, see onRender()'s back-to-front sort).
+    cfg.blendEnable = true;
+    cfg.depthWrite  = false;
+    cfg.cullMode    = cullMode_;
+    pipelineBlend_.create(ctx, renderPass, cfg);
+
+    cfg.cullMode = VK_CULL_MODE_NONE;
+    pipelineBlendDoubleSided_.create(ctx, renderPass, cfg);
 
     // Document-specific resources: only if a document was already set.
     if (doc_) buildDocumentResources();
@@ -681,6 +709,11 @@ void GltfSceneRenderer::buildDocumentResources()
         }
     }
 
+    hasBlendMaterials_ = false;
+    for (const auto& mat : materials_) {
+        if (mat->isBlend()) { hasBlendMaterials_ = true; break; }
+    }
+
     int sceneIdx = doc_->defaultScene;
     if (sceneIdx < 0 || sceneIdx >= (int)doc_->scenes.size()) sceneIdx = 0;
     if (!doc_->scenes.empty()) {
@@ -706,6 +739,7 @@ void GltfSceneRenderer::clearDocumentResources()
         vkDestroyDescriptorPool(device, descriptorPool_, nullptr);
         descriptorPool_ = VK_NULL_HANDLE;
     }
+    hasBlendMaterials_ = false;
     ready_ = false;
 }
 
@@ -837,22 +871,21 @@ void GltfSceneRenderer::onUpdate(uint32_t frameIndex) {
 void GltfSceneRenderer::onRender(VkCommandBuffer cmd, uint32_t frameIndex) {
     if (!ready_ || !visible_ || primitives_.empty()) return;
 
-    // Bind global descriptor set (set=0) once for all primitives. pipeline_ and
-    // pipelineDoubleSided_ share the same descriptor set layouts (see onInit()), so either
-    // pipeline's layout works here regardless of which one ends up bound first below.
+    // Bind global descriptor set (set=0) once for all primitives. All 4 pipeline variants share
+    // the same descriptor set layouts (see onInit()), so any of their layouts works here
+    // regardless of which one ends up bound first below.
     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
                             pipeline_.getLayout(), 0, 1, &globalDescSets_[frameIndex], 0, nullptr);
 
-    VkPipeline boundPipeline = VK_NULL_HANDLE; // force the first iteration to bind explicitly
-    for (auto& entry : primitives_) {
+    VkPipeline boundPipeline = VK_NULL_HANDLE; // force the first draw to bind explicitly
+
+    auto materialFor = [&](PrimitiveEntry* entry) -> GltfGpuMaterial* {
         int matIdx = (entry->materialIndex >= 0 && entry->materialIndex < (int)materials_.size())
                    ? entry->materialIndex : 0;
-        auto& mat = materials_[matIdx];
+        return materials_[matIdx].get();
+    };
 
-        // doubleSided materials draw through the no-cull pipeline variant instead of cullMode_
-        // (see GltfMaterial::doubleSided / GltfGpuMaterial::doubleSided()).
-        const bool doubleSided = mat->doubleSided();
-        auto& matPipeline = doubleSided ? pipelineDoubleSided_ : pipeline_;
+    auto draw = [&](PrimitiveEntry* entry, GltfGpuMaterial* mat, Phantom::VKG::VulkanPipeline& matPipeline) {
         if (matPipeline.getPipeline() != boundPipeline) {
             vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, matPipeline.getPipeline());
             boundPipeline = matPipeline.getPipeline();
@@ -873,6 +906,39 @@ void GltfSceneRenderer::onRender(VkCommandBuffer cmd, uint32_t frameIndex) {
         } else {
             vkCmdDraw(cmd, entry->mesh.vertexCount(), 1, 0, 0);
         }
+    };
+
+    // Pass 1: opaque + alpha MASK, depth write on, in build (traversal) order. alpha-BLEND
+    // primitives are set aside for pass 2 instead of drawn here.
+    std::vector<PrimitiveEntry*> blendEntries;
+    for (auto& entryPtr : primitives_) {
+        PrimitiveEntry* entry = entryPtr.get();
+        GltfGpuMaterial* mat = materialFor(entry);
+        if (hasBlendMaterials_ && mat->isBlend()) {
+            blendEntries.push_back(entry);
+            continue;
+        }
+        draw(entry, mat, mat->doubleSided() ? pipelineDoubleSided_ : pipeline_);
+    }
+
+    // Pass 2: alpha BLEND, depth write off, back-to-front (painter's algorithm) so overlapping
+    // BLEND surfaces composite correctly against each other, not just against the opaque pass.
+    // Sort key is each primitive's rest-pose AABB center transformed by its build-time world
+    // matrix -- exact for static geometry, an approximation for an object-animated or skinned
+    // BLEND primitive (rare in practice; re-sorting every frame from live transforms would need
+    // per-primitive current-world tracking that object animation/skinning don't expose today).
+    if (!blendEntries.empty()) {
+        const glm::vec3 eye = currentEyePosition();
+        std::sort(blendEntries.begin(), blendEntries.end(), [&](PrimitiveEntry* a, PrimitiveEntry* b) {
+            const glm::vec3 wa = glm::vec3(modelMatrix_ * a->restWorld * glm::vec4(a->localCenter, 1.f));
+            const glm::vec3 wb = glm::vec3(modelMatrix_ * b->restWorld * glm::vec4(b->localCenter, 1.f));
+            const glm::vec3 da = wa - eye, db = wb - eye;
+            return glm::dot(da, da) > glm::dot(db, db); // farthest first
+        });
+        for (PrimitiveEntry* entry : blendEntries) {
+            GltfGpuMaterial* mat = materialFor(entry);
+            draw(entry, mat, mat->doubleSided() ? pipelineBlendDoubleSided_ : pipelineBlend_);
+        }
     }
 }
 
@@ -886,6 +952,8 @@ void GltfSceneRenderer::onCleanup(VkDevice device) {
 
     pipeline_.destroy(device);
     pipelineDoubleSided_.destroy(device);
+    pipelineBlend_.destroy(device);
+    pipelineBlendDoubleSided_.destroy(device);
     shadowPipeline_.destroy(device);
 
     for (auto& entry : primitives_) entry->mesh.destroy(device);

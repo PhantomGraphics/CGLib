@@ -250,12 +250,26 @@ namespace Phantom::Gltf
         VkImageView envView_ = VK_NULL_HANDLE;
         VkSampler   envSampler_ = VK_NULL_HANDLE;
 
-        // Pipeline. pipelineDoubleSided_ is identical to pipeline_ except cullMode=NONE --
-        // selected per-primitive in onRender() for materials with GltfMaterial::doubleSided set
-        // (see GltfGpuMaterial::doubleSided()), so a doubleSided material's back faces are drawn
-        // while every other material still respects cullMode_ (usually back-face culling).
+        // 4 pipeline variants over 2 independent axes, selected per-primitive in onRender():
+        //   - cull:  pipeline_/pipelineBlend_ (cullMode_, usually back-face) vs
+        //            pipelineDoubleSided_/pipelineBlendDoubleSided_ (VK_CULL_MODE_NONE) --
+        //            see GltfGpuMaterial::doubleSided().
+        //   - blend: pipeline_/pipelineDoubleSided_ (opaque: depthWrite on, blend off) vs
+        //            pipelineBlend_/pipelineBlendDoubleSided_ (alpha BLEND: depthWrite off,
+        //            src-alpha/one-minus-src-alpha blend) -- see GltfGpuMaterial::isBlend().
+        // alpha MASK draws through the opaque pair (the fragment shader discards below cutoff
+        // instead, since a MASK'd surface is still either fully opaque or invisible per-fragment).
         Phantom::VKG::VulkanPipeline pipeline_;
         Phantom::VKG::VulkanPipeline pipelineDoubleSided_;
+        Phantom::VKG::VulkanPipeline pipelineBlend_;
+        Phantom::VKG::VulkanPipeline pipelineBlendDoubleSided_;
+        // True if any material in the current document has alphaMode=Blend -- lets onRender()
+        // skip the blend-sorting pass entirely (the common case) instead of allocating/sorting an
+        // always-empty list. Set in buildDocumentResources(), cleared in clearDocumentResources().
+        bool hasBlendMaterials_ = false;
+        // Eye position onRender() sorts alpha-BLEND primitives back-to-front against: mirrors the
+        // same useExternalCamera_ branch onUpdate() uses to fill GlobalUBO::camPos.
+        glm::vec3 currentEyePosition() const { return useExternalCamera_ ? extEye_ : cameraPosition(); }
 
         // Shadow mapping (Phase C)
         Phantom::VKG::VulkanPipeline shadowPipeline_; // depth-only, push-constant lightVP only
@@ -274,6 +288,10 @@ namespace Phantom::Gltf
             int         primIndex = -1; // index within that mesh's primitives[]
             int         nodeIndex = -1; // doc.nodes[] index (object animation)
             glm::mat4   restWorld{ 1.f }; // build-time bake transform (rest pose)
+            glm::vec3   localCenter{ 0.f }; // accessor-space AABB center, for alpha-BLEND back-to-front
+                                             // sorting in onRender() (restWorld * localCenter is only
+                                             // exact at the rest pose -- an approximation under object
+                                             // animation/skinning, see onRender()'s sort comment)
             std::vector<glm::vec3> localPos; // accessor-space positions, only kept for object animation
             std::vector<glm::vec3> localNrm;
         };

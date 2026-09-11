@@ -42,6 +42,9 @@ namespace Phantom::Gltf
 
         VkDescriptorSet descriptorSet(uint32_t frameIndex) const { return descriptorSets_[frameIndex]; }
         bool            doubleSided()                       const { return doubleSided_; }
+        // Selects which of GltfSceneRenderer's 4 pipeline variants (cull x blend) a primitive
+        // using this material draws through -- see onRender().
+        bool            isBlend()                           const { return alphaMode_ == GltfAlphaMode::Blend; }
 
     private:
         static constexpr int MAX_FRAMES = 2;
@@ -55,6 +58,7 @@ namespace Phantom::Gltf
 
         std::vector<VkDescriptorSet> descriptorSets_;
         bool doubleSided_ = false;
+        GltfAlphaMode alphaMode_ = GltfAlphaMode::Opaque;
 
         VkImageView fallbackView_ = VK_NULL_HANDLE;
         VkSampler   fallbackSampler_ = VK_NULL_HANDLE;
