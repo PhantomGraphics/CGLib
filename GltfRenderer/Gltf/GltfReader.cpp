@@ -163,12 +163,12 @@ GltfDocument GltfReader::load(const Phantom::File::GLTFFile& src, const std::fil
             prim.positionAccessor = appendAccessor(doc, sp.positions, GltfComponentType::Float, GltfAccessorType::Vec3);
             prim.normalAccessor   = appendAccessor(doc, sp.normals,   GltfComponentType::Float, GltfAccessorType::Vec3);
             prim.texCoord0Accessor = appendAccessor(doc, sp.texCoords, GltfComponentType::Float, GltfAccessorType::Vec2);
+            prim.texCoord1Accessor = appendAccessor(doc, sp.texCoords1, GltfComponentType::Float, GltfAccessorType::Vec2);
             prim.tangentAccessor  = appendAccessor(doc, sp.tangents,  GltfComponentType::Float, GltfAccessorType::Vec4);
             prim.jointsAccessor   = appendAccessor(doc, sp.joints,    GltfComponentType::UnsignedInt, GltfAccessorType::Vec4);
             prim.weightsAccessor  = appendAccessor(doc, sp.weights,  GltfComponentType::Float, GltfAccessorType::Vec4);
+            prim.colorAccessor    = appendAccessor(doc, sp.colors,    GltfComponentType::Float, GltfAccessorType::Vec4);
             prim.indicesAccessor  = appendAccessor(doc, sp.indices,   GltfComponentType::UnsignedInt, GltfAccessorType::Scalar);
-            prim.hasSecondUV      = sp.hasSecondUV;
-            prim.hasVertexColor   = sp.hasVertexColor;
             for (const auto& tgt : sp.targets) {
                 GltfMorphTarget target;
                 target.positionAccessor = appendAccessor(doc, tgt.positionDeltas, GltfComponentType::Float, GltfAccessorType::Vec3);

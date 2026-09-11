@@ -141,16 +141,15 @@ namespace Phantom::Gltf
         int positionAccessor = -1;
         int normalAccessor = -1;
         int texCoord0Accessor = -1;
+        int texCoord1Accessor = -1; // TEXCOORD_1 (secondary UV set); a material's GltfTextureInfo::texCoord
+                                     // selects which of texCoord0Accessor/texCoord1Accessor it samples
         int tangentAccessor = -1;
         int jointsAccessor = -1;  // JOINTS_0, read as glm::ivec4 (widened to UnsignedInt regardless of source type)
         int weightsAccessor = -1; // WEIGHTS_0, read as glm::vec4
+        int colorAccessor = -1;   // COLOR_0 (Vec4 RGBA), modulates baseColor in the fragment shader
         int indicesAccessor = -1;
         int materialIndex = -1;
         std::vector<GltfMorphTarget> targets; // empty = no morph targets
-        // Source carried a TEXCOORD_1 (or higher) / COLOR_0 attribute that no renderer path reads
-        // (only TEXCOORD_0 is sampled, vertex color is never applied). Surfaced by ImportReport.
-        bool hasSecondUV = false;
-        bool hasVertexColor = false;
     };
 
     struct GltfMesh {

@@ -78,12 +78,16 @@ bool GLTFFileReader::read(const std::filesystem::path& filename)
 					}
 				}
 				else if (attr.type == cgltf_attribute_type_texcoord) {
-					if (attr.index != 0) {
-						// TEXCOORD_1 (or higher): no renderer path samples a second UV set yet.
-						// Note it instead of overwriting TEXCOORD_0's already-read texCoords.
-						prim.hasSecondUV = true;
+					if (attr.index == 1) {
+						prim.texCoords1.resize(acc->count);
+						for (cgltf_size vi = 0; vi < acc->count; ++vi) {
+							float v[2] = {};
+							cgltf_accessor_read_float(acc, vi, v, 2);
+							prim.texCoords1[vi] = { v[0], v[1] };
+						}
 						continue;
 					}
+					if (attr.index != 0) continue; // TEXCOORD_2+: no material texCoord slot can select it
 					prim.texCoords.resize(acc->count);
 					for (cgltf_size vi = 0; vi < acc->count; ++vi) {
 						float v[2] = {};
@@ -92,8 +96,15 @@ bool GLTFFileReader::read(const std::filesystem::path& filename)
 					}
 				}
 				else if (attr.type == cgltf_attribute_type_color) {
-					// Vertex color (COLOR_0): not read/applied anywhere downstream yet.
-					prim.hasVertexColor = true;
+					if (attr.index != 0) continue; // COLOR_1+: no glTF material references these
+					prim.colors.resize(acc->count);
+					for (cgltf_size vi = 0; vi < acc->count; ++vi) {
+						// Default alpha=1 for a VEC3 (RGB-only) source -- cgltf_accessor_read_float()
+						// only writes as many floats as the accessor's own component count.
+						float v[4] = { 0.f, 0.f, 0.f, 1.f };
+						cgltf_accessor_read_float(acc, vi, v, 4);
+						prim.colors[vi] = { v[0], v[1], v[2], v[3] };
+					}
 				}
 				else if (attr.type == cgltf_attribute_type_tangent) {
 					prim.tangents.resize(acc->count);

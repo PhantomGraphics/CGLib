@@ -173,6 +173,15 @@ bool GltfGpuMaterial::build(const Phantom::VKG::VulkanContext& ctx, const Phanto
     uboData.hasNormalTex            = 0;
     uboData.hasOcclusionTex         = 0;
     uboData.hasEmissiveTex          = 0;
+    // Only UV0/UV1 are ever uploaded per-vertex (GltfGpuMesh::Vertex); a texCoord>=2 source (no
+    // glTF material extension in this codebase's scope actually needs a 3rd UV set) falls back to
+    // UV0 rather than sampling garbage.
+    auto texCoordSlot = [](int texCoord) { return texCoord == 1 ? 1 : 0; };
+    uboData.baseColorTexCoord         = texCoordSlot(gltfMat.pbrMetallicRoughness.baseColorTexture.texCoord);
+    uboData.metallicRoughnessTexCoord = texCoordSlot(gltfMat.pbrMetallicRoughness.metallicRoughnessTexture.texCoord);
+    uboData.normalTexCoord            = texCoordSlot(gltfMat.normalTexture.texCoord);
+    uboData.occlusionTexCoord         = texCoordSlot(gltfMat.occlusionTexture.texCoord);
+    uboData.emissiveTexCoord          = texCoordSlot(gltfMat.emissiveTexture.texCoord);
 
     // Texture slots: 0=baseColor, 1=metallicRoughness, 2=normal, 3=occlusion, 4=emissive
     VkImageView views[TEXTURE_SLOT_COUNT];

@@ -37,23 +37,17 @@ namespace Phantom {
 	{
 		std::vector<Math::Vector3df> positions;
 		std::vector<Math::Vector3df> normals;
-		std::vector<Math::Vector2df> texCoords;   // TEXCOORD_0 only -- see hasSecondUV
+		std::vector<Math::Vector2df> texCoords;   // TEXCOORD_0
+		std::vector<Math::Vector2df> texCoords1;  // TEXCOORD_1 (secondary UV set); empty if absent
 		std::vector<Math::Vector4df> tangents;
 		std::vector<std::array<int, 4>> joints;   // JOINTS_0 (node indices into GLTFSkin::joints, widened to int regardless of source component type)
 		std::vector<Math::Vector4df> weights;     // WEIGHTS_0
+		std::vector<Math::Vector4df> colors;      // COLOR_0 (RGBA, alpha defaults to 1 for a VEC3 source); empty if absent
 		std::vector<unsigned int> indices;
 		int materialIndex = -1;
 		GLTFPrimitiveMode mode = GLTFPrimitiveMode::Triangles;
 		// Morph targets: one GLTFMorphTarget per glTF target. Empty = no morph targets (most primitives).
 		std::vector<GLTFMorphTarget> targets;
-		// The source primitive also carried a TEXCOORD_1 (and/or higher) attribute, but only
-		// TEXCOORD_0 is read into `texCoords` above -- no renderer path samples a second UV set yet.
-		// Surfaced by ImportReport so KHR_texture_transform's texCoord override / a material's
-		// non-zero texCoord slot does not silently render with the wrong (or no) UVs.
-		bool hasSecondUV = false;
-		// The source primitive carried a COLOR_0 attribute, but it is not read/applied anywhere
-		// in this layer or the renderer -- surfaced by ImportReport instead of silently ignored.
-		bool hasVertexColor = false;
 	};
 
 	struct GLTFSkin

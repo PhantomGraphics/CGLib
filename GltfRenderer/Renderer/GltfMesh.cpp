@@ -22,7 +22,7 @@ VkVertexInputBindingDescription GltfGpuMesh::Vertex::getBindingDescription() {
 }
 
 std::vector<VkVertexInputAttributeDescription> GltfGpuMesh::Vertex::getAttributeDescriptions() {
-    std::vector<VkVertexInputAttributeDescription> attrs(6);
+    std::vector<VkVertexInputAttributeDescription> attrs(8);
     // location 0: position
     attrs[0].binding  = 0;
     attrs[0].location = 0;
@@ -53,6 +53,16 @@ std::vector<VkVertexInputAttributeDescription> GltfGpuMesh::Vertex::getAttribute
     attrs[5].location = 5;
     attrs[5].format   = VK_FORMAT_R32G32B32A32_SFLOAT;
     attrs[5].offset   = offsetof(Vertex, jointWeights);
+    // location 6: texcoord 1 (secondary UV set)
+    attrs[6].binding  = 0;
+    attrs[6].location = 6;
+    attrs[6].format   = VK_FORMAT_R32G32_SFLOAT;
+    attrs[6].offset   = offsetof(Vertex, texCoord1);
+    // location 7: vertex color (COLOR_0)
+    attrs[7].binding  = 0;
+    attrs[7].location = 7;
+    attrs[7].format   = VK_FORMAT_R32G32B32A32_SFLOAT;
+    attrs[7].offset   = offsetof(Vertex, color);
     return attrs;
 }
 
@@ -74,14 +84,18 @@ bool GltfGpuMesh::build(const Phantom::VKG::VulkanContext& ctx, const Phantom::V
 
     bool hasNormal  = (prim.normalAccessor >= 0);
     bool hasTex     = (prim.texCoord0Accessor >= 0);
+    bool hasTex1    = (prim.texCoord1Accessor >= 0);
     bool hasTangent = (prim.tangentAccessor >= 0);
     bool hasJoints  = (prim.jointsAccessor >= 0 && prim.weightsAccessor >= 0);
+    bool hasColor   = (prim.colorAccessor >= 0);
 
     GltfAccessorView normView   (doc, hasNormal  ? prim.normalAccessor    : prim.positionAccessor);
     GltfAccessorView texView    (doc, hasTex     ? prim.texCoord0Accessor : prim.positionAccessor);
+    GltfAccessorView tex1View   (doc, hasTex1    ? prim.texCoord1Accessor : prim.positionAccessor);
     GltfAccessorView tanView    (doc, hasTangent ? prim.tangentAccessor   : prim.positionAccessor);
     GltfAccessorView jointsView (doc, hasJoints  ? prim.jointsAccessor    : prim.positionAccessor);
     GltfAccessorView weightsView(doc, hasJoints  ? prim.weightsAccessor   : prim.positionAccessor);
+    GltfAccessorView colorView  (doc, hasColor   ? prim.colorAccessor     : prim.positionAccessor);
 
     const glm::mat3 normalMatrix = glm::transpose(glm::inverse(glm::mat3(worldTransform)));
 
@@ -93,7 +107,9 @@ bool GltfGpuMesh::build(const Phantom::VKG::VulkanContext& ctx, const Phantom::V
         glm::vec3 n = hasNormal ? normView.get<glm::vec3>(i) : glm::vec3(0, 1, 0);
         vertices[i].normal = glm::normalize(normalMatrix * n);
 
-        vertices[i].texCoord = hasTex ? texView.get<glm::vec2>(i) : glm::vec2(0, 0);
+        vertices[i].texCoord  = hasTex  ? texView.get<glm::vec2>(i)  : glm::vec2(0, 0);
+        vertices[i].texCoord1 = hasTex1 ? tex1View.get<glm::vec2>(i) : vertices[i].texCoord;
+        vertices[i].color     = hasColor ? colorView.get<glm::vec4>(i) : glm::vec4(1.f, 1.f, 1.f, 1.f);
 
         if (hasTangent) {
             glm::vec4 t = tanView.get<glm::vec4>(i);
