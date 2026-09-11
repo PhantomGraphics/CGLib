@@ -67,6 +67,18 @@ namespace Phantom {
 
 	enum class GLTFAlphaMode { Opaque, Mask, Blend };
 
+	// KHR_texture_transform: a UV-space offset/scale/rotation applied to one texture reference
+	// (and, per spec, an optional override of which TEXCOORD_n set it samples -- already folded
+	// into the owning texture reference's own texCoord field by the reader, not stored here).
+	// Default-constructed = identity (no-op), matching a texture reference without the extension.
+	struct GLTFTextureTransform
+	{
+		bool  present = false; // KHR_texture_transform found on this texture reference
+		float offsetX = 0.0f, offsetY = 0.0f;
+		float scaleX = 1.0f, scaleY = 1.0f;
+		float rotation = 0.0f; // radians, counter-clockwise in UV space per the extension spec
+	};
+
 	struct GLTFPBRMetallicRoughness
 	{
 		std::array<float, 4> baseColorFactor = { 1.0f, 1.0f, 1.0f, 1.0f };
@@ -74,8 +86,10 @@ namespace Phantom {
 		float roughnessFactor = 1.0f;
 		int baseColorTextureIndex = -1;
 		int baseColorTexCoord = 0;           // which TEXCOORD_n set the texture sampler reads
+		GLTFTextureTransform baseColorTransform;
 		int metallicRoughnessTextureIndex = -1;
 		int metallicRoughnessTexCoord = 0;
+		GLTFTextureTransform metallicRoughnessTransform;
 	};
 
 	struct GLTFMaterial
@@ -85,21 +99,20 @@ namespace Phantom {
 		int normalTextureIndex = -1;
 		int normalTexCoord = 0;
 		float normalTextureScale = 1.0f;
+		GLTFTextureTransform normalTransform;
 		int occlusionTextureIndex = -1;
 		int occlusionTexCoord = 0;
 		float occlusionTextureStrength = 1.0f;
+		GLTFTextureTransform occlusionTransform;
 		int emissiveTextureIndex = -1;
 		int emissiveTexCoord = 0;
+		GLTFTextureTransform emissiveTransform;
 		std::array<float, 3> emissiveFactor = { 0.0f, 0.0f, 0.0f };
 		// KHR_materials_emissive_strength multiplier; 1.0 when the extension is absent (spec default).
 		float emissiveStrength = 1.0f;
 		GLTFAlphaMode alphaMode = GLTFAlphaMode::Opaque;
 		float alphaCutoff = 0.5f;             // meaningful only when alphaMode == Mask
 		bool doubleSided = false;
-		// KHR_texture_transform (UV offset/scale/rotation) was present on at least one of this
-		// material's texture slots, but nothing downstream applies it -- surfaced by ImportReport
-		// instead of silently rendering with the untransformed UVs.
-		bool hasUnsupportedTextureTransform = false;
 		// Unrecognized glTF extensions on this material, verbatim (name -> raw JSON object text,
 		// null-terminated substring as extracted by cgltf). Empty for ordinary glTF files. This
 		// layer has no concept of what any given extension means (e.g. VRMC_materials_mtoon) --
@@ -115,10 +128,24 @@ namespace Phantom {
 		std::vector<uint8_t> data; // raw encoded bytes for GLB-embedded images
 	};
 
+	// glTF sampler: values are the raw glTF/WebGL enum codes (9728/9729/... for filters,
+	// 10497/33071/33648 for wrap modes), matching GltfSampler at the renderer-facing Gltf layer.
+	// Defaults are the glTF spec's implied default (LINEAR/REPEAT) for when magFilter/minFilter
+	// are omitted in the source (wrap modes always have an explicit spec default of REPEAT, but
+	// cgltf itself already normalizes an absent wrap field to that before we ever see it).
+	struct GLTFSampler
+	{
+		int magFilter = 9729;
+		int minFilter = 9729;
+		int wrapS = 10497;
+		int wrapT = 10497;
+	};
+
 	struct GLTFTexture
 	{
 		std::string name;
 		int imageIndex = -1;
+		int samplerIndex = -1; // index into GLTFFile::samplers; -1 = no sampler node (spec default LINEAR/REPEAT)
 	};
 
 	struct GLTFNode
@@ -182,6 +209,7 @@ namespace Phantom {
 		std::vector<GLTFMesh> meshes;
 		std::vector<GLTFMaterial> materials;
 		std::vector<GLTFTexture> textures;
+		std::vector<GLTFSampler> samplers;
 		std::vector<GLTFImage> images;
 		std::vector<GLTFNode> nodes;
 		std::vector<GLTFScene> scenes;

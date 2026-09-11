@@ -12,6 +12,33 @@
 
 using namespace Phantom::File;
 
+namespace {
+
+// KHR_texture_transform, if present on this texture reference; identity (present=false) otherwise.
+GLTFTextureTransform readTextureTransform(const cgltf_texture_view& view)
+{
+	GLTFTextureTransform t;
+	if (view.has_transform) {
+		t.present  = true;
+		t.offsetX  = view.transform.offset[0];
+		t.offsetY  = view.transform.offset[1];
+		t.scaleX   = view.transform.scale[0];
+		t.scaleY   = view.transform.scale[1];
+		t.rotation = view.transform.rotation;
+	}
+	return t;
+}
+
+// Per spec, KHR_texture_transform's own texCoord (when present) overrides the texture
+// reference's texCoord -- resolve that here so callers never need to check has_transform again.
+int resolveTexCoord(const cgltf_texture_view& view)
+{
+	if (view.has_transform && view.transform.has_texcoord) return view.transform.texcoord;
+	return view.texcoord;
+}
+
+} // namespace
+
 bool GLTFFileReader::read(const std::filesystem::path& filename)
 {
 	cgltf_options options = {};
@@ -199,37 +226,36 @@ bool GLTFFileReader::read(const std::filesystem::path& filename)
 			if (pbr.base_color_texture.texture) {
 				mat.pbrMetallicRoughness.baseColorTextureIndex =
 					static_cast<int>(pbr.base_color_texture.texture - data->textures);
-				mat.pbrMetallicRoughness.baseColorTexCoord = pbr.base_color_texture.texcoord;
+				mat.pbrMetallicRoughness.baseColorTexCoord = resolveTexCoord(pbr.base_color_texture);
+				mat.pbrMetallicRoughness.baseColorTransform = readTextureTransform(pbr.base_color_texture);
 			}
 			if (pbr.metallic_roughness_texture.texture) {
 				mat.pbrMetallicRoughness.metallicRoughnessTextureIndex =
 					static_cast<int>(pbr.metallic_roughness_texture.texture - data->textures);
-				mat.pbrMetallicRoughness.metallicRoughnessTexCoord = pbr.metallic_roughness_texture.texcoord;
+				mat.pbrMetallicRoughness.metallicRoughnessTexCoord = resolveTexCoord(pbr.metallic_roughness_texture);
+				mat.pbrMetallicRoughness.metallicRoughnessTransform = readTextureTransform(pbr.metallic_roughness_texture);
 			}
-			mat.hasUnsupportedTextureTransform = mat.hasUnsupportedTextureTransform
-				|| pbr.base_color_texture.has_transform
-				|| pbr.metallic_roughness_texture.has_transform;
 		}
 
 		if (cmat.normal_texture.texture) {
 			mat.normalTextureIndex =
 				static_cast<int>(cmat.normal_texture.texture - data->textures);
-			mat.normalTexCoord    = cmat.normal_texture.texcoord;
+			mat.normalTexCoord    = resolveTexCoord(cmat.normal_texture);
 			mat.normalTextureScale = cmat.normal_texture.scale;
-			mat.hasUnsupportedTextureTransform = mat.hasUnsupportedTextureTransform || cmat.normal_texture.has_transform;
+			mat.normalTransform = readTextureTransform(cmat.normal_texture);
 		}
 		if (cmat.occlusion_texture.texture) {
 			mat.occlusionTextureIndex =
 				static_cast<int>(cmat.occlusion_texture.texture - data->textures);
-			mat.occlusionTexCoord      = cmat.occlusion_texture.texcoord;
+			mat.occlusionTexCoord      = resolveTexCoord(cmat.occlusion_texture);
 			mat.occlusionTextureStrength = cmat.occlusion_texture.scale; // cgltf: "equivalent to strength for occlusion_texture"
-			mat.hasUnsupportedTextureTransform = mat.hasUnsupportedTextureTransform || cmat.occlusion_texture.has_transform;
+			mat.occlusionTransform = readTextureTransform(cmat.occlusion_texture);
 		}
 		if (cmat.emissive_texture.texture) {
 			mat.emissiveTextureIndex =
 				static_cast<int>(cmat.emissive_texture.texture - data->textures);
-			mat.emissiveTexCoord = cmat.emissive_texture.texcoord;
-			mat.hasUnsupportedTextureTransform = mat.hasUnsupportedTextureTransform || cmat.emissive_texture.has_transform;
+			mat.emissiveTexCoord = resolveTexCoord(cmat.emissive_texture);
+			mat.emissiveTransform = readTextureTransform(cmat.emissive_texture);
 		}
 
 		switch (cmat.alpha_mode) {
@@ -252,6 +278,19 @@ bool GLTFFileReader::read(const std::filesystem::path& filename)
 		gltf.materials.push_back(std::move(mat));
 	}
 
+    // Samplers
+	for (cgltf_size si = 0; si < data->samplers_count; ++si) {
+		const cgltf_sampler& csamp = data->samplers[si];
+		GLTFSampler samp;
+		// magFilter/minFilter are optional in glTF; cgltf leaves an omitted one as
+		// cgltf_filter_type_undefined (0) rather than filling in the spec default itself.
+		samp.magFilter = (csamp.mag_filter != cgltf_filter_type_undefined) ? static_cast<int>(csamp.mag_filter) : 9729;
+		samp.minFilter = (csamp.min_filter != cgltf_filter_type_undefined) ? static_cast<int>(csamp.min_filter) : 9729;
+		samp.wrapS = static_cast<int>(csamp.wrap_s);
+		samp.wrapT = static_cast<int>(csamp.wrap_t);
+		gltf.samplers.push_back(samp);
+	}
+
     // Textures
 	for (cgltf_size ti = 0; ti < data->textures_count; ++ti) {
 		const cgltf_texture& ctex = data->textures[ti];
@@ -259,6 +298,9 @@ bool GLTFFileReader::read(const std::filesystem::path& filename)
 		tex.name = ctex.name ? ctex.name : "";
 		if (ctex.image) {
 			tex.imageIndex = static_cast<int>(ctex.image - data->images);
+		}
+		if (ctex.sampler) {
+			tex.samplerIndex = static_cast<int>(ctex.sampler - data->samplers);
 		}
 		gltf.textures.push_back(std::move(tex));
 	}

@@ -99,6 +99,14 @@ namespace Phantom::Gltf
         int   texCoord = 0;
         float scale = 1.0f; // for normal map
         float strength = 1.0f; // for occlusion
+        // KHR_texture_transform (UV offset/scale/rotation) for this texture reference specifically
+        // -- default is the identity transform, matching a reference without the extension.
+        // texCoord above already reflects the extension's own texCoord override, if any (see
+        // GltfReader.cpp / GLTFFileReader.cpp's resolveTexCoord()).
+        bool  hasTransform = false;
+        float transformOffsetX = 0.0f, transformOffsetY = 0.0f;
+        float transformScaleX = 1.0f, transformScaleY = 1.0f;
+        float transformRotation = 0.0f;
     };
 
     struct GltfPbrMetallicRoughness {
@@ -122,9 +130,6 @@ namespace Phantom::Gltf
         GltfAlphaMode           alphaMode = GltfAlphaMode::Opaque;
         float                   alphaCutoff = 0.5f; // meaningful only when alphaMode == Mask
         bool                    doubleSided = false;
-        // KHR_texture_transform was present on a texture slot but is not applied by any renderer
-        // path (UVs are sampled untransformed). Surfaced by ImportReport, not silently dropped.
-        bool                    hasUnsupportedTextureTransform = false;
     };
 
     // A morph target displaces POSITION (and optionally NORMAL) by a per-vertex offset, blended by

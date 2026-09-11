@@ -183,6 +183,25 @@ bool GltfGpuMaterial::build(const Phantom::VKG::VulkanContext& ctx, const Phanto
     uboData.occlusionTexCoord         = texCoordSlot(gltfMat.occlusionTexture.texCoord);
     uboData.emissiveTexCoord          = texCoordSlot(gltfMat.emissiveTexture.texCoord);
 
+    // KHR_texture_transform per slot -- identity (hasTransform=0) is a no-op in the shader.
+    auto writeTransform = [](const GltfTextureInfo& info, int& hasT,
+                              float& offX, float& offY, float& scX, float& scY, float& rot) {
+        hasT = info.hasTransform ? 1 : 0;
+        offX = info.transformOffsetX; offY = info.transformOffsetY;
+        scX  = info.transformScaleX;  scY  = info.transformScaleY;
+        rot  = info.transformRotation;
+    };
+    writeTransform(gltfMat.pbrMetallicRoughness.baseColorTexture, uboData.hasBaseColorTransform,
+        uboData.baseColorOffsetX, uboData.baseColorOffsetY, uboData.baseColorScaleX, uboData.baseColorScaleY, uboData.baseColorRotation);
+    writeTransform(gltfMat.pbrMetallicRoughness.metallicRoughnessTexture, uboData.hasMetallicRoughnessTransform,
+        uboData.metallicRoughnessOffsetX, uboData.metallicRoughnessOffsetY, uboData.metallicRoughnessScaleX, uboData.metallicRoughnessScaleY, uboData.metallicRoughnessRotation);
+    writeTransform(gltfMat.normalTexture, uboData.hasNormalTransform,
+        uboData.normalOffsetX, uboData.normalOffsetY, uboData.normalTransformScaleX, uboData.normalTransformScaleY, uboData.normalRotation);
+    writeTransform(gltfMat.occlusionTexture, uboData.hasOcclusionTransform,
+        uboData.occlusionOffsetX, uboData.occlusionOffsetY, uboData.occlusionScaleX, uboData.occlusionScaleY, uboData.occlusionRotation);
+    writeTransform(gltfMat.emissiveTexture, uboData.hasEmissiveTransform,
+        uboData.emissiveOffsetX, uboData.emissiveOffsetY, uboData.emissiveScaleX, uboData.emissiveScaleY, uboData.emissiveRotation);
+
     // Texture slots: 0=baseColor, 1=metallicRoughness, 2=normal, 3=occlusion, 4=emissive
     VkImageView views[TEXTURE_SLOT_COUNT];
     VkSampler   samps[TEXTURE_SLOT_COUNT];

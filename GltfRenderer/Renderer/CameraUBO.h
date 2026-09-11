@@ -57,6 +57,31 @@ struct MaterialUBO {
     int       normalTexCoord;
     int       occlusionTexCoord;
     int       emissiveTexCoord;
+    // KHR_texture_transform per texture slot: hasXTransform gates whether the shader applies the
+    // UV offset/scale/rotation at all (identity when 0, matching a reference without the
+    // extension). All scalars (no vec2/vec3 here) so std140 layout needs no manual padding --
+    // deliberately verbose/flat rather than an array-of-struct, to avoid getting std140's
+    // array-stride rounding wrong between here and gltf.frag's mirror.
+    int       hasBaseColorTransform;
+    float     baseColorOffsetX, baseColorOffsetY;
+    float     baseColorScaleX,  baseColorScaleY;
+    float     baseColorRotation;
+    int       hasMetallicRoughnessTransform;
+    float     metallicRoughnessOffsetX, metallicRoughnessOffsetY;
+    float     metallicRoughnessScaleX,  metallicRoughnessScaleY;
+    float     metallicRoughnessRotation;
+    int       hasNormalTransform;
+    float     normalOffsetX, normalOffsetY;
+    float     normalTransformScaleX, normalTransformScaleY;
+    float     normalRotation;
+    int       hasOcclusionTransform;
+    float     occlusionOffsetX, occlusionOffsetY;
+    float     occlusionScaleX,  occlusionScaleY;
+    float     occlusionRotation;
+    int       hasEmissiveTransform;
+    float     emissiveOffsetX, emissiveOffsetY;
+    float     emissiveScaleX,  emissiveScaleY;
+    float     emissiveRotation;
 };
 
 }

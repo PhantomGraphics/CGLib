@@ -94,16 +94,34 @@ std::optional<GltfDocument> GltfReader::load(const std::filesystem::path& path) 
 GltfDocument GltfReader::load(const Phantom::File::GLTFFile& src, const std::filesystem::path& baseDir) {
     GltfDocument doc;
 
-    if (!src.textures.empty()) {
-        doc.samplers.push_back(GltfSampler{});
+    for (const auto& s : src.samplers) {
+        GltfSampler samp;
+        samp.magFilter = s.magFilter;
+        samp.minFilter = s.minFilter;
+        samp.wrapS     = s.wrapS;
+        samp.wrapT     = s.wrapT;
+        doc.samplers.push_back(samp);
     }
 
     for (const auto& t : src.textures) {
         GltfTexture tex;
-        tex.samplerIndex = doc.samplers.empty() ? -1 : 0;
+        // -1 (no sampler node in the source) falls through to GltfGpuMaterial::uploadTexture()'s
+        // own LINEAR/REPEAT fallback, which is the glTF spec's implied default -- so this is not a
+        // "missing data" case needing a substitute index the way an absent image/material is.
+        tex.samplerIndex = t.samplerIndex;
         tex.imageIndex   = t.imageIndex;
         doc.textures.push_back(tex);
     }
+
+    // Copies a File-layer KHR_texture_transform into the matching Gltf-layer GltfTextureInfo.
+    auto copyTransform = [](GltfTextureInfo& info, const Phantom::File::GLTFTextureTransform& t) {
+        info.hasTransform      = t.present;
+        info.transformOffsetX  = t.offsetX;
+        info.transformOffsetY  = t.offsetY;
+        info.transformScaleX   = t.scaleX;
+        info.transformScaleY   = t.scaleY;
+        info.transformRotation = t.rotation;
+    };
 
     for (const auto& m : src.materials) {
         GltfMaterial mat;
@@ -118,16 +136,21 @@ GltfDocument GltfReader::load(const Phantom::File::GLTFFile& src, const std::fil
         mat.pbrMetallicRoughness.roughnessFactor = m.pbrMetallicRoughness.roughnessFactor;
         mat.pbrMetallicRoughness.baseColorTexture.index          = m.pbrMetallicRoughness.baseColorTextureIndex;
         mat.pbrMetallicRoughness.baseColorTexture.texCoord       = m.pbrMetallicRoughness.baseColorTexCoord;
+        copyTransform(mat.pbrMetallicRoughness.baseColorTexture, m.pbrMetallicRoughness.baseColorTransform);
         mat.pbrMetallicRoughness.metallicRoughnessTexture.index  = m.pbrMetallicRoughness.metallicRoughnessTextureIndex;
         mat.pbrMetallicRoughness.metallicRoughnessTexture.texCoord = m.pbrMetallicRoughness.metallicRoughnessTexCoord;
+        copyTransform(mat.pbrMetallicRoughness.metallicRoughnessTexture, m.pbrMetallicRoughness.metallicRoughnessTransform);
         mat.normalTexture.index      = m.normalTextureIndex;
         mat.normalTexture.texCoord   = m.normalTexCoord;
         mat.normalTexture.scale      = m.normalTextureScale;
+        copyTransform(mat.normalTexture, m.normalTransform);
         mat.occlusionTexture.index    = m.occlusionTextureIndex;
         mat.occlusionTexture.texCoord = m.occlusionTexCoord;
         mat.occlusionTexture.strength = m.occlusionTextureStrength;
+        copyTransform(mat.occlusionTexture, m.occlusionTransform);
         mat.emissiveTexture.index    = m.emissiveTextureIndex;
         mat.emissiveTexture.texCoord = m.emissiveTexCoord;
+        copyTransform(mat.emissiveTexture, m.emissiveTransform);
         // KHR_materials_emissive_strength is a plain multiplier on emissiveFactor (defaults to 1
         // when the extension is absent) -- pre-multiply here rather than add a shader/UBO field.
         mat.emissiveFactor = glm::vec3(m.emissiveFactor[0], m.emissiveFactor[1], m.emissiveFactor[2])
@@ -138,7 +161,6 @@ GltfDocument GltfReader::load(const Phantom::File::GLTFFile& src, const std::fil
         default:                                  mat.alphaMode = GltfAlphaMode::Opaque; break;
         }
         mat.alphaCutoff = m.alphaCutoff;
-        mat.hasUnsupportedTextureTransform = m.hasUnsupportedTextureTransform;
         doc.materials.push_back(std::move(mat));
     }
 
