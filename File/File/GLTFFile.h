@@ -167,8 +167,34 @@ namespace Phantom {
 		std::vector<float> morphWeights; // overrides GLTFMesh::morphWeights when non-empty
 	};
 
-	struct GLTFCamera { std::string name; std::string type; };
-	struct GLTFLight { std::string name; std::string type; };
+	// type is "Perspective" | "Orthographic" | "Unknown". Only the fields for the matching type
+	// are meaningful (the other type's fields stay at their defaults, unread).
+	struct GLTFCamera {
+		std::string name;
+		std::string type;
+		// Perspective
+		float yfov = 0.8f;        // radians, vertical FOV
+		float aspectRatio = 0.0f; // 0 = unspecified in the source (glTF: use the viewport's own aspect)
+		// Orthographic
+		float xmag = 1.0f, ymag = 1.0f; // half-extents of the view volume
+		// Shared
+		float znear = 0.1f;
+		float zfar = 0.0f; // 0 = unspecified/infinite (perspective only, per spec)
+	};
+
+	// type is "Directional" | "Point" | "Spot" | "Unknown" (KHR_lights_punctual).
+	struct GLTFLight {
+		std::string name;
+		std::string type;
+		std::array<float, 3> color = { 1.0f, 1.0f, 1.0f };
+		// Directional: lux. Point/Spot: candela. Per KHR_lights_punctual -- a real-world
+		// photometric unit, not the small artist-friendly number Phantom's own fixed default
+		// light uses; consumers should rescale (see Universe's LightEntry construction).
+		float intensity = 1.0f;
+		float range = 0.0f; // Point/Spot only; 0 = infinite (no cutoff)
+		float innerConeAngle = 0.0f;          // Spot only, radians
+		float outerConeAngle = 0.7853981634f; // Spot only, radians (pi/4, the spec's own default)
+	};
 
 	enum class GLTFInterpolation { Linear, Step, CubicSpline };
 	enum class GLTFAnimationPath { Translation, Rotation, Scale, Weights };

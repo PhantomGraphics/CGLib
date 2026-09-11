@@ -7,6 +7,7 @@
 #include "GltfMesh.h"
 #include "GltfMaterial.h"
 #include "CameraUBO.h"
+#include "LightManager.h"
 #include "../Gltf/GltfDocument.h"
 #include "../IBL/GltfIBLPrecomputer.h"
 #include "../../../CGLib/VulkanGraphics/VulkanBuffer.h"
@@ -163,6 +164,16 @@ namespace Phantom::Gltf
         void setUseIBL(bool v) { useIBL_ = v ? 1 : 0; }
         int  getUseIBL() const { return useIBL_; }
 
+        // --- Multi-light (KHR_lights_punctual; Phase 4B) ---
+        // Replaces every previously-set punctual light with `lights` (empty clears them). When
+        // non-empty, gltf.frag shades with these instead of the single lightPos_/lightColor_ pair
+        // above (up to LightManager::kMaxLights=8; extras beyond that are dropped). Call any time
+        // after onInit() -- takes effect on the next onUpdate(). Every caller that never calls
+        // this keeps the single-light behavior unchanged (Universe's own lights() plumbing is the
+        // first real consumer; see Rendering/GltfRenderer.cpp).
+        void setPunctualLights(std::vector<LightEntry> lights);
+        int  punctualLightCount() const { return lightManager_.count(); }
+
         // --- Shadow mapping (Phase C) ---
         // Call once after onInit(), against a ShadowMapPass's render pass; no-op if
         // Shaders::shadowVertSpv/shadowFragSpv were left empty.
@@ -233,6 +244,7 @@ namespace Phantom::Gltf
         // --- set=0: Global per-frame resources (document-independent) ---
         std::array<Phantom::VKG::VulkanBuffer, MAX_FRAMES> globalUbos_;
         std::array<Phantom::VKG::VulkanBuffer, MAX_FRAMES> boneUbos_;
+        std::array<Phantom::VKG::VulkanBuffer, MAX_FRAMES> lightUbos_; // binding 6, see setPunctualLights()
         Phantom::VKG::VulkanDescriptorSetLayout globalSetLayout_;
         VkDescriptorPool               globalDescPool_ = VK_NULL_HANDLE;
         std::vector<VkDescriptorSet>   globalDescSets_;
@@ -244,6 +256,10 @@ namespace Phantom::Gltf
         // Light state written to GlobalUBO each frame
         glm::vec4 lightPos_ = { 1.f, 1.f, 1.f, 0.f };  // w=0: directional
         glm::vec4 lightColor_ = { 1.f, 1.f, 1.f, 3.f };  // w=intensity
+
+        // Multi-light (see setPunctualLights()). Empty by default -- gltf.frag falls back to
+        // lightPos_/lightColor_ above when punctualLightCount() == 0.
+        LightManager lightManager_;
         int       useIBL_ = 0;
 
         // Environment cubemap (set externally by GltfViewerApp)

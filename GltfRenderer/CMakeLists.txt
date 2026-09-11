@@ -60,6 +60,7 @@ if(PHANTOM_GTEST_FOUND)
         ${GLTFR_ROOT}/GltfRendererTest/GLTFFileReaderMorphTargetTest.cpp
         ${GLTFR_ROOT}/GltfRendererTest/GltfMorphApplyTest.cpp
         ${GLTFR_ROOT}/GltfRendererTest/GLTFFileReaderNodeMatrixTest.cpp
+        ${GLTFR_ROOT}/GltfRendererTest/GltfLightsCamerasTest.cpp
         ${GLTFR_ROOT}/GltfRendererTest/VrmExtensionParserTest.cpp
         ${GLTFR_ROOT}/GltfRendererTest/VrmReaderTest.cpp
     )

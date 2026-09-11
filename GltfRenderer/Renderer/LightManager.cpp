@@ -50,7 +50,8 @@ LightManager::LightBufferGpu LightManager::buildGpuBuffer() const
         g.positionType       = glm::vec4(e.position, static_cast<float>(static_cast<int>(e.type)));
         g.directionRange     = glm::vec4(e.direction, e.range);
         g.colorIntensity     = glm::vec4(e.color, e.intensity);
-        g.spotAngleShadowPad = glm::vec4(glm::radians(e.spotAngleDeg), e.castShadow ? 1.f : 0.f, 0.f, 0.f);
+        g.spotAngleShadowPad = glm::vec4(glm::radians(e.spotAngleDeg), e.castShadow ? 1.f : 0.f,
+                                          glm::radians(e.spotInnerAngleDeg), 0.f);
     }
     buf.countPad = glm::ivec4(n, 0, 0, 0);
     return buf;

@@ -207,6 +207,7 @@ void GltfSceneRenderer::createGlobalSetLayout(VkDevice device) {
     addBinding(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
     addBinding(4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
     addBinding(5, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         VK_SHADER_STAGE_VERTEX_BIT);
+    addBinding(6, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         VK_SHADER_STAGE_FRAGMENT_BIT); // LightManager::LightBufferGpu
 
     globalSetLayout_.create(device, bindings);
 }
@@ -234,10 +235,10 @@ void GltfSceneRenderer::createMaterialSetLayout(VkDevice device) {
 }
 
 bool GltfSceneRenderer::createGlobalDescPool(VkDevice device) {
-    // MAX_FRAMES sets: 2 UBOs (GlobalUBO + BoneUBO) + 4 combined_image_samplers each
-    // (irradiance/prefiltered/brdfLUT/shadowMap)
+    // MAX_FRAMES sets: 3 UBOs (GlobalUBO + BoneUBO + LightBufferGpu) + 4 combined_image_samplers
+    // each (irradiance/prefiltered/brdfLUT/shadowMap)
     std::vector<VkDescriptorPoolSize> sizes = {
-        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         static_cast<uint32_t>(MAX_FRAMES * 2)},
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         static_cast<uint32_t>(MAX_FRAMES * 3)},
         {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, static_cast<uint32_t>(MAX_FRAMES * 4)},
     };
 
@@ -356,6 +357,20 @@ void GltfSceneRenderer::updateGlobalDescriptorSets(VkDevice device) {
         boneWrite.descriptorCount = 1;
         boneWrite.pBufferInfo     = &boneBufInfo;
         writes.push_back(boneWrite);
+
+        // binding 6: LightBufferGpu (multi-light; see setPunctualLights())
+        VkDescriptorBufferInfo lightBufInfo{};
+        lightBufInfo.buffer = lightUbos_[f].get();
+        lightBufInfo.offset = 0;
+        lightBufInfo.range  = sizeof(LightManager::LightBufferGpu);
+        VkWriteDescriptorSet lightWrite{};
+        lightWrite.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        lightWrite.dstSet          = globalDescSets_[f];
+        lightWrite.dstBinding      = 6;
+        lightWrite.descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        lightWrite.descriptorCount = 1;
+        lightWrite.pBufferInfo     = &lightBufInfo;
+        writes.push_back(lightWrite);
 
         vkUpdateDescriptorSets(device,
             static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
@@ -563,6 +578,8 @@ void GltfSceneRenderer::onInit(Phantom::VKG::VulkanContext& ctx, const Phantom::
     for (int f = 0; f < MAX_FRAMES; ++f) {
         globalUbos_[f].createMapped(ctx, sizeof(GlobalUBO), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
         boneUbos_[f].createMapped(ctx, sizeof(BoneUBO), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
+        lightUbos_[f].createMapped(ctx, sizeof(LightManager::LightBufferGpu), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
+        lightManager_.uploadUBO(lightUbos_[f]); // seed with the empty buffer (count=0) before the first onUpdate()
     }
 
     // Descriptor layouts
@@ -817,6 +834,20 @@ void GltfSceneRenderer::setLight(const glm::vec4& pos, const glm::vec4& color)
     lightColor_ = color;
 }
 
+void GltfSceneRenderer::setPunctualLights(std::vector<LightEntry> lights)
+{
+    lightManager_ = LightManager{}; // clear (LightManager has no bulk-clear method of its own)
+    for (const auto& l : lights) {
+        if (lightManager_.addLight(l) < 0) {
+            std::fprintf(stderr, "[GltfSceneRenderer] setPunctualLights: dropping light(s) beyond "
+                                  "LightManager::kMaxLights=%d\n", LightManager::kMaxLights);
+            break;
+        }
+    }
+    // Written to lightUbos_ on the next onUpdate(); onInit() already seeded an empty buffer for
+    // any frame that renders before that (e.g. the very first frame after a fresh onInit()).
+}
+
 // ============================================================
 //  IVkSubRenderer::onUpdate  — compute MVP and write GlobalUBO
 // ============================================================
@@ -862,6 +893,8 @@ void GltfSceneRenderer::onUpdate(uint32_t frameIndex) {
     for (size_t i = suppliedCount; i < kMaxGltfBones; ++i)
         bones.bones[i] = glm::mat4(1.f);
     boneUbos_[frameIndex].write(&bones, sizeof(BoneUBO));
+
+    lightManager_.uploadUBO(lightUbos_[frameIndex]);
 }
 
 // ============================================================
@@ -991,6 +1024,7 @@ void GltfSceneRenderer::onCleanup(VkDevice device) {
     for (int f = 0; f < MAX_FRAMES; ++f) {
         globalUbos_[f].destroy(device);
         boneUbos_[f].destroy(device);
+        lightUbos_[f].destroy(device);
     }
 
     ctx_ = nullptr;

@@ -223,10 +223,29 @@ GltfDocument GltfReader::load(const Phantom::File::GLTFFile& src, const std::fil
         doc.nodes.push_back(std::move(node));
     }
 
-    for (const auto& camera : src.cameras)
-        doc.cameras.push_back({camera.name, camera.type});
-    for (const auto& light : src.lights)
-        doc.lights.push_back({light.name, light.type});
+    for (const auto& camera : src.cameras) {
+        GltfCamera c;
+        c.name        = camera.name;
+        c.type        = camera.type;
+        c.yfov        = camera.yfov;
+        c.aspectRatio = camera.aspectRatio;
+        c.xmag        = camera.xmag;
+        c.ymag        = camera.ymag;
+        c.znear       = camera.znear;
+        c.zfar        = camera.zfar;
+        doc.cameras.push_back(c);
+    }
+    for (const auto& light : src.lights) {
+        GltfLight l;
+        l.name            = light.name;
+        l.type            = light.type;
+        l.color           = glm::vec3(light.color[0], light.color[1], light.color[2]);
+        l.intensity       = light.intensity;
+        l.range           = light.range;
+        l.innerConeAngle  = light.innerConeAngle;
+        l.outerConeAngle  = light.outerConeAngle;
+        doc.lights.push_back(l);
+    }
 
     for (const auto& sk : src.skins) {
         GltfSkin skin;

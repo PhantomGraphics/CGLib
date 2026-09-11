@@ -11,9 +11,10 @@
 namespace Phantom::Gltf {
 
 // CPU-side description of a single light. Consumed by LightManager::buildGpuBuffer() into
-// LightGpu; not yet sampled by GltfSceneRenderer's PBR shader (which still uses the single
-// lightPos/lightColor pair in GlobalUBO) -- LightManager exists as forward-looking scaffolding
-// for a future multi-light renderer.
+// LightGpu. Sampled by Universe's gltf.frag (GltfSceneRenderer::setPunctualLights(),
+// docs/todo/PLAN_blender_universe_authoring_loop.md Phase 4B) when a loaded glTF document
+// carries KHR_lights_punctual lights; every other GltfSceneRenderer consumer leaves this empty
+// and keeps using the single lightPos_/lightColor_ pair in GlobalUBO unchanged.
 struct LightEntry {
     enum class Type { Directional = 0, Point = 1, Spot = 2 };
 
@@ -22,8 +23,10 @@ struct LightEntry {
     glm::vec3 direction    = { 0.f, -1.f, 0.f };
     glm::vec3 color        = { 1.f, 1.f, 1.f };
     float     intensity    = 1.0f;
-    float     range        = 20.0f;  // Point/Spot only
-    float     spotAngleDeg = 30.0f;  // Spot only
+    float     range        = 20.0f;  // Point/Spot only; <= 0 = infinite (no cutoff)
+    float     spotAngleDeg = 30.0f;  // Spot only -- the *outer* cone half-angle (fully dark beyond it)
+    float     spotInnerAngleDeg = 0.0f; // Spot only -- the *inner* cone half-angle (fully bright within
+                                         // it; smoothly falls off between inner and outer). 0 = hard edge.
     bool      castShadow   = false;
 };
 
@@ -38,7 +41,7 @@ public:
         glm::vec4 positionType;         // xyz = position, w = Type (as float)
         glm::vec4 directionRange;       // xyz = direction, w = range
         glm::vec4 colorIntensity;       // rgb = color, w = intensity
-        glm::vec4 spotAngleShadowPad;   // x = spotAngle(rad), y = castShadow(0/1), z/w unused
+        glm::vec4 spotAngleShadowPad;   // x = outer spotAngle(rad), y = castShadow(0/1), z = inner spotAngle(rad), w unused
     };
     struct LightBufferGpu {
         LightGpu   lights[kMaxLights];

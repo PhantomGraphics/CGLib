@@ -179,8 +179,31 @@ namespace Phantom::Gltf
         std::vector<float> weights; // overrides GltfMesh::weights when non-empty
     };
 
-    struct GltfCamera { std::string name; std::string type; };
-    struct GltfLight { std::string name; std::string type; };
+    // type is "Perspective" | "Orthographic" | "Unknown". Mirrors Phantom::File::GLTFCamera --
+    // only the fields for the matching type are meaningful.
+    struct GltfCamera {
+        std::string name;
+        std::string type;
+        float yfov = 0.8f;
+        float aspectRatio = 0.0f;
+        float xmag = 1.0f, ymag = 1.0f;
+        float znear = 0.1f;
+        float zfar = 0.0f;
+    };
+
+    // type is "Directional" | "Point" | "Spot" | "Unknown". Mirrors Phantom::File::GLTFLight --
+    // intensity stays in the source's photometric units (lux/candela); a consumer normalizing it
+    // into its own shading model's units does so on its own side (see Universe's LightEntry
+    // construction, which divides by the luminous-efficacy constant 683 lm/W).
+    struct GltfLight {
+        std::string name;
+        std::string type;
+        glm::vec3 color{ 1.f, 1.f, 1.f };
+        float intensity = 1.0f;
+        float range = 0.0f;
+        float innerConeAngle = 0.0f;
+        float outerConeAngle = 0.7853981634f;
+    };
 
     // A skin binds a mesh to a set of joint nodes for GPU skinning. joints[i]'s
     // inverseBindMatrices[i] transforms a vertex from bind-pose mesh space into joint i's local

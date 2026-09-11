@@ -329,17 +329,40 @@ bool GLTFFileReader::read(const std::filesystem::path& filename)
 		const cgltf_camera& camera = data->cameras[ci];
 		GLTFCamera out;
 		out.name = camera.name ? camera.name : "";
-		out.type = camera.type == cgltf_camera_type_perspective ? "Perspective"
-		         : camera.type == cgltf_camera_type_orthographic ? "Orthographic" : "Unknown";
+		if (camera.type == cgltf_camera_type_perspective) {
+			out.type = "Perspective";
+			const auto& p = camera.data.perspective;
+			out.yfov        = p.yfov;
+			out.aspectRatio = p.has_aspect_ratio ? p.aspect_ratio : 0.0f;
+			out.znear       = p.znear;
+			out.zfar        = p.has_zfar ? p.zfar : 0.0f;
+		} else if (camera.type == cgltf_camera_type_orthographic) {
+			out.type = "Orthographic";
+			const auto& o = camera.data.orthographic;
+			out.xmag  = o.xmag;
+			out.ymag  = o.ymag;
+			out.znear = o.znear;
+			out.zfar  = o.zfar;
+		} else {
+			out.type = "Unknown";
+		}
 		gltf.cameras.push_back(std::move(out));
 	}
 	for (cgltf_size li = 0; li < data->lights_count; ++li) {
 		const cgltf_light& light = data->lights[li];
 		GLTFLight out;
-		out.name = light.name ? light.name : "";
-		out.type = light.type == cgltf_light_type_directional ? "Directional"
-		         : light.type == cgltf_light_type_point ? "Point"
-		         : light.type == cgltf_light_type_spot ? "Spot" : "Unknown";
+		out.name  = light.name ? light.name : "";
+		out.color = { light.color[0], light.color[1], light.color[2] };
+		out.intensity      = light.intensity;
+		out.range          = light.range;
+		out.innerConeAngle = light.spot_inner_cone_angle;
+		out.outerConeAngle = light.spot_outer_cone_angle;
+		switch (light.type) {
+		case cgltf_light_type_directional: out.type = "Directional"; break;
+		case cgltf_light_type_point:       out.type = "Point";       break;
+		case cgltf_light_type_spot:        out.type = "Spot";        break;
+		default:                           out.type = "Unknown";     break;
+		}
 		gltf.lights.push_back(std::move(out));
 	}
 
