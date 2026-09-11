@@ -106,9 +106,9 @@ add_library(PugixmlCore STATIC ${CGLIB_ROOT}/ThirdParty/pugixml/pugixml.cpp)
 target_include_directories(PugixmlCore PUBLIC ${CGLIB_ROOT}/ThirdParty/pugixml)
 target_compile_options(PugixmlCore PRIVATE ${PHANTOM_WARN_FLAGS})
 
-# Numerics / Scene / File / Animation / Volume / Space each own a CMakeLists.txt
-# (also usable standalone). Their *Core builders are idempotent, their *Test
-# targets register with CTest.
+# Numerics / Scene / File / Animation / Volume / Space / Terrain / AssetCore each own a
+# CMakeLists.txt (also usable standalone). Their *Core builders are idempotent, their
+# *Test targets register with CTest.
 add_subdirectory(Numerics)
 add_subdirectory(Scene)
 add_subdirectory(File)
@@ -116,6 +116,7 @@ add_subdirectory(Animation)
 add_subdirectory(Volume)
 add_subdirectory(Space)
 add_subdirectory(Terrain)
+add_subdirectory(AssetCore)
 
 # ---------------------------------------------------------------------------
 # Vulkan / GLFW modules

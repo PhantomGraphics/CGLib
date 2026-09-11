@@ -198,6 +198,26 @@ function(phantom_add_terrain_core)
     target_compile_features(TerrainCore PRIVATE cxx_std_20)
 endfunction()
 
+function(phantom_add_assetcore)
+    if(TARGET AssetCore)
+        return()
+    endif()
+    # Project-relative asset identity/manifest (Phantom::Asset -- Blender->Universe
+    # authoring loop Phase 2 item 1, docs/spec/phantom_asset_manifest.md). No Math/
+    # Vulkan/ImGui dependency -- only nlohmann/json for AssetManifest (de)serialization,
+    # the same header-only dependency GltfRendererCore/UniverseSceneIO already use.
+    add_library(AssetCore STATIC
+        ${CGLIB_ROOT}/AssetCore/AssetCore/AssetUri.cpp
+        ${CGLIB_ROOT}/AssetCore/AssetCore/AssetManifest.cpp
+    )
+    target_include_directories(AssetCore PUBLIC
+        ${REPO_ROOT}
+        ${CGLIB_ROOT}/ThirdParty/nlohmann
+    )
+    target_compile_options(AssetCore PRIVATE ${PHANTOM_WARN_FLAGS})
+    target_compile_features(AssetCore PRIVATE cxx_std_20)
+endfunction()
+
 function(phantom_add_animation_core)
     if(TARGET AnimationCore)
         return()
