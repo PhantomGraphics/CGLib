@@ -130,7 +130,7 @@ if (!pipeline.create(ctx, renderPass, cfg)) { /* ハンドルは未設定のま�
 ```
 Viewport/scissor は dynamic state なので `PipelineConfig` に含めない。
 
-**オフスクリーンレンダリング** (`VulkanOffscreen`): FBO 相当。`create()` → `beginRenderPass()` / `endRenderPass()` → `getColorImageView()` でサンプリング。
+**オフスクリーンレンダリング** (`VulkanOffscreen`): FBO 相当。`create()` → `beginRenderPass()` / `endRenderPass()` → `getColorImageView()` でサンプリング。ウィンドウリサイズ等でサイズだけ変える場合は `resize()`（2026-09-14 追加）を使う — `create()` と違い `getRenderPass()` のハンドルは変えずに color/depth イメージとフレームバッファだけを作り直すため、そのレンダーパスに対して作成済みの `VulkanPipeline`（本プロジェクトは全パイプラインが viewport/scissor を dynamic state にしている）を再構築せずに使い続けられる。呼び出し例は `CGApp/Universe/Rendering/SceneColorPass.h`。
 
 ## Key Conventions
 

@@ -5,19 +5,14 @@
 
 namespace Phantom::VKG {
 
-bool VulkanOffscreen::create(const VulkanContext& ctx,
-                              uint32_t width, uint32_t height,
-                              VkFormat colorFormat,
-                              VkFormat depthFormat)
+bool VulkanOffscreen::createImages(const VulkanContext& ctx, uint32_t width, uint32_t height)
 {
-    extent_      = { width, height };
-    colorFormat_ = colorFormat;
     VkDevice device = ctx.getDevice();
 
     // --- カラーアタッチメント ---
     // VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT: レンダーパスへ書き込み
     // VK_IMAGE_USAGE_SAMPLED_BIT         : 後続パスでサンプリング可能
-    if (!VulkanImage::create(ctx, width, height, colorFormat,
+    if (!VulkanImage::create(ctx, width, height, colorFormat_,
                              VK_IMAGE_TILING_OPTIMAL,
                              VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
                              VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
@@ -25,7 +20,7 @@ bool VulkanOffscreen::create(const VulkanContext& ctx,
         return false;
 
     colorView_ = VulkanImage::createView(device, colorImage_,
-                                         colorFormat,
+                                         colorFormat_,
                                          VK_IMAGE_ASPECT_COLOR_BIT);
     if (colorView_ == VK_NULL_HANDLE) {
         vkDestroyImage(device, colorImage_, nullptr);
@@ -37,7 +32,7 @@ bool VulkanOffscreen::create(const VulkanContext& ctx,
 
     // --- デプスアタッチメント ---
     // VK_IMAGE_USAGE_SAMPLED_BIT: 後続パスでサンプリング可能(シャドウマップ用途)
-    if (!VulkanImage::create(ctx, width, height, depthFormat,
+    if (!VulkanImage::create(ctx, width, height, depthFormat_,
                              VK_IMAGE_TILING_OPTIMAL,
                              VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
                              VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
@@ -52,7 +47,7 @@ bool VulkanOffscreen::create(const VulkanContext& ctx,
     }
 
     depthView_ = VulkanImage::createView(device, depthImage_,
-                                          depthFormat,
+                                          depthFormat_,
                                           VK_IMAGE_ASPECT_DEPTH_BIT);
     if (depthView_ == VK_NULL_HANDLE) {
         vkDestroyImageView(device, colorView_, nullptr);
@@ -67,6 +62,43 @@ bool VulkanOffscreen::create(const VulkanContext& ctx,
         depthMemory_ = VK_NULL_HANDLE;
         return false;
     }
+
+    return true;
+}
+
+bool VulkanOffscreen::createFramebuffer(VkDevice device, uint32_t width, uint32_t height)
+{
+    VkImageView fbViews[] = { colorView_, depthView_ };
+
+    VkFramebufferCreateInfo fbCI{};
+    fbCI.sType           = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+    fbCI.renderPass      = renderPass_;
+    fbCI.attachmentCount = 2;
+    fbCI.pAttachments    = fbViews;
+    fbCI.width           = width;
+    fbCI.height          = height;
+    fbCI.layers          = 1;
+
+    if (vkCreateFramebuffer(device, &fbCI, nullptr, &framebuffer_) != VK_SUCCESS) {
+        std::fprintf(stderr, "[VKG] VulkanOffscreen: Failed to create framebuffer\n");
+        framebuffer_ = VK_NULL_HANDLE;
+        return false;
+    }
+    return true;
+}
+
+bool VulkanOffscreen::create(const VulkanContext& ctx,
+                              uint32_t width, uint32_t height,
+                              VkFormat colorFormat,
+                              VkFormat depthFormat)
+{
+    extent_      = { width, height };
+    colorFormat_ = colorFormat;
+    depthFormat_ = depthFormat;
+    VkDevice device = ctx.getDevice();
+
+    if (!createImages(ctx, width, height))
+        return false;
 
     // --- RenderPass ---
     // カラー: UNDEFINED → COLOR_ATTACHMENT → SHADER_READ_ONLY (サンプリング用)
@@ -157,19 +189,7 @@ bool VulkanOffscreen::create(const VulkanContext& ctx,
     }
 
     // --- Framebuffer ---
-    VkImageView fbViews[] = { colorView_, depthView_ };
-
-    VkFramebufferCreateInfo fbCI{};
-    fbCI.sType           = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-    fbCI.renderPass      = renderPass_;
-    fbCI.attachmentCount = 2;
-    fbCI.pAttachments    = fbViews;
-    fbCI.width           = width;
-    fbCI.height          = height;
-    fbCI.layers          = 1;
-
-    if (vkCreateFramebuffer(device, &fbCI, nullptr, &framebuffer_) != VK_SUCCESS) {
-        std::fprintf(stderr, "[VKG] VulkanOffscreen: Failed to create framebuffer\n");
+    if (!createFramebuffer(device, width, height)) {
         vkDestroyRenderPass(device, renderPass_, nullptr);
         vkDestroyImageView(device, colorView_, nullptr);
         vkDestroyImage(device, colorImage_, nullptr);
@@ -186,6 +206,55 @@ bool VulkanOffscreen::create(const VulkanContext& ctx,
         depthMemory_ = VK_NULL_HANDLE;
         return false;
     }
+    return true;
+}
+
+bool VulkanOffscreen::resize(const VulkanContext& ctx, uint32_t width, uint32_t height)
+{
+    if (!isValid() || width == 0 || height == 0) return false;
+
+    VkDevice device = ctx.getDevice();
+
+    // Drop the old images/framebuffer -- NOT renderPass_, which is what lets every pipeline
+    // already built against getRenderPass() stay valid (see this method's header comment).
+    // The caller is responsible for the device already being idle (VkAppBase::
+    // recreateSwapChain() calls vkDeviceWaitIdle() before onSwapChainCreated(), which is
+    // this method's only intended call site as of Phase 4B's render-graph vertical slice 1).
+    vkDestroyFramebuffer(device, framebuffer_, nullptr);
+    framebuffer_ = VK_NULL_HANDLE;
+    vkDestroyImageView(device, colorView_, nullptr);
+    vkDestroyImage(device, colorImage_, nullptr);
+    vkFreeMemory(device, colorMemory_, nullptr);
+    vkDestroyImageView(device, depthView_, nullptr);
+    vkDestroyImage(device, depthImage_, nullptr);
+    vkFreeMemory(device, depthMemory_, nullptr);
+    colorView_   = VK_NULL_HANDLE;
+    colorImage_  = VK_NULL_HANDLE;
+    colorMemory_ = VK_NULL_HANDLE;
+    depthView_   = VK_NULL_HANDLE;
+    depthImage_  = VK_NULL_HANDLE;
+    depthMemory_ = VK_NULL_HANDLE;
+
+    if (!createImages(ctx, width, height) || !createFramebuffer(device, width, height)) {
+        // Leave no half-valid object behind: isValid() must go false too, since a renderPass_
+        // with no framebuffer_ would crash on the next beginRenderPass().
+        std::fprintf(stderr, "[VKG] VulkanOffscreen: resize() failed, destroying\n");
+        if (framebuffer_ != VK_NULL_HANDLE) { vkDestroyFramebuffer(device, framebuffer_, nullptr); framebuffer_ = VK_NULL_HANDLE; }
+        if (colorView_   != VK_NULL_HANDLE) { vkDestroyImageView(device, colorView_,   nullptr); colorView_   = VK_NULL_HANDLE; }
+        if (colorImage_  != VK_NULL_HANDLE) { vkDestroyImage    (device, colorImage_,  nullptr); colorImage_  = VK_NULL_HANDLE; }
+        if (colorMemory_ != VK_NULL_HANDLE) { vkFreeMemory      (device, colorMemory_, nullptr); colorMemory_ = VK_NULL_HANDLE; }
+        if (depthView_   != VK_NULL_HANDLE) { vkDestroyImageView(device, depthView_,   nullptr); depthView_   = VK_NULL_HANDLE; }
+        if (depthImage_  != VK_NULL_HANDLE) { vkDestroyImage    (device, depthImage_,  nullptr); depthImage_  = VK_NULL_HANDLE; }
+        if (depthMemory_ != VK_NULL_HANDLE) { vkFreeMemory      (device, depthMemory_, nullptr); depthMemory_ = VK_NULL_HANDLE; }
+        vkDestroyRenderPass(device, renderPass_, nullptr);
+        renderPass_  = VK_NULL_HANDLE;
+        extent_      = {};
+        colorFormat_ = VK_FORMAT_UNDEFINED;
+        depthFormat_ = VK_FORMAT_UNDEFINED;
+        return false;
+    }
+
+    extent_ = { width, height };
     return true;
 }
 
@@ -212,6 +281,7 @@ void VulkanOffscreen::destroy(const VulkanContext& ctx)
 
     extent_      = {};
     colorFormat_ = VK_FORMAT_UNDEFINED;
+    depthFormat_ = VK_FORMAT_UNDEFINED;
 }
 
 void VulkanOffscreen::beginRenderPass(VkCommandBuffer cmd,
