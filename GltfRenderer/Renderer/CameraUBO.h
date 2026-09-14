@@ -33,7 +33,15 @@ struct GlobalUBO {
     int       shadowEnabled;  // Phase C: set via GltfSceneRenderer::setShadowMap()/clearShadowMap()
     float     shadowBias;
     float     shadowStrength; // 0 = no shadow attenuation, 1 = full attenuation
-};  // 320 bytes, std140 OK
+    // Phase 4B (tone mapping/exposure): multiplies color before the fragment shader's Reinhard
+    // tonemap, so brighter/darker scenes can be dialed in without touching light intensities.
+    // Appended at the end so every other GlobalUBO consumer (CGStudio/FluidStudio/PhysicsView/
+    // RayTracer/GltfViewer/AnimationView, each with its own gltf.vert/.frag copy that doesn't
+    // declare this field) keeps reading the same byte offsets as before -- see
+    // GltfSceneRenderer::setExposure()'s comment. Default 1.0 = old behavior exactly.
+    float     exposure = 1.0f;
+    float     _pad[3]  = {};
+};  // 336 bytes, std140 OK
 
 // set=1 binding 0: per-material UBO (frag)
 struct MaterialUBO {

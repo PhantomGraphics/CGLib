@@ -866,6 +866,7 @@ void GltfSceneRenderer::onUpdate(uint32_t frameIndex) {
     cam.shadowEnabled  = shadowEnabled_;
     cam.shadowBias     = shadowBias_;
     cam.shadowStrength = shadowStrength_;
+    cam.exposure       = exposure_;
 
     if (useExternalCamera_) {
         cam.view   = extView_;

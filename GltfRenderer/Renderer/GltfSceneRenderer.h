@@ -164,6 +164,15 @@ namespace Phantom::Gltf
         void setUseIBL(bool v) { useIBL_ = v ? 1 : 0; }
         int  getUseIBL() const { return useIBL_; }
 
+        // Phase 4B tone mapping: multiplies color before gltf.frag's Reinhard tonemap (1.0 =
+        // unchanged from before this existed). GlobalUBO::exposure was appended at the very end
+        // of the struct specifically so this is safe to add without shifting any other
+        // consumer's field offsets -- see CameraUBO.h's comment. A consumer whose own gltf.frag
+        // copy doesn't declare `exposure` (every one but Universe's, as of Phase 4B) simply never
+        // reads the extra tail bytes; this setter is a no-op for it either way.
+        void  setExposure(float v) { exposure_ = v; }
+        float getExposure() const { return exposure_; }
+
         // --- Multi-light (KHR_lights_punctual; Phase 4B) ---
         // Replaces every previously-set punctual light with `lights` (empty clears them). When
         // non-empty, gltf.frag shades with these instead of the single lightPos_/lightColor_ pair
@@ -261,6 +270,7 @@ namespace Phantom::Gltf
         // lightPos_/lightColor_ above when punctualLightCount() == 0.
         LightManager lightManager_;
         int       useIBL_ = 0;
+        float     exposure_ = 1.0f; // see setExposure()
 
         // Environment cubemap (set externally by GltfViewerApp)
         VkImageView envView_ = VK_NULL_HANDLE;
