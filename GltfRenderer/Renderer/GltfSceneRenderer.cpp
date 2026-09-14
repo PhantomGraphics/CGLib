@@ -271,9 +271,19 @@ bool GltfSceneRenderer::createGlobalDescriptorSets(VkDevice device) {
 }
 
 void GltfSceneRenderer::updateGlobalDescriptorSets(VkDevice device) {
-    // Resolve which cube/2D view to bind for IBL slots
+    // Resolve which cube/2D view to bind for IBL slots. Real IBL (iblResult_, see recomputeIBL())
+    // wins when available; otherwise fall back to sampling the raw environment cubemap directly
+    // for both irradiance and prefiltered (a flat approximation -- no convolution/prefiltering)
+    // and a white 2D fallback for the BRDF LUT, exactly as before real IBL existed.
     VkImageView cubeView = (envView_ != VK_NULL_HANDLE) ? envView_ : fallbackCubeView_;
     VkSampler   cubeSamp = (envSampler_ != VK_NULL_HANDLE) ? envSampler_ : fallbackSampler_.get();
+    const bool  hasIBL   = iblResult_.isValid();
+    VkImageView irrView  = hasIBL ? iblResult_.irradianceView    : cubeView;
+    VkSampler   irrSamp  = hasIBL ? iblResult_.irradianceSampler : cubeSamp;
+    VkImageView preView  = hasIBL ? iblResult_.prefilterView     : cubeView;
+    VkSampler   preSamp  = hasIBL ? iblResult_.prefilterSampler  : cubeSamp;
+    VkImageView lutView  = hasIBL ? iblResult_.brdfLUTView       : fallbackView_;
+    VkSampler   lutSamp  = hasIBL ? iblResult_.brdfLUTSampler    : fallbackSampler_.get();
 
     for (int f = 0; f < MAX_FRAMES; ++f) {
         std::vector<VkWriteDescriptorSet> writes;
@@ -293,7 +303,7 @@ void GltfSceneRenderer::updateGlobalDescriptorSets(VkDevice device) {
         writes.push_back(uboWrite);
 
         // binding 1: irradianceCube
-        VkDescriptorImageInfo irrInfo{ cubeSamp, cubeView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL };
+        VkDescriptorImageInfo irrInfo{ irrSamp, irrView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL };
         VkWriteDescriptorSet irrWrite{};
         irrWrite.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         irrWrite.dstSet          = globalDescSets_[f];
@@ -304,7 +314,7 @@ void GltfSceneRenderer::updateGlobalDescriptorSets(VkDevice device) {
         writes.push_back(irrWrite);
 
         // binding 2: prefilteredEnvCube
-        VkDescriptorImageInfo preInfo{ cubeSamp, cubeView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL };
+        VkDescriptorImageInfo preInfo{ preSamp, preView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL };
         VkWriteDescriptorSet preWrite{};
         preWrite.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         preWrite.dstSet          = globalDescSets_[f];
@@ -314,8 +324,8 @@ void GltfSceneRenderer::updateGlobalDescriptorSets(VkDevice device) {
         preWrite.pImageInfo      = &preInfo;
         writes.push_back(preWrite);
 
-        // binding 3: brdfLUT (fallback 2D white until IBL is computed)
-        VkDescriptorImageInfo lutInfo{ fallbackSampler_.get(), fallbackView_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL };
+        // binding 3: brdfLUT (real BRDF LUT if computed, else fallback 2D white)
+        VkDescriptorImageInfo lutInfo{ lutSamp, lutView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL };
         VkWriteDescriptorSet lutWrite{};
         lutWrite.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         lutWrite.dstSet          = globalDescSets_[f];
@@ -594,6 +604,10 @@ void GltfSceneRenderer::onInit(Phantom::VKG::VulkanContext& ctx, const Phantom::
     // Global descriptor pool + sets (write fallback IBL textures)
     if (!(createGlobalDescPool(device) && createGlobalDescriptorSets(device)))
         fprintf(stderr, "[GltfSceneRenderer] global descriptor setup failed; rendering may be incomplete\n");
+
+    // Real IBL, if setEnvironment() was already called (the common pattern -- see its comment):
+    // ctx_/pool_ weren't valid yet at that point, so the actual precompute was deferred to here.
+    recomputeIBL();
     updateGlobalDescriptorSets(device);
 
     // Graphics pipeline with 2 descriptor set layouts. Config is reused (not moved-from) below
@@ -824,8 +838,22 @@ void GltfSceneRenderer::setEnvironment(VkImageView envView, VkSampler envSampler
 {
     envView_    = envView;
     envSampler_ = envSampler;
-    // Phase 3: trigger IBL computation and re-write global desc sets here.
+    recomputeIBL();
     if (ctx_) updateGlobalDescriptorSets(ctx_->getDevice());
+}
+
+void GltfSceneRenderer::recomputeIBL()
+{
+    if (!ctx_) return; // deferred: onInit() calls this again once ctx_/pool_ exist
+
+    if (iblResult_.isValid())
+        iblPrecomputer_.destroy(ctx_->getDevice(), iblResult_);
+
+    if (envView_ == VK_NULL_HANDLE) return; // no environment set (yet) -- nothing to precompute
+    if (auto result = iblPrecomputer_.compute(*ctx_, *pool_, envView_, envSampler_, shaders_.ibl))
+        iblResult_ = *result;
+    // else: Shaders::ibl was empty or a pass failed -- iblResult_ stays invalid,
+    // updateGlobalDescriptorSets() falls back to sampling envView_ directly (old behavior).
 }
 
 void GltfSceneRenderer::setLight(const glm::vec4& pos, const glm::vec4& color)
@@ -1011,6 +1039,9 @@ void GltfSceneRenderer::onCleanup(VkDevice device) {
 
     globalSetLayout_.destroy(device);
     materialSetLayout_.destroy(device);
+
+    // Real IBL (if any was computed)
+    if (iblResult_.isValid()) iblPrecomputer_.destroy(device, iblResult_);
 
     // Fallback resources
     destroyFallbackCube(device);

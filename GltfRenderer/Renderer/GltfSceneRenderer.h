@@ -159,6 +159,16 @@ namespace Phantom::Gltf
         RtCameraParams getCameraParams() const;
 
         // --- Environment / light control (Phase 4 wires these up) ---
+        // envView must be a CUBE image view. If Shaders::ibl (irradiance/prefilter/brdf vert+frag,
+        // set via setShaders() before onInit()) was populated, this also (re-)computes real IBL
+        // textures from it (Phantom::Gltf::GltfIBLPrecomputer -- irradiance convolution, a
+        // roughness-mip prefiltered environment, and the split-sum BRDF LUT) for
+        // updateGlobalDescriptorSets() to bind instead of sampling envView directly. Safe to call
+        // before onInit() (the common pattern: envView/envSampler are stored either way, but the
+        // actual precompute needs ctx_/pool_ and is deferred to onInit() in that case) and safe to
+        // call again later with a different environment (the previous IBL result is destroyed
+        // first). A caller that never sets Shaders::ibl keeps exactly the old behavior (envView
+        // sampled directly for irradiance/prefiltered, BRDF LUT stays a flat fallback).
         void setEnvironment(VkImageView envView, VkSampler envSampler);
         void setLight(const glm::vec4& pos, const glm::vec4& color);
         void setUseIBL(bool v) { useIBL_ = v ? 1 : 0; }
@@ -272,9 +282,20 @@ namespace Phantom::Gltf
         int       useIBL_ = 0;
         float     exposure_ = 1.0f; // see setExposure()
 
-        // Environment cubemap (set externally by GltfViewerApp)
+        // Environment cubemap (set externally, see setEnvironment())
         VkImageView envView_ = VK_NULL_HANDLE;
         VkSampler   envSampler_ = VK_NULL_HANDLE;
+
+        // Real IBL (irradiance/prefiltered-env/BRDF LUT), computed from envView_/envSampler_ by
+        // recomputeIBL() whenever setEnvironment() is called (or onInit(), for a setEnvironment()
+        // that ran before ctx_/pool_ existed -- the common call order, see setEnvironment()'s
+        // comment). No-op (iblResult_ stays invalid) unless the caller populated Shaders::ibl --
+        // updateGlobalDescriptorSets() falls back to sampling envView_ directly for irradiance/
+        // prefiltered (a flat approximation) and a white 2D fallback for the BRDF LUT when it is.
+        GltfIBLPrecomputer         iblPrecomputer_;
+        GltfIBLPrecomputer::Result iblResult_;
+
+        void recomputeIBL();
 
         // 4 pipeline variants over 2 independent axes, selected per-primitive in onRender():
         //   - cull:  pipeline_/pipelineBlend_ (cullMode_, usually back-face) vs
