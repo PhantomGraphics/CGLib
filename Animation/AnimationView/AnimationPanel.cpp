@@ -1,6 +1,8 @@
 #include "AnimationPanel.h"
+#include "AnimationViewApp.h"
 
 #include "imgui.h"
+#include "CGLib/ThirdParty/tinyfiledialogs/tinyfiledialogs.h"
 #include <cinttypes>
 
 namespace Phantom::Animation {
@@ -40,6 +42,22 @@ void AnimationPanel::onImGui()
 
     ImGui::Separator();
     ImGui::Checkbox("Show Mesh", &world_->showMesh);
+
+    if (app_ && ImGui::CollapsingHeader("Environment")) {
+        bool useIBL = app_->getUseIBL();
+        if (ImGui::Checkbox("Use IBL", &useIBL)) app_->setUseIBL(useIBL);
+        ImGui::Text("%s", app_->hasEnvironmentHDR() ? "Env: real HDRI" : "Env: placeholder");
+        if (ImGui::Button("Load HDRI...")) {
+            const char* filters[] = { "*.hdr" };
+            const char* path = tinyfd_openFileDialog(
+                "Load Environment HDRI", "", 1, filters, "Radiance HDR files (*.hdr)", 0);
+            if (path) app_->loadEnvironmentHDR(path);
+        }
+        if (app_->hasEnvironmentHDR()) {
+            ImGui::SameLine();
+            if (ImGui::Button("Clear HDRI")) app_->clearEnvironmentHDR();
+        }
+    }
 
     ImGui::Separator();
     ImGui::Text("Bones: %d  Verts: %d  IK: %d  Morphs: %d",

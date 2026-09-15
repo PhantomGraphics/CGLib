@@ -1,0 +1,20 @@
+{
+  "name": "ibl_control",
+  "steps": [
+    { "label": "IBL is off by default", "command": "GetUseIBL", "expect": "UseIBL:0" },
+    { "label": "Enable IBL", "command": "SetUseIBL:1", "expect": "OK:SetUseIBL" },
+    { "label": "IBL is now on", "command": "GetUseIBL", "expect": "UseIBL:1" },
+    { "label": "Disable IBL again", "command": "SetUseIBL:0", "expect": "OK:SetUseIBL" },
+    { "label": "IBL is back off", "command": "GetUseIBL", "expect": "UseIBL:0" },
+
+    { "label": "No real HDRI loaded by default", "command": "GetHasEnvironmentHDR", "expect": "HasEnvironmentHDR:0" },
+    { "label": "Load a synthetic equirect HDRI (shared GltfEnvironmentCubemap, 2026-09-15)",
+      "command": "LoadEnvironmentHDR:scenarios/models/test_env.hdr", "expect": "OK:LoadEnvironmentHDR" },
+    { "label": "HDRI load round-trips", "command": "GetHasEnvironmentHDR", "expect": "HasEnvironmentHDR:1" },
+    { "label": "Missing file is an error, current HDRI kept",
+      "command": "LoadEnvironmentHDR:scenarios/models/does_not_exist.hdr", "expect": "ERROR:LoadFailed" },
+    { "label": "Still has the previously loaded HDRI", "command": "GetHasEnvironmentHDR", "expect": "HasEnvironmentHDR:1" },
+    { "label": "Clear HDRI back to the placeholder env", "command": "ClearEnvironmentHDR", "expect": "OK:ClearEnvironmentHDR" },
+    { "label": "HDRI clear round-trips", "command": "GetHasEnvironmentHDR", "expect": "HasEnvironmentHDR:0" }
+  ]
+}

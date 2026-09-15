@@ -7,6 +7,7 @@
 #include "CGLib/VulkanGraphics/VulkanSPVResolver.h"
 
 #include "CGLib/GltfRenderer/Renderer/GltfSceneRenderer.h"
+#include "CGLib/GltfRenderer/IBL/GltfEnvironmentCubemap.h"
 
 #include "World.h"
 #include "AnimationPanel.h"
@@ -37,6 +38,17 @@ public:
     const std::string& scenarioFailMessage() const override { return runner_.failMessage(); }
     size_t scenarioStepCount()  const override { return runner_.stepCount();  }
 
+    // Real HDRI loading (2026-09-15): AnimationView was originally "a plain model/motion viewer,
+    // not a lighting testbed" (see onInit()'s comment) and left IBL/shadow shaders unloaded. It
+    // now optionally supports the same real-environment IBL every other glTF-consuming app does,
+    // off by default, via the shared Phantom::Gltf::GltfEnvironmentCubemap (see that class's
+    // header comment). Mirrors GltfViewer::App's methods of the same name.
+    void setUseIBL(bool v) { sceneRenderer_.setUseIBL(v); }
+    bool getUseIBL() const { return sceneRenderer_.getUseIBL(); }
+    bool loadEnvironmentHDR(const std::string& path);
+    void clearEnvironmentHDR();
+    bool hasEnvironmentHDR() const { return envCubemap_.isRealHDR(); }
+
 protected:
     void onInit()                          override;
     void onSwapChainCreated()              override;
@@ -51,6 +63,16 @@ private:
     CommandDispatcher        dispatcher_;
     ScenarioRunner                    runner_;
     ScenarioBrowserPanel              scenarioBrowser_;
+
+    // Environment cubemap: flat placeholder sky tint by default, or a real equirectangular .hdr
+    // panorama once loaded. Shared with GltfViewer/Universe (2026-09-15, GltfEnvironmentCubemap.h's
+    // comment) rather than a duplicate of the same boilerplate.
+    Phantom::Gltf::GltfEnvironmentCubemap envCubemap_;
+    // shaders/equirect_to_cube.{vert,frag}, loaded once in onInit() and copied into each
+    // loadEnvironmentHDR() call (GltfIBLPrecomputer::computeEnvironmentCube() consumes its shader
+    // vectors by value/move).
+    std::vector<uint32_t> equirectVertSpv_;
+    std::vector<uint32_t> equirectFragSpv_;
 
     std::chrono::steady_clock::time_point lastFrameTime_;
 

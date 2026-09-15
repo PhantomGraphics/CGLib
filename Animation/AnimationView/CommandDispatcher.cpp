@@ -1,4 +1,5 @@
 ﻿#include "CommandDispatcher.h"
+#include "AnimationViewApp.h"
 
 #include <charconv>
 #include <cstdio>
@@ -143,6 +144,37 @@ std::string CommandDispatcher::route(const std::string& cmd)
             ? 0 : (int)world_->document.meshes[0].primitives.size();
         char buf[32];
         std::snprintf(buf, sizeof(buf), "SubMeshCount:%d", count);
+        return buf;
+    }
+
+    // Real HDRI loading (2026-09-15, see AnimationViewApp::loadEnvironmentHDR()'s comment). Off
+    // by default -- AnimationView remains a plain model/motion viewer unless opted in.
+    if (sv.starts_with("SetUseIBL:")) {
+        if (!app_) return "ERROR:NoApp";
+        const auto val = sv.substr(10);
+        app_->setUseIBL(val == "1" || val == "true");
+        return "OK:SetUseIBL";
+    }
+    if (sv == "GetUseIBL") {
+        if (!app_) return "UseIBL:0";
+        char buf[32];
+        std::snprintf(buf, sizeof(buf), "UseIBL:%d", app_->getUseIBL() ? 1 : 0);
+        return buf;
+    }
+    if (sv.starts_with("LoadEnvironmentHDR:")) {
+        if (!app_) return "ERROR:NoApp";
+        if (!app_->loadEnvironmentHDR(std::string(sv.substr(19)))) return "ERROR:LoadFailed";
+        return "OK:LoadEnvironmentHDR";
+    }
+    if (sv == "ClearEnvironmentHDR") {
+        if (!app_) return "ERROR:NoApp";
+        app_->clearEnvironmentHDR();
+        return "OK:ClearEnvironmentHDR";
+    }
+    if (sv == "GetHasEnvironmentHDR") {
+        if (!app_) return "HasEnvironmentHDR:0";
+        char buf[32];
+        std::snprintf(buf, sizeof(buf), "HasEnvironmentHDR:%d", app_->hasEnvironmentHDR() ? 1 : 0);
         return buf;
     }
 

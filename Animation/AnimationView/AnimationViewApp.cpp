@@ -34,10 +34,12 @@ AnimationViewApp::AnimationViewApp(int w, int h, const std::string& title)
     : ::VKG::VkAppBase(w, h, title)
 {
     dispatcher_.setWorld(&world_);
+    dispatcher_.setApp(this);
     scenarioBrowser_.setHost(this);
     scenarioBrowser_.setDefaultFolder("scenarios");
 
     panel_.init(&world_);
+    panel_.setApp(this);
     add(&panel_);
     add(&scenarioBrowser_);
 }
@@ -57,20 +59,52 @@ void AnimationViewApp::onInit()
         GltfSceneRenderer::Shaders s;
         s.vertSpv = ::VKG::loadSPVRepo("shaders/gltf.vert.spv");
         s.fragSpv = ::VKG::loadSPVRepo("shaders/gltf.frag.spv");
-        // Skybox/IBL/shadow shaders left empty on purpose: AnimationView is a plain model/motion
+        // Skybox/shadow shaders left empty on purpose: AnimationView is a plain model/motion
         // viewer, not a lighting testbed (GltfSceneRenderer treats empty = skip, see its Shaders
-        // struct comment).
+        // struct comment). IBL precompute shaders ARE loaded (2026-09-15) so the optional
+        // real-HDRI toggle (off by default, see setUseIBL()'s comment) runs the real
+        // GltfIBLPrecomputer path rather than the simplified raw-cubemap fallback.
+        s.ibl.irradianceVert = ::VKG::loadSPVRepo("shaders/irradiance.vert.spv");
+        s.ibl.irradianceFrag = ::VKG::loadSPVRepo("shaders/irradiance.frag.spv");
+        s.ibl.prefilterVert  = ::VKG::loadSPVRepo("shaders/prefilter.vert.spv");
+        s.ibl.prefilterFrag  = ::VKG::loadSPVRepo("shaders/prefilter.frag.spv");
+        s.ibl.brdfVert       = ::VKG::loadSPVRepo("shaders/brdf_lut.vert.spv");
+        s.ibl.brdfFrag       = ::VKG::loadSPVRepo("shaders/brdf_lut.frag.spv");
         sceneRenderer_.setShaders(std::move(s));
+
+        equirectVertSpv_ = ::VKG::loadSPVRepo("shaders/equirect_to_cube.vert.spv");
+        equirectFragSpv_ = ::VKG::loadSPVRepo("shaders/equirect_to_cube.frag.spv");
     }
 
     ::VKG::VkAppBase::onInit();
     sceneRenderer_.setExtent(getExtent());
     sceneRenderer_.onInit(getContext(), getCommandPool(), getRenderPass(), MAX_FRAMES_IN_FLIGHT);
+    envCubemap_.create(getContext(), getCommandPool());
+    sceneRenderer_.setEnvironment(envCubemap_.getView(), envCubemap_.getSampler());
     sceneRenderer_.setUseIBL(false);
 
     lastFrameTime_ = std::chrono::steady_clock::now();
 
     setupWindowCallbacks();
+}
+
+bool AnimationViewApp::loadEnvironmentHDR(const std::string& path) {
+    if (!envCubemap_.loadFromHDR(getContext(), getCommandPool(), path, equirectVertSpv_, equirectFragSpv_))
+        return false;
+    // Review R1 pattern (see CGApp/Universe/Rendering/Renderer.cpp's setShadowEnabled()'s comment
+    // for the detailed rationale): setEnvironment() rewrites the global descriptor set for every
+    // frame in flight, unconditionally -- called mid-frame (a dispatcher command), that could
+    // rewrite a frame-in-flight's descriptor set the GPU is still executing against. Block on
+    // full device idle first; this is a rare, user-triggered event, not a per-frame one.
+    vkDeviceWaitIdle(getDevice());
+    sceneRenderer_.setEnvironment(envCubemap_.getView(), envCubemap_.getSampler());
+    return true;
+}
+
+void AnimationViewApp::clearEnvironmentHDR() {
+    if (!envCubemap_.resetToPlaceholder(getContext(), getCommandPool())) return;
+    vkDeviceWaitIdle(getDevice()); // same hazard as loadEnvironmentHDR() above
+    sceneRenderer_.setEnvironment(envCubemap_.getView(), envCubemap_.getSampler());
 }
 
 void AnimationViewApp::onSwapChainCreated()
@@ -115,6 +149,7 @@ void AnimationViewApp::onImGui()
 void AnimationViewApp::onCleanup()
 {
     sceneRenderer_.onCleanup(getDevice());
+    envCubemap_.destroy(getDevice());
     ::VKG::VkAppBase::onCleanup();
 }
 

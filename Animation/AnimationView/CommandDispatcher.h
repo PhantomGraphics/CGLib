@@ -10,9 +10,15 @@
 
 namespace Phantom::Animation {
 
+class AnimationViewApp;
+
 class CommandDispatcher : public IScenarioDispatcher {
 public:
     void setWorld(World* w) { world_ = w; }
+    // Non-owning; only needed for the LoadEnvironmentHDR/ClearEnvironmentHDR/GetHasEnvironmentHDR/
+    // SetUseIBL/GetUseIBL commands (real-HDRI loading lives on the app, alongside envCubemap_ --
+    // see AnimationViewApp::loadEnvironmentHDR()'s comment).
+    void setApp(AnimationViewApp* app) { app_ = app; }
 
     void processQueue();
 
@@ -23,6 +29,7 @@ private:
     std::string route(const std::string& cmd);
 
     World* world_ = nullptr;
+    AnimationViewApp* app_ = nullptr;
 
     std::mutex              mutex_;
     std::queue<std::string> inputQueue_;
