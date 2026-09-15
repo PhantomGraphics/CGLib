@@ -15,8 +15,10 @@
 #include "../../../CGLib/VulkanGraphics/VulkanPipeline.h"
 #include "../../../CGLib/VulkanGraphics/VulkanSampler.h"
 #include "../../../CGLib/VkAppBase/IVkSubRenderer.h"
+#include "../../../CGLib/Renderer/VkRenderer/VkSkyBoxRenderer.h"
 
 #include <memory>
+#include <optional>
 #include <vector>
 #include <array>
 
@@ -174,6 +176,20 @@ namespace Phantom::Gltf
         void setUseIBL(bool v) { useIBL_ = v ? 1 : 0; }
         int  getUseIBL() const { return useIBL_; }
 
+        // --- Skybox (Phase 4B, background display of the environment cubemap) ---
+        // Draws the same cubemap setEnvironment() bound (IBL and the skybox always show the same
+        // environment -- no separate "skybox-only" texture slot) as a background behind all
+        // opaque/blend primitives, using Phantom::VKG::VkSkyBoxRenderer (already used by
+        // VkRendererView/PhysicsView's SSFR skybox mode; reused as-is rather than reimplemented).
+        // No-op unless Shaders::skyboxVertSpv/skyboxFragSpv were populated before onInit() --
+        // every existing caller that leaves them empty (the common case before this feature)
+        // keeps rendering exactly as before. Default OFF even when the shaders are present, so a
+        // caller that already loads them (GltfViewer, RayTracerView -- previously unused, dead
+        // fields) does not suddenly grow a visible skybox without opting in.
+        void setUseSkybox(bool v) { useSkybox_ = v; }
+        bool getUseSkybox() const { return useSkybox_; }
+        bool hasSkyboxPipeline() const { return skybox_.has_value(); }
+
         // Phase 4B tone mapping: multiplies color before gltf.frag's Reinhard tonemap (1.0 =
         // unchanged from before this existed). GlobalUBO::exposure was appended at the very end
         // of the struct specifically so this is safe to add without shifting any other
@@ -296,6 +312,13 @@ namespace Phantom::Gltf
         GltfIBLPrecomputer::Result iblResult_;
 
         void recomputeIBL();
+
+        // Skybox (see setUseSkybox()). Constructed in onInit() only if Shaders::skyboxVertSpv/
+        // skyboxFragSpv are non-empty; std::optional so a caller that never sets those shaders
+        // pays no extra Vulkan resource cost (matches the shadow pipeline's shaders_.shadowVertSpv-
+        // gated pattern above, just with an owned sub-object instead of a lazily-created pipeline).
+        std::optional<Phantom::VKG::VkSkyBoxRenderer> skybox_;
+        bool useSkybox_ = false;
 
         // 4 pipeline variants over 2 independent axes, selected per-primitive in onRender():
         //   - cull:  pipeline_/pipelineBlend_ (cullMode_, usually back-face) vs

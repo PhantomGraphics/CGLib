@@ -29,6 +29,11 @@ void ViewPanel::onImGui() {
         }
         if (ImGui::CollapsingHeader("Environment", ImGuiTreeNodeFlags_DefaultOpen)) {
             if (ImGui::Checkbox("Use IBL", &useIBL_)) renderer_->setUseIBL(useIBL_);
+            if (renderer_->hasSkyboxPipeline()) {
+                if (ImGui::Checkbox("Show Skybox", &useSkybox_)) renderer_->setUseSkybox(useSkybox_);
+            } else {
+                ImGui::TextDisabled("Show Skybox (no skybox shaders loaded)");
+            }
             if (app_) {
                 ImGui::Text("%s", app_->hasEnvironmentHDR() ? "Env: real HDRI" : "Env: placeholder");
                 if (ImGui::Button("Load HDRI...")) {

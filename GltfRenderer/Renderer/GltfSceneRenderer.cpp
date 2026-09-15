@@ -640,6 +640,20 @@ void GltfSceneRenderer::onInit(Phantom::VKG::VulkanContext& ctx, const Phantom::
     cfg.cullMode = VK_CULL_MODE_NONE;
     pipelineBlendDoubleSided_.create(ctx, renderPass, cfg);
 
+    // Skybox (see setUseSkybox()): only if the caller populated both shaders.
+    if (!shaders_.skyboxVertSpv.empty() && !shaders_.skyboxFragSpv.empty()) {
+        Phantom::VKG::VkSkyBoxRenderer::Config skyCfg;
+        skyCfg.vertSpv = shaders_.skyboxVertSpv;
+        skyCfg.fragSpv = shaders_.skyboxFragSpv;
+        skybox_.emplace(std::move(skyCfg));
+        skybox_->create(ctx, pool, renderPass, MAX_FRAMES);
+        // setEnvironment() may have already run before onInit() (the common call order -- see
+        // its own comment); bind whatever cubemap it stored so the skybox isn't blank until the
+        // next setEnvironment() call.
+        if (envView_ != VK_NULL_HANDLE)
+            skybox_->setCubeMap(device, envView_, envSampler_);
+    }
+
     // Document-specific resources: only if a document was already set.
     if (doc_) buildDocumentResources();
 }
@@ -840,6 +854,9 @@ void GltfSceneRenderer::setEnvironment(VkImageView envView, VkSampler envSampler
     envSampler_ = envSampler;
     recomputeIBL();
     if (ctx_) updateGlobalDescriptorSets(ctx_->getDevice());
+    // Skybox shows the same environment IBL samples from -- keep both in sync on every change
+    // (initial load, HDRI swap, and ClearEnvironmentHDR's revert to the placeholder alike).
+    if (skybox_) skybox_->setCubeMap(ctx_->getDevice(), envView, envSampler);
 }
 
 void GltfSceneRenderer::recomputeIBL()
@@ -913,6 +930,18 @@ void GltfSceneRenderer::onUpdate(uint32_t frameIndex) {
 
     globalUbos_[frameIndex].write(&cam, sizeof(GlobalUBO));
 
+    if (skybox_ && useSkybox_) {
+        // Same view/proj as the main pass, but with translation stripped from the view matrix
+        // (a skybox only ever rotates with the camera, never translates -- VkSkyBoxRenderer::
+        // Buffer's own doc comment) -- same recipe as VkRendererView's SkyBox mode.
+        Phantom::VKG::VkSkyBoxRenderer::Buffer skyBuf;
+        skyBuf.projectionMatrix = cam.proj;
+        glm::mat4 viewNoTranslation = cam.view;
+        viewNoTranslation[3] = glm::vec4(0.f, 0.f, 0.f, cam.view[3].w);
+        skyBuf.viewMatrix = viewNoTranslation;
+        skybox_->upload(skyBuf, frameIndex);
+    }
+
     // BoneUBO: entries beyond skinMatrices_'s size (including the whole array, if
     // updateSkinMatrices() was never called) default to identity -- see BoneUBO's comment.
     BoneUBO bones;
@@ -931,7 +960,13 @@ void GltfSceneRenderer::onUpdate(uint32_t frameIndex) {
 // ============================================================
 
 void GltfSceneRenderer::onRender(VkCommandBuffer cmd, uint32_t frameIndex) {
-    if (!ready_ || !visible_ || primitives_.empty()) return;
+    if (!ready_ || !visible_) return;
+    if (primitives_.empty()) {
+        // No glTF geometry loaded (or none visible) -- still draw the skybox alone if enabled,
+        // rather than bailing out like every primitive-drawing path below does.
+        if (useSkybox_ && skybox_ && skybox_->isValid()) skybox_->render(cmd, frameIndex);
+        return;
+    }
 
     // Bind global descriptor set (set=0) once for all primitives. All 4 pipeline variants share
     // the same descriptor set layouts (see onInit()), so any of their layouts works here
@@ -1002,6 +1037,12 @@ void GltfSceneRenderer::onRender(VkCommandBuffer cmd, uint32_t frameIndex) {
             draw(entry, mat, mat->doubleSided() ? pipelineBlendDoubleSided_ : pipelineBlend_);
         }
     }
+
+    // Skybox last: VkSkyBoxRenderer's pipeline writes depth=1.0 (max) with depthWrite off and a
+    // LEQUAL compare, so drawing it after every opaque/blend primitive lets the depth test reject
+    // it wherever real geometry already covered a pixel -- standard "skybox last" optimization,
+    // not required for correctness (either order composites the same way).
+    if (useSkybox_ && skybox_ && skybox_->isValid()) skybox_->render(cmd, frameIndex);
 }
 
 // ============================================================
@@ -1017,6 +1058,7 @@ void GltfSceneRenderer::onCleanup(VkDevice device) {
     pipelineBlend_.destroy(device);
     pipelineBlendDoubleSided_.destroy(device);
     shadowPipeline_.destroy(device);
+    if (skybox_) { skybox_->destroy(device); skybox_.reset(); }
 
     for (auto& entry : primitives_) entry->mesh.destroy(device);
     primitives_.clear();

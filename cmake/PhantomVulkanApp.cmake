@@ -277,6 +277,7 @@ function(phantom_add_gltfrenderer_core)
     phantom_add_animation_core()
     phantom_add_vulkangraphics_core()
     phantom_add_vkappbase_core()
+    phantom_add_vkrenderer_core() # VkSkyBoxRenderer, reused for GltfSceneRenderer's skybox
     set(_gltfr_root ${CGLIB_ROOT}/GltfRenderer)
     add_library(GltfRendererCore STATIC
         ${_gltfr_root}/Gltf/GltfReader.cpp
@@ -316,6 +317,7 @@ function(phantom_add_gltfrenderer_core)
         AnimationCore
         VulkanGraphicsCore
         VkAppBaseCore
+        VkRendererCore
         MathCore
         GraphicsCore
     )

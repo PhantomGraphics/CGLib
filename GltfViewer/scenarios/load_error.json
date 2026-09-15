@@ -4,9 +4,9 @@
     { "label": "Load nonexistent file returns error",
       "command": "LoadFile:scenarios/models/does_not_exist.gltf",
       "expect_prefix": "Error:" },
-    { "label": "Mesh count unchanged (still 0)",
+    { "label": "Mesh count unchanged (still the default cube)",
       "command": "GetMeshCount",
-      "expect": "MeshCount:0" },
+      "expect": "MeshCount:1" },
     { "label": "App alive after error",
       "command": "GetStatus",
       "expect": "OK" }

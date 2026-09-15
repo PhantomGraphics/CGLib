@@ -13,6 +13,16 @@
     { "label": "HDRI load round-trips", "command": "GetHasEnvironmentHDR", "expect": "Val:1" },
     { "label": "Enable IBL to actually sample it", "command": "SetUseIBL:1", "expect": "OK" },
     { "label": "Real-HDRI screenshot", "command": "SaveScreenshot:scenarios/screenshots/ibl_control_hdri_on.png", "expect_prefix": "OK:" },
+
+    { "label": "Skybox is off by default", "command": "GetUseSkybox", "expect": "Val:0" },
+    { "label": "Enable the skybox (shows the same env cubemap as background)",
+      "command": "SetUseSkybox:1", "expect": "OK" },
+    { "label": "Skybox is now on", "command": "GetUseSkybox", "expect": "Val:1" },
+    { "label": "Skybox screenshot (real HDRI visible as background)",
+      "command": "SaveScreenshot:scenarios/screenshots/ibl_control_skybox_on.png", "expect_prefix": "OK:" },
+    { "label": "Disable the skybox again", "command": "SetUseSkybox:0", "expect": "OK" },
+    { "label": "Skybox is back off", "command": "GetUseSkybox", "expect": "Val:0" },
+
     { "label": "Missing file is an error, current HDRI kept",
       "command": "LoadEnvironmentHDR:scenarios/models/does_not_exist.hdr", "expect_prefix": "Error:" },
     { "label": "Still has the previously loaded HDRI", "command": "GetHasEnvironmentHDR", "expect": "Val:1" },

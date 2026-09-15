@@ -26,6 +26,7 @@ private:
     glm::vec3 lightColor_ = { 1.f, 1.f, 1.f };
     float lightIntensity_ = 3.f;
     bool useIBL_ = true;
+    bool useSkybox_ = false;
 };
 
 } // namespace Phantom::Gltf

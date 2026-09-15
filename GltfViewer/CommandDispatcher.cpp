@@ -130,6 +130,18 @@ std::string CommandDispatcher::route(const std::string& cmd) {
         return "OK";
     }
 
+    if (cmd == "GetUseSkybox") {
+        if (!renderer_) return "Val:0";
+        return "Val:" + std::to_string(renderer_->getUseSkybox() ? 1 : 0);
+    }
+
+    if (cmd.rfind("SetUseSkybox:", 0) == 0) {
+        if (!renderer_) return "Error:no renderer";
+        if (!renderer_->hasSkyboxPipeline()) return "Error:no skybox shaders loaded";
+        renderer_->setUseSkybox(cmd.substr(13) != "0");
+        return "OK";
+    }
+
     // Real HDRI loading (2026-09-15): replaces the placeholder tint cubemap with a real
     // equirectangular .hdr panorama (see App::loadEnvironmentHDR()'s comment).
     if (cmd.rfind("LoadEnvironmentHDR:", 0) == 0) {
