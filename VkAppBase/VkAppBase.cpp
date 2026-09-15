@@ -7,7 +7,9 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <filesystem>
 #include <string_view>
@@ -276,6 +278,16 @@ bool VkAppBase::mainLoop() {
 // ============================================================
 
 bool VkAppBase::drawFrame() {
+    // Opt-in benchmark instrumentation. No extra GPU wait in normal rendering.
+    // Read once per process; no class-layout change for existing derived apps.
+    static const bool syncRenderTiming = [] {
+        const char* value = std::getenv("VKAPP_BENCHMARK_SYNC");
+        return value && std::strcmp(value, "1") == 0;
+    }();
+    static const bool benchmarkNoGui = [] {
+        const char* value = std::getenv("VKAPP_BENCHMARK_NO_GUI");
+        return value && std::strcmp(value, "1") == 0;
+    }();
     VkDevice device = context_.getDevice();
 
     vkWaitForFences(device, 1, &inFlightFences_[currentFrame_], VK_TRUE, UINT64_MAX);
@@ -304,7 +316,7 @@ bool VkAppBase::drawFrame() {
     vkResetFences(device, 1, &inFlightFences_[currentFrame_]);
 
     // --- ImGui frame start (before command recording) ---
-    if (imguiInitialized_) {
+    if (imguiInitialized_ && !benchmarkNoGui) {
         ImGui_ImplVulkan_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
@@ -312,12 +324,16 @@ bool VkAppBase::drawFrame() {
 
     // --- App update & ImGui widget construction ---
     onUpdate(currentFrame_);
-    if (imguiInitialized_) {
+    if (imguiInitialized_ && !benchmarkNoGui) {
         onImGui();
         ImGui::Render();
     }
 
     // --- Command buffer recording ---
+    // Exclude acquisition, app/scenario updates, UI construction and present.
+    // Include command recording, submit, rendering and the completion fence wait.
+    const auto renderStart = syncRenderTiming ? std::chrono::steady_clock::now()
+                                             : std::chrono::steady_clock::time_point{};
     VkCommandBuffer cmd = commandBuffers_[currentFrame_];
     vkResetCommandBuffer(cmd, 0);
 
@@ -360,7 +376,7 @@ bool VkAppBase::drawFrame() {
     onRender(cmd, currentFrame_, imageIndex);
 
     // Render ImGui draw data inside the render pass (on top of everything).
-    if (imguiInitialized_)
+    if (imguiInitialized_ && !benchmarkNoGui)
         ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);
 
     vkCmdEndRenderPass(cmd);
@@ -408,6 +424,18 @@ bool VkAppBase::drawFrame() {
     if (vkQueueSubmit(context_.getGraphicsQueue(), 1, &si, inFlightFences_[currentFrame_]) != VK_SUCCESS) {
         std::fprintf(stderr, "[VKG] Failed to submit draw command buffer\n");
         return false;
+    }
+
+    if (syncRenderTiming) {
+        if (vkWaitForFences(device, 1, &inFlightFences_[currentFrame_], VK_TRUE, UINT64_MAX) != VK_SUCCESS) {
+            std::fprintf(stderr, "[VKG] Failed to wait for benchmark render completion\n");
+            return false;
+        }
+        const double elapsedMs = std::chrono::duration<double, std::milli>(
+            std::chrono::steady_clock::now() - renderStart).count();
+        // Logging is deliberately outside the timed interval.
+        std::fprintf(stdout, "[FrameTiming] frame=%u synchronizedRenderMs=%.6f\n",
+                     static_cast<unsigned>(frameCount_), elapsedMs);
     }
 
     // Present
