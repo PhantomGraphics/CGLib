@@ -926,6 +926,75 @@ std::optional<GltfIBLPrecomputer::Result> GltfIBLPrecomputer::compute(
     return res;
 }
 
+// ---------------------------------------------------------------------------
+// computeEnvironmentCube -- equirectangular panorama -> cube environment map
+// ---------------------------------------------------------------------------
+
+std::optional<GltfIBLPrecomputer::EnvCubeResult> GltfIBLPrecomputer::computeEnvironmentCube(
+    const Phantom::VKG::VulkanContext& ctx,
+    const Phantom::VKG::VulkanCommandPool& pool,
+    VkImageView equirectView,
+    VkSampler   equirectSampler,
+    uint32_t    cubeSize,
+    std::vector<uint32_t> equirectVert,
+    std::vector<uint32_t> equirectFrag)
+{
+    if (equirectVert.empty() || equirectFrag.empty())
+        return std::nullopt;
+
+    if (!createCubeBuffers(ctx, pool))
+        return std::nullopt;
+
+    VkDevice dev = ctx.getDevice();
+    constexpr VkFormat fmt = VK_FORMAT_R16G16B16A16_SFLOAT;
+
+    EnvCubeResult res{};
+    bool ok = createCubeImage(ctx, cubeSize, 1, fmt, res.image, res.mem);
+    if (ok) {
+        // Same generic cube-face pass renderCubeFaces()/createCubeFacePass() use for irradiance --
+        // the descriptor set layout only cares that binding 0 is a combined image sampler, not
+        // whether the underlying view is a cube or (as here) a plain 2D equirect texture.
+        auto pass = createCubeFacePass(ctx, fmt, equirectVert, equirectFrag, false, sizeof(CubeFacePushBase));
+        if (pass.pipeline == VK_NULL_HANDLE) {
+            std::fprintf(stderr, "[GltfIBLPrecomputer] equirect-to-cube pass creation failed\n");
+            ok = false;
+        } else {
+            VkDescriptorImageInfo imgInfo{ equirectSampler, equirectView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL };
+            VkWriteDescriptorSet w{};
+            w.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            w.dstSet          = pass.set;
+            w.dstBinding      = 0;
+            w.descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            w.descriptorCount = 1;
+            w.pImageInfo      = &imgInfo;
+            vkUpdateDescriptorSets(dev, 1, &w, 0, nullptr);
+
+            // roughness=-1 selects the 128-byte CubeFacePushBase (view+proj), same as irradiance.
+            renderCubeFaces(ctx, pool, pass, res.image, cubeSize, 0, -1.0f);
+            destroyCubeFacePass(dev, pass);
+
+            res.view    = createCubeView(dev, res.image, fmt, 1);
+            res.sampler = createLinearSampler(dev, 1);
+        }
+    }
+
+    destroyCubeBuffers(dev);
+
+    if (!ok || res.view == VK_NULL_HANDLE) {
+        destroy(dev, res);
+        return std::nullopt;
+    }
+    return res;
+}
+
+void GltfIBLPrecomputer::destroy(VkDevice device, EnvCubeResult& result)
+{
+    if (result.sampler != VK_NULL_HANDLE) { vkDestroySampler(device, result.sampler, nullptr);   result.sampler = VK_NULL_HANDLE; }
+    if (result.view    != VK_NULL_HANDLE) { vkDestroyImageView(device, result.view, nullptr);    result.view    = VK_NULL_HANDLE; }
+    if (result.image   != VK_NULL_HANDLE) { vkDestroyImage(device, result.image, nullptr);       result.image   = VK_NULL_HANDLE; }
+    if (result.mem      != VK_NULL_HANDLE) { vkFreeMemory(device, result.mem, nullptr);           result.mem     = VK_NULL_HANDLE; }
+}
+
 void GltfIBLPrecomputer::destroy(VkDevice device, Result& result)
 {
     auto destroy1 = [&](VkImage& img, VkDeviceMemory& mem,

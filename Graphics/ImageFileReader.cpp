@@ -48,7 +48,14 @@ Imageuc ImageFileReader::toImage() const
 
 bool HDRImageFileReader::read(const std::string& path)
 {
-	stbi_set_flip_vertically_on_load(true);
+	// Explicitly false (stb's own default), not true: an equirectangular environment panorama's
+	// row 0 is conventionally its zenith (the direction-to-UV formula used to project it onto a
+	// cube -- see GltfIBLPrecomputer::computeEnvironmentCube()'s equirect_to_cube.frag consumers --
+	// assumes that unflipped orientation). Also avoids leaking global flip state (stb_image's
+	// flip flag is process-wide, not per-call) into unrelated stbi_load()/stbi_load_from_memory()
+	// calls elsewhere (e.g. GltfReader.cpp/SkeletonGltfConverter.cpp's glTF texture loading),
+	// which would otherwise load upside-down after any HDR file is read first in the same process.
+	stbi_set_flip_vertically_on_load(false);
 	float* d = stbi_loadf(path.c_str(), &width, &height, &bpp, 0);
 	if (d == nullptr) {
 		return false;

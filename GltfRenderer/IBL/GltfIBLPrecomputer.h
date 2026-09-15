@@ -35,6 +35,20 @@ public:
         bool isValid() const { return irradianceView != VK_NULL_HANDLE; }
     };
 
+    // Output of computeEnvironmentCube(): a plain environment cubemap (no irradiance/prefilter/
+    // BRDF convolution -- that's what Result above is for), built by rendering all 6 faces of a
+    // direction-to-equirectangular-UV lookup against a 2D panorama texture. Feed this cube's
+    // view/sampler into compute() above (as envCubeView/envSampler) to get real IBL out of a
+    // real HDRI, instead of a flat placeholder tint cubemap.
+    struct EnvCubeResult {
+        VkImage        image   = VK_NULL_HANDLE;
+        VkDeviceMemory mem     = VK_NULL_HANDLE;
+        VkImageView    view    = VK_NULL_HANDLE;
+        VkSampler      sampler = VK_NULL_HANDLE;
+
+        bool isValid() const { return view != VK_NULL_HANDLE; }
+    };
+
     struct Shaders {
         std::vector<uint32_t> irradianceVert, irradianceFrag;
         std::vector<uint32_t> prefilterVert,  prefilterFrag;
@@ -50,6 +64,21 @@ public:
                                   Shaders shaders);
 
     void destroy(VkDevice device, Result& result);
+
+    // Converts an equirectangular 2D environment texture (a typical .hdr panorama) into a cube
+    // environment map, by rendering each of the 6 cube faces with a direction -> equirect-UV
+    // lookup fragment shader (equirectVert/equirectFrag; the vertex shader can be identical to
+    // Shaders::irradianceVert -- same cube-face view/proj push constants). Returns nullopt if
+    // either shader is empty or any GPU step fails. cubeSize is the resolution of each face.
+    std::optional<EnvCubeResult> computeEnvironmentCube(const Phantom::VKG::VulkanContext& ctx,
+                                                        const Phantom::VKG::VulkanCommandPool& pool,
+                                                        VkImageView equirectView,
+                                                        VkSampler   equirectSampler,
+                                                        uint32_t    cubeSize,
+                                                        std::vector<uint32_t> equirectVert,
+                                                        std::vector<uint32_t> equirectFrag);
+
+    void destroy(VkDevice device, EnvCubeResult& result);
 
 private:
     // ---- Cube geometry ----
