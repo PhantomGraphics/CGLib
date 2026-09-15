@@ -157,6 +157,7 @@ App::App(const std::filesystem::path& gltfPath)
     sceneGraphPanel_.setDocument(&doc_);
     sceneGraphPanel_.setSelectedNode(&selectedNode_);
     viewPanel_.setRenderer(&renderer_);
+    viewPanel_.setApp(this);
     panel_.setVrmState(&vrm_);
     panel_.setOnVrmExpressionChanged([this](int index, float weight) {
         setVrmExpressionWeight(index, weight);
@@ -186,6 +187,30 @@ void App::applyShaders() {
     s.ibl.brdfVert       = ::VKG::loadSPVRepo("shaders/brdf_lut.vert.spv");
     s.ibl.brdfFrag       = ::VKG::loadSPVRepo("shaders/brdf_lut.frag.spv");
     renderer_.setShaders(std::move(s));
+
+    // Real-HDRI loading (2026-09-15): shaders/equirect_to_cube.{vert,frag}, loaded once here and
+    // copied into each loadEnvironmentHDR() call. See GltfEnvironmentCubemap::loadFromHDR()'s comment.
+    equirectVertSpv_ = ::VKG::loadSPVRepo("shaders/equirect_to_cube.vert.spv");
+    equirectFragSpv_ = ::VKG::loadSPVRepo("shaders/equirect_to_cube.frag.spv");
+}
+
+bool App::loadEnvironmentHDR(const std::string& path) {
+    if (!envCubemap_.loadFromHDR(getContext(), getCommandPool(), path, equirectVertSpv_, equirectFragSpv_))
+        return false;
+    // Review R1 pattern (see CGApp/Universe/Rendering/Renderer.cpp's setShadowEnabled()'s
+    // comment for the detailed rationale): setEnvironment() rewrites the global descriptor set
+    // for every frame in flight, unconditionally -- called mid-frame (a dispatcher command),
+    // that could rewrite a frame-in-flight's descriptor set the GPU is still executing against.
+    // Block on full device idle first; this is a rare, user-triggered event, not a per-frame one.
+    vkDeviceWaitIdle(getDevice());
+    renderer_.setEnvironment(envCubemap_.getView(), envCubemap_.getSampler());
+    return true;
+}
+
+void App::clearEnvironmentHDR() {
+    if (!envCubemap_.resetToPlaceholder(getContext(), getCommandPool())) return;
+    vkDeviceWaitIdle(getDevice()); // same hazard as loadEnvironmentHDR() above
+    renderer_.setEnvironment(envCubemap_.getView(), envCubemap_.getSampler());
 }
 
 void App::onInit() {

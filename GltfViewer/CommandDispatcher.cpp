@@ -130,6 +130,23 @@ std::string CommandDispatcher::route(const std::string& cmd) {
         return "OK";
     }
 
+    // Real HDRI loading (2026-09-15): replaces the placeholder tint cubemap with a real
+    // equirectangular .hdr panorama (see App::loadEnvironmentHDR()'s comment).
+    if (cmd.rfind("LoadEnvironmentHDR:", 0) == 0) {
+        if (!app_) return "Error:no app";
+        if (!app_->loadEnvironmentHDR(cmd.substr(19))) return "Error:failed to load HDRI";
+        return "OK";
+    }
+    if (cmd == "ClearEnvironmentHDR") {
+        if (!app_) return "Error:no app";
+        app_->clearEnvironmentHDR();
+        return "OK";
+    }
+    if (cmd == "GetHasEnvironmentHDR") {
+        if (!app_) return "Val:0";
+        return "Val:" + std::to_string(app_->hasEnvironmentHDR());
+    }
+
     if (cmd == "ResetCamera") {
         if (!renderer_) return "Error:no renderer";
         *renderer_->camDistPtr()   = 3.0f;

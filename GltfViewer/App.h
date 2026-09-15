@@ -53,6 +53,17 @@ namespace Phantom::Gltf {
         // convention for a document not yet loaded through onInit()).
         void setVrmExpressionWeight(int index, float weight);
 
+        // Real HDRI loading (2026-09-15): replaces envCubemap_'s flat placeholder tint with a
+        // real environment cube baked from an equirectangular .hdr panorama
+        // (GltfEnvironmentCubemap::loadFromHDR(), shared with Universe -- see that class's
+        // header comment). Returns false (leaving the current environment, real or placeholder,
+        // untouched) if the file can't be read or the GPU conversion fails.
+        bool loadEnvironmentHDR(const std::string& path);
+        // Reverts to the flat placeholder tint.
+        void clearEnvironmentHDR();
+        bool hasEnvironmentHDR() const { return envCubemap_.isRealHDR(); }
+        const std::string& environmentHDRPath() const { return envCubemap_.hdrPath(); }
+
     private:
         GltfDocument             doc_;
         VrmViewState              vrm_;
@@ -78,6 +89,11 @@ namespace Phantom::Gltf {
         // .hdr panorama once loaded. Shared with Universe (2026-09-15, GltfEnvironmentCubemap.h's
         // comment) rather than this app's own duplicate of the same boilerplate.
         GltfEnvironmentCubemap envCubemap_;
+        // shaders/equirect_to_cube.{vert,frag}, loaded once in applyShaders() and copied into
+        // each loadEnvironmentHDR() call (GltfIBLPrecomputer::computeEnvironmentCube() consumes
+        // its shader vectors by value/move).
+        std::vector<uint32_t> equirectVertSpv_;
+        std::vector<uint32_t> equirectFragSpv_;
 
         void applyShaders();
         void setupCallbacks();

@@ -1,6 +1,8 @@
 #include "ViewPanel.h"
 #include "../GltfRenderer/Renderer/GltfSceneRenderer.h"
+#include "App.h"
 #include "imgui.h"
+#include "../../CGLib/ThirdParty/tinyfiledialogs/tinyfiledialogs.h"
 
 using namespace Phantom::Gltf;
 
@@ -27,6 +29,19 @@ void ViewPanel::onImGui() {
         }
         if (ImGui::CollapsingHeader("Environment", ImGuiTreeNodeFlags_DefaultOpen)) {
             if (ImGui::Checkbox("Use IBL", &useIBL_)) renderer_->setUseIBL(useIBL_);
+            if (app_) {
+                ImGui::Text("%s", app_->hasEnvironmentHDR() ? "Env: real HDRI" : "Env: placeholder");
+                if (ImGui::Button("Load HDRI...")) {
+                    const char* filters[] = { "*.hdr" };
+                    const char* path = tinyfd_openFileDialog(
+                        "Load Environment HDRI", "", 1, filters, "Radiance HDR files (*.hdr)", 0);
+                    if (path) app_->loadEnvironmentHDR(path);
+                }
+                if (app_->hasEnvironmentHDR()) {
+                    ImGui::SameLine();
+                    if (ImGui::Button("Clear HDRI")) app_->clearEnvironmentHDR();
+                }
+            }
         }
     }
     ImGui::End();
