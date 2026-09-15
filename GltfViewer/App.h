@@ -5,6 +5,7 @@
 #include "../../CGLib/VkAppBase/ScenarioRunner/ScenarioBrowserPanel.h"
 #include "../GltfRenderer/Gltf/GltfDocument.h"
 #include "../GltfRenderer/Renderer/GltfSceneRenderer.h"
+#include "../GltfRenderer/IBL/GltfEnvironmentCubemap.h"
 #include "CommandDispatcher.h"
 #include "ControlPanel.h"
 #include "SceneGraphPanel.h"
@@ -73,15 +74,12 @@ namespace Phantom::Gltf {
         bool exitOnComplete_ = true;
         int  exitCode_ = 0;
 
-        // Environment cubemap (solid-color procedural sky)
-        VkImage        envImage_ = VK_NULL_HANDLE;
-        VkDeviceMemory envMem_ = VK_NULL_HANDLE;
-        VkImageView    envView_ = VK_NULL_HANDLE;
-        VkSampler      envSampler_ = VK_NULL_HANDLE;
+        // Environment cubemap: flat placeholder sky tint by default, or a real equirectangular
+        // .hdr panorama once loaded. Shared with Universe (2026-09-15, GltfEnvironmentCubemap.h's
+        // comment) rather than this app's own duplicate of the same boilerplate.
+        GltfEnvironmentCubemap envCubemap_;
 
         void applyShaders();
-        void createEnvCubemap();
-        void destroyEnvCubemap();
         void setupCallbacks();
         // Main menu bar (File/View) drawn on top of VkAppBase::onImGui()'s sub-renderer/panel
         // pass. Kept separate from onImGui() itself only to keep that override short.

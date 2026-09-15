@@ -188,171 +188,22 @@ void App::applyShaders() {
     renderer_.setShaders(std::move(s));
 }
 
-void App::createEnvCubemap() {
-    auto& ctx  = getContext();
-    auto& pool = getCommandPool();
-    VkDevice dev = ctx.getDevice();
-
-    constexpr VkFormat    fmt     = VK_FORMAT_R32G32B32A32_SFLOAT;
-    constexpr uint32_t    sz      = 1;
-    constexpr uint32_t    faces   = 6;
-    constexpr VkDeviceSize pixSize = sz * sz * 4 * sizeof(float);
-    constexpr VkDeviceSize total   = pixSize * faces;
-
-    // Cube image
-    {
-        VkImageCreateInfo ci{};
-        ci.sType         = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-        ci.flags         = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
-        ci.imageType     = VK_IMAGE_TYPE_2D;
-        ci.format        = fmt;
-        ci.extent        = { sz, sz, 1 };
-        ci.mipLevels     = 1;
-        ci.arrayLayers   = faces;
-        ci.samples       = VK_SAMPLE_COUNT_1_BIT;
-        ci.tiling        = VK_IMAGE_TILING_OPTIMAL;
-        ci.usage         = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-        ci.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        vkCreateImage(dev, &ci, nullptr, &envImage_);
-
-        VkMemoryRequirements mr;
-        vkGetImageMemoryRequirements(dev, envImage_, &mr);
-        auto memType = ctx.findMemoryType(mr.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-        assert(memType.has_value());
-
-        VkMemoryAllocateInfo ai{};
-        ai.sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-        ai.allocationSize  = mr.size;
-        ai.memoryTypeIndex = memType.value_or(0);
-        vkAllocateMemory(dev, &ai, nullptr, &envMem_);
-        vkBindImageMemory(dev, envImage_, envMem_, 0);
-    }
-
-    // Staging buffer — dim sky-blue tint x 6 faces. This is a flat placeholder (no real
-    // HDRI/skybox yet), used for both diffuse and specular IBL -- for a constant-color
-    // environment the precomputed irradiance/prefiltered maps both converge to ~this same
-    // color (see GltfIBLPrecomputer's irradiance.frag/prefilter.frag), so a bright value
-    // here floods every material's ambient term and washes out all texture detail. Keep it
-    // dim enough that it reads as a subtle fill light, not a dominant light source.
-    const float skyColor[4] = { 0.05f, 0.07f, 0.10f, 1.0f };
-    VkBuffer stageBuf; VkDeviceMemory stageMem;
-    {
-        VkBufferCreateInfo bi{};
-        bi.sType       = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-        bi.size        = total;
-        bi.usage       = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-        bi.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-        vkCreateBuffer(dev, &bi, nullptr, &stageBuf);
-
-        VkMemoryRequirements mr;
-        vkGetBufferMemoryRequirements(dev, stageBuf, &mr);
-        auto memType = ctx.findMemoryType(mr.memoryTypeBits,
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-        assert(memType.has_value());
-
-        VkMemoryAllocateInfo ai{};
-        ai.sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-        ai.allocationSize  = mr.size;
-        ai.memoryTypeIndex = memType.value_or(0);
-        vkAllocateMemory(dev, &ai, nullptr, &stageMem);
-        vkBindBufferMemory(dev, stageBuf, stageMem, 0);
-
-        void* mapped;
-        vkMapMemory(dev, stageMem, 0, total, 0, &mapped);
-        for (uint32_t f = 0; f < faces; ++f)
-            std::memcpy(reinterpret_cast<float*>(mapped) + f * 4, skyColor, sizeof(skyColor));
-        vkUnmapMemory(dev, stageMem);
-    }
-
-    // UNDEFINED → TRANSFER_DST → SHADER_READ_ONLY
-    {
-        VkCommandBuffer cmd = pool.beginSingleTimeCommands();
-
-        VkImageMemoryBarrier barrier{};
-        barrier.sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-        barrier.oldLayout           = VK_IMAGE_LAYOUT_UNDEFINED;
-        barrier.newLayout           = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        barrier.image               = envImage_;
-        barrier.subresourceRange    = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, faces };
-        barrier.dstAccessMask       = VK_ACCESS_TRANSFER_WRITE_BIT;
-        vkCmdPipelineBarrier(cmd,
-            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
-            0, 0, nullptr, 0, nullptr, 1, &barrier);
-
-        for (uint32_t f = 0; f < faces; ++f) {
-            VkBufferImageCopy region{};
-            region.bufferOffset                    = f * pixSize;
-            region.imageSubresource.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
-            region.imageSubresource.baseArrayLayer = f;
-            region.imageSubresource.layerCount     = 1;
-            region.imageExtent                     = { sz, sz, 1 };
-            vkCmdCopyBufferToImage(cmd, stageBuf, envImage_,
-                VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
-        }
-
-        barrier.oldLayout     = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-        barrier.newLayout     = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-        vkCmdPipelineBarrier(cmd,
-            VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-            0, 0, nullptr, 0, nullptr, 1, &barrier);
-
-        pool.endSingleTimeCommands(cmd);
-    }
-
-    vkDestroyBuffer(dev, stageBuf, nullptr);
-    vkFreeMemory(dev, stageMem, nullptr);
-
-    // Image view
-    {
-        VkImageViewCreateInfo vci{};
-        vci.sType            = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        vci.image            = envImage_;
-        vci.viewType         = VK_IMAGE_VIEW_TYPE_CUBE;
-        vci.format           = fmt;
-        vci.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 6 };
-        vkCreateImageView(dev, &vci, nullptr, &envView_);
-    }
-
-    // Sampler
-    {
-        VkSamplerCreateInfo si{};
-        si.sType        = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-        si.magFilter    = VK_FILTER_LINEAR;
-        si.minFilter    = VK_FILTER_LINEAR;
-        si.mipmapMode   = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-        si.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-        si.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-        si.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-        si.maxLod       = 1.0f;
-        vkCreateSampler(dev, &si, nullptr, &envSampler_);
-    }
-}
-
-void App::destroyEnvCubemap() {
-    VkDevice dev = getDevice();
-    if (envSampler_) { vkDestroySampler(dev, envSampler_, nullptr);   envSampler_ = VK_NULL_HANDLE; }
-    if (envView_)    { vkDestroyImageView(dev, envView_, nullptr);     envView_    = VK_NULL_HANDLE; }
-    if (envImage_)   { vkDestroyImage(dev, envImage_, nullptr);        envImage_   = VK_NULL_HANDLE; }
-    if (envMem_)     { vkFreeMemory(dev, envMem_, nullptr);            envMem_     = VK_NULL_HANDLE; }
-}
-
 void App::onInit() {
     applyShaders();
-    createEnvCubemap();
-    renderer_.setEnvironment(envView_, envSampler_);
+    auto& ctx  = getContext();
+    auto& pool = getCommandPool();
+    envCubemap_.create(ctx, pool);
+    renderer_.setEnvironment(envCubemap_.getView(), envCubemap_.getSampler());
     ::VKG::VkAppBase::onInit();
     renderer_.setExtent(getExtent());
     // Default off: the environment cubemap above is a flat placeholder color, not a real
-    // HDRI/skybox (see createEnvCubemap()). Even heavily dimmed, full diffuse+specular IBL
-    // against that flat color still visibly overwhelms every material's own base color/texture
-    // detail (confirmed by A/B screenshot comparison across DamagedHelmet/Corset/Duck/Avocado/
-    // AntiqueCamera -- all washed toward a uniform pale tint with IBL on). Leave it available as
-    // an opt-in (panel checkbox / SetUseIBL scenario command) for once a real environment map is
-    // wired up, but don't make a visibly-broken default.
+    // HDRI/skybox (see GltfEnvironmentCubemap::create()). Even heavily dimmed, full
+    // diffuse+specular IBL against that flat color still visibly overwhelms every material's own
+    // base color/texture detail (confirmed by A/B screenshot comparison across DamagedHelmet/
+    // Corset/Duck/Avocado/AntiqueCamera -- all washed toward a uniform pale tint with IBL on).
+    // Leave it available as an opt-in (panel checkbox / SetUseIBL scenario command) for once a
+    // real environment map is loaded (GltfEnvironmentCubemap::loadFromHDR()), but don't make a
+    // visibly-broken default.
     renderer_.setUseIBL(false);
     frameCameraToDocument();
     setupCallbacks();
@@ -515,7 +366,7 @@ void App::onSwapChainCreated() {
 
 void App::onCleanup() {
     ::VKG::VkAppBase::onCleanup();
-    destroyEnvCubemap();
+    envCubemap_.destroy(getDevice());
 }
 
 void App::onImGui() {
