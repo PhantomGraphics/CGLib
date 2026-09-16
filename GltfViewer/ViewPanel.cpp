@@ -57,6 +57,32 @@ void ViewPanel::onImGui() {
                 }
             }
         }
+        if (app_ && ImGui::CollapsingHeader("Material")) {
+            const int materialCount = renderer_->document() ? static_cast<int>(renderer_->document()->materials.size()) : 0;
+            const int maxIndex = materialCount > 0 ? materialCount - 1 : 0;
+            ImGui::SliderInt("Material Index", &materialIndex_, 0, maxIndex);
+            if (materialCount == 0) ImGui::TextDisabled("(document has no materials -- index 0 is the implicit default)");
+
+            const bool hasOverride = app_->hasPhmatOverride(materialIndex_);
+            ImGui::Text("%s", hasOverride ? "Shader: .phmat override" : "Shader: default PBR");
+
+            if (ImGui::Button("Load .phmat...")) {
+                const char* filters[] = { "*.phmat" };
+                const char* path = tinyfd_openFileDialog(
+                    "Load Material Shader Graph", "", 1, filters, "Phantom material graph (*.phmat)", 0);
+                if (path) {
+                    std::string err;
+                    if (app_->loadPhmatMaterial(materialIndex_, path, &err)) lastPhmatError_.clear();
+                    else lastPhmatError_ = err;
+                }
+            }
+            if (hasOverride) {
+                ImGui::SameLine();
+                if (ImGui::Button("Clear .phmat")) { app_->clearPhmatMaterial(materialIndex_); lastPhmatError_.clear(); }
+            }
+            if (!lastPhmatError_.empty())
+                ImGui::TextColored(ImVec4(1.f, 0.4f, 0.4f, 1.f), "Error: %s", lastPhmatError_.c_str());
+        }
     }
     ImGui::End();
 }

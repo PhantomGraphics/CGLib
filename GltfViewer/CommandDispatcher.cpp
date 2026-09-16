@@ -176,6 +176,41 @@ std::string CommandDispatcher::route(const std::string& cmd) {
         return "Val:" + std::to_string(app_->hasEnvironmentHDR());
     }
 
+    // .phmat shader graph material override (Phase 4C, see App::loadPhmatMaterial()'s comment).
+    // "LoadPhmat:<materialIndex>,<path>" -- split on the FIRST comma only, since a Windows path
+    // itself contains colons ("C:\...") but materialIndex never contains a comma.
+    if (cmd.rfind("LoadPhmat:", 0) == 0) {
+        if (!app_) return "Error:no app";
+        const std::string args = cmd.substr(10);
+        const auto sep = args.find(',');
+        if (sep == std::string::npos) return "Error:expected LoadPhmat:<materialIndex>,<path>";
+        int materialIndex = -1;
+        const std::string idxStr = args.substr(0, sep);
+        const auto idxResult = std::from_chars(idxStr.data(), idxStr.data() + idxStr.size(), materialIndex);
+        if (idxResult.ec != std::errc{}) return "Error:invalid materialIndex";
+        std::string err;
+        if (!app_->loadPhmatMaterial(materialIndex, args.substr(sep + 1), &err))
+            return "Error:" + err;
+        return "OK";
+    }
+    if (cmd.rfind("ClearPhmat:", 0) == 0) {
+        if (!app_) return "Error:no app";
+        int materialIndex = -1;
+        const std::string idxStr = cmd.substr(11);
+        const auto idxResult = std::from_chars(idxStr.data(), idxStr.data() + idxStr.size(), materialIndex);
+        if (idxResult.ec != std::errc{}) return "Error:invalid materialIndex";
+        app_->clearPhmatMaterial(materialIndex);
+        return "OK";
+    }
+    if (cmd.rfind("GetHasPhmatOverride:", 0) == 0) {
+        if (!app_) return "Val:0";
+        int materialIndex = -1;
+        const std::string idxStr = cmd.substr(20);
+        const auto idxResult = std::from_chars(idxStr.data(), idxStr.data() + idxStr.size(), materialIndex);
+        if (idxResult.ec != std::errc{}) return "Error:invalid materialIndex";
+        return "Val:" + std::to_string(app_->hasPhmatOverride(materialIndex) ? 1 : 0);
+    }
+
     if (cmd == "ResetCamera") {
         if (!renderer_) return "Error:no renderer";
         *renderer_->camDistPtr()   = 3.0f;

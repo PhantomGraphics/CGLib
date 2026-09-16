@@ -2,6 +2,7 @@
 
 #include "../../CGLib/VkAppBase/IVkSubRenderer.h"
 #include <glm/glm.hpp>
+#include <string>
 
 namespace Phantom::Gltf {
 
@@ -27,6 +28,11 @@ private:
     float lightIntensity_ = 3.f;
     bool useIBL_ = true;
     bool useSkybox_ = false;
+
+    // Material section (Phase 4C, ".phmat" shader graph override -- see App::loadPhmatMaterial()'s
+    // comment). materialIndex_ selects which doc_->materials[] slot "Apply .phmat"/"Clear" acts on.
+    int materialIndex_ = 0;
+    std::string lastPhmatError_;
 };
 
 } // namespace Phantom::Gltf

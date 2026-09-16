@@ -65,6 +65,18 @@ namespace Phantom::Gltf {
         bool hasEnvironmentHDR() const { return envCubemap_.isRealHDR(); }
         const std::string& environmentHDRPath() const { return envCubemap_.hdrPath(); }
 
+        // .phmat shader graph material override (Phase 4C, first vertical slice --
+        // docs/todo/PLAN_blender_universe_authoring_loop.md): parses/validates/compiles the
+        // node graph at path (Phantom::Gltf::Phmat::loadPhmatMaterial(), CGLib/GltfRenderer/
+        // Phmat/PhmatCompiler.h) and, on success, replaces materialIndex's fragment shader with
+        // it (GltfSceneRenderer::setMaterialShaderOverride()). Returns false and leaves whatever
+        // pipeline materialIndex already had (shared default, or a previous override) untouched
+        // on any failure -- outError, if given, carries the parse/validate/glslc diagnostic.
+        bool loadPhmatMaterial(int materialIndex, const std::string& path, std::string* outError = nullptr);
+        // Reverts materialIndex to the shared default pipeline.
+        void clearPhmatMaterial(int materialIndex);
+        bool hasPhmatOverride(int materialIndex) const { return renderer_.hasMaterialShaderOverride(materialIndex); }
+
         // "Camera-as-scene-component" (2026-09-16): if the loaded document has a camera attached
         // to any scene node, lets the viewer actually look through it instead of the free orbit
         // camera GltfSceneRenderer maintains internally -- unlike Universe's equivalent

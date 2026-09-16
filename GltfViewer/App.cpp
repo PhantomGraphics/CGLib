@@ -6,6 +6,7 @@
 #include "../GltfRenderer/Gltf/ObjToGltfConverter.h"
 #include "../GltfRenderer/Gltf/StlToGltfConverter.h"
 #include "../GltfRenderer/Vrm/VrmReader.h"
+#include "../GltfRenderer/Phmat/PhmatCompiler.h"
 #include "../File/File/OBJFileReader.h"
 #include "../File/File/STLFileReader.h"
 #include "../../CGLib/VulkanGraphics/VulkanSPVResolver.h"
@@ -211,6 +212,35 @@ void App::clearEnvironmentHDR() {
     if (!envCubemap_.resetToPlaceholder(getContext(), getCommandPool())) return;
     vkDeviceWaitIdle(getDevice()); // same hazard as loadEnvironmentHDR() above
     renderer_.setEnvironment(envCubemap_.getView(), envCubemap_.getSampler());
+}
+
+bool App::loadPhmatMaterial(int materialIndex, const std::string& path, std::string* outError) {
+    // A per-viewer, cross-session cache directory: the same .phmat compiles to the same SPIR-V
+    // regardless of which document/material it is applied to (see PhmatCompiler.h's comment on
+    // why SPIR-V is a cache, not the source of truth), so there is no reason to scope this by
+    // materialIndex or the current document.
+    const std::string cacheDir = (std::filesystem::temp_directory_path() / "phantom_phmat_cache").string();
+
+    Phantom::Gltf::Phmat::PhmatLoadResult result = Phantom::Gltf::Phmat::loadPhmatMaterial(path, cacheDir);
+    if (!result.success) {
+        if (outError) *outError = result.diagnostics.empty() ? "unknown .phmat error" : result.diagnostics.front().message;
+        return false;
+    }
+
+    // Review R1 pattern (see loadEnvironmentHDR() above): block on full device idle before
+    // swapping a pipeline a frame in flight might still be drawing through.
+    vkDeviceWaitIdle(getDevice());
+    std::string pipelineError;
+    if (!renderer_.setMaterialShaderOverride(materialIndex, result.fragSpirv, &pipelineError)) {
+        if (outError) *outError = pipelineError;
+        return false;
+    }
+    return true;
+}
+
+void App::clearPhmatMaterial(int materialIndex) {
+    vkDeviceWaitIdle(getDevice()); // same hazard as loadPhmatMaterial() above
+    renderer_.clearMaterialShaderOverride(materialIndex);
 }
 
 void App::onInit() {

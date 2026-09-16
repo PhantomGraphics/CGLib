@@ -1,0 +1,41 @@
+{
+  "name": "phmat_material_override",
+  "steps": [
+    { "label": "Load pbr_basic.gltf",
+      "command": "LoadFile:scenarios/models/pbr_basic.gltf",
+      "expect_prefix": "OK:" },
+    { "label": "MaterialCount = 1", "command": "GetMaterialCount", "expect": "MaterialCount:1" },
+
+    { "label": "No override by default", "command": "GetHasPhmatOverride:0", "expect": "Val:0" },
+    { "label": "Baseline screenshot (default PBR shader)",
+      "command": "SaveScreenshot:scenarios/screenshots/phmat_before.png", "expect_prefix": "OK:" },
+
+    { "label": "Loading onto an out-of-range material index is an error",
+      "command": "LoadPhmat:5,scenarios/materials/tinted_red.phmat", "expect_prefix": "Error:" },
+    { "label": "Still no override after the failed attempt", "command": "GetHasPhmatOverride:0", "expect": "Val:0" },
+
+    { "label": "A malformed graph (unknown node type) is an error, no pipeline swap",
+      "command": "LoadPhmat:0,scenarios/materials/broken_unknown_node.phmat", "expect_prefix": "Error:" },
+    { "label": "Still no override after the malformed graph", "command": "GetHasPhmatOverride:0", "expect": "Val:0" },
+    { "label": "App survived the failed compile", "command": "GetStatus", "expect": "OK" },
+
+    { "label": "Apply the tinted-red .phmat graph to material 0",
+      "command": "LoadPhmat:0,scenarios/materials/tinted_red.phmat", "expect": "OK" },
+    { "label": "Override now reports present", "command": "GetHasPhmatOverride:0", "expect": "Val:1" },
+    { "label": "Screenshot with the .phmat override applied (visibly red-tinted vs. baseline)",
+      "command": "SaveScreenshot:scenarios/screenshots/phmat_after.png", "expect_prefix": "OK:" },
+
+    { "label": "Re-applying the same graph succeeds again (previous override destroyed only after the new one builds)",
+      "command": "LoadPhmat:0,scenarios/materials/tinted_red.phmat", "expect": "OK" },
+    { "label": "Still applied", "command": "GetHasPhmatOverride:0", "expect": "Val:1" },
+
+    { "label": "Clear the override", "command": "ClearPhmat:0", "expect": "OK" },
+    { "label": "Override is gone", "command": "GetHasPhmatOverride:0", "expect": "Val:0" },
+    { "label": "Screenshot back to the default PBR shader",
+      "command": "SaveScreenshot:scenarios/screenshots/phmat_cleared.png", "expect_prefix": "OK:" },
+
+    { "label": "Clearing an index that never had an override is a harmless no-op",
+      "command": "ClearPhmat:0", "expect": "OK" },
+    { "label": "App still alive", "command": "GetStatus", "expect": "OK" }
+  ]
+}

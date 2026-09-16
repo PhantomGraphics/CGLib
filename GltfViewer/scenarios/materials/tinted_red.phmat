@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "output": "out",
+  "nodes": [
+    { "id": "albedoTex",   "type": "textureSlot", "slot": "baseColor" },
+    { "id": "tint",        "type": "constant",    "value": [1.0, 0.15, 0.15, 1.0] },
+    { "id": "tintedAlbedo","type": "math",        "op": "multiply", "a": "albedoTex", "b": "tint" },
+    { "id": "metallicConst",  "type": "constant", "value": 0.0 },
+    { "id": "roughnessConst", "type": "constant", "value": 0.35 },
+    { "id": "normalScale", "type": "constant",    "value": 1.0 },
+    { "id": "normal",      "type": "normalMap",   "scale": "normalScale" },
+    {
+      "id": "out", "type": "pbrOutput",
+      "baseColor": "tintedAlbedo", "metallic": "metallicConst", "roughness": "roughnessConst",
+      "normal": "normal"
+    }
+  ]
+}

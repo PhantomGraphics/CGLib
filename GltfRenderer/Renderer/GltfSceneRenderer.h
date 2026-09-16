@@ -19,6 +19,8 @@
 
 #include <memory>
 #include <optional>
+#include <string>
+#include <unordered_map>
 #include <vector>
 #include <array>
 
@@ -190,6 +192,25 @@ namespace Phantom::Gltf
         bool getUseSkybox() const { return useSkybox_; }
         bool hasSkyboxPipeline() const { return skybox_.has_value(); }
 
+        // --- Per-material shader graph override (Phase 4C, ".phmat") ---
+        // Replaces the fragment shader used to draw materialIndex's primitives with fragSpv
+        // (typically Phantom::Gltf::Phmat::loadPhmatMaterial()'s output -- see Phmat/
+        // PhmatCompiler.h), keeping gltf.vert and this material's own doubleSided()/isBlend()
+        // (still read from its glTF alphaMode/doubleSided, unaffected by the graph) exactly as
+        // before. Must be called after onInit() (needs the render pass + descriptor set layouts)
+        // and after a document is loaded (materialIndex must already exist in materials_).
+        // Returns false and leaves any existing pipeline for this material untouched -- the
+        // shared default or a previous successful override -- if pipeline creation fails
+        // (outError, if given, explains why); this is the "compile失敗時は旧pipelineを維持する"
+        // contract from the plan (Phase 4C item 4). Safe to call repeatedly (e.g. re-applying an
+        // edited .phmat): the previous override for the same index is destroyed only once the
+        // new one has successfully been created.
+        bool setMaterialShaderOverride(int materialIndex, const std::vector<uint32_t>& fragSpv, std::string* outError = nullptr);
+        // Reverts materialIndex to the shared default pipeline (pipeline_/pipelineBlend_/...).
+        // No-op if it had no override.
+        void clearMaterialShaderOverride(int materialIndex);
+        bool hasMaterialShaderOverride(int materialIndex) const;
+
         // Phase 4B tone mapping: multiplies color before gltf.frag's Reinhard tonemap (1.0 =
         // unchanged from before this existed). GlobalUBO::exposure was appended at the very end
         // of the struct specifically so this is safe to add without shifting any other
@@ -253,6 +274,7 @@ namespace Phantom::Gltf
         // Vulkan context cached for hot-reload (set in onInit)
         const Phantom::VKG::VulkanContext* ctx_ = nullptr;
         const Phantom::VKG::VulkanCommandPool* pool_ = nullptr;
+        VkRenderPass renderPass_ = VK_NULL_HANDLE; // cached for setMaterialShaderOverride(), called after onInit()
 
         // External camera override
         bool      useExternalCamera_ = false;
@@ -377,6 +399,13 @@ namespace Phantom::Gltf
 
         // Materials
         std::vector<std::unique_ptr<GltfGpuMaterial>> materials_;
+
+        // Per-material shader graph override pipelines (see setMaterialShaderOverride()). Keyed
+        // by index into materials_/doc_->materials; absent = draw through the shared
+        // pipeline_/pipelineBlend_/... variants as before. unique_ptr because VulkanPipeline is
+        // move-disabled (only copy-deleted is declared, see VulkanPipeline.h), same reason
+        // materials_ above is a vector of unique_ptr rather than of values.
+        std::unordered_map<int, std::unique_ptr<Phantom::VKG::VulkanPipeline>> materialPipelineOverrides_;
 
         // Shared fallback 2D texture (1x1 white) — also used as brdfLUT fallback
         VkImage        fallbackImage_ = VK_NULL_HANDLE;

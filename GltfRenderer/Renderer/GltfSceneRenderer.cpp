@@ -582,6 +582,7 @@ void GltfSceneRenderer::onInit(Phantom::VKG::VulkanContext& ctx, const Phantom::
 {
     ctx_  = &ctx;
     pool_ = &pool;
+    renderPass_ = renderPass; // cached for setMaterialShaderOverride(), called after onInit()
     VkDevice device = ctx.getDevice();
 
     // Global UBOs (document-independent)
@@ -780,6 +781,12 @@ void GltfSceneRenderer::clearDocumentResources()
     for (auto& mat : materials_) mat->destroy(device);
     materials_.clear();
 
+    // materialIndex keys no longer correspond to the same materials once materials_ is rebuilt
+    // by the next buildDocumentResources() -- an override left in place could silently apply to
+    // an unrelated material.
+    for (auto& [idx, pipeline] : materialPipelineOverrides_) pipeline->destroy(device);
+    materialPipelineOverrides_.clear();
+
     if (descriptorPool_ != VK_NULL_HANDLE) {
         vkDestroyDescriptorPool(device, descriptorPool_, nullptr);
         descriptorPool_ = VK_NULL_HANDLE;
@@ -956,6 +963,71 @@ void GltfSceneRenderer::onUpdate(uint32_t frameIndex) {
 }
 
 // ============================================================
+//  Per-material shader graph override (Phase 4C, ".phmat")
+// ============================================================
+
+bool GltfSceneRenderer::setMaterialShaderOverride(int materialIndex, const std::vector<uint32_t>& fragSpv, std::string* outError)
+{
+    if (!ctx_ || renderPass_ == VK_NULL_HANDLE) {
+        if (outError) *outError = "setMaterialShaderOverride() called before onInit()";
+        return false;
+    }
+    if (materialIndex < 0 || materialIndex >= static_cast<int>(materials_.size())) {
+        if (outError) *outError = "material index out of range";
+        return false;
+    }
+    if (fragSpv.empty()) {
+        if (outError) *outError = "empty fragment SPIR-V";
+        return false;
+    }
+
+    const GltfGpuMaterial& mat = *materials_[materialIndex];
+
+    Phantom::VKG::PipelineConfig cfg;
+    cfg.vertSpv = shaders_.vertSpv; // gltf.vert is unchanged -- only the fragment stage differs
+    cfg.fragSpv = fragSpv;
+    {
+        auto bd = GltfGpuMesh::Vertex::getBindingDescription();
+        cfg.bindingDescs = { bd };
+        cfg.attrDescs    = GltfGpuMesh::Vertex::getAttributeDescriptions();
+    }
+    cfg.descriptorSetLayouts = { globalSetLayout_.get(), materialSetLayout_.get() };
+    // Mirrors which of the 4 shared pipeline variants this material would otherwise have drawn
+    // through -- a .phmat graph replaces the fragment math, not the alpha-mode/culling policy.
+    cfg.cullMode    = mat.doubleSided() ? VK_CULL_MODE_NONE : cullMode_;
+    cfg.blendEnable = mat.isBlend();
+    cfg.depthWrite  = !mat.isBlend();
+
+    auto newPipeline = std::make_unique<Phantom::VKG::VulkanPipeline>();
+    if (!newPipeline->create(*ctx_, renderPass_, cfg)) {
+        if (outError) *outError = "pipeline creation failed (see stderr for the glslc/Vulkan validation log)";
+        return false; // any previous pipeline for this material (shared, or an earlier override) is untouched
+    }
+
+    auto it = materialPipelineOverrides_.find(materialIndex);
+    if (it != materialPipelineOverrides_.end()) {
+        it->second->destroy(ctx_->getDevice());
+        it->second = std::move(newPipeline);
+    } else {
+        materialPipelineOverrides_.emplace(materialIndex, std::move(newPipeline));
+    }
+    return true;
+}
+
+void GltfSceneRenderer::clearMaterialShaderOverride(int materialIndex)
+{
+    auto it = materialPipelineOverrides_.find(materialIndex);
+    if (it == materialPipelineOverrides_.end()) return;
+    if (ctx_) it->second->destroy(ctx_->getDevice());
+    materialPipelineOverrides_.erase(it);
+}
+
+bool GltfSceneRenderer::hasMaterialShaderOverride(int materialIndex) const
+{
+    return materialPipelineOverrides_.count(materialIndex) != 0;
+}
+
+// ============================================================
 //  IVkSubRenderer::onRender
 // ============================================================
 
@@ -976,10 +1048,15 @@ void GltfSceneRenderer::onRender(VkCommandBuffer cmd, uint32_t frameIndex) {
 
     VkPipeline boundPipeline = VK_NULL_HANDLE; // force the first draw to bind explicitly
 
-    auto materialFor = [&](PrimitiveEntry* entry) -> GltfGpuMaterial* {
-        int matIdx = (entry->materialIndex >= 0 && entry->materialIndex < (int)materials_.size())
-                   ? entry->materialIndex : 0;
-        return materials_[matIdx].get();
+    auto materialIndexFor = [&](PrimitiveEntry* entry) -> int {
+        return (entry->materialIndex >= 0 && entry->materialIndex < (int)materials_.size())
+             ? entry->materialIndex : 0;
+    };
+    // A material with a successful setMaterialShaderOverride() draws through its own pipeline
+    // instead of one of the 4 shared variants below (see that method's comment).
+    auto overridePipelineFor = [&](int matIdx) -> Phantom::VKG::VulkanPipeline* {
+        auto it = materialPipelineOverrides_.find(matIdx);
+        return it != materialPipelineOverrides_.end() ? it->second.get() : nullptr;
     };
 
     auto draw = [&](PrimitiveEntry* entry, GltfGpuMaterial* mat, Phantom::VKG::VulkanPipeline& matPipeline) {
@@ -1010,12 +1087,16 @@ void GltfSceneRenderer::onRender(VkCommandBuffer cmd, uint32_t frameIndex) {
     std::vector<PrimitiveEntry*> blendEntries;
     for (auto& entryPtr : primitives_) {
         PrimitiveEntry* entry = entryPtr.get();
-        GltfGpuMaterial* mat = materialFor(entry);
+        int matIdx = materialIndexFor(entry);
+        GltfGpuMaterial* mat = materials_[matIdx].get();
         if (hasBlendMaterials_ && mat->isBlend()) {
             blendEntries.push_back(entry);
             continue;
         }
-        draw(entry, mat, mat->doubleSided() ? pipelineDoubleSided_ : pipeline_);
+        if (Phantom::VKG::VulkanPipeline* ov = overridePipelineFor(matIdx))
+            draw(entry, mat, *ov);
+        else
+            draw(entry, mat, mat->doubleSided() ? pipelineDoubleSided_ : pipeline_);
     }
 
     // Pass 2: alpha BLEND, depth write off, back-to-front (painter's algorithm) so overlapping
@@ -1033,8 +1114,12 @@ void GltfSceneRenderer::onRender(VkCommandBuffer cmd, uint32_t frameIndex) {
             return glm::dot(da, da) > glm::dot(db, db); // farthest first
         });
         for (PrimitiveEntry* entry : blendEntries) {
-            GltfGpuMaterial* mat = materialFor(entry);
-            draw(entry, mat, mat->doubleSided() ? pipelineBlendDoubleSided_ : pipelineBlend_);
+            int matIdx = materialIndexFor(entry);
+            GltfGpuMaterial* mat = materials_[matIdx].get();
+            if (Phantom::VKG::VulkanPipeline* ov = overridePipelineFor(matIdx))
+                draw(entry, mat, *ov);
+            else
+                draw(entry, mat, mat->doubleSided() ? pipelineBlendDoubleSided_ : pipelineBlend_);
         }
     }
 
@@ -1065,6 +1150,9 @@ void GltfSceneRenderer::onCleanup(VkDevice device) {
 
     for (auto& mat : materials_) mat->destroy(device);
     materials_.clear();
+
+    for (auto& [idx, ovPipeline] : materialPipelineOverrides_) ovPipeline->destroy(device);
+    materialPipelineOverrides_.clear();
 
     // Material descriptor pool (document-dependent)
     if (descriptorPool_ != VK_NULL_HANDLE) {

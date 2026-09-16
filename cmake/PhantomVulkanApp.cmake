@@ -302,6 +302,8 @@ function(phantom_add_gltfrenderer_core)
         ${_gltfr_root}/Renderer/ShadowMapPass.cpp
         ${_gltfr_root}/Renderer/LightManager.cpp
         ${_gltfr_root}/Renderer/GltfLightShadowState.cpp
+        ${_gltfr_root}/Phmat/PhmatGraph.cpp
+        ${_gltfr_root}/Phmat/PhmatCompiler.cpp
     )
     target_include_directories(GltfRendererCore PUBLIC
         ${REPO_ROOT}

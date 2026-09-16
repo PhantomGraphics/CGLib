@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "output": "out",
+  "nodes": [
+    { "id": "mystery", "type": "proceduralNoise" },
+    { "id": "out", "type": "pbrOutput", "baseColor": "mystery", "metallic": "mystery", "roughness": "mystery" }
+  ]
+}
