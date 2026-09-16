@@ -36,4 +36,36 @@ namespace Phantom::Gltf {
     // LoadAsset, or a scenario command alike.
     GltfSceneLightsCameras collectGltfLightsAndCameras(const GltfDocument& doc);
 
+    struct GltfCameraViewProj {
+        glm::mat4 view{ 1.f };
+        glm::mat4 proj{ 1.f };
+        glm::vec3 eye{ 0.f };
+    };
+
+    // "Camera-as-scene-component": computes a Vulkan-ready (Y-flipped) view/projection/eye for
+    // one camera instance from collectGltfLightsAndCameras(), so a consumer can actually look
+    // through a glTF's own authored camera instead of (or in addition to) its own free/orbit
+    // camera. First implemented inline in Universe's Renderer::pushAssetCameraOverride()
+    // (2026-09-14); extracted here 2026-09-16 so GltfViewer can share the same math rather than
+    // re-deriving it (per docs/todo/PLAN_blender_universe_authoring_loop.md's "pure rendering
+    // logic belongs in CGLib/GltfRenderer" policy). A glTF camera node looks along local -Z with
+    // +Y up, so the world matrix's inverse *is* the view matrix -- no glm::lookAt needed.
+    // `viewportAspect` is used only when the camera itself has no aspectRatio (glTF spec
+    // default: derive from the viewport) -- a caller should recompute this after every resize so
+    // an aspectRatio-less perspective camera doesn't stay stretched/squashed at a stale ratio.
+    // `fallbackFar` clamps glTF's optional infinite far plane (zfar omitted) to a finite value,
+    // matching the fixed-far convention this codebase's other Vulkan projections use.
+    //
+    // This overload takes the camera definition and world matrix by value -- for a caller (e.g.
+    // Universe's Renderer) that needs to keep the captured camera around past the GltfDocument's
+    // own lifetime (LoadAsset's doc is often a short-lived temporary) rather than re-deriving it
+    // from doc+inst on every resize.
+    GltfCameraViewProj computeCameraViewProj(const GltfCamera& cam, const glm::mat4& worldMatrix,
+                                              float viewportAspect, float fallbackFar = 200.f);
+
+    // Convenience overload for a caller that still has doc/inst on hand (e.g. right after
+    // collectGltfLightsAndCameras()).
+    GltfCameraViewProj computeCameraViewProj(const GltfDocument& doc, const GltfCameraInstance& inst,
+                                              float viewportAspect, float fallbackFar = 200.f);
+
 }

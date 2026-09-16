@@ -1,0 +1,30 @@
+{
+  "name": "asset_camera",
+  "steps": [
+    { "label": "Default cube has no authored camera", "command": "GetHasAssetCamera", "expect": "Val:0" },
+    { "label": "Default cube: use-asset-camera is off", "command": "GetUseAssetCamera", "expect": "Val:0" },
+    { "label": "Enabling with no asset camera is an error", "command": "SetUseAssetCamera:1", "expect_prefix": "Error:" },
+
+    { "label": "Load a glTF with a camera node",
+      "command": "LoadFile:scenarios/models/camera_triangle.gltf",
+      "expect_prefix": "OK:" },
+    { "label": "Now has an asset camera", "command": "GetHasAssetCamera", "expect": "Val:1" },
+    { "label": "Stays on the orbit camera until opted in", "command": "GetUseAssetCamera", "expect": "Val:0" },
+    { "label": "Orbit-camera screenshot (asset camera not applied yet)",
+      "command": "SaveScreenshot:scenarios/screenshots/asset_camera_orbit.png", "expect_prefix": "OK:" },
+
+    { "label": "Opt into the asset camera", "command": "SetUseAssetCamera:1", "expect": "OK" },
+    { "label": "Use-asset-camera round-trips on", "command": "GetUseAssetCamera", "expect": "Val:1" },
+    { "label": "Asset-camera screenshot (view now looks through the glTF's own camera)",
+      "command": "SaveScreenshot:scenarios/screenshots/asset_camera_on.png", "expect_prefix": "OK:" },
+
+    { "label": "Opt back out", "command": "SetUseAssetCamera:0", "expect": "OK" },
+    { "label": "Use-asset-camera round-trips off", "command": "GetUseAssetCamera", "expect": "Val:0" },
+
+    { "label": "Loading a camera-less asset forgets the previous asset camera",
+      "command": "LoadFile:scenarios/models/triangle.gltf", "expect_prefix": "OK:" },
+    { "label": "No asset camera after switching assets", "command": "GetHasAssetCamera", "expect": "Val:0" },
+    { "label": "Use-asset-camera resets off too", "command": "GetUseAssetCamera", "expect": "Val:0" },
+    { "label": "App still alive", "command": "GetStatus", "expect": "OK" }
+  ]
+}

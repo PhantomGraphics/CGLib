@@ -231,6 +231,7 @@ void App::onInit() {
     // visibly-broken default.
     renderer_.setUseIBL(false);
     frameCameraToDocument();
+    captureAssetCamera();
     setupCallbacks();
 }
 
@@ -308,7 +309,35 @@ bool App::loadFile(const std::filesystem::path& path) {
     renderer_.onInit(getContext(), getCommandPool(), getRenderPass(), MAX_FRAMES_IN_FLIGHT);
     applySkinBindPose();
     frameCameraToDocument();
+    captureAssetCamera();
     return true;
+}
+
+void App::captureAssetCamera() {
+    // Camera-as-scene-component: capture doc_'s first camera, if any, but stay on the live orbit
+    // camera until the user opts in (SetUseAssetCamera:1) -- see App.h's comment.
+    const auto lc = Phantom::Gltf::collectGltfLightsAndCameras(doc_);
+    hasAssetCamera_ = !lc.cameras.empty();
+    assetCameraInst_ = hasAssetCamera_ ? lc.cameras.front() : Phantom::Gltf::GltfCameraInstance{};
+    useAssetCamera_ = false;
+    renderer_.clearCameraOverride();
+}
+
+void App::pushAssetCameraOverride() {
+    if (!hasAssetCamera_) return;
+    const VkExtent2D ext = renderer_.getExtent();
+    const float aspect = ext.height > 0
+        ? static_cast<float>(ext.width) / static_cast<float>(ext.height) : 1.f;
+    const auto vp = Phantom::Gltf::computeCameraViewProj(doc_, assetCameraInst_, aspect);
+    renderer_.setCamera(vp.view, vp.proj, vp.eye);
+}
+
+void App::setUseAssetCamera(bool use) {
+    useAssetCamera_ = use && hasAssetCamera_;
+    if (useAssetCamera_)
+        pushAssetCameraOverride();
+    else
+        renderer_.clearCameraOverride(); // back to the orbit camera GltfSceneRenderer maintains
 }
 
 bool App::loadDocumentForPath(const std::filesystem::path& path,
@@ -387,6 +416,11 @@ void App::applyVrmExpressionWeights() {
 
 void App::onSwapChainCreated() {
     renderer_.setExtent(getExtent());
+    // An active asset camera's projection was computed from the aspect ratio at the moment it
+    // was (re-)applied, not re-derived every frame the way the orbit camera's is (GltfSceneRenderer::
+    // onUpdate()) -- re-push it here or an aspectRatio-less (glTF spec default) camera stays
+    // stretched/squashed at the old ratio (same hazard as Universe's review R3 fix).
+    if (useAssetCamera_) pushAssetCameraOverride();
 }
 
 void App::onCleanup() {
@@ -436,6 +470,9 @@ void App::drawMainMenuBar() {
 
         bool useIBL = renderer_.getUseIBL() != 0;
         if (ImGui::MenuItem("Use IBL", nullptr, useIBL)) renderer_.setUseIBL(!useIBL);
+
+        if (ImGui::MenuItem("Use Asset Camera", nullptr, useAssetCamera_, hasAssetCamera_))
+            setUseAssetCamera(!useAssetCamera_);
 
         ImGui::EndMenu();
     }

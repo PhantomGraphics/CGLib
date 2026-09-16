@@ -119,6 +119,23 @@ std::string CommandDispatcher::route(const std::string& cmd) {
         return "OK";
     }
 
+    // Camera-as-scene-component (2026-09-16, App::hasAssetCamera()'s comment): opt-in, off by
+    // default, same three-command shape as RayTracer's SetUseAssetCamera/GetHasAssetCamera.
+    if (cmd == "GetHasAssetCamera") {
+        if (!app_) return "Val:0";
+        return "Val:" + std::to_string(app_->hasAssetCamera() ? 1 : 0);
+    }
+    if (cmd == "GetUseAssetCamera") {
+        if (!app_) return "Val:0";
+        return "Val:" + std::to_string(app_->useAssetCamera() ? 1 : 0);
+    }
+    if (cmd.rfind("SetUseAssetCamera:", 0) == 0) {
+        if (!app_) return "Error:no app";
+        if (cmd.substr(18) != "0" && !app_->hasAssetCamera()) return "Error:no asset camera";
+        app_->setUseAssetCamera(cmd.substr(18) != "0");
+        return "OK";
+    }
+
     if (cmd == "GetUseIBL") {
         if (!renderer_) return "Val:0";
         return "Val:" + std::to_string(renderer_->getUseIBL());

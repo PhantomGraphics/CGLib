@@ -17,6 +17,15 @@ void ViewPanel::onImGui() {
         if (ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen)) {
             ImGui::SliderFloat("Distance", renderer_->camDistPtr(), 0.1f, 100.f);
             ImGui::SliderFloat3("Target", &renderer_->camTargetPtr()->x, -10.f, 10.f);
+            if (app_) {
+                if (app_->hasAssetCamera()) {
+                    bool useAssetCamera = app_->useAssetCamera();
+                    if (ImGui::Checkbox("Use Asset Camera", &useAssetCamera))
+                        app_->setUseAssetCamera(useAssetCamera);
+                } else {
+                    ImGui::TextDisabled("Use Asset Camera (no camera in this asset)");
+                }
+            }
         }
         if (ImGui::CollapsingHeader("Light", ImGuiTreeNodeFlags_DefaultOpen)) {
             bool changed = false;

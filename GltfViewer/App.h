@@ -4,6 +4,7 @@
 #include "../../CGLib/VkAppBase/ScenarioRunner/IScenarioHost.h"
 #include "../../CGLib/VkAppBase/ScenarioRunner/ScenarioBrowserPanel.h"
 #include "../GltfRenderer/Gltf/GltfDocument.h"
+#include "../GltfRenderer/Gltf/GltfLightsCameras.h"
 #include "../GltfRenderer/Renderer/GltfSceneRenderer.h"
 #include "../GltfRenderer/IBL/GltfEnvironmentCubemap.h"
 #include "CommandDispatcher.h"
@@ -64,6 +65,23 @@ namespace Phantom::Gltf {
         bool hasEnvironmentHDR() const { return envCubemap_.isRealHDR(); }
         const std::string& environmentHDRPath() const { return envCubemap_.hdrPath(); }
 
+        // "Camera-as-scene-component" (2026-09-16): if the loaded document has a camera attached
+        // to any scene node, lets the viewer actually look through it instead of the free orbit
+        // camera GltfSceneRenderer maintains internally -- unlike Universe's equivalent
+        // (Renderer::applyAssetCamera(), which wins by default the moment an asset ships one),
+        // this is opt-in and off by default, same convention as RayTracer's
+        // SetUseAssetCamera/GetHasAssetCamera (RayTracerApp::extractFirstCamera()): a general
+        // inspection tool shouldn't yank the camera out from under a user who just wants to
+        // freely orbit a newly loaded asset. Only the first camera instance found (depth-first
+        // scene traversal, same policy as Universe/RayTracer) is used.
+        bool hasAssetCamera() const { return hasAssetCamera_; }
+        bool useAssetCamera() const { return useAssetCamera_; }
+        // No-op if hasAssetCamera() is false. `true` (re-)computes the projection from the
+        // stored camera against the current viewport aspect, so a later resize (onSwapChainCreated())
+        // re-pushing this keeps an aspectRatio-less camera correct -- same hazard Universe's
+        // review R3 fixed (docs/todo/PLAN_blender_universe_authoring_loop.md).
+        void setUseAssetCamera(bool use);
+
     private:
         GltfDocument             doc_;
         VrmViewState              vrm_;
@@ -94,6 +112,23 @@ namespace Phantom::Gltf {
         // its shader vectors by value/move).
         std::vector<uint32_t> equirectVertSpv_;
         std::vector<uint32_t> equirectFragSpv_;
+
+        // "Camera-as-scene-component" state -- see setUseAssetCamera()'s comment above.
+        // Captured once per loadFile() from doc_'s first camera instance (collectGltfLightsAndCameras()),
+        // kept around (rather than only pushed straight into renderer_'s override) so
+        // setUseAssetCamera(true) and a later resize can both recompute the projection without
+        // needing to re-walk doc_ (doc_ itself stays valid for as long as this App does, unlike
+        // Universe's Renderer, which only sees a LoadAsset-scoped GltfDocument reference).
+        bool                          hasAssetCamera_ = false;
+        bool                          useAssetCamera_ = false;
+        Phantom::Gltf::GltfCameraInstance assetCameraInst_;
+
+        // (Re-)pushes assetCameraInst_'s view/proj/eye into renderer_ at the current viewport
+        // aspect. No-op if hasAssetCamera_ is false.
+        void pushAssetCameraOverride();
+        // Re-derives hasAssetCamera_/assetCameraInst_ from doc_ and resets useAssetCamera_ to
+        // false. Called from onInit() (startup document) and loadFile() (hot-reload) alike.
+        void captureAssetCamera();
 
         void applyShaders();
         void setupCallbacks();

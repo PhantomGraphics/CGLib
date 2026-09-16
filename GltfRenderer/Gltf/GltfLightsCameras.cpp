@@ -53,4 +53,33 @@ GltfSceneLightsCameras collectGltfLightsAndCameras(const GltfDocument& doc)
     return out;
 }
 
+GltfCameraViewProj computeCameraViewProj(const GltfCamera& cam, const glm::mat4& worldMatrix,
+                                          float viewportAspect, float fallbackFar)
+{
+    GltfCameraViewProj out;
+
+    out.view = glm::inverse(worldMatrix);
+    out.eye  = glm::vec3(worldMatrix[3]);
+
+    const bool  ortho  = (cam.type == "Orthographic");
+    const float znear  = cam.znear > 0.f ? cam.znear : 0.05f;
+    const float zfar   = cam.zfar  > 0.f ? cam.zfar  : fallbackFar;
+    const float aspect = cam.aspectRatio > 0.f
+        ? cam.aspectRatio
+        : (viewportAspect > 0.f ? viewportAspect : 1.f);
+
+    out.proj = ortho
+        ? glm::ortho(-cam.xmag, cam.xmag, -cam.ymag, cam.ymag, znear, zfar)
+        : glm::perspective(cam.yfov, aspect, znear, zfar);
+    out.proj[1][1] *= -1.f; // Vulkan Y-flip
+
+    return out;
+}
+
+GltfCameraViewProj computeCameraViewProj(const GltfDocument& doc, const GltfCameraInstance& inst,
+                                          float viewportAspect, float fallbackFar)
+{
+    return computeCameraViewProj(doc.cameras[inst.cameraIndex], inst.worldMatrix, viewportAspect, fallbackFar);
+}
+
 }
