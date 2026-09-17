@@ -18,6 +18,12 @@ public:
     AssetId() = default;
     explicit AssetId(std::string value) : value_(std::move(value)) {}
 
+    // Mints a fresh, random UUIDv4-formatted id (8-4-4-4-12 lowercase hex, RFC 4122
+    // version/variant bits set) -- for callers that need a new stable id and have no
+    // Blender-authored `phantom_uuid` to adopt, e.g. migrating legacy data that predates
+    // the UUID contract (docs/spec/phantom_asset_contract.md Sec.8).
+    static AssetId generate();
+
     bool isValid() const { return !value_.empty(); }
     const std::string& value() const { return value_; }
 

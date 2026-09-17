@@ -207,6 +207,7 @@ function(phantom_add_assetcore)
     # Vulkan/ImGui dependency -- only nlohmann/json for AssetManifest (de)serialization,
     # the same header-only dependency GltfRendererCore/UniverseSceneIO already use.
     add_library(AssetCore STATIC
+        ${CGLIB_ROOT}/AssetCore/AssetCore/AssetId.cpp
         ${CGLIB_ROOT}/AssetCore/AssetCore/AssetUri.cpp
         ${CGLIB_ROOT}/AssetCore/AssetCore/AssetManifest.cpp
     )
@@ -234,6 +235,7 @@ function(phantom_add_scene_runtime_core)
         ${CGLIB_ROOT}/SceneRuntime/SceneRuntime/SceneNode.cpp
         ${CGLIB_ROOT}/SceneRuntime/SceneRuntime/SceneGraph.cpp
         ${CGLIB_ROOT}/SceneRuntime/SceneRuntime/ComponentSchemaRegistry.cpp
+        ${CGLIB_ROOT}/SceneRuntime/SceneRuntime/UniverseSceneV2.cpp
     )
     target_include_directories(SceneRuntimeCore PUBLIC
         ${REPO_ROOT}
