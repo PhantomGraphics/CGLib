@@ -23,6 +23,14 @@ const ComponentRecord* findComponent(const SceneNode& node, const std::string& t
     return nullptr;
 }
 
+SceneNode makeSpawnedDuringPlayNode()
+{
+    SceneNode node;
+    node.id = NodeId("spawned-during-play");
+    node.name = "SpawnedDuringPlay";
+    return node;
+}
+
 } // namespace
 
 TEST(SceneV2, JsonRoundTrip)
@@ -68,6 +76,57 @@ TEST(SceneV2, FromJsonRejectsGarbage)
     bool ok = true;
     SceneV2 loaded = SceneV2::fromJson("not json", &ok);
     EXPECT_FALSE(ok);
+}
+
+TEST(SceneV2, SnapshotIsIndependentOfLaterMutation)
+{
+    SceneV2 live;
+    SceneNode node;
+    node.id = NodeId("node-1");
+    node.name = "Original";
+    node.local.translation = { 0.0f, 0.0f, 0.0f };
+    ASSERT_TRUE(live.scene.addNode(node));
+
+    SceneV2 edit = live.snapshot();
+
+    // Mutate the live scene (as Play mode would) after the snapshot was taken.
+    SceneNode* liveNode = live.scene.find(NodeId("node-1"));
+    ASSERT_NE(liveNode, nullptr);
+    liveNode->name = "MovedDuringPlay";
+    liveNode->local.translation = { 5.0f, 0.0f, 0.0f };
+    ASSERT_TRUE(live.scene.addNode(makeSpawnedDuringPlayNode()));
+
+    // The earlier snapshot must not see either change.
+    ASSERT_EQ(edit.scene.size(), 1u);
+    const SceneNode* editNode = edit.scene.find(NodeId("node-1"));
+    ASSERT_NE(editNode, nullptr);
+    EXPECT_EQ(editNode->name, "Original");
+    EXPECT_EQ(editNode->local.translation, (Phantom::Math::Vector3df{ 0.0f, 0.0f, 0.0f }));
+}
+
+TEST(SceneV2, RestoreFromBringsBackTheSnapshotContent)
+{
+    SceneV2 live;
+    SceneNode node;
+    node.id = NodeId("node-1");
+    node.name = "Original";
+    ASSERT_TRUE(live.scene.addNode(node));
+
+    SceneV2 edit = live.snapshot();
+
+    SceneNode* liveNode = live.scene.find(NodeId("node-1"));
+    ASSERT_NE(liveNode, nullptr);
+    liveNode->name = "MovedDuringPlay";
+    ASSERT_TRUE(live.scene.addNode(makeSpawnedDuringPlayNode()));
+    ASSERT_EQ(live.scene.size(), 2u);
+
+    live.restoreFrom(edit); // Stop -- discard Play-time changes
+
+    ASSERT_EQ(live.scene.size(), 1u);
+    const SceneNode* restored = live.scene.find(NodeId("node-1"));
+    ASSERT_NE(restored, nullptr);
+    EXPECT_EQ(restored->name, "Original");
+    EXPECT_EQ(live.scene.find(NodeId("spawned-during-play")), nullptr);
 }
 
 TEST(MigrateV1ToV2, PrimitiveMeshEntityMigrates)

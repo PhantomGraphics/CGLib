@@ -234,6 +234,7 @@ function(phantom_add_scene_runtime_core)
         ${CGLIB_ROOT}/SceneRuntime/SceneRuntime/Transform.cpp
         ${CGLIB_ROOT}/SceneRuntime/SceneRuntime/SceneNode.cpp
         ${CGLIB_ROOT}/SceneRuntime/SceneRuntime/SceneGraph.cpp
+        ${CGLIB_ROOT}/SceneRuntime/SceneRuntime/ComponentSchema.cpp
         ${CGLIB_ROOT}/SceneRuntime/SceneRuntime/ComponentSchemaRegistry.cpp
         ${CGLIB_ROOT}/SceneRuntime/SceneRuntime/UniverseSceneV2.cpp
     )

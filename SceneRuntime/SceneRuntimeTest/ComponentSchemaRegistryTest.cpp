@@ -2,6 +2,9 @@
 
 #include "../SceneRuntime/ComponentSchemaRegistry.h"
 
+#include <filesystem>
+#include <random>
+
 using namespace Phantom::SceneRuntime;
 
 namespace {
@@ -15,6 +18,24 @@ ComponentSchema makeMeshSchema()
     schema.fields.push_back({ "size", ComponentFieldType::Float, 0.0, 100.0, "half-extent", true });
     schema.fields.push_back({ "color", ComponentFieldType::Vec3, std::nullopt, std::nullopt, "RGB tint", false });
     return schema;
+}
+
+ComponentSchema makeRigidBodySchema()
+{
+    ComponentSchema schema;
+    schema.type = "rigidBody";
+    schema.version = 1;
+    schema.fields.push_back({ "mass", ComponentFieldType::Float, 0.0, std::nullopt, "kg", true });
+    return schema;
+}
+
+std::filesystem::path tempDir()
+{
+    static std::mt19937 rng{ std::random_device{}() };
+    const auto dir = std::filesystem::temp_directory_path()
+        / ("ComponentSchemaRegistryTest_" + std::to_string(rng()));
+    std::filesystem::create_directories(dir);
+    return dir;
 }
 
 ComponentRecord makeMeshComponent(const nlohmann::json& data)
@@ -119,4 +140,75 @@ TEST(ComponentSchemaRegistry, ValidateUnknownFieldIsFlaggedNotDropped)
     ASSERT_TRUE(hasIssueKind(issues, ComponentValidationIssue::Kind::UnknownField));
     // Flagging is non-destructive -- the caller's ComponentRecord itself is never mutated.
     EXPECT_TRUE(c.data.contains("mysteryField"));
+}
+
+TEST(ComponentSchemaRegistry, JsonRoundTripPreservesEveryRegisteredSchema)
+{
+    ComponentSchemaRegistry registry;
+    registry.registerSchema(makeMeshSchema());
+    registry.registerSchema(makeRigidBodySchema());
+
+    const std::string json = registry.toJson();
+    EXPECT_NE(json.find("\"schema\":\"phantom.component_schema_registry/1\""), std::string::npos);
+
+    bool ok = false;
+    ComponentSchemaRegistry loaded = ComponentSchemaRegistry::fromJson(json, &ok);
+    EXPECT_TRUE(ok);
+    EXPECT_EQ(loaded.size(), 2u);
+    ASSERT_NE(loaded.find("mesh"), nullptr);
+    EXPECT_EQ(loaded.find("mesh")->fields.size(), 3u);
+    ASSERT_NE(loaded.find("rigidBody"), nullptr);
+    EXPECT_EQ(loaded.find("rigidBody")->fields.size(), 1u);
+}
+
+TEST(ComponentSchemaRegistry, FromJsonRejectsWrongSchema)
+{
+    bool ok = true;
+    ComponentSchemaRegistry loaded = ComponentSchemaRegistry::fromJson(R"({"schema":"something.else/1","schemas":[]})", &ok);
+    EXPECT_FALSE(ok);
+    EXPECT_EQ(loaded.size(), 0u);
+}
+
+TEST(ComponentSchemaRegistry, FromJsonRejectsGarbage)
+{
+    bool ok = true;
+    ComponentSchemaRegistry loaded = ComponentSchemaRegistry::fromJson("not json at all", &ok);
+    EXPECT_FALSE(ok);
+}
+
+TEST(ComponentSchemaRegistry, FromJsonRejectsWholeFileOnOneBadEmbeddedSchema)
+{
+    const std::string json = R"({"schema":"phantom.component_schema_registry/1","schemas":[)"
+        R"({"schema":"phantom.component_schema/1","type":"mesh","version":1,"fields":[]},)"
+        R"({"schema":"phantom.component_schema/1","type":"broken","version":1,)"
+        R"("fields":[{"name":"x","type":"quaternion","required":true}]})"
+        R"(]})";
+    bool ok = true;
+    ComponentSchemaRegistry loaded = ComponentSchemaRegistry::fromJson(json, &ok);
+    EXPECT_FALSE(ok);
+    EXPECT_EQ(loaded.size(), 0u); // the valid "mesh" schema is not partially kept
+}
+
+TEST(ComponentSchemaRegistry, SaveLoadFileRoundTrip)
+{
+    ComponentSchemaRegistry registry;
+    registry.registerSchema(makeMeshSchema());
+    const std::filesystem::path dir = tempDir();
+    const std::filesystem::path path = dir / "registry.json";
+
+    ASSERT_TRUE(registry.saveToFile(path));
+    bool ok = false;
+    ComponentSchemaRegistry loaded = ComponentSchemaRegistry::loadFromFile(path, &ok);
+    EXPECT_TRUE(ok);
+    EXPECT_EQ(loaded.size(), 1u);
+
+    std::filesystem::remove_all(dir);
+}
+
+TEST(ComponentSchemaRegistry, LoadFromFileMissingFileFails)
+{
+    bool ok = true;
+    ComponentSchemaRegistry loaded = ComponentSchemaRegistry::loadFromFile("Z:/does/not/exist.json", &ok);
+    EXPECT_FALSE(ok);
+    EXPECT_EQ(loaded.size(), 0u);
 }

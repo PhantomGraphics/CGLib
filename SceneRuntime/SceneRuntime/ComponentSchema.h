@@ -2,6 +2,7 @@
 
 #include "json.hpp"
 
+#include <filesystem>
 #include <optional>
 #include <string>
 #include <vector>
@@ -38,6 +39,19 @@ struct ComponentSchema {
     std::string type;
     int version = 1;
     std::vector<ComponentFieldSchema> fields;
+
+    // Single-line "phantom.component_schema/1" JSON -- the (de)serialization Phase 5 item 1
+    // needs so a schema authored once (in C++ or, later, shared with the Blender panel) can
+    // travel as a file rather than only existing as code calling registerSchema(). Strict:
+    // an unrecognized field `type` string or a missing name/type rejects the whole schema
+    // (fromJson() returns a default-constructed ComponentSchema, ok=false) rather than
+    // silently dropping the one bad field -- a schema is a small, load-bearing contract, not
+    // best-effort scene data.
+    std::string toJson() const;
+    static ComponentSchema fromJson(const std::string& json, bool* ok = nullptr);
+
+    bool saveToFile(const std::filesystem::path& path) const;
+    static ComponentSchema loadFromFile(const std::filesystem::path& path, bool* ok = nullptr);
 };
 
 struct ComponentValidationIssue {

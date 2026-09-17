@@ -1,6 +1,8 @@
 #include "ComponentSchemaRegistry.h"
 
 #include <algorithm>
+#include <fstream>
+#include <sstream>
 
 namespace Phantom::SceneRuntime {
 
@@ -95,6 +97,62 @@ std::vector<ComponentValidationIssue> ComponentSchemaRegistry::validate(const Co
     }
 
     return issues;
+}
+
+std::string ComponentSchemaRegistry::toJson() const
+{
+    nlohmann::json root;
+    root["schema"] = "phantom.component_schema_registry/1";
+    nlohmann::json schemasJson = nlohmann::json::array();
+    for (const auto& entry : schemas_) {
+        schemasJson.push_back(nlohmann::json::parse(entry.second.toJson()));
+    }
+    root["schemas"] = std::move(schemasJson);
+    return root.dump();
+}
+
+ComponentSchemaRegistry ComponentSchemaRegistry::fromJson(const std::string& json, bool* ok)
+{
+    if (ok) *ok = false;
+    nlohmann::json root;
+    try {
+        root = nlohmann::json::parse(json);
+    } catch (const nlohmann::json::parse_error&) {
+        return ComponentSchemaRegistry{};
+    }
+    if (!root.is_object() || root.value("schema", "") != "phantom.component_schema_registry/1") {
+        return ComponentSchemaRegistry{};
+    }
+    if (!root.contains("schemas") || !root["schemas"].is_array()) return ComponentSchemaRegistry{};
+
+    ComponentSchemaRegistry result;
+    for (const auto& sj : root["schemas"]) {
+        bool schemaOk = false;
+        ComponentSchema schema = ComponentSchema::fromJson(sj.dump(), &schemaOk);
+        if (!schemaOk) return ComponentSchemaRegistry{}; // one bad schema rejects the whole file
+        result.registerSchema(std::move(schema));
+    }
+
+    if (ok) *ok = true;
+    return result;
+}
+
+bool ComponentSchemaRegistry::saveToFile(const std::filesystem::path& path) const
+{
+    std::ofstream out(path, std::ios::binary);
+    if (!out) return false;
+    out << toJson();
+    return static_cast<bool>(out);
+}
+
+ComponentSchemaRegistry ComponentSchemaRegistry::loadFromFile(const std::filesystem::path& path, bool* ok)
+{
+    if (ok) *ok = false;
+    std::ifstream in(path, std::ios::binary);
+    if (!in) return ComponentSchemaRegistry{};
+    std::ostringstream buf;
+    buf << in.rdbuf();
+    return fromJson(buf.str(), ok);
 }
 
 } // namespace Phantom::SceneRuntime

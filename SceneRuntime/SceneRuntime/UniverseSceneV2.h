@@ -34,6 +34,16 @@ struct SceneV2 {
 
     std::string toJson() const;
     static SceneV2 fromJson(const std::string& json, bool* ok = nullptr);
+
+    // Deep copy for edit/play mode switching -- the remaining piece of Phase 2 item 2's
+    // "edit snapshotとplay snapshot" (Phase 5's own completion criteria: "Play開始時にscene
+    // snapshotを作り、Stopで編集状態へ戻す"). SceneV2 already holds no pointers (AssetManifest/
+    // SceneGraph are plain value types, nlohmann::json copies deep), so plain copy
+    // construction/assignment already does this correctly; snapshot()/restoreFrom() add
+    // nothing beyond that -- they exist so callers have a named, tested contract to rely on
+    // instead of each independently re-confirming "does copying this actually deep-copy".
+    SceneV2 snapshot() const { return *this; }
+    void restoreFrom(const SceneV2& snapshot) { *this = snapshot; }
 };
 
 struct MigrationResult {
