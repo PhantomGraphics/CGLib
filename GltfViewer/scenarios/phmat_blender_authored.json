@@ -1,0 +1,22 @@
+{
+  "name": "phmat_blender_authored",
+  "steps": [
+    { "label": "Load pbr_basic.gltf",
+      "command": "LoadFile:scenarios/models/pbr_basic.gltf",
+      "expect_prefix": "OK:" },
+    { "label": "MaterialCount = 1", "command": "GetMaterialCount", "expect": "MaterialCount:1" },
+
+    { "label": "No override by default", "command": "GetHasPhmatOverride:0", "expect": "Val:0" },
+    { "label": "Baseline screenshot (default PBR shader)",
+      "command": "SaveScreenshot:scenarios/screenshots/phmat_blender_authored_before.png", "expect_prefix": "OK:" },
+
+    { "label": "Apply the graph exported by phantom_bridge's Blender node-group authoring (Phase 4C item 3, docs/todo/PLAN_blender_universe_authoring_loop.md)",
+      "command": "LoadPhmat:0,scenarios/materials/blender_authored.phmat", "expect": "OK" },
+    { "label": "Override now reports present", "command": "GetHasPhmatOverride:0", "expect": "Val:1" },
+    { "label": "Screenshot with the Blender-authored graph applied (tinted + rougher vs. baseline)",
+      "command": "SaveScreenshot:scenarios/screenshots/phmat_blender_authored_after.png", "expect_prefix": "OK:" },
+
+    { "label": "Clear the override", "command": "ClearPhmat:0", "expect": "OK" },
+    { "label": "Override is gone", "command": "GetHasPhmatOverride:0", "expect": "Val:0" }
+  ]
+}
