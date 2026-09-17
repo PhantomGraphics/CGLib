@@ -16,6 +16,7 @@
 #include <filesystem>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace Phantom::Gltf {
@@ -76,6 +77,19 @@ namespace Phantom::Gltf {
         // Reverts materialIndex to the shared default pipeline.
         void clearPhmatMaterial(int materialIndex);
         bool hasPhmatOverride(int materialIndex) const { return renderer_.hasMaterialShaderOverride(materialIndex); }
+        // Distinct VkPipeline objects behind every active/previously-applied .phmat override --
+        // see GltfSceneRenderer::materialPipelineVariantCount()'s comment (Phase 4C item 5).
+        int phmatPipelineVariantCount() const { return renderer_.materialPipelineVariantCount(); }
+
+        // Phase 4C item 5 ("hot reload"): opt-in, off by default (same convention as every other
+        // opt-in feature in this file). While enabled, checkPhmatHotReload() (called from
+        // onUpdate()) periodically stat()s every active override's .phmat file and the .phshader
+        // files it references (PhmatLoadResult::dependencyPaths); on a change to any of them, the
+        // same loadPhmatMaterial() path a manual "Load .phmat..." click uses re-runs automatically.
+        // A reload that fails behaves exactly like a manual failed reload (old pipeline kept,
+        // error surfaced) -- see loadPhmatMaterial()'s own comment.
+        bool phmatHotReloadEnabled() const { return phmatHotReloadEnabled_; }
+        void setPhmatHotReloadEnabled(bool v) { phmatHotReloadEnabled_ = v; }
 
         // "Camera-as-scene-component" (2026-09-16): if the loaded document has a camera attached
         // to any scene node, lets the viewer actually look through it instead of the free orbit
@@ -124,6 +138,25 @@ namespace Phantom::Gltf {
         // its shader vectors by value/move).
         std::vector<uint32_t> equirectVertSpv_;
         std::vector<uint32_t> equirectFragSpv_;
+
+        // Phase 4C item 5 ("hot reload") -- see phmatHotReloadEnabled()'s comment. One entry per
+        // materialIndex currently holding a successfully-applied .phmat override; absent =
+        // nothing to watch for that index (matches renderer_.hasMaterialShaderOverride()).
+        struct PhmatWatchEntry {
+            std::string phmatPath;
+            std::vector<std::string> dependencyPaths; // this load's own PhmatLoadResult::dependencyPaths
+            std::unordered_map<std::string, std::filesystem::file_time_type> lastWriteTimes;
+        };
+        std::unordered_map<int, PhmatWatchEntry> phmatWatches_;
+        bool phmatHotReloadEnabled_ = false;
+        int  phmatHotReloadFrameCounter_ = 0; // throttle -- see checkPhmatHotReload()'s comment
+        // Called every frame from onUpdate(). No-op unless phmatHotReloadEnabled_ and at least one
+        // watch entry exists.
+        void checkPhmatHotReload();
+        // Re-stats an existing watch entry's own dependencyPaths (does not change which paths are
+        // watched) -- called after a failed (re)load so checkPhmatHotReload() doesn't see the same
+        // "changed" state forever and retry every tick; see loadPhmatMaterial()'s comment.
+        void refreshPhmatWatchMTimes(int materialIndex);
 
         // "Camera-as-scene-component" state -- see setUseAssetCamera()'s comment above.
         // Captured once per loadFile() from doc_'s first camera instance (collectGltfLightsAndCameras()),

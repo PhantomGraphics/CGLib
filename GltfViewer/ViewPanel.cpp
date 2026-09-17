@@ -82,6 +82,13 @@ void ViewPanel::onImGui() {
             }
             if (!lastPhmatError_.empty())
                 ImGui::TextColored(ImVec4(1.f, 0.4f, 0.4f, 1.f), "Error: %s", lastPhmatError_.c_str());
+
+            // Phase 4C item 5: opt-in hot reload (App::checkPhmatHotReload()) + pipeline-variant
+            // pooling stat, for visibility into "shader variant"/"pipeline cache" reuse.
+            bool hotReload = app_->phmatHotReloadEnabled();
+            if (ImGui::Checkbox("Watch .phmat/.phshader for changes", &hotReload))
+                app_->setPhmatHotReloadEnabled(hotReload);
+            ImGui::TextDisabled("Pipeline variants in use: %d", app_->phmatPipelineVariantCount());
         }
     }
     ImGui::End();

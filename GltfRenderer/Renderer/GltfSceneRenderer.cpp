@@ -6,6 +6,7 @@
 #include "../../../CGLib/VulkanGraphics/VulkanContext.h"
 #include "../../../CGLib/VulkanGraphics/VulkanCommandPool.h"
 #include "../../../CGLib/VulkanGraphics/VulkanImage.h"
+#include "../../../CGLib/VulkanGraphics/VulkanDebugUtils.h"
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp>
@@ -16,6 +17,8 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <filesystem>
+#include <fstream>
 #include <limits>
 
 using namespace Phantom::Gltf;
@@ -584,6 +587,7 @@ void GltfSceneRenderer::onInit(Phantom::VKG::VulkanContext& ctx, const Phantom::
     pool_ = &pool;
     renderPass_ = renderPass; // cached for setMaterialShaderOverride(), called after onInit()
     VkDevice device = ctx.getDevice();
+    createMaterialPipelineCache(device); // Phase 4C item 5 ("pipeline cache") -- see setMaterialShaderCacheDir()
 
     // Global UBOs (document-independent)
     for (int f = 0; f < MAX_FRAMES; ++f) {
@@ -783,8 +787,9 @@ void GltfSceneRenderer::clearDocumentResources()
 
     // materialIndex keys no longer correspond to the same materials once materials_ is rebuilt
     // by the next buildDocumentResources() -- an override left in place could silently apply to
-    // an unrelated material.
-    for (auto& [idx, pipeline] : materialPipelineOverrides_) pipeline->destroy(device);
+    // an unrelated material. Only the (non-owning) mapping is dropped -- the pooled VkPipeline
+    // objects themselves survive for potential reuse by the next document (see
+    // materialPipelineVariantPool_'s comment) and are only destroyed at onCleanup().
     materialPipelineOverrides_.clear();
 
     if (descriptorPool_ != VK_NULL_HANDLE) {
@@ -966,6 +971,90 @@ void GltfSceneRenderer::onUpdate(uint32_t frameIndex) {
 //  Per-material shader graph override (Phase 4C, ".phmat")
 // ============================================================
 
+namespace {
+
+uint64_t fnv1a64(const uint32_t* words, size_t wordCount)
+{
+    const unsigned char* p = reinterpret_cast<const unsigned char*>(words);
+    uint64_t h = 14695981039346656037ull;
+    for (size_t i = 0; i < wordCount * sizeof(uint32_t); ++i) {
+        h ^= p[i];
+        h *= 1099511628211ull;
+    }
+    return h;
+}
+
+// Standard Vulkan pipeline-cache-header sanity check (see e.g. the Vulkan spec's
+// VkPipelineCacheHeaderVersionOne): a cache blob saved on a different GPU/driver is, per spec,
+// safe to feed back into vkCreatePipelineCache() regardless (the implementation is required to
+// discard incompatible entries), but checking the header ourselves first avoids even attempting
+// that with a blob vkGetPipelineCacheData() itself would never have produced for this device --
+// this codebase's convention (see PhmatCompiler.cpp's cache-hit/miss handling) is to treat a
+// mismatched/corrupt cache as a plain miss, not an error.
+bool pipelineCacheHeaderMatches(const std::vector<char>& data, const VkPhysicalDeviceProperties& props)
+{
+    if (data.size() < 32) return false;
+    uint32_t headerSize = 0, headerVersion = 0, vendorID = 0, deviceID = 0;
+    std::memcpy(&headerSize,    data.data() + 0,  sizeof(uint32_t));
+    std::memcpy(&headerVersion, data.data() + 4,  sizeof(uint32_t));
+    std::memcpy(&vendorID,      data.data() + 8,  sizeof(uint32_t));
+    std::memcpy(&deviceID,      data.data() + 12, sizeof(uint32_t));
+    if (headerVersion != VK_PIPELINE_CACHE_HEADER_VERSION_ONE) return false;
+    if (vendorID != props.vendorID || deviceID != props.deviceID) return false;
+    if (data.size() < headerSize) return false;
+    return std::memcmp(data.data() + 16, props.pipelineCacheUUID, VK_UUID_SIZE) == 0;
+}
+
+} // namespace
+
+void GltfSceneRenderer::createMaterialPipelineCache(VkDevice device)
+{
+    std::vector<char> initialData;
+    if (!materialPipelineCacheDir_.empty()) {
+        VkPhysicalDeviceProperties props{};
+        vkGetPhysicalDeviceProperties(ctx_->getPhysicalDevice(), &props);
+        const std::filesystem::path file = std::filesystem::path(materialPipelineCacheDir_) / "vulkan_pipeline_cache.bin";
+        std::ifstream in(file, std::ios::binary | std::ios::ate);
+        if (in) {
+            const std::streamsize size = in.tellg();
+            if (size > 0) {
+                initialData.resize(static_cast<size_t>(size));
+                in.seekg(0);
+                in.read(initialData.data(), size);
+                if (!pipelineCacheHeaderMatches(initialData, props)) initialData.clear(); // treat as a miss, not an error
+            }
+        }
+    }
+
+    VkPipelineCacheCreateInfo ci{};
+    ci.sType           = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
+    ci.initialDataSize = initialData.size();
+    ci.pInitialData    = initialData.empty() ? nullptr : initialData.data();
+    if (vkCreatePipelineCache(device, &ci, nullptr, &materialPipelineCache_) != VK_SUCCESS)
+        materialPipelineCache_ = VK_NULL_HANDLE; // non-fatal -- setMaterialShaderOverride() just won't get driver-side caching
+}
+
+void GltfSceneRenderer::destroyMaterialPipelineCache(VkDevice device)
+{
+    if (materialPipelineCache_ == VK_NULL_HANDLE) return;
+    if (!materialPipelineCacheDir_.empty()) {
+        size_t dataSize = 0;
+        vkGetPipelineCacheData(device, materialPipelineCache_, &dataSize, nullptr);
+        if (dataSize > 0) {
+            std::vector<char> data(dataSize);
+            if (vkGetPipelineCacheData(device, materialPipelineCache_, &dataSize, data.data()) == VK_SUCCESS) {
+                std::error_code ec;
+                std::filesystem::create_directories(materialPipelineCacheDir_, ec);
+                const std::filesystem::path file = std::filesystem::path(materialPipelineCacheDir_) / "vulkan_pipeline_cache.bin";
+                std::ofstream out(file, std::ios::binary | std::ios::trunc);
+                if (out) out.write(data.data(), static_cast<std::streamsize>(dataSize));
+            }
+        }
+    }
+    vkDestroyPipelineCache(device, materialPipelineCache_, nullptr);
+    materialPipelineCache_ = VK_NULL_HANDLE;
+}
+
 bool GltfSceneRenderer::setMaterialShaderOverride(int materialIndex, const std::vector<uint32_t>& fragSpv, std::string* outError)
 {
     if (!ctx_ || renderPass_ == VK_NULL_HANDLE) {
@@ -983,43 +1072,64 @@ bool GltfSceneRenderer::setMaterialShaderOverride(int materialIndex, const std::
 
     const GltfGpuMaterial& mat = *materials_[materialIndex];
 
-    Phantom::VKG::PipelineConfig cfg;
-    cfg.vertSpv = shaders_.vertSpv; // gltf.vert is unchanged -- only the fragment stage differs
-    cfg.fragSpv = fragSpv;
-    {
-        auto bd = GltfGpuMesh::Vertex::getBindingDescription();
-        cfg.bindingDescs = { bd };
-        cfg.attrDescs    = GltfGpuMesh::Vertex::getAttributeDescriptions();
-    }
-    cfg.descriptorSetLayouts = { globalSetLayout_.get(), materialSetLayout_.get() };
     // Mirrors which of the 4 shared pipeline variants this material would otherwise have drawn
     // through -- a .phmat graph replaces the fragment math, not the alpha-mode/culling policy.
-    cfg.cullMode    = mat.doubleSided() ? VK_CULL_MODE_NONE : cullMode_;
-    cfg.blendEnable = mat.isBlend();
-    cfg.depthWrite  = !mat.isBlend();
+    MaterialPipelineVariantKey key;
+    key.fragSpvHash = fnv1a64(fragSpv.data(), fragSpv.size());
+    key.cullMode    = mat.doubleSided() ? VK_CULL_MODE_NONE : cullMode_;
+    key.blendEnable = mat.isBlend();
+    key.depthWrite  = !mat.isBlend();
 
-    auto newPipeline = std::make_unique<Phantom::VKG::VulkanPipeline>();
-    if (!newPipeline->create(*ctx_, renderPass_, cfg)) {
-        if (outError) *outError = "pipeline creation failed (see stderr for the glslc/Vulkan validation log)";
-        return false; // any previous pipeline for this material (shared, or an earlier override) is untouched
-    }
-
-    auto it = materialPipelineOverrides_.find(materialIndex);
-    if (it != materialPipelineOverrides_.end()) {
-        it->second->destroy(ctx_->getDevice());
-        it->second = std::move(newPipeline);
+    Phantom::VKG::VulkanPipeline* variant = nullptr;
+    auto foundVariant = materialPipelineVariantIndex_.find(key);
+    if (foundVariant != materialPipelineVariantIndex_.end()) {
+        // Phase 4C item 5 ("shader variant"): identical compiled SPIR-V + fixed-function state
+        // already has a pipeline -- reuse it instead of building a redundant one.
+        variant = foundVariant->second;
     } else {
-        materialPipelineOverrides_.emplace(materialIndex, std::move(newPipeline));
+        Phantom::VKG::PipelineConfig cfg;
+        cfg.vertSpv = shaders_.vertSpv; // gltf.vert is unchanged -- only the fragment stage differs
+        cfg.fragSpv = fragSpv;
+        {
+            auto bd = GltfGpuMesh::Vertex::getBindingDescription();
+            cfg.bindingDescs = { bd };
+            cfg.attrDescs    = GltfGpuMesh::Vertex::getAttributeDescriptions();
+        }
+        cfg.descriptorSetLayouts = { globalSetLayout_.get(), materialSetLayout_.get() };
+        cfg.cullMode        = key.cullMode;
+        cfg.blendEnable     = key.blendEnable;
+        cfg.depthWrite      = key.depthWrite;
+        cfg.pipelineCache   = materialPipelineCache_; // Phase 4C item 5 ("pipeline cache")
+
+        auto newPipeline = std::make_unique<Phantom::VKG::VulkanPipeline>();
+        if (!newPipeline->create(*ctx_, renderPass_, cfg)) {
+            if (outError) *outError = "pipeline creation failed (see stderr for the glslc/Vulkan validation log)";
+            return false; // any previous pipeline for this material (shared, or an earlier override) is untouched
+        }
+
+        // Phase 4C item 5 ("GPU marker"): name the pipeline for RenderDoc/Nsight/PIX capture --
+        // no-op if VK_EXT_debug_utils isn't enabled (see VulkanDebugUtils.h's comment).
+        char hashHex[17];
+        std::snprintf(hashHex, sizeof(hashHex), "%016llx", static_cast<unsigned long long>(key.fragSpvHash));
+        Phantom::VKG::DebugUtils::setObjectName(ctx_->getInstance(), ctx_->getDevice(),
+            VK_OBJECT_TYPE_PIPELINE, reinterpret_cast<uint64_t>(newPipeline->getPipeline()),
+            (std::string("phmat:") + hashHex).c_str());
+
+        variant = newPipeline.get();
+        materialPipelineVariantPool_.push_back(std::move(newPipeline));
+        materialPipelineVariantIndex_.emplace(key, variant);
     }
+
+    materialPipelineOverrides_[materialIndex] = variant; // non-owning; overwrites any previous entry
     return true;
 }
 
 void GltfSceneRenderer::clearMaterialShaderOverride(int materialIndex)
 {
-    auto it = materialPipelineOverrides_.find(materialIndex);
-    if (it == materialPipelineOverrides_.end()) return;
-    if (ctx_) it->second->destroy(ctx_->getDevice());
-    materialPipelineOverrides_.erase(it);
+    // Only drops materialIndex's mapping -- the pooled VkPipeline itself may still be referenced
+    // by another material/document (see materialPipelineVariantPool_'s comment) and is never
+    // destroyed here.
+    materialPipelineOverrides_.erase(materialIndex);
 }
 
 bool GltfSceneRenderer::hasMaterialShaderOverride(int materialIndex) const
@@ -1056,10 +1166,10 @@ void GltfSceneRenderer::onRender(VkCommandBuffer cmd, uint32_t frameIndex) {
     // instead of one of the 4 shared variants below (see that method's comment).
     auto overridePipelineFor = [&](int matIdx) -> Phantom::VKG::VulkanPipeline* {
         auto it = materialPipelineOverrides_.find(matIdx);
-        return it != materialPipelineOverrides_.end() ? it->second.get() : nullptr;
+        return it != materialPipelineOverrides_.end() ? it->second : nullptr;
     };
 
-    auto draw = [&](PrimitiveEntry* entry, GltfGpuMaterial* mat, Phantom::VKG::VulkanPipeline& matPipeline) {
+    auto draw = [&](PrimitiveEntry* entry, GltfGpuMaterial* mat, Phantom::VKG::VulkanPipeline& matPipeline, bool isPhmatOverride) {
         if (matPipeline.getPipeline() != boundPipeline) {
             vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, matPipeline.getPipeline());
             boundPipeline = matPipeline.getPipeline();
@@ -1074,12 +1184,21 @@ void GltfSceneRenderer::onRender(VkCommandBuffer cmd, uint32_t frameIndex) {
         VkDeviceSize offset = 0;
         vkCmdBindVertexBuffers(cmd, 0, 1, &vbuf, &offset);
 
+        // Phase 4C item 5 ("GPU marker"): label draws going through a .phmat override pipeline so
+        // they stand out in a RenderDoc/Nsight/PIX capture -- no-op if VK_EXT_debug_utils isn't
+        // enabled (see VulkanDebugUtils.h's comment).
+        if (isPhmatOverride)
+            Phantom::VKG::DebugUtils::beginLabel(ctx_->getInstance(), cmd, "phmat override", 0.8f, 0.2f, 0.8f, 1.f);
+
         if (entry->mesh.hasIndices()) {
             vkCmdBindIndexBuffer(cmd, entry->mesh.indexBuffer(), 0, entry->mesh.indexType());
             vkCmdDrawIndexed(cmd, entry->mesh.indexCount(), 1, 0, 0, 0);
         } else {
             vkCmdDraw(cmd, entry->mesh.vertexCount(), 1, 0, 0);
         }
+
+        if (isPhmatOverride)
+            Phantom::VKG::DebugUtils::endLabel(ctx_->getInstance(), cmd);
     };
 
     // Pass 1: opaque + alpha MASK, depth write on, in build (traversal) order. alpha-BLEND
@@ -1094,9 +1213,9 @@ void GltfSceneRenderer::onRender(VkCommandBuffer cmd, uint32_t frameIndex) {
             continue;
         }
         if (Phantom::VKG::VulkanPipeline* ov = overridePipelineFor(matIdx))
-            draw(entry, mat, *ov);
+            draw(entry, mat, *ov, true);
         else
-            draw(entry, mat, mat->doubleSided() ? pipelineDoubleSided_ : pipeline_);
+            draw(entry, mat, mat->doubleSided() ? pipelineDoubleSided_ : pipeline_, false);
     }
 
     // Pass 2: alpha BLEND, depth write off, back-to-front (painter's algorithm) so overlapping
@@ -1117,9 +1236,9 @@ void GltfSceneRenderer::onRender(VkCommandBuffer cmd, uint32_t frameIndex) {
             int matIdx = materialIndexFor(entry);
             GltfGpuMaterial* mat = materials_[matIdx].get();
             if (Phantom::VKG::VulkanPipeline* ov = overridePipelineFor(matIdx))
-                draw(entry, mat, *ov);
+                draw(entry, mat, *ov, true);
             else
-                draw(entry, mat, mat->doubleSided() ? pipelineBlendDoubleSided_ : pipelineBlend_);
+                draw(entry, mat, mat->doubleSided() ? pipelineBlendDoubleSided_ : pipelineBlend_, false);
         }
     }
 
@@ -1151,8 +1270,11 @@ void GltfSceneRenderer::onCleanup(VkDevice device) {
     for (auto& mat : materials_) mat->destroy(device);
     materials_.clear();
 
-    for (auto& [idx, ovPipeline] : materialPipelineOverrides_) ovPipeline->destroy(device);
     materialPipelineOverrides_.clear();
+    for (auto& pipeline : materialPipelineVariantPool_) pipeline->destroy(device);
+    materialPipelineVariantPool_.clear();
+    materialPipelineVariantIndex_.clear();
+    destroyMaterialPipelineCache(device);
 
     // Material descriptor pool (document-dependent)
     if (descriptorPool_ != VK_NULL_HANDLE) {

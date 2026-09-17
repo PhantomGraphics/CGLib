@@ -210,6 +210,22 @@ std::string CommandDispatcher::route(const std::string& cmd) {
         if (idxResult.ec != std::errc{}) return "Error:invalid materialIndex";
         return "Val:" + std::to_string(app_->hasPhmatOverride(materialIndex) ? 1 : 0);
     }
+    // Phase 4C item 5: distinct VkPipeline objects behind every .phmat override applied so far in
+    // this document -- see App::phmatPipelineVariantCount()'s comment ("shader variant" reuse).
+    if (cmd == "GetPhmatPipelineVariantCount") {
+        if (!app_) return "Val:0";
+        return "Val:" + std::to_string(app_->phmatPipelineVariantCount());
+    }
+    // Phase 4C item 5 ("hot reload"), opt-in and off by default -- see App::phmatHotReloadEnabled()'s comment.
+    if (cmd.rfind("SetPhmatHotReload:", 0) == 0) {
+        if (!app_) return "Error:no app";
+        app_->setPhmatHotReloadEnabled(cmd.substr(18) == "1");
+        return "OK";
+    }
+    if (cmd == "GetPhmatHotReload") {
+        if (!app_) return "Val:0";
+        return "Val:" + std::to_string(app_->phmatHotReloadEnabled() ? 1 : 0);
+    }
 
     if (cmd == "ResetCamera") {
         if (!renderer_) return "Error:no renderer";

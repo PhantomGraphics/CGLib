@@ -214,16 +214,22 @@ void App::clearEnvironmentHDR() {
     renderer_.setEnvironment(envCubemap_.getView(), envCubemap_.getSampler());
 }
 
-bool App::loadPhmatMaterial(int materialIndex, const std::string& path, std::string* outError) {
-    // A per-viewer, cross-session cache directory: the same .phmat compiles to the same SPIR-V
-    // regardless of which document/material it is applied to (see PhmatCompiler.h's comment on
-    // why SPIR-V is a cache, not the source of truth), so there is no reason to scope this by
-    // materialIndex or the current document.
-    const std::string cacheDir = (std::filesystem::temp_directory_path() / "phantom_phmat_cache").string();
+namespace {
+// A per-viewer, cross-session cache directory: the same .phmat compiles to the same SPIR-V
+// regardless of which document/material it is applied to (see PhmatCompiler.h's comment on why
+// SPIR-V is a cache, not the source of truth), so there is no reason to scope this by
+// materialIndex or the current document. Also doubles as GltfSceneRenderer's own persistent
+// VkPipelineCache directory (Phase 4C item 5) -- distinct filenames, no collision.
+std::string phmatCacheDir() {
+    return (std::filesystem::temp_directory_path() / "phantom_phmat_cache").string();
+}
+} // namespace
 
-    Phantom::Gltf::Phmat::PhmatLoadResult result = Phantom::Gltf::Phmat::loadPhmatMaterial(path, cacheDir);
+bool App::loadPhmatMaterial(int materialIndex, const std::string& path, std::string* outError) {
+    Phantom::Gltf::Phmat::PhmatLoadResult result = Phantom::Gltf::Phmat::loadPhmatMaterial(path, phmatCacheDir());
     if (!result.success) {
         if (outError) *outError = result.diagnostics.empty() ? "unknown .phmat error" : result.diagnostics.front().message;
+        refreshPhmatWatchMTimes(materialIndex); // see checkPhmatHotReload()'s comment on why
         return false;
     }
 
@@ -233,18 +239,73 @@ bool App::loadPhmatMaterial(int materialIndex, const std::string& path, std::str
     std::string pipelineError;
     if (!renderer_.setMaterialShaderOverride(materialIndex, result.fragSpirv, &pipelineError)) {
         if (outError) *outError = pipelineError;
+        refreshPhmatWatchMTimes(materialIndex);
         return false;
     }
+
+    // Phase 4C item 5 ("hot reload"): (re-)build this materialIndex's watch entry from this load's
+    // own dependency list -- covers both a first load and a graph whose set of referenced
+    // .phshader files changed since the last successful load.
+    PhmatWatchEntry entry;
+    entry.phmatPath = path;
+    entry.dependencyPaths = result.dependencyPaths;
+    for (const auto& dep : entry.dependencyPaths) {
+        std::error_code ec;
+        entry.lastWriteTimes[dep] = std::filesystem::last_write_time(dep, ec);
+    }
+    phmatWatches_[materialIndex] = std::move(entry);
     return true;
 }
 
 void App::clearPhmatMaterial(int materialIndex) {
     vkDeviceWaitIdle(getDevice()); // same hazard as loadPhmatMaterial() above
     renderer_.clearMaterialShaderOverride(materialIndex);
+    phmatWatches_.erase(materialIndex);
+}
+
+void App::refreshPhmatWatchMTimes(int materialIndex) {
+    auto it = phmatWatches_.find(materialIndex);
+    if (it == phmatWatches_.end()) return;
+    for (const auto& dep : it->second.dependencyPaths) {
+        std::error_code ec;
+        it->second.lastWriteTimes[dep] = std::filesystem::last_write_time(dep, ec);
+    }
+}
+
+void App::checkPhmatHotReload() {
+    if (!phmatHotReloadEnabled_ || phmatWatches_.empty()) return;
+    // Throttle: a change only ever originates from a human saving a file in an external editor,
+    // so stat()-ing every watched path on every single frame buys nothing -- ~15 frames (~250ms
+    // at 60fps) of latency is imperceptible for that workflow and keeps this effectively free the
+    // rest of the time.
+    if (++phmatHotReloadFrameCounter_ < 15) return;
+    phmatHotReloadFrameCounter_ = 0;
+
+    // Reload requests are collected first, then applied -- loadPhmatMaterial() below mutates
+    // phmatWatches_ (including possibly erasing/replacing the very entry this loop is iterating),
+    // which would invalidate the iterator if done inline.
+    std::vector<std::pair<int, std::string>> toReload;
+    for (auto& [materialIndex, watch] : phmatWatches_) {
+        for (const auto& dep : watch.dependencyPaths) {
+            std::error_code ec;
+            const auto t = std::filesystem::last_write_time(dep, ec);
+            if (ec) continue; // file missing/unreadable right now -- leave the current override in place
+            auto it = watch.lastWriteTimes.find(dep);
+            if (it == watch.lastWriteTimes.end() || it->second != t) {
+                toReload.emplace_back(materialIndex, watch.phmatPath);
+                break;
+            }
+        }
+    }
+    for (const auto& [materialIndex, path] : toReload)
+        loadPhmatMaterial(materialIndex, path); // failure just leaves the previous override active (see its own comment)
 }
 
 void App::onInit() {
     applyShaders();
+    // Phase 4C item 5 ("pipeline cache"): must be set before VkAppBase::onInit() below actually
+    // runs renderer_.onInit() -- see GltfSceneRenderer::setMaterialShaderCacheDir()'s comment.
+    renderer_.setMaterialShaderCacheDir(phmatCacheDir());
     auto& ctx  = getContext();
     auto& pool = getCommandPool();
     envCubemap_.create(ctx, pool);
@@ -272,6 +333,7 @@ void App::onUpdate(uint32_t frameIndex) {
     }
 
     dispatcher_.processQueue();
+    checkPhmatHotReload();
 
     if (auto p = dispatcher_.takePendingLoad()) {
         bool ok = loadFile(*p);
@@ -322,6 +384,10 @@ void App::frameCameraToDocument() {
 bool App::loadFile(const std::filesystem::path& path) {
     vkDeviceWaitIdle(getDevice());
     renderer_.onCleanup(getDevice());
+    // materialIndex keys stop meaning anything for the new document (same reason
+    // GltfSceneRenderer::onCleanup() itself drops materialPipelineOverrides_ above) -- an entry
+    // left in place could watch the wrong files for whatever ends up at that index next.
+    phmatWatches_.clear();
 
     GltfDocument newDoc;
     VrmViewState newVrm;

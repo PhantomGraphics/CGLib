@@ -134,7 +134,7 @@ bool VulkanPipeline::create(const VulkanContext& ctx,
     pci.renderPass          = renderPass;
     pci.subpass             = 0;
 
-    if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pci, nullptr, &pipeline_) != VK_SUCCESS) {
+    if (vkCreateGraphicsPipelines(device, cfg.pipelineCache, 1, &pci, nullptr, &pipeline_) != VK_SUCCESS) {
         std::fprintf(stderr, "[VKG] Failed to create graphics pipeline\n");
         vkDestroyShaderModule(device, vertMod, nullptr);
         vkDestroyShaderModule(device, fragMod, nullptr);

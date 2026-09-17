@@ -1,0 +1,46 @@
+{
+  "name": "phmat_pipeline_variant_reuse",
+  "steps": [
+    { "label": "Load pbr_multi_material.gltf (2 materials, both single-sided/opaque)",
+      "command": "LoadFile:scenarios/models/pbr_multi_material.gltf",
+      "expect_prefix": "OK:" },
+    { "label": "MaterialCount = 2", "command": "GetMaterialCount", "expect": "MaterialCount:2" },
+    { "label": "No pipeline variants yet", "command": "GetPhmatPipelineVariantCount", "expect": "Val:0" },
+
+    { "label": "Apply tinted_red.phmat to material 0",
+      "command": "LoadPhmat:0,scenarios/materials/tinted_red.phmat", "expect": "OK" },
+    { "label": "One variant created", "command": "GetPhmatPipelineVariantCount", "expect": "Val:1" },
+
+    { "label": "Apply the SAME .phmat to material 1 (same SPIR-V + same doubleSided/blend state as material 0)",
+      "command": "LoadPhmat:1,scenarios/materials/tinted_red.phmat", "expect": "OK" },
+    { "label": "Still one variant -- Phase 4C item 5 (\"shader variant\") reuse, no new VkPipeline built",
+      "command": "GetPhmatPipelineVariantCount", "expect": "Val:1" },
+    { "label": "Both materials tinted red",
+      "command": "SaveScreenshot:scenarios/screenshots/phmat_variant_both_red.png", "expect_prefix": "OK:" },
+
+    { "label": "Apply a different graph (custom node) to material 1",
+      "command": "LoadPhmat:1,scenarios/materials/custom_node_tint.phmat", "expect": "OK" },
+    { "label": "Two variants now -- distinct SPIR-V needs its own pipeline",
+      "command": "GetPhmatPipelineVariantCount", "expect": "Val:2" },
+    { "label": "Material 0 still red, material 1 now green-tinted via the custom node",
+      "command": "SaveScreenshot:scenarios/screenshots/phmat_variant_red_and_green.png", "expect_prefix": "OK:" },
+
+    { "label": "Clear material 0's override", "command": "ClearPhmat:0", "expect": "OK" },
+    { "label": "Override gone", "command": "GetHasPhmatOverride:0", "expect": "Val:0" },
+    { "label": "Pool still holds both variants -- clearing an override never destroys a pooled pipeline",
+      "command": "GetPhmatPipelineVariantCount", "expect": "Val:2" },
+
+    { "label": "Clear material 1's override too", "command": "ClearPhmat:1", "expect": "OK" },
+    { "label": "Pool unchanged after clearing every active override",
+      "command": "GetPhmatPipelineVariantCount", "expect": "Val:2" },
+    { "label": "Back to the default PBR shader for both materials",
+      "command": "SaveScreenshot:scenarios/screenshots/phmat_variant_cleared.png", "expect_prefix": "OK:" },
+
+    { "label": "Hot reload toggle defaults off", "command": "GetPhmatHotReload", "expect": "Val:0" },
+    { "label": "Enable hot reload watching", "command": "SetPhmatHotReload:1", "expect": "OK" },
+    { "label": "Now reports on", "command": "GetPhmatHotReload", "expect": "Val:1" },
+    { "label": "Disable it again", "command": "SetPhmatHotReload:0", "expect": "OK" },
+    { "label": "Back off", "command": "GetPhmatHotReload", "expect": "Val:0" },
+    { "label": "App survived every step", "command": "GetStatus", "expect": "OK" }
+  ]
+}

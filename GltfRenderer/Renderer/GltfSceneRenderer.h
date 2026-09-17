@@ -17,12 +17,14 @@
 #include "../../../CGLib/VkAppBase/IVkSubRenderer.h"
 #include "../../../CGLib/Renderer/VkRenderer/VkSkyBoxRenderer.h"
 
+#include <array>
+#include <cstdint>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
-#include <array>
 
 namespace Phantom::VKG {
     class VulkanContext;
@@ -207,9 +209,26 @@ namespace Phantom::Gltf
         // new one has successfully been created.
         bool setMaterialShaderOverride(int materialIndex, const std::vector<uint32_t>& fragSpv, std::string* outError = nullptr);
         // Reverts materialIndex to the shared default pipeline (pipeline_/pipelineBlend_/...).
-        // No-op if it had no override.
+        // No-op if it had no override. Does not destroy the underlying VkPipeline -- see
+        // materialPipelineVariantPool_'s comment on why override pipelines are pooled and only
+        // ever destroyed at onCleanup()/clearDocumentResources().
         void clearMaterialShaderOverride(int materialIndex);
         bool hasMaterialShaderOverride(int materialIndex) const;
+
+        // --- Phase 4C item 5: pipeline cache persistence for .phmat overrides ---
+        // Opt-in directory a persistent VkPipelineCache blob for setMaterialShaderOverride()'s
+        // pipelines is loaded from (if present) at onInit() and written back to at onCleanup() --
+        // lets the driver skip re-doing identical compilation work across app runs, on top of
+        // PhmatCompiler.h's own SPIR-V-level cache (which only skips the glslc invocation, not the
+        // driver's own SPIR-V->native-ISA compile). Must be called before onInit(); empty (the
+        // default) means "keep an in-process-only VkPipelineCache" -- variant reuse (see
+        // materialPipelineVariantPool_) still applies within a single run either way, only the
+        // cross-run disk persistence is gated by this.
+        void setMaterialShaderCacheDir(const std::string& dir) { materialPipelineCacheDir_ = dir; }
+        // Number of distinct VkPipeline objects backing every setMaterialShaderOverride() call so
+        // far (materials sharing the same compiled SPIR-V + doubleSided/blend state reuse one
+        // entry -- see setMaterialShaderOverride()'s comment). Exposed for tests/introspection.
+        int materialPipelineVariantCount() const { return static_cast<int>(materialPipelineVariantPool_.size()); }
 
         // Phase 4B tone mapping: multiplies color before gltf.frag's Reinhard tonemap (1.0 =
         // unchanged from before this existed). GlobalUBO::exposure was appended at the very end
@@ -402,10 +421,59 @@ namespace Phantom::Gltf
 
         // Per-material shader graph override pipelines (see setMaterialShaderOverride()). Keyed
         // by index into materials_/doc_->materials; absent = draw through the shared
-        // pipeline_/pipelineBlend_/... variants as before. unique_ptr because VulkanPipeline is
-        // move-disabled (only copy-deleted is declared, see VulkanPipeline.h), same reason
-        // materials_ above is a vector of unique_ptr rather than of values.
-        std::unordered_map<int, std::unique_ptr<Phantom::VKG::VulkanPipeline>> materialPipelineOverrides_;
+        // pipeline_/pipelineBlend_/... variants as before. Non-owning -- points into
+        // materialPipelineVariantPool_ below, which is what actually owns every override
+        // VkPipeline.
+        std::unordered_map<int, Phantom::VKG::VulkanPipeline*> materialPipelineOverrides_;
+
+        // Phase 4C item 5 ("shader variant"): more than one material -- in this document, or
+        // (since a pipeline only depends on the render pass/shader/vertex layout, none of which
+        // are per-document) a document loaded earlier in this same GltfSceneRenderer's lifetime --
+        // can end up wanting the exact same compiled fragment SPIR-V plus the same
+        // doubleSided()/isBlend()-derived fixed-function state (the common case: the same .phmat
+        // file applied more than once). Rather than let setMaterialShaderOverride() build a
+        // redundant VkPipeline for each such call, every override pipeline actually created is
+        // pooled here and looked up by MaterialPipelineVariantKey first; clearMaterialShaderOverride()
+        // and clearDocumentResources() only ever drop materialPipelineOverrides_' non-owning
+        // entries, never a pool entry itself (a variant might still be referenced by another
+        // material/document) -- pool entries are only destroyed at onCleanup(), the same
+        // "shared, never destroyed individually" lifetime the 4 shared pipeline_/pipelineBlend_/...
+        // variants above already have.
+        struct MaterialPipelineVariantKey {
+            uint64_t        fragSpvHash = 0; // FNV-1a 64 over the raw SPIR-V words -- a cache key, not a security boundary
+            VkCullModeFlags cullMode    = VK_CULL_MODE_BACK_BIT;
+            bool            blendEnable = false;
+            bool            depthWrite  = true;
+            bool operator==(const MaterialPipelineVariantKey& o) const {
+                return fragSpvHash == o.fragSpvHash && cullMode == o.cullMode &&
+                       blendEnable == o.blendEnable && depthWrite == o.depthWrite;
+            }
+        };
+        struct MaterialPipelineVariantKeyHash {
+            size_t operator()(const MaterialPipelineVariantKey& k) const {
+                size_t h = std::hash<uint64_t>{}(k.fragSpvHash);
+                h ^= std::hash<uint32_t>{}(static_cast<uint32_t>(k.cullMode)) + 0x9e3779b9u + (h << 6) + (h >> 2);
+                h ^= std::hash<bool>{}(k.blendEnable) + 0x9e3779b9u + (h << 6) + (h >> 2);
+                h ^= std::hash<bool>{}(k.depthWrite)  + 0x9e3779b9u + (h << 6) + (h >> 2);
+                return h;
+            }
+        };
+        std::vector<std::unique_ptr<Phantom::VKG::VulkanPipeline>> materialPipelineVariantPool_;
+        std::unordered_map<MaterialPipelineVariantKey, Phantom::VKG::VulkanPipeline*, MaterialPipelineVariantKeyHash>
+            materialPipelineVariantIndex_;
+
+        // Phase 4C item 5 ("pipeline cache"): a real VkPipelineCache passed to every override
+        // pipeline's vkCreateGraphicsPipelines() call (see PipelineConfig::pipelineCache) -- always
+        // created in onInit() (in-process reuse is free/always-on), optionally persisted to disk
+        // under materialPipelineCacheDir_ at onCleanup() if that was set via
+        // setMaterialShaderCacheDir() before onInit(). Distinct from PhmatCompiler.h's own SPIR-V
+        // disk cache: that one skips invoking glslc at all on a hit, this one only helps the
+        // driver's own SPIR-V -> native-ISA compile step, which still runs once per distinct
+        // shader/state combination even on a glslc cache hit.
+        VkPipelineCache materialPipelineCache_ = VK_NULL_HANDLE;
+        std::string      materialPipelineCacheDir_; // see setMaterialShaderCacheDir()
+        void createMaterialPipelineCache(VkDevice device);
+        void destroyMaterialPipelineCache(VkDevice device); // persists to disk first if materialPipelineCacheDir_ is set
 
         // Shared fallback 2D texture (1x1 white) — also used as brdfLUT fallback
         VkImage        fallbackImage_ = VK_NULL_HANDLE;

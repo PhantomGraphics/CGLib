@@ -702,6 +702,7 @@ std::vector<PhmatDiagnostic> rewriteCompileErrorLog(const std::string& errorLog,
 PhmatLoadResult loadPhmatMaterial(const std::string& phmatPath, const std::string& cacheDir)
 {
     PhmatLoadResult result;
+    result.dependencyPaths.push_back(phmatPath);
 
     std::ifstream in(phmatPath, std::ios::binary);
     if (!in) {
@@ -727,9 +728,12 @@ PhmatLoadResult loadPhmatMaterial(const std::string& phmatPath, const std::strin
     bool phshadersOk = true;
     for (const auto& n : graph.nodes) {
         if (n.type != NodeType::Custom) continue;
+        const std::string resolvedPath = (baseDir / n.customPhshaderPath).string();
+        if (std::find(result.dependencyPaths.begin(), result.dependencyPaths.end(), resolvedPath) == result.dependencyPaths.end())
+            result.dependencyPaths.push_back(resolvedPath);
         PhshaderSource src;
         std::string err;
-        if (!loadPhshaderFile((baseDir / n.customPhshaderPath).string(), src, err)) {
+        if (!loadPhshaderFile(resolvedPath, src, err)) {
             result.diagnostics.push_back({PhmatDiagnostic::Severity::Error, n.id, "\"" + n.customPhshaderPath + "\": " + err});
             phshadersOk = false;
             continue;

@@ -69,6 +69,14 @@ struct PipelineConfig {
 
     /// @brief Push constant ranges exposed through the pipeline layout. Defaults to empty.
     std::vector<VkPushConstantRange> pushConstantRanges;
+
+    /// @brief Optional VkPipelineCache passed to vkCreateGraphicsPipelines(). VK_NULL_HANDLE
+    ///        (the default) matches every pre-existing call site's behavior unchanged -- a caller
+    ///        that creates many pipelines sharing the same shader/state combinations (e.g.
+    ///        CGLib/GltfRenderer/Renderer/GltfSceneRenderer.cpp's `.phmat` material overrides) can
+    ///        pass its own persistent cache here to let the driver skip re-doing identical
+    ///        compilation work, in-process or (if the cache's data was loaded from disk) across runs.
+    VkPipelineCache pipelineCache = VK_NULL_HANDLE;
 };
 
 /// @brief Creates and owns a VkPipeline together with its VkPipelineLayout.

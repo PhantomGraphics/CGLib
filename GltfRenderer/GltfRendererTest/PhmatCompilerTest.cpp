@@ -139,6 +139,12 @@ TEST(PhmatCompilerTest, LoadPhmatMaterialReportsParseErrorsWithoutInvokingGlslc)
     EXPECT_FALSE(result.success);
     EXPECT_TRUE(result.fragSpirv.empty());
     EXPECT_FALSE(result.diagnostics.empty());
+
+    // Phase 4C item 5 ("hot reload"): dependencyPaths must at least name the .phmat file itself
+    // even when it never got far enough to discover any .phshader references, so a caller
+    // watching for edits still notices a fix to this exact file.
+    ASSERT_EQ(result.dependencyPaths.size(), 1u);
+    EXPECT_EQ(result.dependencyPaths[0], phmatPath.string());
 }
 
 // ============================================================
@@ -262,6 +268,49 @@ TEST(PhmatCompilerTest, LoadPhmatMaterialCompilesCustomNodeEndToEndWhenGlslcAvai
     ASSERT_TRUE(result.success) << (result.diagnostics.empty() ? "" : result.diagnostics[0].message);
     EXPECT_FALSE(result.fragSpirv.empty());
     EXPECT_EQ(result.fragSpirv.front(), 0x07230203u);
+
+    // Phase 4C item 5 ("hot reload"): the .phmat itself plus the one .phshader it referenced,
+    // resolved relative to the .phmat's own directory (loadPhmatMaterial()'s existing convention).
+    const auto expectedPhshaderPath = (phmatPath.parent_path() / "phmat_compiler_test_tint.phshader").string();
+    ASSERT_EQ(result.dependencyPaths.size(), 2u);
+    EXPECT_EQ(result.dependencyPaths[0], phmatPath.string());
+    EXPECT_EQ(result.dependencyPaths[1], expectedPhshaderPath);
+}
+
+TEST(PhmatCompilerTest, LoadPhmatMaterialDependencyPathsDeduplicateASharedPhshaderWhenGlslcAvailable) {
+    std::string glslcPath;
+    if (!findGlslcPath(glslcPath)) {
+        GTEST_SKIP() << "glslc not found (VULKAN_SDK not set); skipping end-to-end compile test";
+    }
+
+    const char* phshaderJson = R"JSON(
+    { "version": 1, "functionName": "identityFn", "output": "float",
+      "inputs": [ { "name": "x", "type": "float" } ], "body": "return x;" })JSON";
+    writeTempFile("phmat_compiler_test_shared.phshader", phshaderJson);
+
+    // Two distinct Custom nodes both reference the same .phshader file.
+    const char* phmatJson = R"JSON(
+    { "version": 1, "output": "out", "nodes": [
+        { "id": "bc", "type": "constant", "value": [1.0, 1.0, 1.0, 1.0] },
+        { "id": "a",  "type": "constant", "value": 0.5 },
+        { "id": "b",  "type": "constant", "value": 0.6 },
+        { "id": "m1", "type": "custom", "phshader": "phmat_compiler_test_shared.phshader", "output": "float",
+          "inputs": [ { "id": "a", "type": "float" } ] },
+        { "id": "m2", "type": "custom", "phshader": "phmat_compiler_test_shared.phshader", "output": "float",
+          "inputs": [ { "id": "b", "type": "float" } ] },
+        { "id": "out", "type": "pbrOutput", "baseColor": "bc", "metallic": "m1", "roughness": "m2" }
+    ] })JSON";
+    const auto phmatPath = writeTempFile("phmat_compiler_test_shared.phmat", phmatJson);
+    const auto cacheDir  = std::filesystem::temp_directory_path() / "phmat_compiler_test_cache_shared";
+
+    PhmatLoadResult result = loadPhmatMaterial(phmatPath.string(), cacheDir.string());
+    ASSERT_TRUE(result.success) << (result.diagnostics.empty() ? "" : result.diagnostics[0].message);
+
+    // Exactly 2 -- the .phmat itself and the one shared .phshader, not 3 (once per referencing node).
+    const auto expectedPhshaderPath = (phmatPath.parent_path() / "phmat_compiler_test_shared.phshader").string();
+    ASSERT_EQ(result.dependencyPaths.size(), 2u);
+    EXPECT_EQ(result.dependencyPaths[0], phmatPath.string());
+    EXPECT_EQ(result.dependencyPaths[1], expectedPhshaderPath);
 }
 
 TEST(PhmatCompilerTest, LoadPhmatMaterialRejectsIllegalDescriptorBindingViaReflectionWhenGlslcAvailable) {

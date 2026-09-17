@@ -94,6 +94,15 @@ struct PhmatLoadResult {
     bool                         success = false;
     std::vector<uint32_t>        fragSpirv;   // valid only if success
     std::vector<PhmatDiagnostic> diagnostics; // parse/validate/compile errors, whichever stage failed
+    // Every file this load actually read from disk: phmatPath itself plus each distinct
+    // (baseDir-resolved) ".phshader" path a Custom node referenced -- populated even when
+    // success is false, up through whichever stage got far enough to know about them (a
+    // .phshader that itself failed to load is still included, since editing it and retrying is
+    // exactly the scenario a caller doing hot-reload watching (Phase 4C item 5) cares about).
+    // A caller that watches these paths' mtimes and re-calls loadPhmatMaterial() on change gets a
+    // simple file-watching hot-reload without needing to separately track a graph's own
+    // dependency structure itself.
+    std::vector<std::string>    dependencyPaths;
 };
 
 // Top-level entry point a consumer (e.g. GltfViewer::App) calls: reads phmatPath from disk,
