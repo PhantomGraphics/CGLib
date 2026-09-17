@@ -40,6 +40,7 @@ if(PHANTOM_GTEST_FOUND)
     add_executable(SceneRuntimeTest
         ${SCENERUNTIME_ROOT}/SceneRuntimeTest/TransformTest.cpp
         ${SCENERUNTIME_ROOT}/SceneRuntimeTest/SceneGraphTest.cpp
+        ${SCENERUNTIME_ROOT}/SceneRuntimeTest/ComponentSchemaRegistryTest.cpp
     )
     target_link_libraries(SceneRuntimeTest PRIVATE
         SceneRuntimeCore
