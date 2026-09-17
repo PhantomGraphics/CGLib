@@ -1,0 +1,29 @@
+{
+  "name": "phmat_custom_node",
+  "steps": [
+    { "label": "Load pbr_basic.gltf",
+      "command": "LoadFile:scenarios/models/pbr_basic.gltf",
+      "expect_prefix": "OK:" },
+    { "label": "MaterialCount = 1", "command": "GetMaterialCount", "expect": "MaterialCount:1" },
+
+    { "label": "No override by default", "command": "GetHasPhmatOverride:0", "expect": "Val:0" },
+    { "label": "Baseline screenshot (default PBR shader)",
+      "command": "SaveScreenshot:scenarios/screenshots/phmat_custom_before.png", "expect_prefix": "OK:" },
+
+    { "label": "A custom node whose .phshader declares an illegal descriptor binding is rejected by SPIR-V reflection, no pipeline swap",
+      "command": "LoadPhmat:0,scenarios/materials/custom_node_illegal.phmat", "expect_prefix": "Error:" },
+    { "label": "Still no override after the reflection-rejected graph", "command": "GetHasPhmatOverride:0", "expect": "Val:0" },
+    { "label": "App survived the failed compile", "command": "GetStatus", "expect": "OK" },
+
+    { "label": "Apply the custom-node (.phshader) green-tint graph to material 0",
+      "command": "LoadPhmat:0,scenarios/materials/custom_node_tint.phmat", "expect": "OK" },
+    { "label": "Override now reports present", "command": "GetHasPhmatOverride:0", "expect": "Val:1" },
+    { "label": "Screenshot with the custom-node .phmat override applied (visibly green-tinted vs. baseline)",
+      "command": "SaveScreenshot:scenarios/screenshots/phmat_custom_after.png", "expect_prefix": "OK:" },
+
+    { "label": "Clear the override", "command": "ClearPhmat:0", "expect": "OK" },
+    { "label": "Override is gone", "command": "GetHasPhmatOverride:0", "expect": "Val:0" },
+    { "label": "Screenshot back to the default PBR shader",
+      "command": "SaveScreenshot:scenarios/screenshots/phmat_custom_cleared.png", "expect_prefix": "OK:" }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "output": "out",
+  "nodes": [
+    { "id": "bc",  "type": "constant", "value": [1.0, 1.0, 1.0, 1.0] },
+    { "id": "bad", "type": "custom", "phshader": "custom_illegal.phshader", "output": "float", "inputs": [] },
+    { "id": "out", "type": "pbrOutput", "baseColor": "bc", "metallic": "bad", "roughness": "bad" }
+  ]
+}

@@ -1,7 +1,11 @@
 #include "PhmatCompiler.h"
 
+#include "PhmatReflection.h"
+#include "json.hpp"
+
 #include "../../../CGLib/VulkanGraphics/VulkanSPVLoader.h"
 
+#include <algorithm>
 #include <cctype>
 #include <cstdio>
 #include <cstdlib>
@@ -13,6 +17,8 @@
 namespace Phantom::Gltf::Phmat
 {
 namespace {
+
+using Json = nlohmann::json;
 
 // Everything CGLib/GltfViewer/shaders/gltf.frag declares before its own `void main()` --
 // set=0 global resources, vertex-stage inputs/outputs, and the Cook-Torrance/shadow helper
@@ -234,6 +240,18 @@ std::string mathExpr(MathOp op, const std::string& a, const std::string& b)
     return a;
 }
 
+// Mirrors PhmatGraph.cpp's file-local parseValueTypeName() -- duplicated rather than shared
+// through a header since it is a trivial string<->enum mapping local to each parser (PhmatGraph.cpp
+// for ".phmat" node fields, this file for ".phshader" fields).
+bool parseValueTypeName(const std::string& s, ValueType& out)
+{
+    if (s == "float") { out = ValueType::Float; return true; }
+    if (s == "vec2")  { out = ValueType::Vec2;  return true; }
+    if (s == "vec3")  { out = ValueType::Vec3;  return true; }
+    if (s == "vec4")  { out = ValueType::Vec4;  return true; }
+    return false;
+}
+
 uint64_t fnv1a64(const std::string& s)
 {
     uint64_t h = 14695981039346656037ull;
@@ -246,10 +264,38 @@ uint64_t fnv1a64(const std::string& s)
 
 } // namespace
 
+namespace {
+
+// Returns the .phshader source registered for a Custom node's id, and whether its own declared
+// signature actually matches what the node itself declares (PhmatGraph.h's comment on why Custom
+// nodes redundantly declare customInputTypes/customOutputType explains why this cross-check has
+// to happen here, at compile time, rather than in PhmatGraph.cpp's filesystem-free validate step).
+bool findMatchingPhshader(const PhmatNode& n, const std::unordered_map<std::string, PhshaderSource>& phshaders,
+                           const PhshaderSource** outSrc)
+{
+    *outSrc = nullptr;
+    auto it = phshaders.find(n.id);
+    if (it == phshaders.end()) return false;
+    const PhshaderSource& src = it->second;
+    if (src.outputType != n.customOutputType) return false;
+    if (src.inputs.size() != n.customInputTypes.size()) return false;
+    for (size_t k = 0; k < src.inputs.size(); ++k) {
+        if (src.inputs[k].type != n.customInputTypes[k]) return false;
+    }
+    *outSrc = &src;
+    return true;
+}
+
+} // namespace
+
 bool compileGraphToGlsl(const PhmatGraph& graph, const std::vector<std::string>& topoOrder,
-                         std::string& outGlsl, std::vector<PhmatDiagnostic>& outDiagnostics)
+                         const std::unordered_map<std::string, PhshaderSource>& phshaders,
+                         std::string& outGlsl, std::vector<PhshaderSplice>& outSplices,
+                         std::vector<PhmatDiagnostic>& outDiagnostics)
 {
     outGlsl.clear();
+    outSplices.clear();
+    bool ok = true;
 
     std::unordered_map<std::string, const PhmatNode*> byId;
     for (const auto& n : graph.nodes) byId[n.id] = &n;
@@ -260,9 +306,72 @@ bool compileGraphToGlsl(const PhmatGraph& graph, const std::vector<std::string>&
         return false;
     }
 
-    // Recomputes each node's output type in topological order -- mirrors PhmatGraph.cpp's
-    // validateAndSort(), which this function assumes already ran successfully (so no type
-    // mismatch is expected to actually occur here).
+    // --- Pass 1: emit Custom-node function declarations, "before main()" ----------------------
+    // A shared .phshader (same functionName referenced by more than one Custom node) is only
+    // emitted once; every referencing node still gets its own outSplices entry, all pointing at
+    // that one shared line range.
+    std::string functionsText;
+    {
+        const std::string headerText(kGltfPbrHeader);
+        int line = 2 + static_cast<int>(std::count(headerText.begin(), headerText.end(), '\n'));
+        auto append = [&](const std::string& text) {
+            functionsText += text;
+            line += static_cast<int>(std::count(text.begin(), text.end(), '\n'));
+        };
+
+        struct FunctionLineRange { std::string phshaderPath; int firstBodyLine; int lastBodyLine; };
+        std::unordered_map<std::string, FunctionLineRange> functionLineRange; // functionName -> range
+        for (const auto& id : topoOrder) {
+            auto it = byId.find(id);
+            if (it == byId.end()) continue; // reported as a diagnostic in pass 2 below
+            const PhmatNode& n = *it->second;
+            if (n.type != NodeType::Custom) continue;
+
+            const PhshaderSource* src = nullptr;
+            if (!findMatchingPhshader(n, phshaders, &src)) continue; // reported as a diagnostic in pass 2 below
+            if (functionLineRange.count(src->functionName)) continue; // shared .phshader, function already emitted
+
+            if (!src->helpers.empty()) {
+                append(src->helpers);
+                if (functionsText.back() != '\n') append("\n");
+            }
+
+            std::string sig = std::string(typeKeyword(src->outputType)) + " " + src->functionName + "(";
+            for (size_t k = 0; k < src->inputs.size(); ++k) {
+                if (k) sig += ", ";
+                sig += std::string(typeKeyword(src->inputs[k].type)) + " " + src->inputs[k].name;
+            }
+            sig += ") {\n";
+            append(sig);
+
+            const int firstBodyLine = line;
+            const int lastBodyLine = line + static_cast<int>(std::count(src->body.begin(), src->body.end(), '\n'));
+            functionLineRange[src->functionName] = { n.customPhshaderPath, firstBodyLine, lastBodyLine };
+
+            append(src->body);
+            if (src->body.empty() || src->body.back() != '\n') append("\n");
+            append("}\n\n");
+        }
+
+        for (const auto& id : topoOrder) {
+            auto it = byId.find(id);
+            if (it == byId.end()) continue;
+            const PhmatNode& n = *it->second;
+            if (n.type != NodeType::Custom) continue;
+            const PhshaderSource* src = nullptr;
+            if (!findMatchingPhshader(n, phshaders, &src)) continue;
+            auto rangeIt = functionLineRange.find(src->functionName);
+            if (rangeIt == functionLineRange.end()) continue;
+            outSplices.push_back(PhshaderSplice{ id, rangeIt->second.phshaderPath,
+                                                  rangeIt->second.firstBodyLine, rangeIt->second.lastBodyLine });
+        }
+    }
+
+    // --- Pass 2: main() body, in topological order ---------------------------------------------
+    // Recomputes each node's output type -- mirrors PhmatGraph.cpp's validateAndSort(), which this
+    // function assumes already ran successfully (so a type mismatch here is not expected other
+    // than the Custom-node/.phshader signature cross-check below, which validateAndSort() cannot
+    // perform itself since it never touches the filesystem).
     std::unordered_map<std::string, ValueType> types;
     auto typeOf = [&](const std::string& id) { return types.at(id); };
 
@@ -311,11 +420,33 @@ bool compileGraphToGlsl(const PhmatGraph& graph, const std::vector<std::string>&
             body += "    " + std::string(typeKeyword(types[id])) + " " + var + " = " +
                     mathExpr(n.mathOp, glslVarName(n.mathA), glslVarName(n.mathB)) + ";\n";
             break;
+        case NodeType::Custom: {
+            types[id] = n.customOutputType;
+            const PhshaderSource* src = nullptr;
+            if (!findMatchingPhshader(n, phshaders, &src)) {
+                outDiagnostics.push_back({PhmatDiagnostic::Severity::Error, id,
+                    "\"" + n.customPhshaderPath + "\" is missing, or does not declare the inputs/output this node expects"});
+                ok = false;
+                body += "    " + std::string(typeKeyword(n.customOutputType)) + " " + var + " = " +
+                        typeKeyword(n.customOutputType) + "(0.0);\n";
+                break;
+            }
+            std::string call = src->functionName + "(";
+            for (size_t k = 0; k < n.customInputs.size(); ++k) {
+                if (k) call += ", ";
+                call += glslVarName(n.customInputs[k]);
+            }
+            call += ")";
+            body += "    " + std::string(typeKeyword(n.customOutputType)) + " " + var + " = " + call + ";\n";
+            break;
+        }
         case NodeType::PbrOutput:
             types[id] = ValueType::Vec4;
             break; // terminal -- consumed below, not declared as its own local
         }
     }
+
+    if (!ok) return false;
 
     const PhmatNode& outNode = *byId.at(graph.outputNode);
     const std::string baseColorExpr = glslVarName(outNode.pbrBaseColor);
@@ -326,7 +457,7 @@ bool compileGraphToGlsl(const PhmatGraph& graph, const std::vector<std::string>&
     const std::string emissiveExpr  = outNode.pbrEmissive.empty()  ? std::string("vec3(0.0)")              : glslVarName(outNode.pbrEmissive);
     const std::string alphaExpr     = outNode.pbrAlpha.empty()     ? std::string("baseColor.a")            : glslVarName(outNode.pbrAlpha);
 
-    outGlsl = std::string(kGltfPbrHeader) + "\nvoid main() {\n" + body +
+    outGlsl = std::string(kGltfPbrHeader) + "\n" + functionsText + "void main() {\n" + body +
         "\n    vec4 baseColor = " + baseColorExpr + ";\n" +
         "    float alpha = " + alphaExpr + ";\n" +
         "    if (alpha < 0.01) discard;\n\n" +
@@ -340,6 +471,89 @@ bool compileGraphToGlsl(const PhmatGraph& graph, const std::vector<std::string>&
         std::string(kLightingTail2);
 
     return true;
+}
+
+bool parsePhshader(const std::string& jsonText, PhshaderSource& out, std::string& outError)
+{
+    out = PhshaderSource{};
+
+    Json root = Json::parse(jsonText, nullptr, /*allow_exceptions=*/false);
+    if (root.is_discarded() || !root.is_object()) {
+        outError = "malformed JSON document";
+        return false;
+    }
+
+    out.version = root.value("version", 0);
+    if (out.version != 1) {
+        outError = "unsupported .phshader version (only version 1 is recognized)";
+        return false;
+    }
+
+    out.functionName = root.value("functionName", "");
+    if (out.functionName.empty() ||
+        std::isdigit(static_cast<unsigned char>(out.functionName.front()))) {
+        outError = "\"functionName\" must be a non-empty GLSL identifier not starting with a digit";
+        return false;
+    }
+    for (char c : out.functionName) {
+        if (!(std::isalnum(static_cast<unsigned char>(c)) || c == '_')) {
+            outError = "\"functionName\" must only contain letters, digits, and underscores";
+            return false;
+        }
+    }
+
+    if (!root.contains("output") || !root["output"].is_string() ||
+        !parseValueTypeName(root.value("output", ""), out.outputType)) {
+        outError = "missing/invalid \"output\" type (float/vec2/vec3/vec4)";
+        return false;
+    }
+
+    if (root.contains("inputs")) {
+        if (!root["inputs"].is_array()) {
+            outError = "\"inputs\" must be an array";
+            return false;
+        }
+        for (const Json& j : root["inputs"]) {
+            if (!j.is_object() || !j.contains("name") || !j["name"].is_string() ||
+                !j.contains("type") || !j["type"].is_string()) {
+                outError = "each \"inputs\" entry needs a string \"name\" and \"type\"";
+                return false;
+            }
+            PhshaderInput in;
+            in.name = j.value("name", "");
+            if (in.name.empty() ||
+                !(std::isalpha(static_cast<unsigned char>(in.name.front())) || in.name.front() == '_')) {
+                outError = "each \"inputs\" entry's \"name\" must be a valid GLSL identifier";
+                return false;
+            }
+            if (!parseValueTypeName(j.value("type", ""), in.type)) {
+                outError = "each \"inputs\" entry's \"type\" must be float/vec2/vec3/vec4";
+                return false;
+            }
+            out.inputs.push_back(std::move(in));
+        }
+    }
+
+    out.helpers = root.value("helpers", "");
+    out.body = root.value("body", "");
+    if (out.body.empty()) {
+        outError = "missing/empty \"body\"";
+        return false;
+    }
+
+    return true;
+}
+
+bool loadPhshaderFile(const std::string& phshaderPath, PhshaderSource& out, std::string& outError)
+{
+    std::ifstream in(phshaderPath, std::ios::binary);
+    if (!in) {
+        outError = "cannot open .phshader file: " + phshaderPath;
+        return false;
+    }
+    std::ostringstream ss;
+    ss << in.rdbuf();
+    return parsePhshader(ss.str(), out, outError);
 }
 
 bool findGlslcPath(std::string& outPath)
@@ -432,6 +646,59 @@ bool compileGlslToSpirv(const std::string& glslSource, const std::string& cacheD
     return !outSpirv.empty();
 }
 
+namespace {
+
+// Rewrites glslc's error log (plain text, one diagnostic per line shaped like
+// "<path>:<line>: error: <message>" -- see compileGlslToSpirv()'s fragPath) into PhmatDiagnostics.
+// A line whose number falls inside a PhshaderSplice's body range is attributed to that node's own
+// .phshader file, with the line number rewritten to be relative to that file's own "body" field
+// (plan item 4 "error位置を表示する") instead of the generated shader's line number, which a
+// .phmat/.phshader author never sees. Anything glslc emits that isn't itself a "<path>:<line>:
+// (error|warning):" line (e.g. a trailing "N error(s) generated." summary) is dropped -- it adds
+// no location information beyond what the per-diagnostic lines already carried.
+std::vector<PhmatDiagnostic> rewriteCompileErrorLog(const std::string& errorLog, const std::vector<PhshaderSplice>& splices)
+{
+    std::vector<PhmatDiagnostic> diags;
+    std::istringstream lines(errorLog);
+    std::string line;
+    while (std::getline(lines, line)) {
+        if (line.empty()) continue;
+
+        PhmatDiagnostic::Severity sev = PhmatDiagnostic::Severity::Error;
+        size_t markerPos = line.find(": error:");
+        if (markerPos == std::string::npos) {
+            markerPos = line.find(": warning:");
+            sev = PhmatDiagnostic::Severity::Warning;
+        }
+        if (markerPos == std::string::npos) continue; // not a per-diagnostic line (e.g. a summary count)
+
+        size_t numStart = markerPos;
+        while (numStart > 0 && std::isdigit(static_cast<unsigned char>(line[numStart - 1]))) --numStart;
+        if (numStart == markerPos || numStart == 0 || line[numStart - 1] != ':') continue; // unexpected shape -- skip rather than misreport
+
+        const int generatedLine = std::atoi(line.substr(numStart, markerPos - numStart).c_str());
+        const std::string message = line.substr(markerPos + 2); // skip the leading ": "
+
+        const PhshaderSplice* hit = nullptr;
+        for (const auto& sp : splices) {
+            if (generatedLine >= sp.firstBodyLineInGenerated && generatedLine <= sp.lastBodyLineInGenerated) {
+                hit = &sp;
+                break;
+            }
+        }
+        if (hit) {
+            const int localLine = generatedLine - hit->firstBodyLineInGenerated + 1;
+            diags.push_back({sev, hit->nodeId, hit->phshaderPath + ":" + std::to_string(localLine) + ": " + message});
+        } else {
+            diags.push_back({sev, "", "generated shader:" + std::to_string(generatedLine) + ": " + message});
+        }
+    }
+    if (diags.empty()) diags.push_back({PhmatDiagnostic::Severity::Error, "", "glslc compile failed: " + errorLog});
+    return diags;
+}
+
+} // namespace
+
 PhmatLoadResult loadPhmatMaterial(const std::string& phmatPath, const std::string& cacheDir)
 {
     PhmatLoadResult result;
@@ -451,14 +718,53 @@ PhmatLoadResult loadPhmatMaterial(const std::string& phmatPath, const std::strin
     std::vector<std::string> topoOrder;
     if (!validateAndSort(graph, topoOrder, result.diagnostics)) return result;
 
+    // Load every Custom node's ".phshader" file, resolved relative to phmatPath's own directory
+    // (mirrors how the rest of this codebase resolves asset-relative paths against the referencing
+    // file/project rather than embedding absolute paths).
+    namespace fs = std::filesystem;
+    const fs::path baseDir = fs::path(phmatPath).parent_path();
+    std::unordered_map<std::string, PhshaderSource> phshaders;
+    bool phshadersOk = true;
+    for (const auto& n : graph.nodes) {
+        if (n.type != NodeType::Custom) continue;
+        PhshaderSource src;
+        std::string err;
+        if (!loadPhshaderFile((baseDir / n.customPhshaderPath).string(), src, err)) {
+            result.diagnostics.push_back({PhmatDiagnostic::Severity::Error, n.id, "\"" + n.customPhshaderPath + "\": " + err});
+            phshadersOk = false;
+            continue;
+        }
+        phshaders.emplace(n.id, std::move(src));
+    }
+    if (!phshadersOk) return result;
+
     std::string glsl;
-    if (!compileGraphToGlsl(graph, topoOrder, glsl, result.diagnostics)) return result;
+    std::vector<PhshaderSplice> splices;
+    if (!compileGraphToGlsl(graph, topoOrder, phshaders, glsl, splices, result.diagnostics)) return result;
 
     std::string errorLog;
     if (!compileGlslToSpirv(glsl, cacheDir, result.fragSpirv, errorLog)) {
-        result.diagnostics.push_back({PhmatDiagnostic::Severity::Error, "", "glslc compile failed: " + errorLog});
+        auto rewritten = rewriteCompileErrorLog(errorLog, splices);
+        result.diagnostics.insert(result.diagnostics.end(), rewritten.begin(), rewritten.end());
         result.fragSpirv.clear();
         return result;
+    }
+
+    // Reflect the actually-compiled SPIR-V (plan item 4 "descriptor/push constantをreflectionで
+    // 検証する") -- a Custom node's .phshader body could otherwise declare a resource binding or
+    // push constant GltfSceneRenderer's fixed material pipeline layout does not provide, which
+    // would only surface much later as a Vulkan validation error (or worse) at pipeline-creation
+    // time. reflectSpirv() returning false here would mean glslc produced something that does not
+    // even start with the SPIR-V magic number -- a glslc/loadSPV bug, not a shader authoring
+    // mistake -- so that case is deliberately not treated as a load failure.
+    PhmatReflectionResult reflection;
+    if (reflectSpirv(result.fragSpirv, reflection)) {
+        std::vector<std::string> violations;
+        if (!validateReflection(reflection, violations)) {
+            for (const auto& v : violations) result.diagnostics.push_back({PhmatDiagnostic::Severity::Error, "", v});
+            result.fragSpirv.clear();
+            return result;
+        }
     }
 
     result.success = true;

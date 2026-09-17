@@ -54,6 +54,18 @@ bool parseMathOp(const std::string& s, MathOp& out)
     return false;
 }
 
+// Shared with PhmatCompiler.cpp's ".phshader" JSON parsing (a separate translation unit -- this
+// small string<->enum mapping is duplicated there rather than shared through a header, matching
+// parseTextureSlot()/parseMathOp() above already being file-local rather than exported).
+bool parseValueTypeName(const std::string& s, ValueType& out)
+{
+    if (s == "float") { out = ValueType::Float; return true; }
+    if (s == "vec2")  { out = ValueType::Vec2;  return true; }
+    if (s == "vec3")  { out = ValueType::Vec3;  return true; }
+    if (s == "vec4")  { out = ValueType::Vec4;  return true; }
+    return false;
+}
+
 void addError(std::vector<PhmatDiagnostic>& diags, const std::string& nodeId, std::string msg)
 {
     diags.push_back(PhmatDiagnostic{ PhmatDiagnostic::Severity::Error, nodeId, std::move(msg) });
@@ -76,6 +88,9 @@ std::vector<std::string> inputsOf(const PhmatNode& n)
         break;
     case NodeType::Math:
         refs = { n.mathA, n.mathB };
+        break;
+    case NodeType::Custom:
+        refs = n.customInputs;
         break;
     case NodeType::PbrOutput:
         refs = { n.pbrBaseColor, n.pbrMetallic, n.pbrRoughness };
@@ -167,6 +182,38 @@ bool parsePhmatGraph(const std::string& jsonText, PhmatGraph& outGraph,
                 !j.contains("op") || !j["op"].is_string() || !parseMathOp(j.value("op", ""), node.mathOp)) {
                 addError(outDiagnostics, node.id, "math node needs \"a\", \"b\" node id references and an \"op\" of add/subtract/multiply/divide/min/max");
                 ok = false;
+            }
+        } else if (typeStr == "custom") {
+            node.type = NodeType::Custom;
+            node.customPhshaderPath = j.value("phshader", "");
+            if (node.customPhshaderPath.empty()) {
+                addError(outDiagnostics, node.id, "custom node needs a \"phshader\" path");
+                ok = false;
+            }
+            if (!j.contains("output") || !j["output"].is_string() ||
+                !parseValueTypeName(j.value("output", ""), node.customOutputType)) {
+                addError(outDiagnostics, node.id, "custom node needs an \"output\" type of float/vec2/vec3/vec4");
+                ok = false;
+            }
+            if (j.contains("inputs")) {
+                if (!j["inputs"].is_array()) {
+                    addError(outDiagnostics, node.id, "custom node's \"inputs\" must be an array");
+                    ok = false;
+                } else {
+                    for (const Json& in : j["inputs"]) {
+                        ValueType t;
+                        if (!in.is_object() || !in.contains("id") || !in["id"].is_string() ||
+                            !in.contains("type") || !in["type"].is_string() ||
+                            !parseValueTypeName(in.value("type", ""), t)) {
+                            addError(outDiagnostics, node.id,
+                                "each custom node \"inputs\" entry needs a string \"id\" (node reference) and a \"type\" of float/vec2/vec3/vec4");
+                            ok = false;
+                            continue;
+                        }
+                        node.customInputs.push_back(in.value("id", ""));
+                        node.customInputTypes.push_back(t);
+                    }
+                }
             }
         } else if (typeStr == "pbrOutput") {
             node.type = NodeType::PbrOutput;
@@ -307,6 +354,16 @@ bool validateAndSort(const PhmatGraph& graph, std::vector<std::string>& outTopoO
                 ok = false;
             }
             types[id] = typeOf(n.mathA);
+            break;
+        case NodeType::Custom:
+            for (size_t k = 0; k < n.customInputs.size(); ++k) {
+                if (typeOf(n.customInputs[k]) != n.customInputTypes[k]) {
+                    addError(outDiagnostics, id,
+                        "custom node input #" + std::to_string(k) + " (\"" + n.customInputs[k] + "\") does not match its declared type");
+                    ok = false;
+                }
+            }
+            types[id] = n.customOutputType;
             break;
         case NodeType::PbrOutput: {
             auto expect = [&](const std::string& ref, ValueType want, const char* field) {

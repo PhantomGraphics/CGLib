@@ -22,7 +22,7 @@ namespace Phantom::Gltf::Phmat
 
 enum class ValueType { Float, Vec2, Vec3, Vec4 };
 
-enum class NodeType { Constant, TextureSlot, Uv, NormalMap, Mix, Math, PbrOutput };
+enum class NodeType { Constant, TextureSlot, Uv, NormalMap, Mix, Math, Custom, PbrOutput };
 
 // Mirrors GltfGpuMaterial::TEXTURE_SLOT_COUNT's 5 fixed slots (GltfMaterial.h) -- a `.phmat`
 // graph drives how these already-bound textures are combined, it does not introduce new texture
@@ -66,6 +66,20 @@ struct PhmatNode {
     // Math: elementwise binary op over `mathA`/`mathB` (must share the same ValueType).
     MathOp      mathOp = MathOp::Add;
     std::string mathA, mathB;
+
+    // Custom: calls a GLSL function defined in a separate ".phshader" file (PhmatCompiler.h,
+    // plan item 4 "custom GLSLは`.phshader`参照として別管理する"). Unlike every other node type,
+    // a Custom node's input/output types cannot be derived structurally -- the actual .phshader
+    // file is only read later, at compile time (PhmatCompiler.h's loadPhmatMaterial(), which stays
+    // the one place in this pipeline that touches the filesystem for a graph's own nodes). So the
+    // node declares its own signature redundantly here, in customInputTypes/customOutputType, so
+    // parsePhmatGraph()/validateAndSort() can still type-check purely from the graph's own JSON --
+    // PhmatCompiler.cpp cross-checks these declared types against the .phshader file's own
+    // declared signature at compile time and raises a diagnostic on any mismatch.
+    std::string              customPhshaderPath; // .phmat-file-relative path to the .phshader
+    std::vector<std::string> customInputs;       // node id references, positional
+    std::vector<ValueType>   customInputTypes;   // customInputTypes[i] is customInputs[i]'s required type
+    ValueType                customOutputType = ValueType::Float;
 
     // PbrOutput: the graph's terminal node (referenced by PhmatGraph::outputNode). baseColor/
     // metallic/roughness are required; normal/occlusion/emissive/alpha are optional (empty

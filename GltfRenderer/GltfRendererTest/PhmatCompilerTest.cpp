@@ -2,9 +2,12 @@
 
 #include "../Phmat/PhmatCompiler.h"
 #include "../Phmat/PhmatGraph.h"
+#include "../Phmat/PhmatReflection.h"
 
 #include <filesystem>
 #include <fstream>
+#include <sstream>
+#include <unordered_map>
 
 using namespace Phantom::Gltf::Phmat;
 
@@ -51,8 +54,10 @@ TEST(PhmatCompilerTest, GeneratesGlslWithExpectedShape) {
     ASSERT_TRUE(validateAndSort(graph, order, diags));
 
     std::string glsl;
+    std::vector<PhshaderSplice> splices;
     diags.clear();
-    ASSERT_TRUE(compileGraphToGlsl(graph, order, glsl, diags)) << (diags.empty() ? "" : diags[0].message);
+    ASSERT_TRUE(compileGraphToGlsl(graph, order, {}, glsl, splices, diags)) << (diags.empty() ? "" : diags[0].message);
+    EXPECT_TRUE(splices.empty()); // no Custom nodes in this fixture
 
     // Header: same descriptor/vertex-input interface as gltf.frag, minus MaterialUBO.
     EXPECT_NE(glsl.find("#version 450"), std::string::npos);
@@ -92,8 +97,9 @@ TEST(PhmatCompilerTest, DefaultsForOptionalPbrOutputFieldsMatchFixedShader) {
     ASSERT_TRUE(validateAndSort(graph, order, diags));
 
     std::string glsl;
+    std::vector<PhshaderSplice> splices;
     diags.clear();
-    ASSERT_TRUE(compileGraphToGlsl(graph, order, glsl, diags));
+    ASSERT_TRUE(compileGraphToGlsl(graph, order, {}, glsl, splices, diags));
 
     EXPECT_NE(glsl.find("vec3 N = normalize(fragNormal);"), std::string::npos);
     EXPECT_NE(glsl.find("float occlusion = 1.0;"), std::string::npos);
@@ -133,4 +139,224 @@ TEST(PhmatCompilerTest, LoadPhmatMaterialReportsParseErrorsWithoutInvokingGlslc)
     EXPECT_FALSE(result.success);
     EXPECT_TRUE(result.fragSpirv.empty());
     EXPECT_FALSE(result.diagnostics.empty());
+}
+
+// ============================================================
+//  Custom node / ".phshader" (Phase 4C item 4)
+// ============================================================
+
+TEST(PhmatCompilerTest, CustomNodeGeneratesFunctionDeclarationAndCallSite) {
+    const char* json = R"JSON(
+    { "version": 1, "output": "out", "nodes": [
+        { "id": "bc",  "type": "constant", "value": [1.0, 0.5, 0.5, 1.0] },
+        { "id": "amt", "type": "constant", "value": 0.5 },
+        { "id": "tinted", "type": "custom", "phshader": "tint.phshader", "output": "vec4",
+          "inputs": [ { "id": "bc", "type": "vec4" }, { "id": "amt", "type": "float" } ] },
+        { "id": "f", "type": "constant", "value": 0.3 },
+        { "id": "out", "type": "pbrOutput", "baseColor": "tinted", "metallic": "f", "roughness": "f" }
+    ] })JSON";
+    PhmatGraph graph;
+    std::vector<PhmatDiagnostic> diags;
+    ASSERT_TRUE(parsePhmatGraph(json, graph, diags)) << (diags.empty() ? "" : diags[0].message);
+
+    std::vector<std::string> order;
+    diags.clear();
+    ASSERT_TRUE(validateAndSort(graph, order, diags)) << (diags.empty() ? "" : diags[0].message);
+
+    PhshaderSource src;
+    src.version = 1;
+    src.functionName = "tintPulse";
+    src.inputs = { { "baseColor", ValueType::Vec4 }, { "amount", ValueType::Float } };
+    src.outputType = ValueType::Vec4;
+    src.body = "return mix(baseColor, vec4(1.0), amount);";
+    std::unordered_map<std::string, PhshaderSource> phshaders = { { "tinted", src } };
+
+    std::string glsl;
+    std::vector<PhshaderSplice> splices;
+    diags.clear();
+    ASSERT_TRUE(compileGraphToGlsl(graph, order, phshaders, glsl, splices, diags)) << (diags.empty() ? "" : diags[0].message);
+
+    EXPECT_NE(glsl.find("vec4 tintPulse(vec4 baseColor, float amount) {"), std::string::npos);
+    EXPECT_NE(glsl.find("return mix(baseColor, vec4(1.0), amount);"), std::string::npos);
+    EXPECT_NE(glsl.find("vec4 v_tinted = tintPulse(v_bc, v_amt);"), std::string::npos);
+
+    ASSERT_EQ(splices.size(), 1u);
+    EXPECT_EQ(splices[0].nodeId, "tinted");
+    EXPECT_EQ(splices[0].phshaderPath, "tint.phshader");
+    EXPECT_EQ(splices[0].firstBodyLineInGenerated, splices[0].lastBodyLineInGenerated); // single-line body
+
+    // The recorded line number must actually point at the body's own line within outGlsl.
+    std::istringstream lines(glsl);
+    std::string line;
+    int lineNo = 0;
+    std::string atSplice;
+    while (std::getline(lines, line)) {
+        if (++lineNo == splices[0].firstBodyLineInGenerated) { atSplice = line; break; }
+    }
+    EXPECT_EQ(atSplice, "return mix(baseColor, vec4(1.0), amount);");
+}
+
+TEST(PhmatCompilerTest, CustomNodeSignatureMismatchAgainstPhshaderIsReported) {
+    const char* json = R"JSON(
+    { "version": 1, "output": "out", "nodes": [
+        { "id": "f", "type": "constant", "value": 0.5 },
+        { "id": "bad", "type": "custom", "phshader": "x.phshader", "output": "float", "inputs": [] },
+        { "id": "bc", "type": "constant", "value": [1.0, 1.0, 1.0, 1.0] },
+        { "id": "out", "type": "pbrOutput", "baseColor": "bc", "metallic": "bad", "roughness": "f" }
+    ] })JSON";
+    PhmatGraph graph;
+    std::vector<PhmatDiagnostic> diags;
+    ASSERT_TRUE(parsePhmatGraph(json, graph, diags));
+
+    std::vector<std::string> order;
+    diags.clear();
+    ASSERT_TRUE(validateAndSort(graph, order, diags)) << (diags.empty() ? "" : diags[0].message);
+
+    // The node declares "float", but this x.phshader source declares "vec4" -- a mismatch that
+    // parsePhmatGraph()/validateAndSort() cannot catch on their own (they never touch the
+    // filesystem), so compileGraphToGlsl() must catch it instead.
+    PhshaderSource src;
+    src.version = 1;
+    src.functionName = "wrongType";
+    src.outputType = ValueType::Vec4;
+    src.body = "return vec4(1.0);";
+    std::unordered_map<std::string, PhshaderSource> phshaders = { { "bad", src } };
+
+    std::string glsl;
+    std::vector<PhshaderSplice> splices;
+    diags.clear();
+    EXPECT_FALSE(compileGraphToGlsl(graph, order, phshaders, glsl, splices, diags));
+    bool found = false;
+    for (const auto& d : diags) if (d.nodeId == "bad") found = true;
+    EXPECT_TRUE(found);
+    EXPECT_TRUE(splices.empty()); // the mismatched node's function was never emitted
+}
+
+// Requires the Vulkan SDK's glslc -- degrades to a skip (not a failure) when unavailable, same
+// convention every other Vulkan-dependent test in this repo follows when the SDK is missing.
+TEST(PhmatCompilerTest, LoadPhmatMaterialCompilesCustomNodeEndToEndWhenGlslcAvailable) {
+    std::string glslcPath;
+    if (!findGlslcPath(glslcPath)) {
+        GTEST_SKIP() << "glslc not found (VULKAN_SDK not set); skipping end-to-end compile test";
+    }
+
+    const char* phshaderJson = R"JSON(
+    { "version": 1, "functionName": "tintPulse", "output": "vec4",
+      "inputs": [ { "name": "baseColor", "type": "vec4" }, { "name": "amount", "type": "float" } ],
+      "body": "return mix(baseColor, vec4(1.0), amount);" })JSON";
+    writeTempFile("phmat_compiler_test_tint.phshader", phshaderJson);
+
+    const char* phmatJson = R"JSON(
+    { "version": 1, "output": "out", "nodes": [
+        { "id": "bc",  "type": "constant", "value": [1.0, 0.5, 0.5, 1.0] },
+        { "id": "amt", "type": "constant", "value": 0.5 },
+        { "id": "tinted", "type": "custom", "phshader": "phmat_compiler_test_tint.phshader", "output": "vec4",
+          "inputs": [ { "id": "bc", "type": "vec4" }, { "id": "amt", "type": "float" } ] },
+        { "id": "f", "type": "constant", "value": 0.3 },
+        { "id": "out", "type": "pbrOutput", "baseColor": "tinted", "metallic": "f", "roughness": "f" }
+    ] })JSON";
+    const auto phmatPath = writeTempFile("phmat_compiler_test_custom.phmat", phmatJson);
+    const auto cacheDir  = std::filesystem::temp_directory_path() / "phmat_compiler_test_cache_custom";
+
+    PhmatLoadResult result = loadPhmatMaterial(phmatPath.string(), cacheDir.string());
+    ASSERT_TRUE(result.success) << (result.diagnostics.empty() ? "" : result.diagnostics[0].message);
+    EXPECT_FALSE(result.fragSpirv.empty());
+    EXPECT_EQ(result.fragSpirv.front(), 0x07230203u);
+}
+
+TEST(PhmatCompilerTest, LoadPhmatMaterialRejectsIllegalDescriptorBindingViaReflectionWhenGlslcAvailable) {
+    std::string glslcPath;
+    if (!findGlslcPath(glslcPath)) {
+        GTEST_SKIP() << "glslc not found (VULKAN_SDK not set); skipping reflection compile test";
+    }
+
+    const char* phshaderJson = R"JSON(
+    { "version": 1, "functionName": "illegalRead", "output": "float", "inputs": [],
+      "helpers": "layout(set = 2, binding = 0) uniform sampler2D evilTex;",
+      "body": "return texture(evilTex, vec2(0.5)).r;" })JSON";
+    writeTempFile("phmat_compiler_test_illegal.phshader", phshaderJson);
+
+    const char* phmatJson = R"JSON(
+    { "version": 1, "output": "out", "nodes": [
+        { "id": "bc",  "type": "constant", "value": [1.0, 1.0, 1.0, 1.0] },
+        { "id": "bad", "type": "custom", "phshader": "phmat_compiler_test_illegal.phshader", "output": "float", "inputs": [] },
+        { "id": "out", "type": "pbrOutput", "baseColor": "bc", "metallic": "bad", "roughness": "bad" }
+    ] })JSON";
+    const auto phmatPath = writeTempFile("phmat_compiler_test_illegal_descriptor.phmat", phmatJson);
+    const auto cacheDir  = std::filesystem::temp_directory_path() / "phmat_compiler_test_cache_illegal_descriptor";
+
+    PhmatLoadResult result = loadPhmatMaterial(phmatPath.string(), cacheDir.string());
+    EXPECT_FALSE(result.success);
+    ASSERT_FALSE(result.diagnostics.empty());
+    bool foundDescriptorComplaint = false;
+    for (const auto& d : result.diagnostics)
+        if (d.message.find("descriptor binding") != std::string::npos) foundDescriptorComplaint = true;
+    EXPECT_TRUE(foundDescriptorComplaint);
+}
+
+TEST(PhmatCompilerTest, LoadPhmatMaterialRejectsPushConstantsViaReflectionWhenGlslcAvailable) {
+    std::string glslcPath;
+    if (!findGlslcPath(glslcPath)) {
+        GTEST_SKIP() << "glslc not found (VULKAN_SDK not set); skipping reflection compile test";
+    }
+
+    const char* phshaderJson = R"JSON(
+    { "version": 1, "functionName": "readPushConstant", "output": "float", "inputs": [],
+      "helpers": "layout(push_constant) uniform PC { float x; } pc;",
+      "body": "return pc.x;" })JSON";
+    writeTempFile("phmat_compiler_test_pushconst.phshader", phshaderJson);
+
+    const char* phmatJson = R"JSON(
+    { "version": 1, "output": "out", "nodes": [
+        { "id": "bc",  "type": "constant", "value": [1.0, 1.0, 1.0, 1.0] },
+        { "id": "bad", "type": "custom", "phshader": "phmat_compiler_test_pushconst.phshader", "output": "float", "inputs": [] },
+        { "id": "out", "type": "pbrOutput", "baseColor": "bc", "metallic": "bad", "roughness": "bad" }
+    ] })JSON";
+    const auto phmatPath = writeTempFile("phmat_compiler_test_pushconst.phmat", phmatJson);
+    const auto cacheDir  = std::filesystem::temp_directory_path() / "phmat_compiler_test_cache_pushconst";
+
+    PhmatLoadResult result = loadPhmatMaterial(phmatPath.string(), cacheDir.string());
+    EXPECT_FALSE(result.success);
+    ASSERT_FALSE(result.diagnostics.empty());
+    bool foundPushConstantComplaint = false;
+    for (const auto& d : result.diagnostics)
+        if (d.message.find("push constant") != std::string::npos) foundPushConstantComplaint = true;
+    EXPECT_TRUE(foundPushConstantComplaint);
+}
+
+TEST(PhmatCompilerTest, LoadPhmatMaterialMapsCompileErrorBackToPhshaderLineWhenGlslcAvailable) {
+    std::string glslcPath;
+    if (!findGlslcPath(glslcPath)) {
+        GTEST_SKIP() << "glslc not found (VULKAN_SDK not set); skipping error-location test";
+    }
+
+    // Deliberate syntax error on the body's own second line.
+    const char* phshaderJson = R"JSON(
+    { "version": 1, "functionName": "brokenFn", "output": "float",
+      "inputs": [ { "name": "x", "type": "float" } ],
+      "body": "float y = x * 2.0;\nreturn y + ;" })JSON";
+    writeTempFile("phmat_compiler_test_broken.phshader", phshaderJson);
+
+    const char* phmatJson = R"JSON(
+    { "version": 1, "output": "out", "nodes": [
+        { "id": "bc", "type": "constant", "value": [1.0, 1.0, 1.0, 1.0] },
+        { "id": "f",  "type": "constant", "value": 0.5 },
+        { "id": "bad", "type": "custom", "phshader": "phmat_compiler_test_broken.phshader", "output": "float",
+          "inputs": [ { "id": "f", "type": "float" } ] },
+        { "id": "out", "type": "pbrOutput", "baseColor": "bc", "metallic": "bad", "roughness": "f" }
+    ] })JSON";
+    const auto phmatPath = writeTempFile("phmat_compiler_test_broken_custom.phmat", phmatJson);
+    const auto cacheDir  = std::filesystem::temp_directory_path() / "phmat_compiler_test_cache_broken_custom";
+
+    PhmatLoadResult result = loadPhmatMaterial(phmatPath.string(), cacheDir.string());
+    EXPECT_FALSE(result.success);
+    ASSERT_FALSE(result.diagnostics.empty());
+
+    bool found = false;
+    std::string allMessages;
+    for (const auto& d : result.diagnostics) {
+        allMessages += "[" + d.nodeId + "] " + d.message + "\n";
+        if (d.nodeId == "bad" && d.message.find("phmat_compiler_test_broken.phshader:2:") != std::string::npos) found = true;
+    }
+    EXPECT_TRUE(found) << allMessages;
 }

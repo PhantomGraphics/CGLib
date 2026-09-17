@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "functionName": "illegalRead",
+  "output": "float",
+  "inputs": [],
+  "helpers": "layout(set = 2, binding = 0) uniform sampler2D evilTex;",
+  "body": "return texture(evilTex, vec2(0.5)).r;"
+}

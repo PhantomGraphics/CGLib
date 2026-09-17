@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "output": "out",
+  "nodes": [
+    { "id": "albedoTex",  "type": "textureSlot", "slot": "baseColor" },
+    { "id": "greenTint",  "type": "constant",    "value": [0.2, 1.0, 0.2] },
+    { "id": "tinted",     "type": "custom", "phshader": "custom_tint.phshader", "output": "vec4",
+      "inputs": [ { "id": "albedoTex", "type": "vec4" }, { "id": "greenTint", "type": "vec3" } ] },
+    { "id": "metallicConst",  "type": "constant", "value": 0.0 },
+    { "id": "roughnessConst", "type": "constant", "value": 0.35 },
+    { "id": "normalScale", "type": "constant",    "value": 1.0 },
+    { "id": "normal",      "type": "normalMap",   "scale": "normalScale" },
+    {
+      "id": "out", "type": "pbrOutput",
+      "baseColor": "tinted", "metallic": "metallicConst", "roughness": "roughnessConst",
+      "normal": "normal"
+    }
+  ]
+}

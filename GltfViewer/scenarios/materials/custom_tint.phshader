@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "functionName": "tintMultiply",
+  "output": "vec4",
+  "inputs": [
+    { "name": "baseColor", "type": "vec4" },
+    { "name": "tint", "type": "vec3" }
+  ],
+  "body": "return vec4(baseColor.rgb * tint, baseColor.a);"
+}

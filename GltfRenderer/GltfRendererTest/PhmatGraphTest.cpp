@@ -225,3 +225,71 @@ TEST(PhmatGraphTest, AcceptsAllMathOpsAndMix) {
     // mismatch) -- add/sub/mul/div/min/max/mix themselves must not raise anything.
     for (const auto& d : diags) EXPECT_EQ(d.nodeId, "out") << d.message;
 }
+
+TEST(PhmatGraphTest, ParsesAndValidatesCustomNode) {
+    const char* json = R"JSON(
+    { "version": 1, "output": "out", "nodes": [
+        { "id": "bc", "type": "constant", "value": [1.0, 1.0, 1.0, 1.0] },
+        { "id": "f",  "type": "constant", "value": 0.5 },
+        { "id": "tinted", "type": "custom", "phshader": "custom/tint.phshader", "output": "vec4",
+          "inputs": [ { "id": "bc", "type": "vec4" }, { "id": "f", "type": "float" } ] },
+        { "id": "out", "type": "pbrOutput", "baseColor": "tinted", "metallic": "f", "roughness": "f" }
+    ] })JSON";
+    PhmatGraph graph;
+    std::vector<PhmatDiagnostic> diags;
+    ASSERT_TRUE(parsePhmatGraph(json, graph, diags)) << (diags.empty() ? "" : diags[0].message);
+
+    const PhmatNode* custom = nullptr;
+    for (const auto& n : graph.nodes) if (n.id == "tinted") custom = &n;
+    ASSERT_NE(custom, nullptr);
+    EXPECT_EQ(custom->type, NodeType::Custom);
+    EXPECT_EQ(custom->customPhshaderPath, "custom/tint.phshader");
+    EXPECT_EQ(custom->customOutputType, ValueType::Vec4);
+    ASSERT_EQ(custom->customInputs.size(), 2u);
+    EXPECT_EQ(custom->customInputs[0], "bc");
+    EXPECT_EQ(custom->customInputTypes[0], ValueType::Vec4);
+    EXPECT_EQ(custom->customInputs[1], "f");
+    EXPECT_EQ(custom->customInputTypes[1], ValueType::Float);
+
+    std::vector<std::string> order;
+    diags.clear();
+    ASSERT_TRUE(validateAndSort(graph, order, diags)) << (diags.empty() ? "" : diags[0].message);
+    std::unordered_map<std::string, size_t> pos;
+    for (size_t i = 0; i < order.size(); ++i) pos[order[i]] = i;
+    EXPECT_LT(pos["bc"], pos["tinted"]);
+    EXPECT_LT(pos["tinted"], pos["out"]);
+}
+
+TEST(PhmatGraphTest, RejectsCustomNodeMissingPhshaderPath) {
+    const char* json = R"JSON(
+    { "version": 1, "output": "out", "nodes": [
+        { "id": "f", "type": "constant", "value": 1.0 },
+        { "id": "c", "type": "custom", "output": "float", "inputs": [] },
+        { "id": "out", "type": "pbrOutput", "baseColor": "f", "metallic": "f", "roughness": "f" }
+    ] })JSON";
+    PhmatGraph graph;
+    std::vector<PhmatDiagnostic> diags;
+    EXPECT_FALSE(parsePhmatGraph(json, graph, diags));
+    EXPECT_TRUE(hasErrorForNode(diags, "c"));
+}
+
+TEST(PhmatGraphTest, RejectsCustomNodeInputTypeMismatch) {
+    // The custom node declares its first input as vec4, but "f" (referenced) is a Float node.
+    const char* json = R"JSON(
+    { "version": 1, "output": "out", "nodes": [
+        { "id": "f", "type": "constant", "value": 1.0 },
+        { "id": "c", "type": "custom", "phshader": "x.phshader", "output": "float",
+          "inputs": [ { "id": "f", "type": "vec4" } ] },
+        { "id": "out", "type": "pbrOutput", "baseColor": "f", "metallic": "c", "roughness": "f" }
+    ] })JSON";
+    // baseColor="f" is itself a type mismatch (Float where Vec4 is required) -- ignored here since
+    // this test targets the custom node's own input-type check specifically.
+    PhmatGraph graph;
+    std::vector<PhmatDiagnostic> diags;
+    ASSERT_TRUE(parsePhmatGraph(json, graph, diags));
+
+    std::vector<std::string> order;
+    diags.clear();
+    EXPECT_FALSE(validateAndSort(graph, order, diags));
+    EXPECT_TRUE(hasErrorForNode(diags, "c"));
+}

@@ -63,6 +63,7 @@ if(PHANTOM_GTEST_FOUND)
         ${GLTFR_ROOT}/GltfRendererTest/GltfLightsCamerasTest.cpp
         ${GLTFR_ROOT}/GltfRendererTest/PhmatGraphTest.cpp
         ${GLTFR_ROOT}/GltfRendererTest/PhmatCompilerTest.cpp
+        ${GLTFR_ROOT}/GltfRendererTest/PhmatReflectionTest.cpp
         ${GLTFR_ROOT}/GltfRendererTest/VrmExtensionParserTest.cpp
         ${GLTFR_ROOT}/GltfRendererTest/VrmReaderTest.cpp
     )
