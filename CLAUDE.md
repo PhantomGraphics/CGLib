@@ -44,9 +44,12 @@ GoogleTest は system → pinned FetchContent（`v1.15.2`）の順で解決。
 
 主なターゲット: `MathCore`, `MathTest`, `GraphicsCore`, `GraphicsTest`, `NumericsCore`,
 `SpaceCore`, `SceneCore`, `FileCore`, `AnimationCore`, `VolumeCore`, `TerrainCore`,
-`AssetCore`, `AssetCoreTest`, `PugixmlCore`, `VulkanGraphicsCore`, `VulkanGraphicsTest`,
-`UIWidgetsCore`。`AssetCore`（`Phantom::Asset` -- project-relative asset id/URI/manifest、
-Vulkan/Math 非依存）は `docs/spec/phantom_asset_manifest.md` を参照。
+`AssetCore`, `AssetCoreTest`, `SceneRuntimeCore`, `SceneRuntimeTest`, `PugixmlCore`,
+`VulkanGraphicsCore`, `VulkanGraphicsTest`, `UIWidgetsCore`。`AssetCore`（`Phantom::Asset` --
+project-relative asset id/URI/manifest、Vulkan/Math 非依存）は `docs/spec/phantom_asset_manifest.md`
+を参照。`SceneRuntimeCore`（`Phantom::SceneRuntime` -- UUID ノード階層/TRS/汎用コンポーネント、
+Vulkan/ImGui 非依存、AssetCore の `AssetId` をノード ID として再利用）は
+`docs/spec/phantom_scene_runtime.md` を参照。
 
 > 私有の Phantom スーパープロジェクト側（`../CMakeLists.txt` が `CGLib/Numerics` 等を個別に
 > `add_subdirectory` する構成）は、この変更に追随した調整が別途必要。

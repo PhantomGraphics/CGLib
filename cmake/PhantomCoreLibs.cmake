@@ -218,6 +218,32 @@ function(phantom_add_assetcore)
     target_compile_features(AssetCore PRIVATE cxx_std_20)
 endfunction()
 
+function(phantom_add_scene_runtime_core)
+    if(TARGET SceneRuntimeCore)
+        return()
+    endif()
+    # Vulkan/ImGui-independent scene node hierarchy (Phantom::SceneRuntime -- Blender->
+    # Universe authoring loop Phase 2 item 2, docs/spec/phantom_scene_runtime.md). Needs
+    # MathCore (TRS transforms) and AssetCore (reuses Phantom::Asset::AssetId as its node
+    # id type -- see SceneRuntime/NodeId.h) plus nlohmann/json for serialization, same as
+    # AssetCore above.
+    phantom_add_math_core()
+    phantom_add_assetcore()
+    add_library(SceneRuntimeCore STATIC
+        ${CGLIB_ROOT}/SceneRuntime/SceneRuntime/Transform.cpp
+        ${CGLIB_ROOT}/SceneRuntime/SceneRuntime/SceneNode.cpp
+        ${CGLIB_ROOT}/SceneRuntime/SceneRuntime/SceneGraph.cpp
+    )
+    target_include_directories(SceneRuntimeCore PUBLIC
+        ${REPO_ROOT}
+        ${CGLIB_ROOT}/ThirdParty/nlohmann
+        ${CGLIB_ROOT}/ThirdParty/glm-0.9.9.8
+    )
+    target_link_libraries(SceneRuntimeCore PUBLIC MathCore AssetCore)
+    target_compile_options(SceneRuntimeCore PRIVATE ${PHANTOM_WARN_FLAGS})
+    target_compile_features(SceneRuntimeCore PRIVATE cxx_std_20)
+endfunction()
+
 function(phantom_add_animation_core)
     if(TARGET AnimationCore)
         return()
