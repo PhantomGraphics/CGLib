@@ -626,6 +626,15 @@ void GltfSceneRenderer::onInit(Phantom::VKG::VulkanContext& ctx, const Phantom::
         cfg.attrDescs    = GltfGpuMesh::Vertex::getAttributeDescriptions();
     }
     cfg.descriptorSetLayouts = { globalSetLayout_.get(), materialSetLayout_.get() };
+    // Phase 2 item 5 後半 ("共有GPU asset化"): a vertex-stage push constant carrying the
+    // per-draw model matrix, on every main-pass pipeline variant below AND setMaterialShaderOverride()'s
+    // pipelines (identical range everywhere -- Vulkan keeps pushed values live across a
+    // vkCmdBindPipeline switch only when the new pipeline's layout declares a *compatible* range at
+    // the same offset, see onRender()'s single vkCmdPushConstants call before its pipeline-switching
+    // draw loop). Declaring this range is harmless for a caller whose own gltf.vert copy still reads
+    // GlobalUBO::model instead (Vulkan does not require a shader to consume every declared push
+    // constant range) -- see renderInstances()'s header comment for which callers actually need it.
+    cfg.pushConstantRanges  = { VkPushConstantRange{ VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4) } };
     cfg.blendEnable          = false;
     cfg.depthWrite           = true;
     cfg.cullMode             = cullMode_;
@@ -671,6 +680,15 @@ void GltfSceneRenderer::createShadowPipeline(VkRenderPass shadowRenderPass)
 {
     if (!ctx_ || shaders_.shadowVertSpv.empty() || shaders_.shadowFragSpv.empty())
         return;
+
+    // A second call (e.g. Phase 2 item 5 後半's shared renderer: Universe::GltfRenderer::
+    // enableShadowCasting() calls this once per Instance sharing this same GltfSceneRenderer,
+    // not once per underlying object) must not silently orphan the previous VkPipeline/
+    // VkPipelineLayout -- shadowPipeline_.create() below would otherwise just overwrite the
+    // handles, leaking both (caught via VK_LAYER_KHRONOS_validation's "leaked objects" report at
+    // vkDestroyDevice()). Idempotent either way: destroy() on a never-created VulkanPipeline is a
+    // no-op (its handles start VK_NULL_HANDLE).
+    shadowPipeline_.destroy(ctx_->getDevice());
 
     Phantom::VKG::PipelineConfig cfg;
     cfg.vertSpv = shaders_.shadowVertSpv;
@@ -1096,6 +1114,11 @@ bool GltfSceneRenderer::setMaterialShaderOverride(int materialIndex, const std::
             cfg.attrDescs    = GltfGpuMesh::Vertex::getAttributeDescriptions();
         }
         cfg.descriptorSetLayouts = { globalSetLayout_.get(), materialSetLayout_.get() };
+        // Must match pipeline_/pipelineDoubleSided_/pipelineBlend_/pipelineBlendDoubleSided_'s
+        // range exactly (see onInit()'s comment) -- onRender()/renderInstances() push the model
+        // matrix once via pipeline_.getLayout() and rely on every pipeline they might bind
+        // afterward (this override included) declaring a compatible range at the same offset.
+        cfg.pushConstantRanges = { VkPushConstantRange{ VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4) } };
         cfg.cullMode        = key.cullMode;
         cfg.blendEnable     = key.blendEnable;
         cfg.depthWrite      = key.depthWrite;
@@ -1150,11 +1173,42 @@ void GltfSceneRenderer::onRender(VkCommandBuffer cmd, uint32_t frameIndex) {
         return;
     }
 
-    // Bind global descriptor set (set=0) once for all primitives. All 4 pipeline variants share
-    // the same descriptor set layouts (see onInit()), so any of their layouts works here
-    // regardless of which one ends up bound first below.
+    // Bind global descriptor set (set=0) once for all primitives. All 4 pipeline variants (and
+    // any .phmat override pipeline) share the same descriptor set layouts + push constant range
+    // (see onInit()), so pipeline_'s layout works here regardless of which pipeline ends up bound
+    // first in renderPrimitivesWithModel()'s draw loop.
     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
                             pipeline_.getLayout(), 0, 1, &globalDescSets_[frameIndex], 0, nullptr);
+    renderPrimitivesWithModel(cmd, frameIndex, modelMatrix_);
+
+    // Skybox last: VkSkyBoxRenderer's pipeline writes depth=1.0 (max) with depthWrite off and a
+    // LEQUAL compare, so drawing it after every opaque/blend primitive lets the depth test reject
+    // it wherever real geometry already covered a pixel -- standard "skybox last" optimization,
+    // not required for correctness (either order composites the same way).
+    if (useSkybox_ && skybox_ && skybox_->isValid()) skybox_->render(cmd, frameIndex);
+}
+
+void GltfSceneRenderer::renderInstances(VkCommandBuffer cmd, uint32_t frameIndex,
+                                         const std::vector<glm::mat4>& modelMatrices) {
+    if (!ready_ || !visible_ || primitives_.empty() || modelMatrices.empty()) return;
+
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                            pipeline_.getLayout(), 0, 1, &globalDescSets_[frameIndex], 0, nullptr);
+    for (const glm::mat4& model : modelMatrices)
+        renderPrimitivesWithModel(cmd, frameIndex, model);
+
+    if (useSkybox_ && skybox_ && skybox_->isValid()) skybox_->render(cmd, frameIndex); // once, not per instance
+}
+
+void GltfSceneRenderer::renderPrimitivesWithModel(VkCommandBuffer cmd, uint32_t frameIndex, const glm::mat4& model) {
+    // Recorded into the command buffer verbatim (unlike GlobalUBO::model, a single host-visible
+    // value every draw recorded against this frame's descriptor set reads at *execution* time --
+    // see setModelMatrix()'s comment) -- vkCmdPushConstants is what lets renderInstances() draw
+    // the same GPU mesh/pipeline resources more than once per frame, each with its own model,
+    // without one instance's transform silently winning over another's the way writing
+    // GlobalUBO::model twice before a single submit would (renderShadowCasters() already relies
+    // on this same property for lightVP/model below).
+    vkCmdPushConstants(cmd, pipeline_.getLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &model);
 
     VkPipeline boundPipeline = VK_NULL_HANDLE; // force the first draw to bind explicitly
 
@@ -1227,8 +1281,8 @@ void GltfSceneRenderer::onRender(VkCommandBuffer cmd, uint32_t frameIndex) {
     if (!blendEntries.empty()) {
         const glm::vec3 eye = currentEyePosition();
         std::sort(blendEntries.begin(), blendEntries.end(), [&](PrimitiveEntry* a, PrimitiveEntry* b) {
-            const glm::vec3 wa = glm::vec3(modelMatrix_ * a->restWorld * glm::vec4(a->localCenter, 1.f));
-            const glm::vec3 wb = glm::vec3(modelMatrix_ * b->restWorld * glm::vec4(b->localCenter, 1.f));
+            const glm::vec3 wa = glm::vec3(model * a->restWorld * glm::vec4(a->localCenter, 1.f));
+            const glm::vec3 wb = glm::vec3(model * b->restWorld * glm::vec4(b->localCenter, 1.f));
             const glm::vec3 da = wa - eye, db = wb - eye;
             return glm::dot(da, da) > glm::dot(db, db); // farthest first
         });
@@ -1241,12 +1295,6 @@ void GltfSceneRenderer::onRender(VkCommandBuffer cmd, uint32_t frameIndex) {
                 draw(entry, mat, mat->doubleSided() ? pipelineBlendDoubleSided_ : pipelineBlend_, false);
         }
     }
-
-    // Skybox last: VkSkyBoxRenderer's pipeline writes depth=1.0 (max) with depthWrite off and a
-    // LEQUAL compare, so drawing it after every opaque/blend primitive lets the depth test reject
-    // it wherever real geometry already covered a pixel -- standard "skybox last" optimization,
-    // not required for correctness (either order composites the same way).
-    if (useSkybox_ && skybox_ && skybox_->isValid()) skybox_->render(cmd, frameIndex);
 }
 
 // ============================================================

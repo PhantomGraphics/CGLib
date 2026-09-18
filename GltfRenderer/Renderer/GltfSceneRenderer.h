@@ -84,6 +84,29 @@ namespace Phantom::Gltf
         void onRender(VkCommandBuffer cmd, uint32_t frameIndex) override;
         void onCleanup(VkDevice device) override;
 
+        // --- Multi-instance draw (Phase 2 item 5 後半 of PLAN_blender_universe_authoring_loop.md:
+        // "共有GPU asset化", completion condition "pipeline数がentity数に比例しない") ---
+        // Draws this document's mesh/material/pipeline resources once per entry in
+        // `modelMatrices`, each with its own model matrix delivered through the vertex push
+        // constant onInit() now reserves on every main-pass pipeline (see the shadow pass'
+        // renderShadowCasters(), which already used this exact technique) -- NOT through
+        // GlobalUBO::model, which is a single per-frame value shared by every draw recorded
+        // against it and would race across instances the way onRender()'s own doc comment on
+        // setModelMatrix() warns about. onRender() itself now also pushes modelMatrix_ this same
+        // way (see its .cpp definition), so calling this with a one-element vector containing
+        // modelMatrix_ renders identically to onRender().
+        //
+        // Scope of this first slice: caller's responsibility to only call this for a document
+        // with no active object/skeletal animation and no morph targets (animation/morph state --
+        // animClip_/animTime_/skinMatrices_/the CPU-rebaked vertex buffers -- is still a single,
+        // non-per-instance value on this object; sharing those across instances with independent
+        // playback is the separate "(1) GPU/UBO駆動" prerequisite the plan calls out as unstarted
+        // follow-up work). Ignores visible_ == false the same way onRender() does not (callers
+        // filter which entities/matrices to pass in). No-op if primitives_ is empty, !ready_, or
+        // modelMatrices is empty. Draws the skybox (if enabled) exactly once, not once per instance
+        // -- it is a background, not per-instance geometry.
+        void renderInstances(VkCommandBuffer cmd, uint32_t frameIndex, const std::vector<glm::mat4>& modelMatrices);
+
         // --- Document / extent setup (call before onInit) ---
         void setDocument(const GltfDocument& doc) { doc_ = &doc; }
         void setExtent(VkExtent2D ext) { extent_ = ext; }
@@ -494,6 +517,12 @@ namespace Phantom::Gltf
             const Phantom::VKG::VulkanCommandPool& pool);
 
         glm::mat4 nodeLocalTransform(const GltfNode& node) const;
+
+        // Shared body of onRender()/renderInstances(): binds set=0 once (caller's job -- both
+        // public entry points do it before their first call here), pushes `model` as the vertex
+        // push constant, then draws every primitive through it exactly like onRender() always
+        // has. Does NOT touch the skybox -- callers draw it themselves, once, after their own loop.
+        void renderPrimitivesWithModel(VkCommandBuffer cmd, uint32_t frameIndex, const glm::mat4& model);
 
         // Descriptor layout helpers (document-independent, called once in onInit)
         void createGlobalSetLayout(VkDevice device);
