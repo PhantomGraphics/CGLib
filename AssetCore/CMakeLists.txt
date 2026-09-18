@@ -41,6 +41,7 @@ if(PHANTOM_GTEST_FOUND)
         ${ASSETCORE_ROOT}/AssetCoreTest/AssetIdTest.cpp
         ${ASSETCORE_ROOT}/AssetCoreTest/AssetUriTest.cpp
         ${ASSETCORE_ROOT}/AssetCoreTest/AssetManifestTest.cpp
+        ${ASSETCORE_ROOT}/AssetCoreTest/FileWatcherTest.cpp
     )
     target_link_libraries(AssetCoreTest PRIVATE
         AssetCore

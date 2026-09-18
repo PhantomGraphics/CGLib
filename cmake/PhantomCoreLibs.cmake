@@ -210,6 +210,7 @@ function(phantom_add_assetcore)
         ${CGLIB_ROOT}/AssetCore/AssetCore/AssetId.cpp
         ${CGLIB_ROOT}/AssetCore/AssetCore/AssetUri.cpp
         ${CGLIB_ROOT}/AssetCore/AssetCore/AssetManifest.cpp
+        ${CGLIB_ROOT}/AssetCore/AssetCore/FileWatcher.cpp
     )
     target_include_directories(AssetCore PUBLIC
         ${REPO_ROOT}
