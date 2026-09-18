@@ -284,6 +284,15 @@ namespace Phantom::Gltf
         // createShadowPipeline() was never called or found no shadow shaders.
         void renderShadowCasters(VkCommandBuffer cmd, const glm::mat4& lightVP);
 
+        // Phase 2 item 5 後半 counterpart of renderInstances(): casts once per entry in
+        // `modelMatrices` instead of once at modelMatrix_ -- lets every member of a shared
+        // renderer group (Universe::GltfRenderer::findShareableRenderer()) cast into the scene
+        // shadow map at its OWN transform, not just the first one (see that class's
+        // renderShadowCasters() for the limitation this replaces). Same no-op guards as the
+        // single-matrix overload; empty modelMatrices is also a no-op.
+        void renderShadowCasterInstances(VkCommandBuffer cmd, const glm::mat4& lightVP,
+                                          const std::vector<glm::mat4>& modelMatrices);
+
         // Binds the shadow depth map sampled by the main PBR pass and enables shadowing;
         // pass the same lightVP used for renderShadowCasters().
         void setShadowMap(VkImageView shadowView, VkSampler shadowSampler, const glm::mat4& lightVP);
@@ -523,6 +532,10 @@ namespace Phantom::Gltf
         // push constant, then draws every primitive through it exactly like onRender() always
         // has. Does NOT touch the skybox -- callers draw it themselves, once, after their own loop.
         void renderPrimitivesWithModel(VkCommandBuffer cmd, uint32_t frameIndex, const glm::mat4& model);
+
+        // Shared body of renderShadowCasters()/renderShadowCasterInstances(): pushes {lightVP,
+        // model} and draws every primitive's position-only geometry through shadowPipeline_.
+        void renderShadowCastersWithModel(VkCommandBuffer cmd, const glm::mat4& lightVP, const glm::mat4& model);
 
         // Descriptor layout helpers (document-independent, called once in onInit)
         void createGlobalSetLayout(VkDevice device);

@@ -713,9 +713,23 @@ void GltfSceneRenderer::renderShadowCasters(VkCommandBuffer cmd, const glm::mat4
 {
     if (!ready_ || shadowPipeline_.getPipeline() == VK_NULL_HANDLE || primitives_.empty())
         return;
-
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, shadowPipeline_.getPipeline());
-    const std::array<glm::mat4, 2> push{ lightVP, modelMatrix_ };
+    renderShadowCastersWithModel(cmd, lightVP, modelMatrix_);
+}
+
+void GltfSceneRenderer::renderShadowCasterInstances(VkCommandBuffer cmd, const glm::mat4& lightVP,
+                                                      const std::vector<glm::mat4>& modelMatrices)
+{
+    if (!ready_ || shadowPipeline_.getPipeline() == VK_NULL_HANDLE || primitives_.empty() || modelMatrices.empty())
+        return;
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, shadowPipeline_.getPipeline());
+    for (const glm::mat4& model : modelMatrices)
+        renderShadowCastersWithModel(cmd, lightVP, model);
+}
+
+void GltfSceneRenderer::renderShadowCastersWithModel(VkCommandBuffer cmd, const glm::mat4& lightVP, const glm::mat4& model)
+{
+    const std::array<glm::mat4, 2> push{ lightVP, model };
     vkCmdPushConstants(cmd, shadowPipeline_.getLayout(), VK_SHADER_STAGE_VERTEX_BIT,
                        0, sizeof(push), push.data());
 
