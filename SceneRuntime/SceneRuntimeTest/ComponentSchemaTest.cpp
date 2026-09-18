@@ -62,6 +62,31 @@ TEST(ComponentSchema, JsonRoundTripPreservesAllFieldProperties)
     EXPECT_FALSE(loaded.fields[2].required);
 }
 
+TEST(ComponentSchema, DefaultValueRoundTripsAndIsOmittedWhenAbsent)
+{
+    ComponentSchema schema;
+    schema.type = "rigidBody";
+    schema.version = 1;
+    ComponentFieldSchema mass{ "mass", ComponentFieldType::Float, 0.0, std::nullopt, "kg, 0 = static", true };
+    mass.defaultValue = 1.0;
+    ComponentFieldSchema shape{ "shape", ComponentFieldType::String, std::nullopt, std::nullopt, "box|sphere|plane", true };
+    shape.defaultValue = "box";
+    ComponentFieldSchema friction{ "friction", ComponentFieldType::Float, 0.0, 1.0, "no default declared", false };
+    schema.fields = { mass, shape, friction };
+
+    const std::string json = schema.toJson();
+    EXPECT_NE(json.find("\"default\""), std::string::npos); // present at least twice below is what matters
+    EXPECT_NE(json.find("\"box\""), std::string::npos);
+
+    bool ok = false;
+    ComponentSchema loaded = ComponentSchema::fromJson(json, &ok);
+    ASSERT_TRUE(ok);
+    ASSERT_EQ(loaded.fields.size(), 3u);
+    EXPECT_DOUBLE_EQ(loaded.fields[0].defaultValue.get<double>(), 1.0);
+    EXPECT_EQ(loaded.fields[1].defaultValue.get<std::string>(), "box");
+    EXPECT_TRUE(loaded.fields[2].defaultValue.is_null()); // no default declared -- stays null, not e.g. 0
+}
+
 TEST(ComponentSchema, FromJsonRejectsWrongSchema)
 {
     bool ok = true;

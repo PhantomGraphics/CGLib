@@ -25,6 +25,15 @@ struct ComponentFieldSchema {
     std::optional<double> maxValue;
     std::string tooltip;
     bool required = true;
+    // A default value a UI builder (e.g. the Blender panel Phase 5 item 1 generates) can seed a
+    // new component's field with -- shaped to match `type` (a JSON number for Float/Int, bool
+    // for Bool, string for String, a 3/4-element array for Vec3/Vec4). Null (the default) means
+    // "no default declared". Not validated against `type` here -- ComponentSchemaRegistry::
+    // validate() checks actual component data, not the schema's own declared defaults. Appended
+    // at the end (like GlobalUBO's exposure field, CameraUBO.h) so every existing positional
+    // aggregate-init call site (`ComponentFieldSchema{name, type, min, max, tooltip, required}`,
+    // e.g. in ComponentSchemaTest.cpp/ComponentSchemaRegistryTest.cpp) keeps compiling unchanged.
+    nlohmann::json defaultValue = nullptr;
 };
 
 // A single component kind's versioned field schema -- the "typed component schema" half of

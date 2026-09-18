@@ -48,6 +48,7 @@ std::string ComponentSchema::toJson() const
         fj["required"] = field.required;
         if (field.minValue.has_value()) fj["min"] = *field.minValue;
         if (field.maxValue.has_value()) fj["max"] = *field.maxValue;
+        if (!field.defaultValue.is_null()) fj["default"] = field.defaultValue;
         if (!field.tooltip.empty()) fj["tooltip"] = field.tooltip;
         fieldsJson.push_back(std::move(fj));
     }
@@ -85,6 +86,7 @@ ComponentSchema ComponentSchema::fromJson(const std::string& json, bool* ok)
         field.tooltip = fj.value("tooltip", "");
         if (fj.contains("min")) field.minValue = fj["min"].get<double>();
         if (fj.contains("max")) field.maxValue = fj["max"].get<double>();
+        if (fj.contains("default")) field.defaultValue = fj["default"];
         result.fields.push_back(std::move(field));
     }
 
