@@ -69,6 +69,12 @@ private:
     int        repeatCount_          = 1;
     bool       pbvrUseGPU_           = false;
     int        pbvrMaxParticlesPerVoxel_ = 4;
+    bool       pbvrMultipleScattering_ = false;
+    int        pbvrScatteringOrders_ = 2;
+    int        pbvrProbeCount_ = 256;
+    float      pbvrProbeRadius_ = 2.5f;
+    float      pbvrPhaseG_ = 0.85f;
+    float      pbvrScatteringAlbedo_ = 0.8f;
 
     // Self-shadow (experimental).
     bool       shadowEnabled_        = false;

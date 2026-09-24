@@ -50,6 +50,12 @@ void MenuPanel::init(World* world, int* pActiveSceneId, int* pActiveDenseSceneId
     if (pbvrRenderer_)  repeatCount_     = pbvrRenderer_->getRepeatCount();
     if (pbvrRenderer_)  pbvrUseGPU_     = pbvrRenderer_->isGPUMode();
     if (pbvrRenderer_)  pbvrMaxParticlesPerVoxel_ = pbvrRenderer_->getMaxParticlesPerVoxel();
+    if (pbvrRenderer_)  pbvrMultipleScattering_ = pbvrRenderer_->isMultipleScatteringEnabled();
+    if (pbvrRenderer_)  pbvrScatteringOrders_ = pbvrRenderer_->getScatteringOrders();
+    if (pbvrRenderer_)  pbvrProbeCount_ = pbvrRenderer_->getProbeCount();
+    if (pbvrRenderer_)  pbvrProbeRadius_ = pbvrRenderer_->getProbeRadius();
+    if (pbvrRenderer_)  pbvrPhaseG_ = pbvrRenderer_->getPhaseG();
+    if (pbvrRenderer_)  pbvrScatteringAlbedo_ = pbvrRenderer_->getScatteringAlbedo();
     if (pbvrRenderer_)  shadowEnabled_   = pbvrRenderer_->isShadowEnabled();
     if (pbvrRenderer_)  lightAzimuth_    = pbvrRenderer_->getLightAzimuth();
     if (pbvrRenderer_)  lightElevation_  = pbvrRenderer_->getLightElevation();
@@ -222,6 +228,23 @@ void MenuPanel::drawRenderSettings() {
         }
         if (pbvrRenderer_)
             ImGui::Text("Particles: %d", static_cast<int>(pbvrRenderer_->getParticleCount()));
+
+        ImGui::Spacing();
+        ImGui::TextDisabled("Particle Probe Multiple Scattering:");
+        if (ImGui::Checkbox("Enable Multiple Scattering##pbvr", &pbvrMultipleScattering_) && pbvrRenderer_)
+            pbvrRenderer_->setMultipleScatteringEnabled(pbvrMultipleScattering_);
+        if (pbvrMultipleScattering_ && pbvrRenderer_) {
+            if (ImGui::SliderInt("Scattering Orders##pbvr", &pbvrScatteringOrders_, 0, 8))
+                pbvrRenderer_->setScatteringOrders(pbvrScatteringOrders_);
+            if (ImGui::SliderInt("Probe Count##pbvr", &pbvrProbeCount_, 1, 2048))
+                pbvrRenderer_->setProbeCount(pbvrProbeCount_);
+            if (ImGui::SliderFloat("Probe Radius##pbvr", &pbvrProbeRadius_, 0.1f, 10.0f))
+                pbvrRenderer_->setProbeRadius(pbvrProbeRadius_);
+            if (ImGui::SliderFloat("Phase g##pbvr", &pbvrPhaseG_, -0.99f, 0.99f))
+                pbvrRenderer_->setPhaseG(pbvrPhaseG_);
+            if (ImGui::SliderFloat("Scattering Albedo##pbvr", &pbvrScatteringAlbedo_, 0.0f, 1.0f))
+                pbvrRenderer_->setScatteringAlbedo(pbvrScatteringAlbedo_);
+        }
 
         const char* tfPresetItems[] = { "Debug (rainbow)", "Cloud (white)" };
         if (ImGui::Combo("TF Preset##pbvr", &pbvrTFPreset_, tfPresetItems, 2) && pbvrRenderer_)
