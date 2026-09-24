@@ -128,6 +128,36 @@ public:
         return result;
     }
 
+    // Solve a truncated Neumann series. directOrder is the first (usually
+    // light-source/shadow-map) order. Each following order is evaluated only
+    // at probes, interpolated back to particles, and then becomes the source
+    // term for the next iteration. No voxel grid is introduced here.
+    static std::vector<Phantom::Math::SHRGB> solve(
+        const std::vector<glm::vec3>& positions,
+        const std::vector<Phantom::Math::SHRGB>& directOrder,
+        const std::vector<std::size_t>& probeIndices,
+        const std::vector<float>& albedo,
+        const float kernelRadius,
+        const float phaseG,
+        const int additionalOrders,
+        const int degree)
+    {
+        if (positions.empty() || directOrder.size() != positions.size() ||
+            additionalOrders < 0)
+            return {};
+
+        std::vector<Phantom::Math::SHRGB> total = directOrder;
+        std::vector<Phantom::Math::SHRGB> current = directOrder;
+        for (int order = 0; order < additionalOrders; ++order) {
+            const auto probes = computeScatteringOrder(
+                positions, current, probeIndices, albedo, kernelRadius, phaseG, degree);
+            current = interpolate(positions, probes, kernelRadius);
+            for (std::size_t i = 0; i < total.size(); ++i)
+                total[i] += current[i];
+        }
+        return total;
+    }
+
     static std::vector<ParticleProbe> updateHistory(
         const std::vector<ParticleProbe>& current,
         const std::vector<ParticleProbe>& previous,

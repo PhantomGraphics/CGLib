@@ -74,3 +74,21 @@ TEST(ParticleProbeScatteringTest, InvalidProbeIndexDoesNotThrow)
     ASSERT_EQ(1U, result.size());
     EXPECT_FALSE(result[0].valid);
 }
+
+TEST(ParticleProbeScatteringTest, SolveAccumulatesAdditionalScatteringOrders)
+{
+    SHRGB direct;
+    direct.degree = 0;
+    direct.coefficients[0] = glm::vec3(4.0f);
+    const std::vector<glm::vec3> positions = {
+        glm::vec3(-0.5f, 0.0f, 0.0f), glm::vec3(0.5f, 0.0f, 0.0f)};
+    const auto oneOrder = ParticleProbeScattering::solve(
+        positions, {direct, direct}, {0, 1}, {0.5f, 0.5f}, 2.0f, 0.0f, 0, 0);
+    const auto threeOrders = ParticleProbeScattering::solve(
+        positions, {direct, direct}, {0, 1}, {0.5f, 0.5f}, 2.0f, 0.0f, 2, 0);
+
+    ASSERT_EQ(2U, oneOrder.size());
+    ASSERT_EQ(2U, threeOrders.size());
+    EXPECT_FLOAT_EQ(4.0f, oneOrder[0].coefficients[0].x);
+    EXPECT_GT(threeOrders[0].coefficients[0].x, oneOrder[0].coefficients[0].x);
+}
