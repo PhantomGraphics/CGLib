@@ -28,6 +28,7 @@ void PBVRRenderer::syncCamera(const float azimuth, const float elevation, const 
 void PBVRRenderer::setDensityScale(const float s) {
     densityScale_ = std::max(0.0f, s);
     dirty_ = true;
+    shadowContentDirty_ = true;
 }
 
 void PBVRRenderer::setParticleSize(const float s) {
@@ -37,32 +38,43 @@ void PBVRRenderer::setParticleSize(const float s) {
 void PBVRRenderer::setRepeatCount(const int n) {
     repeatCount_ = std::max(1, n);
     dirty_ = true;
+    shadowContentDirty_ = true;
 }
 
 void PBVRRenderer::setUseGPU(const bool b) {
     useGPU_ = b;
     dirty_ = true;
+    shadowContentDirty_ = true;
 }
 
 void PBVRRenderer::setMaxParticlesPerVoxel(const int n) {
     maxParticlesPerVoxel_ = std::max(1, n);
     dirty_ = true;
+    shadowContentDirty_ = true;
 }
 
 void PBVRRenderer::setLightDir(const float azimuthDeg, const float elevationDeg) {
+    if (lightAzimuth_ == azimuthDeg && lightElevation_ == elevationDeg) return;
     lightAzimuth_ = azimuthDeg;
     lightElevation_ = std::clamp(elevationDeg, -89.0f, 89.0f);
+    shadowContentDirty_ = true;
 }
 
 void PBVRRenderer::setShadowLayers(const int n) {
     const int clamped = std::clamp(n, 2, 32);
-    if (clamped != shadowLayers_) shadowDirty_ = true;
+    if (clamped != shadowLayers_) {
+        shadowDirty_ = true;
+        shadowContentDirty_ = true;
+    }
     shadowLayers_ = clamped;
 }
 
 void PBVRRenderer::setShadowMapSize(const uint32_t size) {
     const uint32_t clamped = std::max<uint32_t>(64, size);
-    if (clamped != shadowMapSize_) shadowDirty_ = true;
+    if (clamped != shadowMapSize_) {
+        shadowDirty_ = true;
+        shadowContentDirty_ = true;
+    }
     shadowMapSize_ = clamped;
 }
 
@@ -89,6 +101,7 @@ void PBVRRenderer::setTransferFunctionPreset(const int preset) {
     }
     tf_.buildLUT();
     dirty_ = true;
+    shadowContentDirty_ = true;
 }
 
 glm::vec3 PBVRRenderer::computeLightDir() const {
@@ -150,6 +163,7 @@ void PBVRRenderer::onInit(::VKG::VulkanContext& ctx, const ::VKG::VulkanCommandP
 
     computePBVR_.create(ctx);
     dirty_ = true;
+    shadowContentDirty_ = true;
 }
 
 void PBVRRenderer::onUpdate(uint32_t frameIndex) {
@@ -218,6 +232,7 @@ void PBVRRenderer::renderShadowDeposit(VkCommandBuffer cmd) {
     // layout -- a Vulkan validation error. shadowEnabled_ instead only gates whether the main
     // pass's shader *uses* the deposited data (via UBO.shadowEnabled, see onUpdate()).
     if (!enabled_ || !ctx_ || !depositPipelineCreated_) return;
+    if (!shadowContentDirty_ && !shadowDirty_) return;
 
     VkBuffer vbuf;
     uint32_t vtxCount;
@@ -234,6 +249,7 @@ void PBVRRenderer::renderShadowDeposit(VkCommandBuffer cmd) {
             return; // shadowDirty_ stays true; retried on the next call.
         }
         shadowDirty_ = false;
+        shadowContentDirty_ = true;
         for (uint32_t i = 0; i < framesInFlight_; ++i) {
             pipeline_.updateShadowMap(i, shadowMapPass_.getArrayView(), shadowMapPass_.getSampler());
         }
@@ -259,6 +275,7 @@ void PBVRRenderer::renderShadowDeposit(VkCommandBuffer cmd) {
         vkCmdDraw(cmd, vtxCount, 1, 0, 0);
         shadowMapPass_.endLayer(cmd);
     }
+    shadowContentDirty_ = false;
 }
 
 void PBVRRenderer::onCleanup(VkDevice device) {

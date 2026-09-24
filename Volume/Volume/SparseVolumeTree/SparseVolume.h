@@ -9,6 +9,7 @@
 #include "../../../../CGLib/Math/Box3d.h"
 #include "../../../../CGLib/Util/UnCopyable.h"
 
+#include <cstdint>
 #include <cmath>
 
 namespace Phantom {
@@ -33,6 +34,19 @@ public:
 
     void setValue(const Coord& index, const T& value) {
         mTree.setValue(index, value);
+    }
+
+    // Bulk insertion path for VDB readers. A leaf is attached once and then its
+    // active values are copied directly, avoiding a root/internal tree lookup for
+    // every voxel in large imported grids.
+    void setLeaf(const Coord& leafOrigin, const uint64_t* valueMask,
+                 const T* values) {
+        auto* internal = mTree.touchChild(leafOrigin);
+        auto* leaf = internal->touchChild(leafOrigin, mTree.getBackground());
+        for (int i = 0; i < LeafNode<T, 3>::SIZE; ++i) {
+            if (valueMask[i / 64] & (uint64_t(1) << (i % 64)))
+                leaf->setValue(i, values[i]);
+        }
     }
 
     const T& getValue(const Coord& index) const {

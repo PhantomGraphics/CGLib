@@ -1,7 +1,10 @@
 #pragma once
 // Reads a .vdb file written by SparseVolumeVdbWriter back into SparseVolume<float>.
 // No OpenVDB library dependency; uses only the C++ standard library.
-// Supported format: version 224, Tree_float_5_4_3, COMPRESS_NONE, little-endian.
+// Supported format: OpenVDB 8/9-era version 223 or 224, Tree_float_5_4_3,
+// COMPRESS_NONE, little-endian. OpenVDB itself is intentionally not a link
+// dependency; this reader only consumes the small subset used by our volume
+// import path.
 
 #include "SparseVolume.h"
 #include "../../../../CGLib/Util/UnCopyable.h"
@@ -81,7 +84,8 @@ SparseVolumeVdbReader::read(const std::string& filePath)
 
     // FileHeader
     if (readPOD<int64_t>(ifs) != int64_t{0x56444220}) return nullptr; // magic
-    if (readPOD<uint32_t>(ifs) != 224u)                return nullptr; // version
+    const uint32_t version = readPOD<uint32_t>(ifs);
+    if (version != 223u && version != 224u)           return nullptr; // version
     readPOD<uint32_t>(ifs); // libMajor
     readPOD<uint32_t>(ifs); // libMinor
     const uint8_t hasOffsets = readPOD<uint8_t>(ifs);
@@ -143,11 +147,8 @@ SparseVolumeVdbReader::read(const std::string& filePath)
         readPOD<int8_t>(ifs);        // metadata byte (COMPRESS_NONE = 0)
         ifs.read(reinterpret_cast<char*>(leafBuf.data()), 512 * sizeof(float));
 
-        for (int i = 0; i < 512; ++i) {
-            if (leaf.valueMask[i / 64] & (uint64_t(1) << (i % 64)))
-                volume->setValue(voxelCoord(leaf.rootKey, leaf.offsetB, leaf.offsetA, i),
-                                 leafBuf[i]);
-        }
+        volume->setLeaf(voxelCoord(leaf.rootKey, leaf.offsetB, leaf.offsetA, 0),
+                        leaf.valueMask, leafBuf.data());
     }
 
     if (!ifs.good()) return nullptr;

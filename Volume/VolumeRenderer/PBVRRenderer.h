@@ -35,7 +35,7 @@ public:
 
     void setDataSource(IPBVRDataSource* src) { dataSource_ = src; }
     void setExtent(VkExtent2D ext) { extent_ = ext; }
-    void markDirty() { dirty_ = true; }
+    void markDirty() { dirty_ = true; shadowContentDirty_ = true; }
     void syncCamera(float azimuth, float elevation, float distance);
     void setCameraDistance(float d) { distance_ = std::max(0.01f, d); }
     void setShaders(Shaders shaders) { shaders_ = std::move(shaders); }
@@ -47,12 +47,12 @@ public:
     void setRepeatCount(int n);
     void setUseGPU(bool b);
     void setMaxParticlesPerVoxel(int n);
-    void setMultipleScatteringEnabled(bool b) { multipleScatteringEnabled_ = b; dirty_ = true; }
-    void setScatteringOrders(int n) { scatteringOrders_ = std::clamp(n, 0, 8); dirty_ = true; }
-    void setProbeCount(int n) { probeCount_ = std::max(1, n); dirty_ = true; }
-    void setProbeRadius(float r) { probeRadius_ = std::max(1.0e-4f, r); dirty_ = true; }
-    void setPhaseG(float g) { phaseG_ = std::clamp(g, -0.99f, 0.99f); dirty_ = true; }
-    void setScatteringAlbedo(float a) { scatteringAlbedo_ = std::clamp(a, 0.0f, 1.0f); dirty_ = true; }
+    void setMultipleScatteringEnabled(bool b) { multipleScatteringEnabled_ = b; dirty_ = true; shadowContentDirty_ = true; }
+    void setScatteringOrders(int n) { scatteringOrders_ = std::clamp(n, 0, 8); dirty_ = true; shadowContentDirty_ = true; }
+    void setProbeCount(int n) { probeCount_ = std::max(1, n); dirty_ = true; shadowContentDirty_ = true; }
+    void setProbeRadius(float r) { probeRadius_ = std::max(1.0e-4f, r); dirty_ = true; shadowContentDirty_ = true; }
+    void setPhaseG(float g) { phaseG_ = std::clamp(g, -0.99f, 0.99f); dirty_ = true; shadowContentDirty_ = true; }
+    void setScatteringAlbedo(float a) { scatteringAlbedo_ = std::clamp(a, 0.0f, 1.0f); dirty_ = true; shadowContentDirty_ = true; }
     float getDensityScale() const { return densityScale_; }
     float getParticleSize() const { return particleSize_; }
     int getRepeatCount() const { return repeatCount_; }
@@ -136,6 +136,9 @@ private:
     int      shadowLayers_   = 8;
     uint32_t shadowMapSize_  = 512;
     bool     shadowDirty_    = true; // OpacityShadowMapPass needs (re)creation (layers/size changed)
+    // The shadow image is persistent. Re-record the expensive particle deposit only when
+    // its contents or the light-space projection changes, following GSView's sceneDirty_ path.
+    bool     shadowContentDirty_ = true;
     bool     depositPipelineCreated_ = false;
     Phantom::Math::Box3df lightBounds_ = Phantom::Math::Box3df::createDegeneratedBox();
 

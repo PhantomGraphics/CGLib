@@ -1,2 +1,5 @@
 /build_linux
 /VolumeView/test_roundtrip.vdb
+
+# Downloaded/converted OpenVDB samples are local test data.
+/VolumeView/samples/
