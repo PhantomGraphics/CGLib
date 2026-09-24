@@ -37,6 +37,7 @@ public:
     void setExtent(VkExtent2D ext) { extent_ = ext; }
     void markDirty() { dirty_ = true; }
     void syncCamera(float azimuth, float elevation, float distance);
+    void setCameraDistance(float d) { distance_ = std::max(0.01f, d); }
     void setShaders(Shaders shaders) { shaders_ = std::move(shaders); }
     void setEnabled(bool e) { enabled_ = e; }
 

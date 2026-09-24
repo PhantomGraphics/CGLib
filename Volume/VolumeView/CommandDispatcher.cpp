@@ -428,6 +428,14 @@ std::string CommandDispatcher::route(const std::string& cmd) {
         return "OK";
     }
 
+    if (parts[0] == "SetPBVRCameraDistance" && parts.size() == 2) {
+        if (!pbvrRenderer_) return "Error:no pbvr renderer";
+        float distance;
+        if (!parseFloat(parts[1], distance)) return "Error:bad SetPBVRCameraDistance value";
+        pbvrRenderer_->setCameraDistance(distance);
+        return "OK";
+    }
+
     if (parts[0] == "SetPBVRMultipleScattering" && parts.size() == 2) {
         if (!pbvrRenderer_) return "Error:no pbvr renderer";
         pbvrRenderer_->setMultipleScatteringEnabled(parts[1] != "0");

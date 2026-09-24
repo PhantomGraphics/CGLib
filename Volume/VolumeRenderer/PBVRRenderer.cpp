@@ -74,6 +74,14 @@ void PBVRRenderer::setTransferFunctionPreset(const int preset) {
         tf_.setPoint(0.0f, 0.9f, 0.9f, 0.95f, 0.6f);
         tf_.setPoint(0.5f, 0.9f, 0.9f, 0.95f, 0.3f);
         tf_.setPoint(1.0f, 0.9f, 0.9f, 0.95f, 0.0f);
+    } else if (preset == 2) {
+        // OpenVDB density preset. Unlike the SDF cloud preset, density grids
+        // are non-negative and may already be normalized above one. Treat any
+        // positive value as participating media instead of making the upper
+        // end transparent.
+        tf_.setPoint(0.0f, 0.92f, 0.94f, 1.0f, 0.0f);
+        tf_.setPoint(0.0001f, 0.92f, 0.94f, 1.0f, 0.85f);
+        tf_.setPoint(1.0f, 0.92f, 0.94f, 1.0f, 1.0f);
     } else {
         tf_.setPoint(0.0f, 0.0f, 0.0f, 1.0f, 0.0f);
         tf_.setPoint(0.5f, 0.0f, 1.0f, 0.0f, 0.5f);
