@@ -40,6 +40,64 @@ public:
         return indices;
     }
 
+    // Greedy importance sampling for the adaptive Phase-3 probe layout. The
+    // score is intentionally supplied by the caller so a renderer can use
+    // temporal variance, spatial gradients, or both without coupling this
+    // CPU utility to a particular particle representation.
+    static std::vector<std::size_t> selectAdaptive(
+        const std::vector<glm::vec3>& positions,
+        const std::vector<float>& importance,
+        const std::size_t probeCount,
+        const float minimumSpacing)
+    {
+        if (positions.empty() || importance.size() != positions.size() || probeCount == 0)
+            return {};
+
+        std::vector<std::size_t> candidates(positions.size());
+        std::iota(candidates.begin(), candidates.end(), std::size_t{0});
+        std::stable_sort(candidates.begin(), candidates.end(), [&importance](const auto lhs, const auto rhs) {
+            if (importance[lhs] != importance[rhs])
+                return importance[lhs] > importance[rhs];
+            return lhs < rhs;
+        });
+
+        const float spacingSquared = std::max(0.0f, minimumSpacing) *
+            std::max(0.0f, minimumSpacing);
+        std::vector<std::size_t> result;
+        result.reserve(std::min(probeCount, positions.size()));
+        for (const std::size_t candidate : candidates) {
+            bool sufficientlyFar = true;
+            if (spacingSquared > 0.0f) {
+                for (const std::size_t selected : result) {
+                    const glm::vec3 delta = positions[candidate] - positions[selected];
+                    if (glm::dot(delta, delta) < spacingSquared) {
+                        sufficientlyFar = false;
+                        break;
+                    }
+                }
+            }
+            if (!sufficientlyFar)
+                continue;
+            result.push_back(candidate);
+            if (result.size() == probeCount)
+                break;
+        }
+
+        // A spacing constraint can leave the requested budget unused. Fill
+        // the remainder by importance so the caller still gets a valid,
+        // deterministic probe set in compact particle clouds.
+        if (result.size() < std::min(probeCount, positions.size())) {
+            for (const std::size_t candidate : candidates) {
+                if (std::find(result.begin(), result.end(), candidate) == result.end())
+                    result.push_back(candidate);
+                if (result.size() == probeCount)
+                    break;
+            }
+        }
+        std::sort(result.begin(), result.end());
+        return result;
+    }
+
     static std::vector<Phantom::Math::SHRGB> interpolate(
         const std::vector<glm::vec3>& positions,
         const std::vector<ParticleProbe>& probes,

@@ -16,6 +16,30 @@ TEST(ParticleProbeScatteringTest, UniformSelectionIsDeterministicAndUnique)
         EXPECT_LT(first[i - 1], first[i]);
 }
 
+TEST(ParticleProbeScatteringTest, AdaptiveSelectionPrioritizesImportance)
+{
+    const std::vector<glm::vec3> positions = {
+        glm::vec3(0.0f), glm::vec3(1.0f, 0.0f, 0.0f),
+        glm::vec3(2.0f, 0.0f, 0.0f), glm::vec3(3.0f, 0.0f, 0.0f)};
+    const auto selected = ParticleProbeScattering::selectAdaptive(
+        positions, {0.1f, 0.2f, 10.0f, 0.3f}, 2, 0.0f);
+    ASSERT_EQ(2U, selected.size());
+    EXPECT_TRUE(std::find(selected.begin(), selected.end(), 2U) != selected.end());
+    EXPECT_TRUE(std::find(selected.begin(), selected.end(), 3U) != selected.end());
+}
+
+TEST(ParticleProbeScatteringTest, AdaptiveSelectionFillsBudgetWhenSpacingIsTooLarge)
+{
+    const std::vector<glm::vec3> positions = {
+        glm::vec3(0.0f), glm::vec3(0.1f, 0.0f, 0.0f), glm::vec3(0.2f, 0.0f, 0.0f)};
+    const auto selected = ParticleProbeScattering::selectAdaptive(
+        positions, {1.0f, 2.0f, 3.0f}, 3, 10.0f);
+    ASSERT_EQ(3U, selected.size());
+    EXPECT_EQ(0U, selected[0]);
+    EXPECT_EQ(1U, selected[1]);
+    EXPECT_EQ(2U, selected[2]);
+}
+
 TEST(ParticleProbeScatteringTest, InterpolationIsNormalized)
 {
     ParticleProbe left;
