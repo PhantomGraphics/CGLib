@@ -147,6 +147,12 @@ namespace Phantom::Gltf
         void setVisible(bool v) { visible_ = v; }
         bool isVisible() const  { return visible_; }
 
+        // Restricts this renderer to primitives authored by the given glTF node. An empty
+        // filter restores the normal whole-document draw. The document and GPU buffers remain
+        // shared; this is only a draw-time selection used by Universe's sidecar entity import.
+        void setNodeFilter(int nodeIndex) { nodeFilter_ = nodeIndex; }
+        int  nodeFilter() const { return nodeFilter_; }
+
         // --- GPU skinning ---
         // Per-frame joint matrices for skinned primitives (see GltfSkin/JOINTS_0/WEIGHTS_0 in
         // GltfTypes.h and BoneUBO in CameraUBO.h). Index i is position i within the relevant
@@ -439,6 +445,7 @@ namespace Phantom::Gltf
             std::vector<glm::vec3> localNrm;
         };
         std::vector<std::unique_ptr<PrimitiveEntry>> primitives_;
+        int nodeFilter_ = -1;
 
         // Object animation state (see setAnimationClip()).
         int               animClip_  = -1;

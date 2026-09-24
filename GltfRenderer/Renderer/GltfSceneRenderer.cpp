@@ -734,6 +734,7 @@ void GltfSceneRenderer::renderShadowCastersWithModel(VkCommandBuffer cmd, const 
                        0, sizeof(push), push.data());
 
     for (auto& entry : primitives_) {
+        if (nodeFilter_ >= 0 && entry->nodeIndex != nodeFilter_) continue;
         VkBuffer     vbuf   = entry->mesh.vertexBuffer();
         VkDeviceSize offset = 0;
         vkCmdBindVertexBuffers(cmd, 0, 1, &vbuf, &offset);
@@ -1274,6 +1275,7 @@ void GltfSceneRenderer::renderPrimitivesWithModel(VkCommandBuffer cmd, uint32_t 
     std::vector<PrimitiveEntry*> blendEntries;
     for (auto& entryPtr : primitives_) {
         PrimitiveEntry* entry = entryPtr.get();
+        if (nodeFilter_ >= 0 && entry->nodeIndex != nodeFilter_) continue;
         int matIdx = materialIndexFor(entry);
         GltfGpuMaterial* mat = materials_[matIdx].get();
         if (hasBlendMaterials_ && mat->isBlend()) {
