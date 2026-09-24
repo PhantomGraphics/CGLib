@@ -14,6 +14,8 @@ struct TFSample {
 class TransferFunction {
 public:
     void setPoint(float scalar, float r, float g, float b, float a);
+    // setPoint() merges into the existing curve; call this first to replace it.
+    void clearPoints() { points_.clear(); }
     TFSample sample(float scalar) const;
     const std::vector<TFSample>& getLUT() const { return lut_; }
     void buildLUT(int resolution = 256);

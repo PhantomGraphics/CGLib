@@ -53,6 +53,8 @@ public:
     void setProbeRadius(float r) { probeRadius_ = std::max(1.0e-4f, r); dirty_ = true; shadowContentDirty_ = true; }
     void setPhaseG(float g) { phaseG_ = std::clamp(g, -0.99f, 0.99f); dirty_ = true; shadowContentDirty_ = true; }
     void setScatteringAlbedo(float a) { scatteringAlbedo_ = std::clamp(a, 0.0f, 1.0f); dirty_ = true; shadowContentDirty_ = true; }
+    // Radiance is physical (sun irradiance 1); exposure maps it to the LDR swapchain.
+    void setScatteringExposure(float e) { scatteringExposure_ = std::max(0.0f, e); dirty_ = true; }
     float getDensityScale() const { return densityScale_; }
     float getParticleSize() const { return particleSize_; }
     int getRepeatCount() const { return repeatCount_; }
@@ -64,14 +66,20 @@ public:
     float getProbeRadius() const { return probeRadius_; }
     float getPhaseG() const { return phaseG_; }
     float getScatteringAlbedo() const { return scatteringAlbedo_; }
+    float getScatteringExposure() const { return scatteringExposure_; }
+    // Read-only diagnostics of the last CPU scattering solve (linear radiance
+    // luminance averaged over particles), for scenario assertions.
+    float getMeanScatteredRadiance() const { return meanScatteredRadiance_; }
+    float getMeanIndirectRadiance() const { return meanIndirectRadiance_; }
+    float getMeanSunTransmittance() const { return meanSunTransmittance_; }
     size_t getParticleCount() const {
         return useGPU_ ? static_cast<size_t>(gpuVertexCount_) : particleSet_.count();
     }
 
     // Self-shadow (experimental, Opacity Shadow Map). See internal design notes.
     void setLightDir(float azimuthDeg, float elevationDeg);
-    void setShadowEnabled(bool b) { shadowEnabled_ = b; }
-    void setExtinction(float sigma) { sigma_ = std::max(0.0f, sigma); }
+    void setShadowEnabled(bool b) { shadowEnabled_ = b; if (isCpuScatteringActive()) dirty_ = true; }
+    void setExtinction(float sigma) { sigma_ = std::max(0.0f, sigma); if (isCpuScatteringActive()) dirty_ = true; }
     void setShadowLayers(int n);
     void setShadowMapSize(uint32_t size);
     void setTransferFunctionPreset(int preset);
@@ -101,6 +109,7 @@ private:
     glm::mat4 computeMVP() const;
     void regenerateParticles();
     void applyMultipleScattering();
+    bool isCpuScatteringActive() const;
     glm::mat4 computeLightView() const;
     glm::mat4 computeLightProj() const;
     bool getActiveBuffer(VkBuffer& vbuf, uint32_t& vtxCount) const;
@@ -124,6 +133,10 @@ private:
     float probeRadius_ = 2.5f;
     float phaseG_ = 0.85f;
     float scatteringAlbedo_ = 0.8f;
+    float scatteringExposure_ = 8.0f;
+    float meanScatteredRadiance_ = 0.0f;
+    float meanIndirectRadiance_ = 0.0f;
+    float meanSunTransmittance_ = 1.0f;
     float azimuth_ = 0.0f;
     float elevation_ = 30.0f;
     float distance_ = 50.0f;

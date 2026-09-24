@@ -75,6 +75,7 @@ private:
     float      pbvrProbeRadius_ = 2.5f;
     float      pbvrPhaseG_ = 0.85f;
     float      pbvrScatteringAlbedo_ = 0.8f;
+    float      pbvrScatteringExposure_ = 8.0f;
 
     // Self-shadow (experimental).
     bool       shadowEnabled_        = false;

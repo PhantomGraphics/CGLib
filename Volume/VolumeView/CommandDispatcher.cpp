@@ -482,6 +482,29 @@ std::string CommandDispatcher::route(const std::string& cmd) {
         return "OK";
     }
 
+    if (parts[0] == "GetPBVRMeanScatteredRadiance") {
+        if (!pbvrRenderer_) return "Error:no pbvr renderer";
+        return std::to_string(pbvrRenderer_->getMeanScatteredRadiance());
+    }
+
+    if (parts[0] == "GetPBVRMeanIndirectRadiance") {
+        if (!pbvrRenderer_) return "Error:no pbvr renderer";
+        return std::to_string(pbvrRenderer_->getMeanIndirectRadiance());
+    }
+
+    if (parts[0] == "GetPBVRMeanSunTransmittance") {
+        if (!pbvrRenderer_) return "Error:no pbvr renderer";
+        return std::to_string(pbvrRenderer_->getMeanSunTransmittance());
+    }
+
+    if (parts[0] == "SetPBVRScatteringExposure" && parts.size() == 2) {
+        if (!pbvrRenderer_) return "Error:no pbvr renderer";
+        float exposure;
+        if (!parseFloat(parts[1], exposure)) return "Error:bad SetPBVRScatteringExposure value";
+        pbvrRenderer_->setScatteringExposure(exposure);
+        return "OK";
+    }
+
     if (parts[0] == "SetPBVRTFPreset" && parts.size() == 2) {
         if (!pbvrRenderer_) return "Error:no pbvr renderer";
         int preset = 0;

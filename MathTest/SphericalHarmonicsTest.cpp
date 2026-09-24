@@ -69,3 +69,43 @@ TEST(SphericalHarmonicsTest, LanczosWindowPreservesDC)
     EXPECT_LT(value.coefficients[1].x, 1.0f);
     EXPECT_LT(value.coefficients[4].x, value.coefficients[1].x);
 }
+
+TEST(SphericalHarmonicsTest, OctahedralTexelSolidAnglesMatchTheSphere)
+{
+    const auto solidAngles = octahedralTexelSolidAngles(16, 16);
+    ASSERT_EQ(256U, solidAngles.size());
+    float sum = 0.0f;
+    for (const float solidAngle : solidAngles)
+        sum += solidAngle;
+    EXPECT_NEAR(4.0f * pi, sum, 1.0e-4f);
+    // Octant face-centre texels cover more solid angle than the +z axis texel.
+    EXPECT_GT(solidAngles[10 * 16 + 10], 2.5f * solidAngles[8 * 16 + 8]);
+}
+
+TEST(SphericalHarmonicsTest, OctahedralProjectionOfLinearFunctionIsUnbiased)
+{
+    // f(d) = d.z projects onto Y_1^0 with coefficient 4*pi/3 * Y1 and has no
+    // DC term. Uniform texel weights bias both because texels are not equal-area.
+    constexpr int size = 32;
+    std::vector<glm::vec3> map;
+    map.reserve(size * size);
+    for (int y = 0; y < size; ++y)
+        for (int x = 0; x < size; ++x)
+            map.emplace_back(octahedralDirection(x, y, size, size).z);
+
+    const auto coefficients = projectOctahedralMap(map, size, size, 1);
+    EXPECT_NEAR(0.0f, coefficients.coefficients[0].x, 5.0e-3f);
+    EXPECT_NEAR(4.0f * pi / 3.0f * 0.4886025119029199f, coefficients.coefficients[3].x, 5.0e-3f);
+}
+
+TEST(SphericalHarmonicsTest, OctahedralTexelRoundTrips)
+{
+    constexpr int size = 16;
+    for (int y = 0; y < size; ++y) {
+        for (int x = 0; x < size; ++x) {
+            const glm::ivec2 texel = octahedralTexel(octahedralDirection(x, y, size, size), size, size);
+            EXPECT_EQ(x, texel.x);
+            EXPECT_EQ(y, texel.y);
+        }
+    }
+}

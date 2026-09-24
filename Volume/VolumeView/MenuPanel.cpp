@@ -56,6 +56,7 @@ void MenuPanel::init(World* world, int* pActiveSceneId, int* pActiveDenseSceneId
     if (pbvrRenderer_)  pbvrProbeRadius_ = pbvrRenderer_->getProbeRadius();
     if (pbvrRenderer_)  pbvrPhaseG_ = pbvrRenderer_->getPhaseG();
     if (pbvrRenderer_)  pbvrScatteringAlbedo_ = pbvrRenderer_->getScatteringAlbedo();
+    if (pbvrRenderer_)  pbvrScatteringExposure_ = pbvrRenderer_->getScatteringExposure();
     if (pbvrRenderer_)  shadowEnabled_   = pbvrRenderer_->isShadowEnabled();
     if (pbvrRenderer_)  lightAzimuth_    = pbvrRenderer_->getLightAzimuth();
     if (pbvrRenderer_)  lightElevation_  = pbvrRenderer_->getLightElevation();
@@ -244,6 +245,8 @@ void MenuPanel::drawRenderSettings() {
                 pbvrRenderer_->setPhaseG(pbvrPhaseG_);
             if (ImGui::SliderFloat("Scattering Albedo##pbvr", &pbvrScatteringAlbedo_, 0.0f, 1.0f))
                 pbvrRenderer_->setScatteringAlbedo(pbvrScatteringAlbedo_);
+            if (ImGui::SliderFloat("Exposure##pbvr", &pbvrScatteringExposure_, 0.1f, 100.0f, "%.2f", ImGuiSliderFlags_Logarithmic))
+                pbvrRenderer_->setScatteringExposure(pbvrScatteringExposure_);
         }
 
         const char* tfPresetItems[] = { "Debug (rainbow)", "Cloud (white)" };

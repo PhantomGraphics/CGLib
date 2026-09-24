@@ -355,6 +355,11 @@ function(phantom_add_volumerenderer_core)
         ${PHANTOM_VULKAN_INCLUDE_DIR}
     )
     target_link_libraries(VolumeRenderer PUBLIC VulkanGraphicsCore VolumeCore)
+    # ParticleProbeScattering.h parallelizes the CPU probe gather over probes.
+    find_package(OpenMP)
+    if(OpenMP_CXX_FOUND)
+        target_link_libraries(VolumeRenderer PRIVATE OpenMP::OpenMP_CXX)
+    endif()
     target_compile_options(VolumeRenderer PRIVATE ${PHANTOM_WARN_FLAGS})
     target_compile_features(VolumeRenderer PRIVATE cxx_std_20)
 endfunction()

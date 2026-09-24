@@ -75,17 +75,19 @@ inline float sphericalHarmonicBasis(const int index, const glm::vec3& direction)
     }
 }
 
-inline SHRGB projectSamples(const std::vector<glm::vec3>& directions,
-                            const std::vector<glm::vec3>& values,
-                            const int degree)
+// Quadrature of the SH projection integral: solidAngles[i] is the solid angle
+// represented by sample i (they should sum to 4*pi).
+inline SHRGB projectWeightedSamples(const std::vector<glm::vec3>& directions,
+                                    const std::vector<glm::vec3>& values,
+                                    const std::vector<float>& solidAngles,
+                                    const int degree)
 {
     SHRGB result;
     result.degree = glm::clamp(degree, 0, 2);
-    if (directions.empty() || directions.size() != values.size())
+    if (directions.empty() || directions.size() != values.size() ||
+        solidAngles.size() != directions.size())
         return result;
 
-    const float sampleWeight = 4.0f * 3.14159265358979323846f /
-        static_cast<float>(directions.size());
     for (std::size_t sample = 0; sample < directions.size(); ++sample) {
         const float length = glm::length(directions[sample]);
         const glm::vec3 direction = length > 1.0e-8f
@@ -93,26 +95,87 @@ inline SHRGB projectSamples(const std::vector<glm::vec3>& directions,
             : glm::vec3(0.0f, 0.0f, 1.0f);
         for (int coefficient = 0; coefficient < (result.degree + 1) * (result.degree + 1); ++coefficient)
             result.coefficients[static_cast<std::size_t>(coefficient)] +=
-                values[sample] * (sphericalHarmonicBasis(coefficient, direction) * sampleWeight);
+                values[sample] * (sphericalHarmonicBasis(coefficient, direction) * solidAngles[sample]);
     }
     return result;
 }
 
-// Project an equirectangular/octahedral raster whose texels are uniformly
-// weighted. The PBVR implementation uses an octahedral atlas; keeping the
-// conversion here makes the CPU reference and the GPU convention identical.
-inline glm::vec3 octahedralDirection(const int x, const int y, const int width, const int height)
+// Samples that are uniformly distributed over the sphere.
+inline SHRGB projectSamples(const std::vector<glm::vec3>& directions,
+                            const std::vector<glm::vec3>& values,
+                            const int degree)
 {
-    const float u = (static_cast<float>(x) + 0.5f) / static_cast<float>(width) * 2.0f - 1.0f;
-    const float v = (static_cast<float>(y) + 0.5f) / static_cast<float>(height) * 2.0f - 1.0f;
+    const float sampleWeight = directions.empty() ? 0.0f
+        : 4.0f * 3.14159265358979323846f / static_cast<float>(directions.size());
+    return projectWeightedSamples(directions, values,
+        std::vector<float>(directions.size(), sampleWeight), degree);
+}
+
+// Octahedral raster convention shared by the CPU reference and the GPU atlas.
+// Texel (x, y) maps to (u, v) in [-1, 1]^2, which unfolds to the point
+// p = (u, v, 1 - |u| - |v|) on the octahedron |p|_1 = 1.
+inline glm::vec3 octahedralUnnormalizedPoint(const float u, const float v)
+{
     glm::vec3 direction(u, v, 1.0f - std::abs(u) - std::abs(v));
     if (direction.z < 0.0f) {
         const float oldX = direction.x;
         direction.x = (1.0f - std::abs(direction.y)) * (oldX < 0.0f ? -1.0f : 1.0f);
         direction.y = (1.0f - std::abs(oldX)) * (direction.y < 0.0f ? -1.0f : 1.0f);
     }
+    return direction;
+}
+
+inline glm::vec3 octahedralDirection(const int x, const int y, const int width, const int height)
+{
+    const float u = (static_cast<float>(x) + 0.5f) / static_cast<float>(width) * 2.0f - 1.0f;
+    const float v = (static_cast<float>(y) + 0.5f) / static_cast<float>(height) * 2.0f - 1.0f;
+    const glm::vec3 direction = octahedralUnnormalizedPoint(u, v);
     const float length = glm::length(direction);
     return length > 1.0e-8f ? direction / length : glm::vec3(0.0f, 0.0f, 1.0f);
+}
+
+// Texel -> direction for splatting: the inverse of octahedralDirection.
+inline glm::ivec2 octahedralTexel(const glm::vec3& direction, const int width, const int height)
+{
+    const float l1 = std::abs(direction.x) + std::abs(direction.y) + std::abs(direction.z);
+    glm::vec3 p = l1 > 1.0e-8f ? direction / l1 : glm::vec3(0.0f, 0.0f, 1.0f);
+    float u = p.x;
+    float v = p.y;
+    if (p.z < 0.0f) {
+        u = (1.0f - std::abs(p.y)) * (p.x < 0.0f ? -1.0f : 1.0f);
+        v = (1.0f - std::abs(p.x)) * (p.y < 0.0f ? -1.0f : 1.0f);
+    }
+    const int x = static_cast<int>((u * 0.5f + 0.5f) * static_cast<float>(width));
+    const int y = static_cast<int>((v * 0.5f + 0.5f) * static_cast<float>(height));
+    return glm::ivec2(glm::clamp(x, 0, width - 1), glm::clamp(y, 0, height - 1));
+}
+
+// Octahedral texels do not cover equal solid angles. On the unfolded
+// octahedron |p|_1 = 1 the solid-angle element is du dv / |p|^3 (the fold of
+// the lower hemisphere has unit Jacobian): texels at the octant face centres
+// (|p| = 1/sqrt(3)) are ~5.2x larger than those on the axes (|p| = 1).
+// The midpoint rule is renormalized to sum to 4*pi.
+inline std::vector<float> octahedralTexelSolidAngles(const int width, const int height)
+{
+    std::vector<float> result;
+    if (width <= 0 || height <= 0)
+        return result;
+    result.reserve(static_cast<std::size_t>(width * height));
+    double sum = 0.0;
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            const float u = (static_cast<float>(x) + 0.5f) / static_cast<float>(width) * 2.0f - 1.0f;
+            const float v = (static_cast<float>(y) + 0.5f) / static_cast<float>(height) * 2.0f - 1.0f;
+            const float length = glm::length(octahedralUnnormalizedPoint(u, v));
+            const float weight = 1.0f / (length * length * length);
+            result.push_back(weight);
+            sum += weight;
+        }
+    }
+    const float scale = static_cast<float>(4.0 * 3.14159265358979323846 / sum);
+    for (auto& weight : result)
+        weight *= scale;
+    return result;
 }
 
 inline SHRGB projectOctahedralMap(const std::vector<glm::vec3>& texels,
@@ -130,7 +193,8 @@ inline SHRGB projectOctahedralMap(const std::vector<glm::vec3>& texels,
     for (int y = 0; y < height; ++y)
         for (int x = 0; x < width; ++x)
             directions.push_back(octahedralDirection(x, y, width, height));
-    return projectSamples(directions, texels, result.degree);
+    return projectWeightedSamples(directions, texels,
+        octahedralTexelSolidAngles(width, height), result.degree);
 }
 
 // A normalized HG phase function has SH convolution eigenvalue g^l. This is

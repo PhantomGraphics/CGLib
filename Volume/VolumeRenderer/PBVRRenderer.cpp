@@ -6,8 +6,10 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include <algorithm>
+#include <chrono>
 #include <cstdio>
 #include <cmath>
+#include <vector>
 
 namespace Phantom::Volume {
 
@@ -58,6 +60,8 @@ void PBVRRenderer::setLightDir(const float azimuthDeg, const float elevationDeg)
     lightAzimuth_ = azimuthDeg;
     lightElevation_ = std::clamp(elevationDeg, -89.0f, 89.0f);
     shadowContentDirty_ = true;
+    // The CPU scattering bakes T_sun and the phase angle into the particles.
+    if (isCpuScatteringActive()) dirty_ = true;
 }
 
 void PBVRRenderer::setShadowLayers(const int n) {
@@ -79,6 +83,9 @@ void PBVRRenderer::setShadowMapSize(const uint32_t size) {
 }
 
 void PBVRRenderer::setTransferFunctionPreset(const int preset) {
+    // Presets replace the whole curve. Merging left e.g. the rainbow preset's
+    // green point at 0.5 inside the OpenVDB preset (green mid-density voxels).
+    tf_.clearPoints();
     if (preset == 1) {
         // Cloud preset: dense white-ish core, fading to transparent at the SDF band edge.
         // The default rainbow preset clamps to alpha=0 at scalar=0, which leaves an SDF
@@ -185,7 +192,10 @@ void PBVRRenderer::onUpdate(uint32_t frameIndex) {
     ubo.lightVP = computeLightProj() * computeLightView();
     ubo.sigma = sigma_;
     ubo.layerCount = static_cast<float>(shadowLayers_);
-    ubo.shadowEnabled = shadowEnabled_ ? 1.0f : 0.0f;
+    // With CPU multiple scattering T_sun is already inside the particle colour
+    // (direct term only); shadowing the whole colour again would also darken
+    // the indirect light that is supposed to fill the shadows.
+    ubo.shadowEnabled = (shadowEnabled_ && !isCpuScatteringActive()) ? 1.0f : 0.0f;
     pipeline_.updateUBO(frameIndex, ubo);
 }
 
@@ -333,6 +343,8 @@ void PBVRRenderer::regenerateParticles() {
     if (!dataSource_ || !ctx_ || !pool_) {
         return;
     }
+    // New particles (and, with CPU scattering, new colours) need a new deposit.
+    shadowContentDirty_ = true;
 
     lightBounds_ = Phantom::Math::Box3df::createDegeneratedBox();
     bool haveBounds = false;
@@ -402,56 +414,117 @@ void PBVRRenderer::regenerateParticles() {
                          vertices_.data());
 }
 
+bool PBVRRenderer::isCpuScatteringActive() const {
+    return multipleScatteringEnabled_ && !useGPU_;
+}
+
 void PBVRRenderer::applyMultipleScattering() {
+    meanScatteredRadiance_ = 0.0f;
+    meanIndirectRadiance_ = 0.0f;
+    meanSunTransmittance_ = 1.0f;
     if (!multipleScatteringEnabled_ || particleSet_.particles.empty() ||
-        scatteringOrders_ <= 0) {
+        scatteringOrders_ < 0) {
         return;
     }
 
+    const std::size_t count = particleSet_.particles.size();
+    const auto solveStart = std::chrono::steady_clock::now();
     std::vector<glm::vec3> positions;
-    positions.reserve(particleSet_.particles.size());
-    std::vector<Phantom::Math::SHRGB> direct;
-    direct.reserve(particleSet_.particles.size());
-    std::vector<float> albedo(particleSet_.particles.size(), scatteringAlbedo_);
-
-    // The light direction is used as the incoming direction at a particle.
-    // This CPU path is intentionally a compact reference implementation; the
-    // existing opacity shadow pass still supplies the visibility term.
-    const glm::vec3 incomingDirection = -computeLightDir();
-    constexpr float pi = 3.14159265358979323846f;
-    for (const auto& particle : particleSet_.particles) {
+    positions.reserve(count);
+    for (const auto& particle : particleSet_.particles)
         positions.push_back(particle.pos);
-        Phantom::Math::SHRGB source;
-        source.degree = 1;
-        // Keep a small isotropic component so the low-order reconstruction
-        // remains positive away from the light direction. The directional
-        // terms then add the forward-scattering lobe instead of turning the
-        // whole cloud black after the non-negative evaluation clamp.
-        source.coefficients[0] = particle.color * std::sqrt(4.0f * pi) * 0.15f;
-        for (int coefficient = 1; coefficient < 4; ++coefficient) {
-            source.coefficients[static_cast<std::size_t>(coefficient)] =
-                particle.color * (Phantom::Math::sphericalHarmonicBasis(
-                    coefficient, incomingDirection) * (4.0f * pi * 0.03f));
+
+    // Model the particles as the medium the opacity shadow map already sees:
+    // every particle deposits sigma into a 3-pixel point sprite (a disc of
+    // 1.5 shadow texels), i.e. an opaque-with-probability disc of that radius
+    // and opacity 1 - exp(-sigma). Probe maps and T_sun then agree with the
+    // GPU shadow in expectation, and SetPBVRExtinction drives both.
+    const glm::vec3 extent = lightBounds_.getLength();
+    const float lightHalfSize = std::max(0.5f * glm::length(extent), 1.0f) * 1.2f;
+    const float shadowTexel = 2.0f * lightHalfSize / static_cast<float>(std::max(1U, shadowMapSize_));
+    ProbeScatteringSettings settings;
+    settings.particleRadius = 1.5f * shadowTexel;
+    settings.kernelRadius = probeRadius_;
+    settings.phaseG = phaseG_;
+    settings.degree = 1;
+    // ISM-style subsets keep the CPU reference interactive on real clouds
+    // (O(probes * subset) instead of O(probes * particles)).
+    settings.maxSourcesPerProbe = 4096;
+    const std::vector<float> opacity(count, 1.0f - std::exp(-sigma_));
+    const std::vector<float> albedo(count, scatteringAlbedo_);
+
+    const glm::vec3 towardsLight = computeLightDir();
+    const glm::vec3 lightPropagation = -towardsLight;
+    const glm::vec3 sunIrradiance(1.0f, 0.95f, 0.85f); // sunColor in pbvr_render.frag
+    const std::vector<float> sunTransmittance = shadowEnabled_
+        ? ParticleProbeScattering::computeDirectionalTransmittance(
+              positions, opacity, settings.particleRadius, towardsLight)
+        : std::vector<float>(count, 1.0f);
+
+    // Single scattering (plan Sec. 3.2 step 1). It is kept exact for the final
+    // view-dependent evaluation; only its degree-1 SH projection (a delta
+    // lobe convolved with HG, i.e. g^l * Y_lm(lightPropagation)) seeds the
+    // higher orders, where the distribution is already broad.
+    std::vector<glm::vec3> singleScatteringWeight(count);
+    std::vector<Phantom::Math::SHRGB> direct(count);
+    for (std::size_t i = 0; i < count; ++i) {
+        // The transfer-function colour tints the scattering albedo.
+        singleScatteringWeight[i] = particleSet_.particles[i].color * scatteringAlbedo_ *
+            sunIrradiance * sunTransmittance[i];
+        direct[i].degree = settings.degree;
+        for (int coefficient = 0; coefficient < 4; ++coefficient) {
+            const float band = coefficient == 0 ? 1.0f : phaseG_;
+            direct[i].coefficients[static_cast<std::size_t>(coefficient)] = singleScatteringWeight[i] *
+                (band * Phantom::Math::sphericalHarmonicBasis(coefficient, lightPropagation));
         }
-        direct.push_back(source);
     }
 
     const auto probes = ParticleProbeScattering::selectUniform(
         positions, static_cast<std::size_t>(probeCount_), 0x50425652U);
     const auto total = ParticleProbeScattering::solve(
-        positions, direct, probes, albedo, probeRadius_, phaseG_, scatteringOrders_, 1);
-    if (total.size() != vertices_.size())
+        positions, direct, probes, albedo, opacity, settings, scatteringOrders_);
+    if (total.size() != count || vertices_.size() != count)
         return;
 
     const float az = glm::radians(azimuth_);
     const float el = glm::radians(elevation_);
-    const glm::vec3 viewDirection(
-        std::cos(el) * std::sin(az), std::sin(el), std::cos(el) * std::cos(az));
-    for (std::size_t i = 0; i < total.size(); ++i) {
-        const glm::vec3 radiance = Phantom::Math::evaluate(total[i], viewDirection, true);
-        vertices_[i].color = glm::vec4(glm::clamp(radiance, glm::vec3(0.0f), glm::vec3(1.0f)),
+    const glm::vec3 eye = distance_ *
+        glm::vec3(std::cos(el) * std::sin(az), std::sin(el), std::cos(el) * std::cos(az));
+    constexpr float pi = 3.14159265358979323846f;
+    const float g = phaseG_;
+    const glm::vec3 luminanceWeights(0.2126f, 0.7152f, 0.0722f);
+    double radianceSum = 0.0;
+    double indirectSum = 0.0;
+    double transmittanceSum = 0.0;
+    for (std::size_t i = 0; i < count; ++i) {
+        const glm::vec3 toEye = eye - positions[i];
+        const float eyeDistance = glm::length(toEye);
+        const glm::vec3 viewDirection = eyeDistance > 1.0e-6f ? toEye / eyeDistance : glm::vec3(0.0f, 0.0f, 1.0f);
+
+        const float cosTheta = glm::dot(lightPropagation, viewDirection);
+        const float phase = (1.0f - g * g) /
+            (4.0f * pi * std::pow(std::max(1.0e-6f, 1.0f + g * g - 2.0f * g * cosTheta), 1.5f));
+        Phantom::Math::SHRGB indirect = total[i];
+        for (int coefficient = 0; coefficient < 4; ++coefficient)
+            indirect.coefficients[static_cast<std::size_t>(coefficient)] -=
+                direct[i].coefficients[static_cast<std::size_t>(coefficient)];
+        const glm::vec3 indirectRadiance = Phantom::Math::evaluate(indirect, viewDirection, true);
+        const glm::vec3 radiance = singleScatteringWeight[i] * phase + indirectRadiance;
+        radianceSum += glm::dot(radiance, luminanceWeights);
+        indirectSum += glm::dot(indirectRadiance, luminanceWeights);
+        transmittanceSum += sunTransmittance[i];
+
+        // The swapchain is LDR. A soft exposure curve keeps the ratios of the
+        // HDR result instead of hard-clipping the forward-scattering peak.
+        vertices_[i].color = glm::vec4(glm::vec3(1.0f) - glm::exp(-scatteringExposure_ * radiance),
                                        vertices_[i].color.a);
     }
+    meanScatteredRadiance_ = static_cast<float>(radianceSum / static_cast<double>(count));
+    meanIndirectRadiance_ = static_cast<float>(indirectSum / static_cast<double>(count));
+    meanSunTransmittance_ = static_cast<float>(transmittanceSum / static_cast<double>(count));
+    std::fprintf(stderr, "[PBVR] multiple scattering: %zu particles, %d probes, %d orders, %.0f ms\n",
+                 count, probeCount_, scatteringOrders_,
+                 std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - solveStart).count());
 }
 
 } // namespace PBVR
