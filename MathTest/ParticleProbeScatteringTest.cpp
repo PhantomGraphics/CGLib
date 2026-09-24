@@ -40,6 +40,39 @@ TEST(ParticleProbeScatteringTest, AdaptiveSelectionFillsBudgetWhenSpacingIsTooLa
     EXPECT_EQ(2U, selected[2]);
 }
 
+TEST(ParticleProbeScatteringTest, ImportanceTracksTemporalChange)
+{
+    SHRGB calm;
+    calm.degree = 0;
+    calm.coefficients[0] = glm::vec3(1.0f);
+    SHRGB changed = calm;
+    changed.coefficients[0] = glm::vec3(5.0f);
+    const std::vector<glm::vec3> positions = {
+        glm::vec3(0.0f), glm::vec3(10.0f, 0.0f, 0.0f)};
+
+    const auto importance = ParticleProbeScattering::estimateImportance(
+        positions, {changed, calm}, {calm, calm}, 0.0f);
+    ASSERT_EQ(2U, importance.size());
+    EXPECT_GT(importance[0], importance[1]);
+}
+
+TEST(ParticleProbeScatteringTest, ImportanceTracksSpatialGradient)
+{
+    SHRGB dark;
+    dark.degree = 0;
+    dark.coefficients[0] = glm::vec3(0.0f);
+    SHRGB bright = dark;
+    bright.coefficients[0] = glm::vec3(4.0f);
+    const std::vector<glm::vec3> positions = {
+        glm::vec3(0.0f), glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(10.0f, 0.0f, 0.0f)};
+
+    const auto importance = ParticleProbeScattering::estimateImportance(
+        positions, {dark, bright, dark}, {}, 2.0f);
+    ASSERT_EQ(3U, importance.size());
+    EXPECT_GT(importance[0], importance[2]);
+    EXPECT_GT(importance[1], importance[2]);
+}
+
 TEST(ParticleProbeScatteringTest, InterpolationIsNormalized)
 {
     ParticleProbe left;

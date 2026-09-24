@@ -98,6 +98,43 @@ public:
         return result;
     }
 
+    // Estimate where the probe cache needs more samples. Temporal change is
+    // measured against the previous SH field; the spatial term detects local
+    // radiance boundaries even when the scene is static.
+    static std::vector<float> estimateImportance(
+        const std::vector<glm::vec3>& positions,
+        const std::vector<Phantom::Math::SHRGB>& current,
+        const std::vector<Phantom::Math::SHRGB>& previous,
+        const float neighborRadius)
+    {
+        if (current.size() != positions.size())
+            return {};
+
+        const float radiusSquared = std::max(0.0f, neighborRadius) *
+            std::max(0.0f, neighborRadius);
+        std::vector<float> result(positions.size(), 1.0f);
+        for (std::size_t i = 0; i < positions.size(); ++i) {
+            if (previous.size() == current.size())
+                result[i] += radianceDifference(current[i], previous[i]);
+            if (radiusSquared <= 0.0f)
+                continue;
+
+            float gradient = 0.0f;
+            for (std::size_t j = 0; j < positions.size(); ++j) {
+                if (i == j)
+                    continue;
+                const glm::vec3 delta = positions[j] - positions[i];
+                const float distanceSquared = glm::dot(delta, delta);
+                if (distanceSquared <= 1.0e-10f || distanceSquared > radiusSquared)
+                    continue;
+                gradient = std::max(gradient,
+                    radianceDifference(current[i], current[j]) / std::sqrt(distanceSquared));
+            }
+            result[i] += gradient;
+        }
+        return result;
+    }
+
     static std::vector<Phantom::Math::SHRGB> interpolate(
         const std::vector<glm::vec3>& positions,
         const std::vector<ParticleProbe>& probes,
@@ -233,6 +270,20 @@ public:
             result[i].radiance = result[i].radiance * (1.0f - weight) + previous[i].radiance * weight;
         }
         return result;
+    }
+
+private:
+    static float radianceDifference(const Phantom::Math::SHRGB& lhs,
+                                    const Phantom::Math::SHRGB& rhs)
+    {
+        const int degree = std::min(lhs.degree, rhs.degree);
+        float squaredDifference = 0.0f;
+        for (int i = 0; i < (degree + 1) * (degree + 1); ++i) {
+            const glm::vec3 delta = lhs.coefficients[static_cast<std::size_t>(i)] -
+                rhs.coefficients[static_cast<std::size_t>(i)];
+            squaredDifference += glm::dot(delta, delta);
+        }
+        return std::sqrt(squaredDifference);
     }
 };
 
