@@ -62,6 +62,13 @@ function(phantom_find_local_nuget_gtest)
             set_target_properties(GTest::gtest PROPERTIES
                 IMPORTED_LOCATION "${_gtest}"
                 INTERFACE_INCLUDE_DIRECTORIES "${_include}")
+            set(_compat_header "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/GTestCompat.h")
+            file(READ "${_include}/gtest/gtest.h" _gtest_header)
+            string(FIND "${_gtest_header}" "GTEST_SKIP" _has_gtest_skip)
+            if(_has_gtest_skip EQUAL -1)
+                set_property(TARGET GTest::gtest APPEND PROPERTY
+                    INTERFACE_COMPILE_OPTIONS "/FI${_compat_header}")
+            endif()
             add_library(GTest::gtest_main UNKNOWN IMPORTED GLOBAL)
             set_target_properties(GTest::gtest_main PROPERTIES
                 IMPORTED_LOCATION "${_gtest_main}"
