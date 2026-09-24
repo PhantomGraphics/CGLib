@@ -1,6 +1,7 @@
 #include "gtest/gtest.h"
 
 #include "../AssetCore/AssetManifest.h"
+#include "../AssetCore/ContentHash.h"
 
 #include <filesystem>
 #include <random>
@@ -118,4 +119,14 @@ TEST(AssetManifest, LoadFromFileMissingFileFails)
     AssetManifest loaded = AssetManifest::loadFromFile("Z:/does/not/exist.json", &ok);
     EXPECT_FALSE(ok);
     EXPECT_EQ(loaded.size(), 0u);
+}
+
+TEST(ContentHash, KnownSha256Vectors)
+{
+    const auto empty = ContentHash::fromBytes("", 0);
+    EXPECT_EQ(empty.value(), "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
+
+    const std::string abc = "abc";
+    const auto three = ContentHash::fromBytes(abc.data(), abc.size());
+    EXPECT_EQ(three.value(), "sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
 }

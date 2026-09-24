@@ -7,7 +7,9 @@
 # Resolution order:
 #   1. find_package(GTest CONFIG) / find_package(GTest MODULE) -- a system or
 #      package-manager GoogleTest (e.g. libgtest-dev on Linux, vcpkg on Windows).
-#   2. FetchContent of a pinned GoogleTest tag -- only when CGLIB_FETCH_GTEST is
+#   2. The repository-local NuGet GoogleTest package on Windows (the same package
+#      consumed by CGApp's MSBuild projects).
+#   3. FetchContent of a pinned GoogleTest tag -- only when CGLIB_FETCH_GTEST is
 #      ON (the default when tests are enabled) and step 1 found nothing. This
 #      needs network access on the first configure; set -DCGLIB_FETCH_GTEST=OFF
 #      for a strictly offline / distribution build and provide GTest yourself.
@@ -17,6 +19,60 @@
 
 set(CGLIB_GTEST_GIT_TAG "v1.15.2" CACHE STRING "GoogleTest tag used by the FetchContent fallback")
 option(CGLIB_FETCH_GTEST "Fetch a pinned GoogleTest if no system/package GTest is found" ON)
+
+function(phantom_find_local_nuget_gtest)
+    if(NOT WIN32 OR TARGET GTest::gtest OR TARGET GTest::gtest_main)
+        return()
+    endif()
+
+    # CGApp's MSBuild projects already consume the repository's NuGet package. Reuse that
+    # package for the standalone CMake tests too; this keeps offline builds on the same CRT /
+    # architecture and avoids downloading a second GoogleTest copy.
+    set(_roots)
+    if(DEFINED CGLIB_GTEST_ROOT)
+        list(APPEND _roots "${CGLIB_GTEST_ROOT}")
+    endif()
+    list(APPEND _roots
+        "${CMAKE_SOURCE_DIR}/../packages"
+        "${CMAKE_SOURCE_DIR}/../../packages"
+        "${CMAKE_CURRENT_LIST_DIR}/../../../packages")
+
+    foreach(_root IN LISTS _roots)
+        file(GLOB _packages LIST_DIRECTORIES true
+            "${_root}/Microsoft.googletest.v140.windesktop.msvcstl.static.rt-dyn.*")
+        foreach(_package IN LISTS _packages)
+            set(_include "${_package}/build/native/include")
+            set(_lib_dir "${_package}/lib/native/v140/windesktop/msvcstl/static/rt-dyn/x64")
+            if(NOT EXISTS "${_include}/gtest/gtest.h")
+                continue()
+            endif()
+
+            if(CMAKE_BUILD_TYPE MATCHES "^[Rr]elease$")
+                set(_suffix "")
+            else()
+                set(_suffix "d")
+            endif()
+            set(_gtest "${_lib_dir}/${CMAKE_BUILD_TYPE}/gtest${_suffix}.lib")
+            set(_gtest_main "${_lib_dir}/${CMAKE_BUILD_TYPE}/gtest_main${_suffix}.lib")
+            if(NOT EXISTS "${_gtest}" OR NOT EXISTS "${_gtest_main}")
+                continue()
+            endif()
+
+            add_library(GTest::gtest UNKNOWN IMPORTED GLOBAL)
+            set_target_properties(GTest::gtest PROPERTIES
+                IMPORTED_LOCATION "${_gtest}"
+                INTERFACE_INCLUDE_DIRECTORIES "${_include}")
+            add_library(GTest::gtest_main UNKNOWN IMPORTED GLOBAL)
+            set_target_properties(GTest::gtest_main PROPERTIES
+                IMPORTED_LOCATION "${_gtest_main}"
+                INTERFACE_INCLUDE_DIRECTORIES "${_include}"
+                INTERFACE_LINK_LIBRARIES GTest::gtest)
+            message(STATUS "CGLib: using local NuGet GoogleTest from ${_package}")
+            set(PHANTOM_GTEST_FOUND TRUE CACHE INTERNAL "Whether GTest::gtest/GTest::gtest_main are available")
+            return()
+        endforeach()
+    endforeach()
+endfunction()
 
 function(phantom_find_gtest)
     # Gate on target existence, not the PHANTOM_GTEST_FOUND cache value: IMPORTED
@@ -29,6 +85,13 @@ function(phantom_find_gtest)
     find_package(GTest CONFIG QUIET)
     if(NOT GTest_FOUND)
         find_package(GTest MODULE QUIET)
+    endif()
+
+    if(NOT GTest_FOUND)
+        phantom_find_local_nuget_gtest()
+        if(TARGET GTest::gtest OR TARGET GTest::gtest_main)
+            return()
+        endif()
     endif()
 
     if(GTest_FOUND)
