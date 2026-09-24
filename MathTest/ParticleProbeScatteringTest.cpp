@@ -104,6 +104,45 @@ TEST(ParticleProbeScatteringTest, HistoryResetsWhenProbeMovesTooFar)
     EXPECT_FLOAT_EQ(10.0f, result[0].radiance.coefficients[0].x);
 }
 
+TEST(ParticleProbeScatteringTest, NearestHistoryReuseSurvivesParticleReordering)
+{
+    ParticleProbe oldLeft;
+    oldLeft.position = glm::vec3(-1.0f, 0.0f, 0.0f);
+    oldLeft.valid = true;
+    oldLeft.radiance.degree = 0;
+    oldLeft.radiance.coefficients[0] = glm::vec3(2.0f);
+    ParticleProbe oldRight = oldLeft;
+    oldRight.position = glm::vec3(1.0f, 0.0f, 0.0f);
+    oldRight.radiance.coefficients[0] = glm::vec3(8.0f);
+
+    ParticleProbe newRight = oldRight;
+    newRight.radiance.coefficients[0] = glm::vec3(4.0f);
+    ParticleProbe newLeft = oldLeft;
+    newLeft.radiance.coefficients[0] = glm::vec3(6.0f);
+    const auto result = ParticleProbeScattering::updateHistoryNearest(
+        {newRight, newLeft}, {oldLeft, oldRight}, 0.5f, 0.25f);
+
+    ASSERT_EQ(2U, result.size());
+    EXPECT_FLOAT_EQ(6.0f, result[0].radiance.coefficients[0].x);
+    EXPECT_FLOAT_EQ(4.0f, result[1].radiance.coefficients[0].x);
+}
+
+TEST(ParticleProbeScatteringTest, NearestHistoryReuseResetsOutsideDistance)
+{
+    ParticleProbe current;
+    current.position = glm::vec3(10.0f, 0.0f, 0.0f);
+    current.valid = true;
+    current.radiance.degree = 0;
+    current.radiance.coefficients[0] = glm::vec3(9.0f);
+    ParticleProbe previous = current;
+    previous.position = glm::vec3(0.0f);
+    previous.radiance.coefficients[0] = glm::vec3(1.0f);
+
+    const auto result = ParticleProbeScattering::updateHistoryNearest(
+        {current}, {previous}, 0.9f, 1.0f);
+    EXPECT_FLOAT_EQ(9.0f, result[0].radiance.coefficients[0].x);
+}
+
 TEST(ParticleProbeScatteringTest, ScatteringOrderProducesAProbeCache)
 {
     SHRGB sourceRadiance;

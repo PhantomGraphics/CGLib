@@ -272,6 +272,43 @@ public:
         return result;
     }
 
+    // Lagrangian history reuse that is robust to particle-buffer reordering.
+    // The CPU reference uses a linear nearest-neighbour search; a renderer can
+    // replace this lookup with its spatial index without changing the EMA or
+    // reset semantics.
+    static std::vector<ParticleProbe> updateHistoryNearest(
+        const std::vector<ParticleProbe>& current,
+        const std::vector<ParticleProbe>& previous,
+        const float historyWeight,
+        const float resetDistance)
+    {
+        std::vector<ParticleProbe> result = current;
+        const float weight = std::clamp(historyWeight, 0.0f, 1.0f);
+        const float maxDistanceSquared = std::max(0.0f, resetDistance) *
+            std::max(0.0f, resetDistance);
+        for (auto& probe : result) {
+            if (!probe.valid || previous.empty())
+                continue;
+
+            const ParticleProbe* nearest = nullptr;
+            float nearestDistanceSquared = maxDistanceSquared;
+            for (const auto& candidate : previous) {
+                if (!candidate.valid)
+                    continue;
+                const glm::vec3 delta = probe.position - candidate.position;
+                const float distanceSquared = glm::dot(delta, delta);
+                if (distanceSquared <= nearestDistanceSquared) {
+                    nearestDistanceSquared = distanceSquared;
+                    nearest = &candidate;
+                }
+            }
+            if (nearest == nullptr)
+                continue;
+            probe.radiance = probe.radiance * (1.0f - weight) + nearest->radiance * weight;
+        }
+        return result;
+    }
+
 private:
     static float radianceDifference(const Phantom::Math::SHRGB& lhs,
                                     const Phantom::Math::SHRGB& rhs)
