@@ -297,6 +297,14 @@ std::string CommandDispatcher::route(const std::string& cmd) {
         return cmdExportVDB(cmd.substr(kExportVDB.size()));
     }
 
+    // Path argument may contain ':' (drive letters), so match by prefix.
+    static constexpr std::string_view kDumpRadiance = "DumpPBVRParticleRadiance:";
+    if (cmd.rfind(kDumpRadiance, 0) == 0) {
+        if (!pbvrRenderer_) return "Error:no pbvr renderer";
+        return pbvrRenderer_->dumpParticleRadiance(std::string(cmd.substr(kDumpRadiance.size())))
+            ? "OK" : "Error:no scattering result to dump";
+    }
+
     static constexpr std::string_view kImportVDB = "ImportVDB:";
     if (cmd.rfind(kImportVDB, 0) == 0) {
         return cmdImportVDB(cmd.substr(kImportVDB.size()));
@@ -495,6 +503,53 @@ std::string CommandDispatcher::route(const std::string& cmd) {
     if (parts[0] == "GetPBVRMeanSunTransmittance") {
         if (!pbvrRenderer_) return "Error:no pbvr renderer";
         return std::to_string(pbvrRenderer_->getMeanSunTransmittance());
+    }
+
+    if (parts[0] == "SetPBVRCameraTarget" && parts.size() == 4) {
+        if (!pbvrRenderer_) return "Error:no pbvr renderer";
+        float x, y, z;
+        if (!parseFloat(parts[1], x) || !parseFloat(parts[2], y) || !parseFloat(parts[3], z))
+            return "Error:bad SetPBVRCameraTarget value";
+        pbvrRenderer_->setCameraTarget(glm::vec3(x, y, z));
+        return "OK";
+    }
+
+    if (parts[0] == "SetPBVRCameraFov" && parts.size() == 2) {
+        if (!pbvrRenderer_) return "Error:no pbvr renderer";
+        float fov;
+        if (!parseFloat(parts[1], fov)) return "Error:bad SetPBVRCameraFov value";
+        pbvrRenderer_->setCameraFovY(fov);
+        return "OK";
+    }
+
+    if (parts[0] == "SetPBVRCameraAngles" && parts.size() == 3) {
+        if (!pbvrRenderer_) return "Error:no pbvr renderer";
+        float azimuth, elevation;
+        if (!parseFloat(parts[1], azimuth) || !parseFloat(parts[2], elevation))
+            return "Error:bad SetPBVRCameraAngles value";
+        pbvrRenderer_->setCameraAngles(azimuth, elevation);
+        return "OK";
+    }
+
+    if (parts[0] == "SetPBVRProbeSourceBudget" && parts.size() == 2) {
+        if (!pbvrRenderer_) return "Error:no pbvr renderer";
+        int budget;
+        if (!parseInt(parts[1], budget)) return "Error:bad SetPBVRProbeSourceBudget value";
+        pbvrRenderer_->setProbeSourceBudget(budget);
+        return "OK";
+    }
+
+    if (parts[0] == "SetPBVRScatteringSHDegree" && parts.size() == 2) {
+        if (!pbvrRenderer_) return "Error:no pbvr renderer";
+        int degree;
+        if (!parseInt(parts[1], degree)) return "Error:bad SetPBVRScatteringSHDegree value";
+        pbvrRenderer_->setScatteringSHDegree(degree);
+        return "OK";
+    }
+
+    if (parts[0] == "GetPBVRScatteringSolveMs") {
+        if (!pbvrRenderer_) return "Error:no pbvr renderer";
+        return std::to_string(pbvrRenderer_->getLastScatteringSolveMs());
     }
 
     if (parts[0] == "SetPBVRScatteringExposure" && parts.size() == 2) {

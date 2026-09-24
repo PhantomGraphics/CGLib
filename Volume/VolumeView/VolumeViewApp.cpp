@@ -186,7 +186,15 @@ void VolumeViewApp::setupCallbacks() {
     };
 
     win.onCursorPos = [this](double x, double y) {
+        const auto before = pointRenderer_.getCameraState();
         pointRenderer_.handleMouseMove(x, y);
+        const auto after = pointRenderer_.getCameraState();
+        // Only an actual orbit (drag) moves the camera. Syncing on every cursor
+        // event overwrote a camera set by scenario commands (SetPBVRCamera*)
+        // whenever the mouse merely passed over the window.
+        if (after.azimuth == before.azimuth && after.elevation == before.elevation &&
+            after.distance == before.distance)
+            return;
         denseRenderer_.syncCamera(pointRenderer_.getCameraState());
         lineRenderer_.syncCamera(pointRenderer_.getCameraState());
         meshRenderer_.syncCamera(pointRenderer_.getCameraState());

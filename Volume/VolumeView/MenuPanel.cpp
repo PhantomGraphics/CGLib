@@ -157,6 +157,14 @@ void MenuPanel::onImGui() {
 //  Private helpers
 // ============================================================
 
+void MenuPanel::setRenderMode(const int mode) {
+    renderMode_ = static_cast<RenderMode>(mode);
+    if (pointRenderer_)
+        pointRenderer_->setEnabled(renderMode_ == RenderMode::Points || renderMode_ == RenderMode::Both);
+    if (pbvrRenderer_)
+        pbvrRenderer_->setEnabled(renderMode_ == RenderMode::PBVR || renderMode_ == RenderMode::Both);
+}
+
 void MenuPanel::syncRendererStates() {
     if (pointRenderer_)
         pointRenderer_->setEnabled(renderMode_ == RenderMode::Points ||

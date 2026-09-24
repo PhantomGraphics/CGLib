@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdio>
+#include <fstream>
 #include <cmath>
 #include <vector>
 
@@ -101,6 +102,13 @@ void PBVRRenderer::setTransferFunctionPreset(const int preset) {
         tf_.setPoint(0.0f, 0.92f, 0.94f, 1.0f, 0.0f);
         tf_.setPoint(0.0001f, 0.92f, 0.94f, 1.0f, 0.85f);
         tf_.setPoint(1.0f, 0.92f, 0.94f, 1.0f, 1.0f);
+    } else if (preset == 3) {
+        // Linear density: opacity (and so the PBVR particle count) is
+        // proportional to the density, so the particle medium has an
+        // extinction proportional to it -- needed to match a renderer that
+        // uses sigma_t = scale * density (e.g. the WDAS cloud Mitsuba scene).
+        tf_.setPoint(0.0f, 1.0f, 1.0f, 1.0f, 0.0f);
+        tf_.setPoint(1.0f, 1.0f, 1.0f, 1.0f, 1.0f);
     } else {
         tf_.setPoint(0.0f, 0.0f, 0.0f, 1.0f, 0.0f);
         tf_.setPoint(0.5f, 0.0f, 1.0f, 0.0f, 0.5f);
@@ -306,11 +314,11 @@ glm::mat4 PBVRRenderer::computeMVP() const {
     const float az = glm::radians(azimuth_);
     const float el = glm::radians(elevation_);
 
-    const glm::vec3 target(0.0f, 0.0f, 0.0f);
-    const glm::vec3 eye(
-        distance_ * std::cos(el) * std::sin(az),
-        distance_ * std::sin(el),
-        distance_ * std::cos(el) * std::cos(az));
+    const glm::vec3 target = cameraTarget_;
+    const glm::vec3 eye = target + distance_ * glm::vec3(
+        std::cos(el) * std::sin(az),
+        std::sin(el),
+        std::cos(el) * std::cos(az));
 
     const glm::mat4 view = glm::lookAt(eye, target, glm::vec3(0.0f, 1.0f, 0.0f));
 
@@ -318,7 +326,8 @@ glm::mat4 PBVRRenderer::computeMVP() const {
         ? static_cast<float>(extent_.width) / static_cast<float>(extent_.height)
         : 1.0f;
 
-    glm::mat4 proj = glm::perspective(glm::radians(45.0f), aspect, 0.01f, 1000.0f);
+    glm::mat4 proj = glm::perspective(glm::radians(fovYDegrees_), aspect,
+                                      std::max(0.01f, distance_ * 1.0e-3f), std::max(1000.0f, distance_ * 10.0f));
     proj[1][1] *= -1.0f;
 
     return proj * view;
@@ -383,6 +392,9 @@ void PBVRRenderer::regenerateParticles() {
     gpuVertexCount_ = 0;
 
     generator_.setDensityScale(densityScale_);
+    // Every regeneration reproduces the same realization, so changing a
+    // scattering or view parameter does not also resample the medium.
+    generator_.reseed(42U);
 
     for (const auto& entry : dataSource_->getPBVREntries()) {
         if (!entry.visible || !entry.volume) {
@@ -422,6 +434,7 @@ void PBVRRenderer::applyMultipleScattering() {
     meanScatteredRadiance_ = 0.0f;
     meanIndirectRadiance_ = 0.0f;
     meanSunTransmittance_ = 1.0f;
+    particleRadiance_.clear();
     if (!multipleScatteringEnabled_ || particleSet_.particles.empty() ||
         scatteringOrders_ < 0) {
         return;
@@ -446,10 +459,10 @@ void PBVRRenderer::applyMultipleScattering() {
     settings.particleRadius = 1.5f * shadowTexel;
     settings.kernelRadius = probeRadius_;
     settings.phaseG = phaseG_;
-    settings.degree = 1;
+    settings.degree = scatteringSHDegree_;
     // ISM-style subsets keep the CPU reference interactive on real clouds
     // (O(probes * subset) instead of O(probes * particles)).
-    settings.maxSourcesPerProbe = 4096;
+    settings.maxSourcesPerProbe = static_cast<std::size_t>(probeSourceBudget_);
     const std::vector<float> opacity(count, 1.0f - std::exp(-sigma_));
     const std::vector<float> albedo(count, scatteringAlbedo_);
 
@@ -462,9 +475,10 @@ void PBVRRenderer::applyMultipleScattering() {
         : std::vector<float>(count, 1.0f);
 
     // Single scattering (plan Sec. 3.2 step 1). It is kept exact for the final
-    // view-dependent evaluation; only its degree-1 SH projection (a delta
-    // lobe convolved with HG, i.e. g^l * Y_lm(lightPropagation)) seeds the
-    // higher orders, where the distribution is already broad.
+    // view-dependent evaluation; only its SH projection (a delta lobe
+    // convolved with HG, i.e. g^l * Y_lm(lightPropagation)) seeds the higher
+    // orders, where the distribution is already broad.
+    const int coefficientCount = (settings.degree + 1) * (settings.degree + 1);
     std::vector<glm::vec3> singleScatteringWeight(count);
     std::vector<Phantom::Math::SHRGB> direct(count);
     for (std::size_t i = 0; i < count; ++i) {
@@ -472,10 +486,11 @@ void PBVRRenderer::applyMultipleScattering() {
         singleScatteringWeight[i] = particleSet_.particles[i].color * scatteringAlbedo_ *
             sunIrradiance * sunTransmittance[i];
         direct[i].degree = settings.degree;
-        for (int coefficient = 0; coefficient < 4; ++coefficient) {
-            const float band = coefficient == 0 ? 1.0f : phaseG_;
+        for (int coefficient = 0; coefficient < coefficientCount; ++coefficient) {
+            const int band = coefficient == 0 ? 0 : (coefficient < 4 ? 1 : 2);
+            const float bandScale = std::pow(phaseG_, static_cast<float>(band));
             direct[i].coefficients[static_cast<std::size_t>(coefficient)] = singleScatteringWeight[i] *
-                (band * Phantom::Math::sphericalHarmonicBasis(coefficient, lightPropagation));
+                (bandScale * Phantom::Math::sphericalHarmonicBasis(coefficient, lightPropagation));
         }
     }
 
@@ -488,7 +503,7 @@ void PBVRRenderer::applyMultipleScattering() {
 
     const float az = glm::radians(azimuth_);
     const float el = glm::radians(elevation_);
-    const glm::vec3 eye = distance_ *
+    const glm::vec3 eye = cameraTarget_ + distance_ *
         glm::vec3(std::cos(el) * std::sin(az), std::sin(el), std::cos(el) * std::cos(az));
     constexpr float pi = 3.14159265358979323846f;
     const float g = phaseG_;
@@ -505,7 +520,7 @@ void PBVRRenderer::applyMultipleScattering() {
         const float phase = (1.0f - g * g) /
             (4.0f * pi * std::pow(std::max(1.0e-6f, 1.0f + g * g - 2.0f * g * cosTheta), 1.5f));
         Phantom::Math::SHRGB indirect = total[i];
-        for (int coefficient = 0; coefficient < 4; ++coefficient)
+        for (int coefficient = 0; coefficient < coefficientCount; ++coefficient)
             indirect.coefficients[static_cast<std::size_t>(coefficient)] -=
                 direct[i].coefficients[static_cast<std::size_t>(coefficient)];
         const glm::vec3 indirectRadiance = Phantom::Math::evaluate(indirect, viewDirection, true);
@@ -513,6 +528,7 @@ void PBVRRenderer::applyMultipleScattering() {
         radianceSum += glm::dot(radiance, luminanceWeights);
         indirectSum += glm::dot(indirectRadiance, luminanceWeights);
         transmittanceSum += sunTransmittance[i];
+        particleRadiance_.push_back(radiance);
 
         // The swapchain is LDR. A soft exposure curve keeps the ratios of the
         // HDR result instead of hard-clipping the forward-scattering peak.
@@ -522,9 +538,27 @@ void PBVRRenderer::applyMultipleScattering() {
     meanScatteredRadiance_ = static_cast<float>(radianceSum / static_cast<double>(count));
     meanIndirectRadiance_ = static_cast<float>(indirectSum / static_cast<double>(count));
     meanSunTransmittance_ = static_cast<float>(transmittanceSum / static_cast<double>(count));
+    lastScatteringSolveMs_ = static_cast<float>(
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - solveStart).count());
     std::fprintf(stderr, "[PBVR] multiple scattering: %zu particles, %d probes, %d orders, %.0f ms\n",
-                 count, probeCount_, scatteringOrders_,
-                 std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - solveStart).count());
+                 count, probeCount_, scatteringOrders_, lastScatteringSolveMs_);
+}
+
+bool PBVRRenderer::dumpParticleRadiance(const std::string& path) const {
+    if (particleRadiance_.empty() || particleRadiance_.size() != particleSet_.particles.size())
+        return false;
+    std::ofstream file(path, std::ios::binary);
+    if (!file)
+        return false;
+    const std::uint64_t count = particleRadiance_.size();
+    file.write(reinterpret_cast<const char*>(&count), sizeof(count));
+    for (std::size_t i = 0; file && i < particleRadiance_.size(); ++i) {
+        const glm::vec3& p = particleSet_.particles[i].pos;
+        const glm::vec3& l = particleRadiance_[i];
+        const float record[6] = {p.x, p.y, p.z, l.x, l.y, l.z};
+        file.write(reinterpret_cast<const char*>(record), sizeof(record));
+    }
+    return static_cast<bool>(file);
 }
 
 } // namespace PBVR

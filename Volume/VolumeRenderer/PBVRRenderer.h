@@ -17,6 +17,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <string>
 #include <algorithm>
 #include <vector>
 
@@ -38,6 +39,24 @@ public:
     void markDirty() { dirty_ = true; shadowContentDirty_ = true; }
     void syncCamera(float azimuth, float elevation, float distance);
     void setCameraDistance(float d) { distance_ = std::max(0.01f, d); }
+    void setCameraFovY(float degrees) { fovYDegrees_ = std::clamp(degrees, 5.0f, 120.0f); }
+    void setCameraTarget(const glm::vec3& target) { cameraTarget_ = target; if (isCpuScatteringActive()) dirty_ = true; }
+    // The view direction is baked into the CPU scattering colours, so a new
+    // viewpoint needs a new solve.
+    void setCameraAngles(float azimuthDeg, float elevationDeg) {
+        azimuth_ = azimuthDeg;
+        elevation_ = elevationDeg;
+        if (isCpuScatteringActive()) dirty_ = true;
+    }
+    // 0 gathers from every particle; otherwise ISM-style random subsets.
+    void setProbeSourceBudget(int n) { probeSourceBudget_ = std::max(0, n); dirty_ = true; }
+    void setScatteringSHDegree(int n) { scatteringSHDegree_ = std::clamp(n, 0, 2); dirty_ = true; }
+    int getProbeSourceBudget() const { return probeSourceBudget_; }
+    int getScatteringSHDegree() const { return scatteringSHDegree_; }
+    float getLastScatteringSolveMs() const { return lastScatteringSolveMs_; }
+    // Linear per-particle radiance of the last CPU scattering solve:
+    // uint64 count, then count * (x y z r g b) float32, little-endian.
+    bool dumpParticleRadiance(const std::string& path) const;
     void setShaders(Shaders shaders) { shaders_ = std::move(shaders); }
     void setEnabled(bool e) { enabled_ = e; }
 
@@ -137,6 +156,12 @@ private:
     float meanScatteredRadiance_ = 0.0f;
     float meanIndirectRadiance_ = 0.0f;
     float meanSunTransmittance_ = 1.0f;
+    int probeSourceBudget_ = 4096;
+    int scatteringSHDegree_ = 1;
+    float lastScatteringSolveMs_ = 0.0f;
+    glm::vec3 cameraTarget_{0.0f};
+    float fovYDegrees_ = 45.0f;
+    std::vector<glm::vec3> particleRadiance_;
     float azimuth_ = 0.0f;
     float elevation_ = 30.0f;
     float distance_ = 50.0f;

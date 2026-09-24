@@ -41,7 +41,9 @@ public:
 
     // Render mode is otherwise only reachable via the ImGui radio buttons; scenario tests need
     // to set it externally (e.g. RenderMode::PBVR) via VolumeCommandDispatcher.
-    void setRenderMode(int mode) { renderMode_ = static_cast<RenderMode>(mode); }
+    // Applies the mode to the renderers immediately: syncRendererStates() only
+    // runs inside the ImGui pass, which is skipped with VKAPP_BENCHMARK_NO_GUI.
+    void setRenderMode(int mode);
     int  getRenderMode() const   { return static_cast<int>(renderMode_); }
 
 private:
