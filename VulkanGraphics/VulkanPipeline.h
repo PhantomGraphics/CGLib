@@ -63,6 +63,12 @@ struct PipelineConfig {
     ///        src-alpha / one-minus-src-alpha blend. Ignored when blendEnable is false.
     bool additiveBlend = false;
 
+    /// @brief When blendEnable is true (and additiveBlend is false), selects premultiplied-alpha
+    ///        compositing: ONE / ONE_MINUS_SRC_ALPHA for both color and alpha (the fragment
+    ///        shader outputs rgb already multiplied by its coverage). Defaults to false, which
+    ///        keeps the src-alpha / one-minus-src-alpha behavior every existing caller relies on.
+    bool premultipliedAlphaBlend = false;
+
     /// @brief MSAA sample count.  Must match the sample count of the render pass.
     ///        Defaults to VK_SAMPLE_COUNT_1_BIT (no MSAA).
     VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT;

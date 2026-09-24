@@ -72,6 +72,13 @@ bool VulkanPipeline::create(const VulkanContext& ctx,
         cba.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
         cba.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
         cba.alphaBlendOp        = VK_BLEND_OP_ADD;
+    } else if (cfg.blendEnable && cfg.premultipliedAlphaBlend) {
+        cba.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
+        cba.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+        cba.colorBlendOp        = VK_BLEND_OP_ADD;
+        cba.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+        cba.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+        cba.alphaBlendOp        = VK_BLEND_OP_ADD;
     } else if (cfg.blendEnable) {
         cba.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
         cba.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
