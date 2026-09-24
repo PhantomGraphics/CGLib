@@ -428,6 +428,52 @@ std::string CommandDispatcher::route(const std::string& cmd) {
         return "OK";
     }
 
+    if (parts[0] == "SetPBVRMultipleScattering" && parts.size() == 2) {
+        if (!pbvrRenderer_) return "Error:no pbvr renderer";
+        pbvrRenderer_->setMultipleScatteringEnabled(parts[1] != "0");
+        return "OK";
+    }
+
+    if (parts[0] == "SetPBVRScatteringOrders" && parts.size() == 2) {
+        if (!pbvrRenderer_) return "Error:no pbvr renderer";
+        int orders;
+        if (!parseInt(parts[1], orders)) return "Error:bad SetPBVRScatteringOrders value";
+        pbvrRenderer_->setScatteringOrders(orders);
+        return "OK";
+    }
+
+    if (parts[0] == "SetPBVRProbeCount" && parts.size() == 2) {
+        if (!pbvrRenderer_) return "Error:no pbvr renderer";
+        int count;
+        if (!parseInt(parts[1], count)) return "Error:bad SetPBVRProbeCount value";
+        pbvrRenderer_->setProbeCount(count);
+        return "OK";
+    }
+
+    if (parts[0] == "SetPBVRProbeRadius" && parts.size() == 2) {
+        if (!pbvrRenderer_) return "Error:no pbvr renderer";
+        float radius;
+        if (!parseFloat(parts[1], radius)) return "Error:bad SetPBVRProbeRadius value";
+        pbvrRenderer_->setProbeRadius(radius);
+        return "OK";
+    }
+
+    if (parts[0] == "SetPBVRPhaseG" && parts.size() == 2) {
+        if (!pbvrRenderer_) return "Error:no pbvr renderer";
+        float g;
+        if (!parseFloat(parts[1], g)) return "Error:bad SetPBVRPhaseG value";
+        pbvrRenderer_->setPhaseG(g);
+        return "OK";
+    }
+
+    if (parts[0] == "SetPBVRScatteringAlbedo" && parts.size() == 2) {
+        if (!pbvrRenderer_) return "Error:no pbvr renderer";
+        float albedo;
+        if (!parseFloat(parts[1], albedo)) return "Error:bad SetPBVRScatteringAlbedo value";
+        pbvrRenderer_->setScatteringAlbedo(albedo);
+        return "OK";
+    }
+
     if (parts[0] == "SetPBVRTFPreset" && parts.size() == 2) {
         if (!pbvrRenderer_) return "Error:no pbvr renderer";
         int preset = 0;

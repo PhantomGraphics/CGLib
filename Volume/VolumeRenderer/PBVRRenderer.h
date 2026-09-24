@@ -17,6 +17,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <algorithm>
 #include <vector>
 
 namespace Phantom::Volume {
@@ -45,11 +46,23 @@ public:
     void setRepeatCount(int n);
     void setUseGPU(bool b);
     void setMaxParticlesPerVoxel(int n);
+    void setMultipleScatteringEnabled(bool b) { multipleScatteringEnabled_ = b; dirty_ = true; }
+    void setScatteringOrders(int n) { scatteringOrders_ = std::clamp(n, 0, 8); dirty_ = true; }
+    void setProbeCount(int n) { probeCount_ = std::max(1, n); dirty_ = true; }
+    void setProbeRadius(float r) { probeRadius_ = std::max(1.0e-4f, r); dirty_ = true; }
+    void setPhaseG(float g) { phaseG_ = std::clamp(g, -0.99f, 0.99f); dirty_ = true; }
+    void setScatteringAlbedo(float a) { scatteringAlbedo_ = std::clamp(a, 0.0f, 1.0f); dirty_ = true; }
     float getDensityScale() const { return densityScale_; }
     float getParticleSize() const { return particleSize_; }
     int getRepeatCount() const { return repeatCount_; }
     bool isGPUMode() const { return useGPU_; }
     int  getMaxParticlesPerVoxel() const { return maxParticlesPerVoxel_; }
+    bool isMultipleScatteringEnabled() const { return multipleScatteringEnabled_; }
+    int getScatteringOrders() const { return scatteringOrders_; }
+    int getProbeCount() const { return probeCount_; }
+    float getProbeRadius() const { return probeRadius_; }
+    float getPhaseG() const { return phaseG_; }
+    float getScatteringAlbedo() const { return scatteringAlbedo_; }
     size_t getParticleCount() const {
         return useGPU_ ? static_cast<size_t>(gpuVertexCount_) : particleSet_.count();
     }
@@ -86,6 +99,7 @@ public:
 private:
     glm::mat4 computeMVP() const;
     void regenerateParticles();
+    void applyMultipleScattering();
     glm::mat4 computeLightView() const;
     glm::mat4 computeLightProj() const;
     bool getActiveBuffer(VkBuffer& vbuf, uint32_t& vtxCount) const;
@@ -103,6 +117,12 @@ private:
     int repeatCount_ = 1;
     bool useGPU_ = false;
     int maxParticlesPerVoxel_ = 4;
+    bool multipleScatteringEnabled_ = false;
+    int probeCount_ = 256;
+    int scatteringOrders_ = 2;
+    float probeRadius_ = 2.5f;
+    float phaseG_ = 0.85f;
+    float scatteringAlbedo_ = 0.8f;
     float azimuth_ = 0.0f;
     float elevation_ = 30.0f;
     float distance_ = 50.0f;

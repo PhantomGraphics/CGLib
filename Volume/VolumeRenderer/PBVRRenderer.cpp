@@ -1,4 +1,5 @@
 #include "PBVRRenderer.h"
+#include "ParticleProbeScattering.h"
 
 #include "../../../CGLib/VulkanGraphics/VulkanContext.h"
 
@@ -6,6 +7,7 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <cmath>
 
 namespace Phantom::Volume {
 
@@ -362,6 +364,8 @@ void PBVRRenderer::regenerateParticles() {
         }
     }
 
+    applyMultipleScattering();
+
     vertexBuffer_.destroy(ctx_->getDevice());
     if (vertices_.empty()) {
         return;
@@ -371,6 +375,58 @@ void PBVRRenderer::regenerateParticles() {
                          sizeof(PBVRVertex) * vertices_.size(),
                          VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
                          vertices_.data());
+}
+
+void PBVRRenderer::applyMultipleScattering() {
+    if (!multipleScatteringEnabled_ || particleSet_.particles.empty() ||
+        scatteringOrders_ <= 0) {
+        return;
+    }
+
+    std::vector<glm::vec3> positions;
+    positions.reserve(particleSet_.particles.size());
+    std::vector<Phantom::Math::SHRGB> direct;
+    direct.reserve(particleSet_.particles.size());
+    std::vector<float> albedo(particleSet_.particles.size(), scatteringAlbedo_);
+
+    // The light direction is used as the incoming direction at a particle.
+    // This CPU path is intentionally a compact reference implementation; the
+    // existing opacity shadow pass still supplies the visibility term.
+    const glm::vec3 incomingDirection = -computeLightDir();
+    constexpr float pi = 3.14159265358979323846f;
+    for (const auto& particle : particleSet_.particles) {
+        positions.push_back(particle.pos);
+        Phantom::Math::SHRGB source;
+        source.degree = 1;
+        // Keep a small isotropic component so the low-order reconstruction
+        // remains positive away from the light direction. The directional
+        // terms then add the forward-scattering lobe instead of turning the
+        // whole cloud black after the non-negative evaluation clamp.
+        source.coefficients[0] = particle.color * std::sqrt(4.0f * pi) * 0.15f;
+        for (int coefficient = 1; coefficient < 4; ++coefficient) {
+            source.coefficients[static_cast<std::size_t>(coefficient)] =
+                particle.color * (Phantom::Math::sphericalHarmonicBasis(
+                    coefficient, incomingDirection) * (4.0f * pi * 0.03f));
+        }
+        direct.push_back(source);
+    }
+
+    const auto probes = ParticleProbeScattering::selectUniform(
+        positions, static_cast<std::size_t>(probeCount_), 0x50425652U);
+    const auto total = ParticleProbeScattering::solve(
+        positions, direct, probes, albedo, probeRadius_, phaseG_, scatteringOrders_, 1);
+    if (total.size() != vertices_.size())
+        return;
+
+    const float az = glm::radians(azimuth_);
+    const float el = glm::radians(elevation_);
+    const glm::vec3 viewDirection(
+        std::cos(el) * std::sin(az), std::sin(el), std::cos(el) * std::cos(az));
+    for (std::size_t i = 0; i < total.size(); ++i) {
+        const glm::vec3 radiance = Phantom::Math::evaluate(total[i], viewDirection, true);
+        vertices_[i].color = glm::vec4(glm::clamp(radiance, glm::vec3(0.0f), glm::vec3(1.0f)),
+                                       vertices_[i].color.a);
+    }
 }
 
 } // namespace PBVR
