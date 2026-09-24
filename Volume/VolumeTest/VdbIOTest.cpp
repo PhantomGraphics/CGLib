@@ -5,7 +5,11 @@
 
 #include <cmath>
 #include <cstdio>
+#include <cstring>
+#include <algorithm>
 #include <fstream>
+#include <iterator>
+#include <vector>
 
 using namespace Phantom::Math;
 using namespace Phantom::Volume;
@@ -240,6 +244,85 @@ TEST(VdbReaderTest, InvalidFileReturnsNull)
     SparseVolumeVdbReader reader;
     const auto result = reader.read("nonexistent_file_xyz_99999.vdb");
     EXPECT_EQ(result, nullptr);
+}
+
+namespace {
+std::vector<char> readAllBytes(const std::string& path)
+{
+    std::ifstream ifs(path, std::ios::binary);
+    return std::vector<char>(std::istreambuf_iterator<char>(ifs), std::istreambuf_iterator<char>());
+}
+
+void writeAllBytes(const std::string& path, const std::vector<char>& bytes)
+{
+    std::ofstream ofs(path, std::ios::binary);
+    ofs.write(bytes.data(), static_cast<std::streamsize>(bytes.size()));
+}
+}
+
+TEST(VdbReaderTest, MisalignedTransformIsRejected)
+{
+    // Regression: a converter wrote six Vec3d instead of five after
+    // "UniformScaleMap". The shifted tree made the root count ~1e9 and the
+    // reader walked garbage records past EOF for minutes (VolumeView hang).
+    SparseVolumef sv;
+    sv.setValue(Coord(0, 0, 0), 1.0f);
+    const std::string path = writeTempVdb("misaligned", sv);
+    std::vector<char> bytes = readAllBytes(path);
+    const std::string mapType = "UniformScaleMap";
+    const auto found = std::search(bytes.begin(), bytes.end(), mapType.begin(), mapType.end());
+    ASSERT_NE(found, bytes.end());
+    const double extra[3] = {0.32, 0.32, 0.32};
+    bytes.insert(found + static_cast<std::ptrdiff_t>(mapType.size()),
+                 reinterpret_cast<const char*>(extra), reinterpret_cast<const char*>(extra) + sizeof(extra));
+    writeAllBytes(path, bytes);
+
+    SparseVolumeVdbReader reader;
+    EXPECT_EQ(reader.read(path), nullptr);
+    ::remove(path.c_str());
+}
+
+TEST(VdbReaderTest, GridThatDoesNotEndAtRecordedEndIsRejected)
+{
+    // Regression: a converter omitted the value mask and metadata byte of
+    // the internal nodes. That layout parsed without a stream error but
+    // produced an empty volume; the recorded grid end now catches it.
+    SparseVolumef sv;
+    sv.setValue(Coord(0, 0, 0), 1.0f);
+    const std::string path = writeTempVdb("shortgrid", sv);
+    std::vector<char> bytes = readAllBytes(path);
+    // Grid descriptor: "Tree_float_5_4_3", instanceParent "" (4 bytes), then
+    // gridPos, blockPos, endPos. Move endPos so parsing no longer ends there.
+    const std::string gridType = "Tree_float_5_4_3";
+    const auto found = std::search(bytes.begin(), bytes.end(), gridType.begin(), gridType.end());
+    ASSERT_NE(found, bytes.end());
+    const std::size_t endPosOffset =
+        static_cast<std::size_t>(found - bytes.begin()) + gridType.size() + 4 + 2 * sizeof(int64_t);
+    int64_t endPos = 0;
+    std::memcpy(&endPos, bytes.data() + endPosOffset, sizeof(endPos));
+    endPos -= 16;
+    std::memcpy(bytes.data() + endPosOffset, &endPos, sizeof(endPos));
+    writeAllBytes(path, bytes);
+
+    SparseVolumeVdbReader reader;
+    EXPECT_EQ(reader.read(path), nullptr);
+    ::remove(path.c_str());
+}
+
+TEST(VdbReaderTest, TruncatedFileIsRejected)
+{
+    SparseVolumef sv;
+    for (int i = 0; i < 40; ++i)
+        sv.setValue(Coord(i, 0, 0), 1.0f);
+    const std::string path = writeTempVdb("truncated", sv);
+    std::vector<char> bytes = readAllBytes(path);
+    ASSERT_GT(bytes.size(), 100U);
+    bytes.resize(bytes.size() - 100);
+    writeAllBytes(path, bytes);
+
+    SparseVolumeVdbReader reader;
+    EXPECT_EQ(reader.read(path), nullptr);
+    ::remove(path.c_str());
 }
 
 TEST(VdbReaderTest, SphereSdfRoundtrip)

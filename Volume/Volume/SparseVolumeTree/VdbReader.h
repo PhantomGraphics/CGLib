@@ -37,8 +37,10 @@ private:
 
     std::vector<LeafInfo> leaves_;
 
-    void readInternalBTopology(std::istream& is, const Coord& rootKey);
-    void readInternalATopology(std::istream& is, const Coord& rootKey, int offsetB);
+    // Both return false as soon as the stream fails, so a truncated or
+    // misaligned file stops the topology walk instead of looping on garbage.
+    bool readInternalBTopology(std::istream& is, const Coord& rootKey);
+    bool readInternalATopology(std::istream& is, const Coord& rootKey, int offsetB);
 
     static Coord voxelCoord(const Coord& rootKey, int offsetB, int offsetA, int offsetL);
 
@@ -53,6 +55,12 @@ private:
 
     static std::string readString(std::istream& is) {
         const uint32_t len = readPOD<uint32_t>(is);
+        // Names and metadata are short; a huge length means a corrupt file.
+        constexpr uint32_t maxLength = 1U << 20;
+        if (!is || len > maxLength) {
+            is.setstate(std::ios::failbit);
+            return {};
+        }
         std::string s(len, '\0');
         is.read(&s[0], static_cast<std::streamsize>(len));
         return s;
@@ -103,7 +111,7 @@ SparseVolumeVdbReader::read(const std::string& filePath)
     readString(ifs); // instanceParent
     const int64_t gridPos = readPOD<int64_t>(ifs);
     readPOD<int64_t>(ifs); // blockPos
-    readPOD<int64_t>(ifs); // endPos
+    const int64_t endPos = readPOD<int64_t>(ifs);
 
     if (gridType != "Tree_float_5_4_3") return nullptr;
 
@@ -128,12 +136,27 @@ SparseVolumeVdbReader::read(const std::string& filePath)
     const float bg           = readPOD<float>(ifs);
     readPOD<uint32_t>(ifs);  // tileCount (always 0 in our writer)
     const uint32_t rootN     = readPOD<uint32_t>(ifs);
+    if (!ifs) return nullptr;
+
+    // Every root child record is at least a key plus the two 32^3 masks, the
+    // metadata byte and the 32^3 tile values. A count the rest of the file
+    // cannot hold means the header was misparsed (e.g. a wrong transform
+    // size); reject it rather than walking a billion garbage records.
+    const std::streamoff topologyStart = ifs.tellg();
+    ifs.seekg(0, std::ios::end);
+    const std::streamoff fileEnd = ifs.tellg();
+    ifs.seekg(topologyStart);
+    constexpr std::streamoff minRootRecord = 3 * 4 + 2 * 4096 + 1 + 32768 * 4;
+    if (topologyStart < 0 || fileEnd < topologyStart ||
+        static_cast<std::streamoff>(rootN) > (fileEnd - topologyStart) / minRootRecord)
+        return nullptr;
+
     for (uint32_t i = 0; i < rootN; ++i) {
         Coord rk;
         rk.x = readPOD<int32_t>(ifs);
         rk.y = readPOD<int32_t>(ifs);
         rk.z = readPOD<int32_t>(ifs);
-        readInternalBTopology(ifs, rk);
+        if (!ifs || !readInternalBTopology(ifs, rk)) return nullptr;
     }
 
     // Buffer pass
@@ -146,16 +169,21 @@ SparseVolumeVdbReader::read(const std::string& filePath)
         readMask<512>(ifs, bufMask); // valueMask (repeated from topology)
         readPOD<int8_t>(ifs);        // metadata byte (COMPRESS_NONE = 0)
         ifs.read(reinterpret_cast<char*>(leafBuf.data()), 512 * sizeof(float));
+        if (!ifs) return nullptr;
 
         volume->setLeaf(voxelCoord(leaf.rootKey, leaf.offsetB, leaf.offsetA, 0),
                         leaf.valueMask, leafBuf.data());
     }
 
     if (!ifs.good()) return nullptr;
+    // A layout mismatch that happens to parse (e.g. missing node fields)
+    // leaves the stream short of the recorded grid end; reject it instead of
+    // returning a silently empty volume.
+    if (hasOffsets && static_cast<int64_t>(ifs.tellg()) != endPos) return nullptr;
     return volume;
 }
 
-inline void SparseVolumeVdbReader::readInternalBTopology(
+inline bool SparseVolumeVdbReader::readInternalBTopology(
     std::istream& is, const Coord& rootKey)
 {
     uint64_t childMask[512], valueMask[512];
@@ -163,12 +191,14 @@ inline void SparseVolumeVdbReader::readInternalBTopology(
     readMask<32768>(is, valueMask);
     readPOD<int8_t>(is); // metadata byte
     is.seekg(32768 * sizeof(float), std::ios::cur);
+    if (!is) return false;
 
     for (const int b : setBits(childMask, 512))
-        readInternalATopology(is, rootKey, b);
+        if (!readInternalATopology(is, rootKey, b)) return false;
+    return true;
 }
 
-inline void SparseVolumeVdbReader::readInternalATopology(
+inline bool SparseVolumeVdbReader::readInternalATopology(
     std::istream& is, const Coord& rootKey, int offsetB)
 {
     uint64_t childMask[64], valueMask[64];
@@ -176,6 +206,7 @@ inline void SparseVolumeVdbReader::readInternalATopology(
     readMask<4096>(is, valueMask);
     readPOD<int8_t>(is); // metadata byte
     is.seekg(4096 * sizeof(float), std::ios::cur);
+    if (!is) return false;
 
     for (const int a : setBits(childMask, 64)) {
         LeafInfo leaf;
@@ -183,8 +214,10 @@ inline void SparseVolumeVdbReader::readInternalATopology(
         leaf.offsetB = offsetB;
         leaf.offsetA = a;
         readMask<512>(is, leaf.valueMask);
+        if (!is) return false;
         leaves_.push_back(leaf);
     }
+    return true;
 }
 
 inline Coord SparseVolumeVdbReader::voxelCoord(
