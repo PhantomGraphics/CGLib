@@ -35,6 +35,7 @@ std::string SceneV2::toJson() const
     nlohmann::json root;
     root["version"] = kVersion;
     root["assets"] = nlohmann::json::parse(assets.toJson());
+    if (!assetRoot.empty()) root["assetRoot"] = assetRoot;
     root["scene"] = nlohmann::json::parse(scene.toJson());
     root["physics"] = physics;
     root["renderSettings"] = renderSettings;
@@ -54,6 +55,7 @@ SceneV2 SceneV2::fromJson(const std::string& json, bool* ok)
     if (!root.contains("assets") || !root.contains("scene")) return SceneV2{};
 
     SceneV2 result;
+    result.assetRoot = root.value("assetRoot", std::string());
     bool assetsOk = false;
     result.assets = Phantom::Asset::AssetManifest::fromJson(root["assets"].dump(), &assetsOk);
     if (!assetsOk) return SceneV2{};
@@ -124,6 +126,7 @@ MigrationResult migrateV1ToV2(const std::string& v1Json)
                     ComponentRecord comp;
                     comp.type = "meshAsset";
                     comp.data = { { "assetId", assetId.value() }, { "nodeId", "" } };
+                    if (mesh.contains("nodeName")) comp.data["nodeName"] = mesh["nodeName"];
                     node.components.push_back(std::move(comp));
                 } else {
                     result.diagnostics.push_back("entity '" + node.name + "': gltf mesh path '" + path

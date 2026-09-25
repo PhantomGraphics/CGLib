@@ -28,6 +28,9 @@ struct SceneV2 {
     static constexpr int kVersion = 2;
 
     Phantom::Asset::AssetManifest assets;
+    // Optional path from the .universe file's directory to the project asset root.
+    // Empty preserves legacy caller-relative URI resolution. Never an absolute path.
+    std::string assetRoot;
     SceneGraph scene;
     nlohmann::json physics = nlohmann::json::object();
     nlohmann::json renderSettings = nlohmann::json::object();

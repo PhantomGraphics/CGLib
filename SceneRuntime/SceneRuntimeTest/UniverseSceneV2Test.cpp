@@ -36,6 +36,7 @@ SceneNode makeSpawnedDuringPlayNode()
 TEST(SceneV2, JsonRoundTrip)
 {
     SceneV2 v2;
+    v2.assetRoot = "..";
     Phantom::Asset::AssetManifestEntry entry;
     entry.id = Phantom::Asset::AssetId("asset-1");
     entry.uri = *Phantom::Asset::AssetUri::parse("Assets/Generated/room.glb");
@@ -55,6 +56,7 @@ TEST(SceneV2, JsonRoundTrip)
     bool ok = false;
     SceneV2 loaded = SceneV2::fromJson(json, &ok);
     EXPECT_TRUE(ok);
+    EXPECT_EQ(loaded.assetRoot, "..");
     EXPECT_EQ(loaded.assets.size(), 1u);
     EXPECT_NE(loaded.assets.find(Phantom::Asset::AssetId("asset-1")), nullptr);
     EXPECT_EQ(loaded.scene.size(), 1u);
