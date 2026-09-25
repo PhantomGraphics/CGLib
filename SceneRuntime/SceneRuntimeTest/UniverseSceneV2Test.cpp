@@ -248,17 +248,22 @@ TEST(MigrateV1ToV2, ClothAndFluidBecomeComponents)
                 "name": "Fluid", "visible": true,
                 "transform": { "pos": [0,0,0], "rot": [0,0,0,1], "scale": [1,1,1] },
                 "fluid": { "type": "wcsph", "spacing": 0.1 }
+            },
+            {
+                "name": "Cloud", "visible": true,
+                "transform": { "pos": [0,0,0], "rot": [0,0,0,1], "scale": [1,1,1] },
+                "volume": { "source": { "kind": "procedural", "radius": 40 } }
             }
         ]
     })";
 
     MigrationResult result = migrateV1ToV2(v1);
     ASSERT_TRUE(result.ok);
-    ASSERT_EQ(result.scene.scene.size(), 2u);
+    ASSERT_EQ(result.scene.scene.size(), 3u);
 
     std::vector<NodeId> roots = result.scene.scene.children(NodeId());
-    ASSERT_EQ(roots.size(), 2u);
-    bool sawCloth = false, sawFluid = false;
+    ASSERT_EQ(roots.size(), 3u);
+    bool sawCloth = false, sawFluid = false, sawVolume = false;
     for (const auto& id : roots) {
         const SceneNode* node = result.scene.scene.find(id);
         if (node->name == "Cloth") {
@@ -271,10 +276,16 @@ TEST(MigrateV1ToV2, ClothAndFluidBecomeComponents)
             const ComponentRecord* c = findComponent(*node, "fluid");
             ASSERT_NE(c, nullptr);
             EXPECT_EQ(c->data.value("type", ""), "wcsph");
+        } else if (node->name == "Cloud") {
+            sawVolume = true;
+            const ComponentRecord* c = findComponent(*node, "volume");
+            ASSERT_NE(c, nullptr);
+            EXPECT_EQ(c->data["source"].value("kind", ""), "procedural");
         }
     }
     EXPECT_TRUE(sawCloth);
     EXPECT_TRUE(sawFluid);
+    EXPECT_TRUE(sawVolume);
 }
 
 TEST(MigrateV1ToV2, TwoEntitiesGetDistinctFreshIds)

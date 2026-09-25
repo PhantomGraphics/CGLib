@@ -60,7 +60,7 @@ struct MigrationResult {
 };
 
 // Reads a legacy ".universe" v1 document (CGApp/Universe/UniverseSceneIO.cpp: "version":1,
-// a flat `entities` array of name/visible/transform/mesh/rigidBody/cloth/fluid blocks, no
+// a flat `entities` array of name/visible/transform/mesh/rigidBody/cloth/fluid/volume blocks, no
 // persisted entity id -- Universe's own `nextId_` counter stands in for identity today) and
 // produces a v2 document. Every entity gets a freshly minted NodeId (AssetId::generate() --
 // v1 never had one to carry forward). A "gltf" mesh reference becomes a new AssetManifest
@@ -68,7 +68,7 @@ struct MigrationResult {
 // within a shared asset is Phase 2 item 5's job, not populated here}); "primitive"/
 // "embedded" meshes have no backing asset file to reference (embedded literally has none by
 // design, CGApp/Universe/CLAUDE.md's ".universe シーンファイル形式" section) and stay
-// inline as a "mesh" component instead; rigidBody/cloth/fluid fold into same-named
+// inline as a "mesh" component instead; rigidBody/cloth/fluid/volume fold into same-named
 // components verbatim (no typed schema conversion attempted, consistent with the rest of
 // item 2/3's first slices).
 //

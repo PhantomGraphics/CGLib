@@ -26,7 +26,9 @@ namespace Phantom {
             struct UBO {
                 glm::mat4 mvp;
                 float particleSize = 4.0f;
-                float _pad0 = 0.0f;
+                // Multiplies the particle colour in shaders that read it (Universe's
+                // volume_pbvr.frag); declared as padding by VolumeView's/GSView's shaders.
+                float colorScale = 1.0f;
                 float _pad1 = 0.0f;
                 float _pad2 = 0.0f;
                 // Self-shadow (experimental, opt-in via enableShadowSampler). Unused/zero-initialised

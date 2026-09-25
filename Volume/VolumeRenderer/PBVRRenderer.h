@@ -51,6 +51,28 @@ public:
         elevation_ = elevationDeg;
         if (isCpuScatteringActive()) dirty_ = true;
     }
+    // Host-app camera (e.g. Universe, which owns orbit/asset/character cameras): draw with
+    // this view/projection instead of the built-in orbit camera above. It never requests a
+    // solve by itself -- the host decides when the view-dependent scattering colours are
+    // re-evaluated, via setScatteringEye().
+    void setExternalCamera(const glm::mat4& view, const glm::mat4& proj) {
+        externalCamera_ = true;
+        externalView_ = view;
+        externalProj_ = proj;
+    }
+    void clearExternalCamera() { externalCamera_ = false; hasScatteringEye_ = false; }
+    void setScatteringEye(const glm::vec3& eye) {
+        scatteringEye_ = eye;
+        hasScatteringEye_ = true;
+        if (isCpuScatteringActive()) dirty_ = true;
+    }
+    // Linear particle colours (exposure * radiance) instead of the soft LDR curve, for hosts
+    // that render into an HDR target and tone-map once afterwards.
+    void setLinearColorOutput(bool b) { if (linearColorOutput_ != b) { linearColorOutput_ = b; dirty_ = true; } }
+    bool isLinearColorOutput() const { return linearColorOutput_; }
+    // Written to the UBO's colorScale (draw-time only, no re-solve); only shaders that
+    // declare it use it.
+    void setColorScale(float s) { colorScale_ = std::max(0.0f, s); }
     // 0 gathers from every particle; otherwise ISM-style random subsets.
     void setProbeSourceBudget(int n) { probeSourceBudget_ = std::max(0, n); dirty_ = true; }
     void setScatteringSHDegree(int n) { scatteringSHDegree_ = std::clamp(n, 0, 2); dirty_ = true; }
@@ -161,6 +183,7 @@ private:
         glm::vec3 towardsLight{0.0f, 1.0f, 0.0f};
         Phantom::Math::Box3df lightBounds = Phantom::Math::Box3df::createDegeneratedBox();
         glm::vec3 eye{0.0f};
+        bool linearColor = false;
         // Set by the render thread when newer settings arrive; the build then
         // stops early and its result is discarded.
         std::shared_ptr<std::atomic<bool>> cancel;
@@ -221,6 +244,13 @@ private:
     float azimuth_ = 0.0f;
     float elevation_ = 30.0f;
     float distance_ = 50.0f;
+    bool externalCamera_ = false;
+    glm::mat4 externalView_{1.0f};
+    glm::mat4 externalProj_{1.0f};
+    bool hasScatteringEye_ = false;
+    glm::vec3 scatteringEye_{0.0f};
+    bool linearColorOutput_ = false;
+    float colorScale_ = 1.0f;
 
     // Self-shadow (experimental).
     float    lightAzimuth_   = 45.0f;

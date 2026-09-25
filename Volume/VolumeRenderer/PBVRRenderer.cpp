@@ -216,6 +216,7 @@ void PBVRRenderer::onUpdate(uint32_t frameIndex) {
     PBVRPipeline::UBO ubo{};
     ubo.mvp = computeMVP();
     ubo.particleSize = particleSize_;
+    ubo.colorScale = colorScale_;
     // Computed the same way renderShadowDeposit() sets shadowMapPass_'s light VP (same pure
     // functions, same member state) so the main pass always samples with the matrix that was
     // actually used to deposit this frame's shadow map, regardless of onUpdate/onPreRender order.
@@ -346,6 +347,8 @@ void PBVRRenderer::onImGui() {
 }
 
 glm::vec3 PBVRRenderer::computeEye() const {
+    if (hasScatteringEye_)
+        return scatteringEye_;
     const float az = glm::radians(azimuth_);
     const float el = glm::radians(elevation_);
     return cameraTarget_ + distance_ * glm::vec3(
@@ -355,6 +358,8 @@ glm::vec3 PBVRRenderer::computeEye() const {
 }
 
 glm::mat4 PBVRRenderer::computeMVP() const {
+    if (externalCamera_)
+        return externalProj_ * externalView_;
     const glm::mat4 view = glm::lookAt(computeEye(), cameraTarget_, glm::vec3(0.0f, 1.0f, 0.0f));
 
     const float aspect = (extent_.height > 0)
@@ -453,6 +458,7 @@ PBVRRenderer::CpuBuildInput PBVRRenderer::makeCpuBuildInput() const {
     input.towardsLight = computeLightDir();
     input.lightBounds = lightBounds_;
     input.eye = computeEye();
+    input.linearColor = linearColorOutput_;
     return input;
 }
 
@@ -611,10 +617,13 @@ void PBVRRenderer::applyMultipleScattering(const CpuBuildInput& input, CpuBuildR
         transmittanceSum += sunTransmittance[i];
         result.radiance.push_back(radiance);
 
-        // The swapchain is LDR. A soft exposure curve keeps the ratios of the
-        // HDR result instead of hard-clipping the forward-scattering peak.
-        result.vertices[i].color = glm::vec4(glm::vec3(1.0f) - glm::exp(-input.exposure * radiance),
-                                             result.vertices[i].color.a);
+        // An LDR swapchain gets a soft exposure curve that keeps the ratios of
+        // the HDR result instead of hard-clipping the forward-scattering peak;
+        // an HDR host (linearColor) tone-maps the linear value itself.
+        const glm::vec3 exposed = input.linearColor
+            ? input.exposure * radiance
+            : glm::vec3(1.0f) - glm::exp(-input.exposure * radiance);
+        result.vertices[i].color = glm::vec4(exposed, result.vertices[i].color.a);
     }
     result.meanScattered = static_cast<float>(radianceSum / static_cast<double>(count));
     result.meanIndirect = static_cast<float>(indirectSum / static_cast<double>(count));
