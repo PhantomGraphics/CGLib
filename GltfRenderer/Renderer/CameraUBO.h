@@ -41,7 +41,13 @@ struct GlobalUBO {
     // GltfSceneRenderer::setExposure()'s comment. Default 1.0 = old behavior exactly.
     float     exposure = 1.0f;
     float     _pad[3]  = {};
-};  // 336 bytes, std140 OK
+    // Volume (participating medium) shadow, e.g. a PBVR cloud's opacity shadow map (binding 7):
+    // layered accumulated particle density towards a directional light. The direct light is
+    // multiplied by exp(-sigma * density), the expected transmittance of the stochastic particle
+    // medium. Appended at the end for the same reason as `exposure`; enabled=0 by default.
+    glm::mat4 volumeShadowVP = glm::mat4(1.0f);
+    glm::vec4 volumeShadowParams = glm::vec4(0.0f); // x = sigma, y = layer count, z = enabled
+};  // 416 bytes, std140 OK
 
 // set=1 binding 0: per-material UBO (frag)
 struct MaterialUBO {

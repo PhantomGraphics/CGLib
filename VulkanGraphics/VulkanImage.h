@@ -5,6 +5,7 @@
 namespace Phantom::VKG {
 
 class VulkanContext;
+class VulkanCommandPool;
 
 /// @brief Static utility functions for creating Vulkan images and image views.
 ///
@@ -42,6 +43,14 @@ struct VulkanImage {
                        VkImageUsageFlags usage, VkMemoryPropertyFlags props,
                        VkImage& image, VkDeviceMemory& memory,
                        uint32_t mipLevels = 1);
+
+    /// @brief 1x1, single-layer 2D-array image cleared to zero, left in SHADER_READ_ONLY_OPTIMAL,
+    ///        with a VK_IMAGE_VIEW_TYPE_2D_ARRAY view: a "nothing here" stand-in for an optional
+    ///        sampler2DArray binding (e.g. an opacity shadow map that does not exist yet).
+    /// @return false on failure (all outputs left VK_NULL_HANDLE).
+    static bool createZeroArrayTexture(const VulkanContext& ctx, const VulkanCommandPool& pool,
+                                       VkFormat format, VkImage& image, VkDeviceMemory& memory,
+                                       VkImageView& view);
 };
 
 } // namespace VKG

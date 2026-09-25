@@ -165,6 +165,19 @@ public:
     uint32_t getShadowMapSize()   const { return shadowMapSize_; }
     glm::vec3 computeLightDir()   const;
 
+    // The opacity shadow map for other renderers to sample (e.g. the medium's shadow on meshes):
+    // layer i holds the particle count accumulated from the light up to light-space NDC depth
+    // (i+1)/layers, so exp(-getExtinction() * count) is the expected transmittance of the
+    // stochastic particle medium. Only sample it while isShadowMapReady() (the image has no
+    // defined contents before its first deposit). The view changes whenever the map is recreated;
+    // getShadowMapGeneration() changes with it so callers know to rewrite their descriptors.
+    bool        isShadowMapReady()       const { return shadowDeposited_ && shadowMapPass_.isValid(); }
+    uint64_t    getShadowMapGeneration() const { return shadowMapGeneration_; }
+    VkImageView getShadowMapView()       const { return shadowMapPass_.getArrayView(); }
+    VkSampler   getShadowMapSampler()    const { return shadowMapPass_.getSampler(); }
+    glm::mat4   getShadowMapLightVP()    const { return shadowMapPass_.getLightVP(); } // of the deposited contents
+    uint32_t    getShadowMapLayerCount() const { return shadowMapPass_.getLayerCount(); }
+
     void onInit(::VKG::VulkanContext& ctx, const ::VKG::VulkanCommandPool& pool,
                 VkRenderPass renderPass, uint32_t framesInFlight) override;
     void onUpdate(uint32_t frameIndex) override;
@@ -284,6 +297,8 @@ private:
     bool     shadowEnabled_  = false;
     float    sigma_          = 1.0f;
     int      shadowLayers_   = 8;
+    bool     shadowDeposited_     = false; // see isShadowMapReady()
+    uint64_t shadowMapGeneration_ = 0;
     uint32_t shadowMapSize_  = 512;
     bool     shadowDirty_    = true; // OpacityShadowMapPass needs (re)creation (layers/size changed)
     // The shadow image is persistent. Re-record the expensive particle deposit only when

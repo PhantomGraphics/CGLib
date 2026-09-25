@@ -186,6 +186,8 @@ void GltfSceneRenderer::destroyFallbackCube(VkDevice device) {
 //    binding 3: brdfLUT sampler2D (frag) — fallback 2D when useIBL=0
 //    binding 4: shadowMap sampler2D (frag) — fallback white 2D (always "far") when no shadow map is set
 //    binding 5: BoneUBO           (vert) — GPU skinning joint matrices, see updateSkinMatrices()
+//    binding 6: LightBufferGpu    (frag)
+//    binding 7: volume shadow sampler2DArray (frag) — zero-density fallback, see setVolumeShadowMap()
 //
 //  set=1 (per-material):
 //    binding 0: MaterialUBO       (frag)
@@ -211,6 +213,7 @@ void GltfSceneRenderer::createGlobalSetLayout(VkDevice device) {
     addBinding(4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
     addBinding(5, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         VK_SHADER_STAGE_VERTEX_BIT);
     addBinding(6, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         VK_SHADER_STAGE_FRAGMENT_BIT); // LightManager::LightBufferGpu
+    addBinding(7, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT); // volume shadow
 
     globalSetLayout_.create(device, bindings);
 }
@@ -238,11 +241,11 @@ void GltfSceneRenderer::createMaterialSetLayout(VkDevice device) {
 }
 
 bool GltfSceneRenderer::createGlobalDescPool(VkDevice device) {
-    // MAX_FRAMES sets: 3 UBOs (GlobalUBO + BoneUBO + LightBufferGpu) + 4 combined_image_samplers
-    // each (irradiance/prefiltered/brdfLUT/shadowMap)
+    // MAX_FRAMES sets: 3 UBOs (GlobalUBO + BoneUBO + LightBufferGpu) + 5 combined_image_samplers
+    // each (irradiance/prefiltered/brdfLUT/shadowMap/volumeShadow)
     std::vector<VkDescriptorPoolSize> sizes = {
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         static_cast<uint32_t>(MAX_FRAMES * 3)},
-        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, static_cast<uint32_t>(MAX_FRAMES * 4)},
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, static_cast<uint32_t>(MAX_FRAMES * 5)},
     };
 
     VkDescriptorPoolCreateInfo ci{};
@@ -356,6 +359,21 @@ void GltfSceneRenderer::updateGlobalDescriptorSets(VkDevice device) {
         shadowWrite.descriptorCount = 1;
         shadowWrite.pImageInfo      = &shadowInfo;
         writes.push_back(shadowWrite);
+
+        // binding 7: volume shadow (opacity shadow map array, or the zero-density fallback)
+        const bool hasVolumeShadow = volumeShadowView_ != VK_NULL_HANDLE;
+        VkDescriptorImageInfo volumeInfo{ hasVolumeShadow ? volumeShadowSampler_ : fallbackSampler_.get(),
+                                          hasVolumeShadow ? volumeShadowView_ : zeroArrayView_,
+                                          VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL };
+        VkWriteDescriptorSet volumeWrite{};
+        volumeWrite.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        volumeWrite.dstSet          = globalDescSets_[f];
+        volumeWrite.dstBinding      = 7;
+        volumeWrite.descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        volumeWrite.descriptorCount = 1;
+        volumeWrite.pImageInfo      = &volumeInfo;
+        if (volumeInfo.imageView != VK_NULL_HANDLE)
+            writes.push_back(volumeWrite);
 
         // binding 5: BoneUBO
         VkDescriptorBufferInfo boneBufInfo{};
@@ -605,6 +623,8 @@ void GltfSceneRenderer::onInit(Phantom::VKG::VulkanContext& ctx, const Phantom::
     GltfGpuMaterial::createFallback(ctx, pool, fallbackImage_, fallbackMemory_, fallbackView_);
     fallbackSampler_.create(device);
     createFallbackCube(ctx, pool);
+    Phantom::VKG::VulkanImage::createZeroArrayTexture(ctx, pool, VK_FORMAT_R32_SFLOAT,
+                                                      zeroArrayImage_, zeroArrayMemory_, zeroArrayView_);
 
     // Global descriptor pool + sets (write fallback IBL textures)
     if (!(createGlobalDescPool(device) && createGlobalDescriptorSets(device)))
@@ -754,6 +774,20 @@ void GltfSceneRenderer::setShadowMap(VkImageView shadowView, VkSampler shadowSam
     shadowSampler_ = shadowSampler;
     shadowVP_      = lightVP;
     shadowEnabled_ = 1;
+    if (ctx_) updateGlobalDescriptorSets(ctx_->getDevice());
+}
+
+void GltfSceneRenderer::setVolumeShadowMap(VkImageView arrayView, VkSampler sampler)
+{
+    volumeShadowView_    = arrayView;
+    volumeShadowSampler_ = sampler;
+    if (ctx_) updateGlobalDescriptorSets(ctx_->getDevice());
+}
+
+void GltfSceneRenderer::clearVolumeShadowMap()
+{
+    volumeShadowView_    = VK_NULL_HANDLE;
+    volumeShadowSampler_ = VK_NULL_HANDLE;
     if (ctx_) updateGlobalDescriptorSets(ctx_->getDevice());
 }
 
@@ -957,6 +991,8 @@ void GltfSceneRenderer::onUpdate(uint32_t frameIndex) {
     cam.shadowBias     = shadowBias_;
     cam.shadowStrength = shadowStrength_;
     cam.exposure       = exposure_;
+    cam.volumeShadowVP = volumeShadowVP_;
+    cam.volumeShadowParams = volumeShadowView_ != VK_NULL_HANDLE ? volumeShadowParams_ : glm::vec4(0.f);
 
     if (useExternalCamera_) {
         cam.view   = extView_;
@@ -1361,6 +1397,12 @@ void GltfSceneRenderer::onCleanup(VkDevice device) {
     if (iblResult_.isValid()) iblPrecomputer_.destroy(device, iblResult_);
 
     // Fallback resources
+    if (zeroArrayView_)   vkDestroyImageView(device, zeroArrayView_, nullptr);
+    if (zeroArrayImage_)  vkDestroyImage(device, zeroArrayImage_, nullptr);
+    if (zeroArrayMemory_) vkFreeMemory(device, zeroArrayMemory_, nullptr);
+    zeroArrayView_   = VK_NULL_HANDLE;
+    zeroArrayImage_  = VK_NULL_HANDLE;
+    zeroArrayMemory_ = VK_NULL_HANDLE;
     destroyFallbackCube(device);
     if (fallbackSampler_.isValid()) fallbackSampler_.destroy(device);
     if (fallbackView_)   vkDestroyImageView(device, fallbackView_, nullptr);

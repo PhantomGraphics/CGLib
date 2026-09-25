@@ -291,6 +291,8 @@ void PBVRRenderer::renderShadowDeposit(VkCommandBuffer cmd) {
         }
         shadowDirty_ = false;
         shadowContentDirty_ = true;
+        shadowDeposited_ = false;
+        ++shadowMapGeneration_;
         for (uint32_t i = 0; i < framesInFlight_; ++i) {
             pipeline_.updateShadowMap(i, shadowMapPass_.getArrayView(), shadowMapPass_.getSampler());
         }
@@ -317,6 +319,7 @@ void PBVRRenderer::renderShadowDeposit(VkCommandBuffer cmd) {
         shadowMapPass_.endLayer(cmd);
     }
     shadowContentDirty_ = false;
+    shadowDeposited_ = true;
 }
 
 void PBVRRenderer::waitForRegeneration() {

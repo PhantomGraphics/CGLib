@@ -311,6 +311,20 @@ namespace Phantom::Gltf
         // in flight. No-op-safe before setShadowMap() (the matrix just feeds the
         // per-frame UBO in onUpdate()).
         void setShadowLightVP(const glm::mat4& lightVP) { shadowVP_ = lightVP; }
+
+        // Volume shadow (binding 7, sampler2DArray): an opacity shadow map of a participating medium
+        // (Phantom::Volume::OpacityShadowMapPass -- layer i = density accumulated from the light up to
+        // depth (i+1)/layers). The main pass multiplies its directional/first light's direct term by
+        // exp(-sigma * density) at the fragment's light-space depth. setVolumeShadowMap() rewrites the
+        // descriptor sets (same in-flight caveat as setShadowMap()); setVolumeShadowParams() only feeds
+        // the per-frame UBO and is safe every frame. Only shaders declaring binding 7 and the
+        // GlobalUBO tail use it (Universe's gltf.frag); others are unaffected.
+        void setVolumeShadowMap(VkImageView arrayView, VkSampler sampler);
+        void clearVolumeShadowMap(); // back to the zero-density fallback, disables the term
+        void setVolumeShadowParams(const glm::mat4& lightVP, float sigma, uint32_t layerCount, bool enabled) {
+            volumeShadowVP_ = lightVP;
+            volumeShadowParams_ = glm::vec4(sigma, static_cast<float>(layerCount), enabled ? 1.0f : 0.0f, 0.0f);
+        }
         void setShadowParams(float bias, float strength) { shadowBias_ = bias; shadowStrength_ = strength; }
 
         // --- Stats ---
@@ -428,6 +442,15 @@ namespace Phantom::Gltf
         int         shadowEnabled_  = 0;
         float       shadowBias_     = 0.0025f;
         float       shadowStrength_ = 1.0f;
+
+        // Volume shadow (see setVolumeShadowMap())
+        VkImageView    volumeShadowView_     = VK_NULL_HANDLE;
+        VkSampler      volumeShadowSampler_  = VK_NULL_HANDLE;
+        glm::mat4      volumeShadowVP_       = glm::mat4(1.f);
+        glm::vec4      volumeShadowParams_   = glm::vec4(0.f);
+        VkImage        zeroArrayImage_       = VK_NULL_HANDLE; // 1x1 zero-density fallback
+        VkDeviceMemory zeroArrayMemory_      = VK_NULL_HANDLE;
+        VkImageView    zeroArrayView_        = VK_NULL_HANDLE;
 
         // Geometry per primitive
         struct PrimitiveEntry {
