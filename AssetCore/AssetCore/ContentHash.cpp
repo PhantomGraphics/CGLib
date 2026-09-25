@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <fstream>
 #include <system_error>
+#include <vector>
 
 namespace Phantom::Asset {
 namespace {
@@ -132,7 +133,9 @@ std::optional<ContentHash> ContentHash::fromFile(const std::filesystem::path& pa
     std::ifstream input(path.string(), std::ios::binary);
     if (!input) return std::nullopt;
     Sha256 hash;
-    std::array<std::uint8_t, 1024 * 1024> buffer{};
+    // Heap, not stack: a 1 MiB std::array here overflowed the default 1 MiB Windows thread
+    // stack (0xC00000FD on every Universe glTF load, which hashes through this function).
+    std::vector<std::uint8_t> buffer(1024 * 1024);
     while (input) {
         input.read(reinterpret_cast<char*>(buffer.data()), static_cast<std::streamsize>(buffer.size()));
         const auto count = input.gcount();
