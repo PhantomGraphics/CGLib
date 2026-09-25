@@ -3,9 +3,8 @@
 #include "VulkanCommandPool.h"
 #include "detail/VkCheckInternal.h"
 
-// Define STB_IMAGE_IMPLEMENTATION here to provide stbi_load for all link units.
-// If GltfReader.cpp or similar is included in the same link unit, remove its
-// STB_IMAGE_IMPLEMENTATION definition to avoid duplicate symbol errors.
+// Keep this decoder local: applications can also link GraphicsCore's image reader.
+#define STB_IMAGE_STATIC
 #define STB_IMAGE_IMPLEMENTATION
 #include "../ThirdParty/stb/stb_image.h"
 
