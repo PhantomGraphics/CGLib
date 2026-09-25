@@ -19,6 +19,9 @@
 #include <cstdint>
 #include <string>
 #include <algorithm>
+#include <atomic>
+#include <future>
+#include <memory>
 #include <vector>
 
 namespace Phantom::Volume {
@@ -58,6 +61,17 @@ public:
     // uint64 count, then count * (x y z r g b) float32, little-endian.
     bool dumpParticleRadiance(const std::string& path) const;
     void setShaders(Shaders shaders) { shaders_ = std::move(shaders); }
+    // Build CPU particles and solve the scattering on a worker thread instead
+    // of inside onUpdate(). Off by default (VolumeView scenarios expect the
+    // result on the next frame). While a build runs the previous particles
+    // stay on screen; volumes handed out by the data source must stay alive
+    // until isRegenerating() is false (see waitForRegeneration()).
+    void setAsyncCpuRegeneration(bool b) { asyncCpu_ = b; }
+    bool isRegenerating() const { return pending_.valid(); }
+    // True while a regeneration is requested but not yet applied (dirty or running).
+    bool hasPendingWork() const { return dirty_ || pending_.valid(); }
+    // Blocks until a running build has finished and applies its result.
+    void waitForRegeneration();
     void setEnabled(bool e) { enabled_ = e; }
 
     TransferFunction& getTransferFunction() { return tf_; }
@@ -125,9 +139,51 @@ public:
     void renderShadowDeposit(VkCommandBuffer cmd);
 
 private:
+    // Everything the CPU particle build reads, captured on the render thread
+    // so the build itself is a pure function that can run on a worker.
+    struct CpuBuildInput {
+        std::vector<const SparseVolumef*> volumes; // non-owning
+        TransferFunction tf;
+        float densityScale = 1.0f;
+        int repeatCount = 1;
+        bool scattering = false;
+        int orders = 0;
+        int probeCount = 256;
+        float kernelRadius = 1.0f;
+        float phaseG = 0.0f;
+        float albedo = 1.0f;
+        float exposure = 1.0f;
+        int sourceBudget = 0;
+        int shDegree = 1;
+        bool shadow = false;
+        float sigma = 1.0f;
+        uint32_t shadowMapSize = 512;
+        glm::vec3 towardsLight{0.0f, 1.0f, 0.0f};
+        Phantom::Math::Box3df lightBounds = Phantom::Math::Box3df::createDegeneratedBox();
+        glm::vec3 eye{0.0f};
+        // Set by the render thread when newer settings arrive; the build then
+        // stops early and its result is discarded.
+        std::shared_ptr<std::atomic<bool>> cancel;
+    };
+    struct CpuBuildResult {
+        ParticleSet particles;
+        std::vector<PBVRVertex> vertices;
+        std::vector<glm::vec3> radiance;
+        float meanScattered = 0.0f;
+        float meanIndirect = 0.0f;
+        float meanSunTransmittance = 1.0f;
+        float solveMs = 0.0f;
+        bool cancelled = false;
+    };
+    static CpuBuildResult buildCpuParticles(const CpuBuildInput& input);
+    static void applyMultipleScattering(const CpuBuildInput& input, CpuBuildResult& result);
+    CpuBuildInput makeCpuBuildInput() const;
+    void applyCpuBuildResult(CpuBuildResult result);
+    void updateLightBounds();
+
     glm::mat4 computeMVP() const;
+    glm::vec3 computeEye() const;
     void regenerateParticles();
-    void applyMultipleScattering();
     bool isCpuScatteringActive() const;
     glm::mat4 computeLightView() const;
     glm::mat4 computeLightProj() const;
@@ -184,7 +240,6 @@ private:
     ::VKG::VulkanPipeline depositPipeline_;
 
     TransferFunction tf_;
-    ParticleGenerator generator_;
     ParticleSet particleSet_;
 
     Shaders shaders_;
@@ -194,6 +249,10 @@ private:
 
     VolumeComputePBVR computePBVR_;
     uint32_t gpuVertexCount_ = 0;
+
+    bool asyncCpu_ = false;
+    std::future<CpuBuildResult> pending_;
+    std::shared_ptr<std::atomic<bool>> buildCancel_;
 };
 
 } // namespace PBVR

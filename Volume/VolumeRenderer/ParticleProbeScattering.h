@@ -3,6 +3,7 @@
 #include "../../Math/SphericalHarmonics.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -155,10 +156,18 @@ public:
         return result;
     }
 
+    // `cancel` (optional) lets a caller abandon a long background solve: once it
+    // reads true the functions stop early and their result must be discarded.
+    static bool cancelled(const std::atomic<bool>* cancel)
+    {
+        return cancel && cancel->load(std::memory_order_relaxed);
+    }
+
     static std::vector<Phantom::Math::SHRGB> interpolate(
         const std::vector<glm::vec3>& positions,
         const std::vector<ParticleProbe>& probes,
-        const float kernelRadius)
+        const float kernelRadius,
+        const std::atomic<bool>* cancel = nullptr)
     {
         std::vector<Phantom::Math::SHRGB> result(positions.size());
         if (probes.empty() || kernelRadius <= 0.0f)
@@ -169,6 +178,8 @@ public:
 #pragma omp parallel for schedule(static)
         for (std::int64_t signedParticle = 0; signedParticle < particleCount; ++signedParticle) {
             const auto particle = static_cast<std::size_t>(signedParticle);
+            if (cancelled(cancel))
+                continue;
             float weightSum = 0.0f;
             for (const auto& probe : probes) {
                 if (!probe.valid)
@@ -199,7 +210,8 @@ public:
         const std::vector<std::size_t>& probeIndices,
         const std::vector<float>& albedo,
         const std::vector<float>& opacity,
-        const ProbeScatteringSettings& settings)
+        const ProbeScatteringSettings& settings,
+        const std::atomic<bool>* cancel = nullptr)
     {
         const int degree = glm::clamp(settings.degree, 0, 2);
         const int resolution = std::max(1, settings.mapResolution);
@@ -237,7 +249,7 @@ public:
         const auto gather = [&](const std::size_t probeIndex, Scratch& scratch) {
             ParticleProbe probe;
             probe.radiance.degree = degree;
-            if (probeIndex >= positions.size())
+            if (probeIndex >= positions.size() || cancelled(cancel))
                 return probe;
             probe.position = positions[probeIndex];
 
@@ -416,7 +428,8 @@ public:
         const std::vector<float>& albedo,
         const std::vector<float>& opacity,
         const ProbeScatteringSettings& settings,
-        const int additionalOrders)
+        const int additionalOrders,
+        const std::atomic<bool>* cancel = nullptr)
     {
         if (positions.empty() || directOrder.size() != positions.size() ||
             additionalOrders < 0)
@@ -426,8 +439,10 @@ public:
         std::vector<Phantom::Math::SHRGB> current = directOrder;
         for (int order = 0; order < additionalOrders; ++order) {
             const auto probes = computeScatteringOrder(
-                positions, current, probeIndices, albedo, opacity, settings);
-            current = interpolate(positions, probes, settings.kernelRadius);
+                positions, current, probeIndices, albedo, opacity, settings, cancel);
+            current = interpolate(positions, probes, settings.kernelRadius, cancel);
+            if (cancelled(cancel))
+                return {};
             for (std::size_t i = 0; i < total.size(); ++i)
                 total[i] += current[i];
         }

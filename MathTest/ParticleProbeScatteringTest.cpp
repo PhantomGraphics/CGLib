@@ -2,6 +2,7 @@
 
 #include "../Volume/VolumeRenderer/ParticleProbeScattering.h"
 
+#include <atomic>
 #include <cmath>
 #include <numeric>
 
@@ -352,4 +353,26 @@ TEST(ParticleProbeScatteringTest, NegativeSHLobeDoesNotEmitNegativeLight)
         makeSettings(0.3f, 0.0f, 0));
     ASSERT_EQ(1U, result.size());
     EXPECT_GE(result[0].radiance.coefficients[0].x, 0.0f);
+}
+
+TEST(ParticleProbeScatteringTest, CancelledSolveReturnsEmpty)
+{
+    // A background solve abandoned because newer settings arrived must stop
+    // early and report nothing, so a stale result is never applied.
+    const auto positions = makeEnclosingShell(200, 1.0f);
+    const std::vector<SHRGB> direct(positions.size(), isotropicRadiance(1.0f));
+    std::vector<std::size_t> probes(positions.size());
+    std::iota(probes.begin(), probes.end(), std::size_t{0});
+    std::atomic<bool> cancel{true};
+
+    const auto result = ParticleProbeScattering::solve(
+        positions, direct, probes, std::vector<float>(positions.size(), 0.9f),
+        std::vector<float>(positions.size(), 1.0f), makeSettings(0.25f, 0.0f, 0), 2, &cancel);
+    EXPECT_TRUE(result.empty());
+
+    cancel = false;
+    const auto completed = ParticleProbeScattering::solve(
+        positions, direct, probes, std::vector<float>(positions.size(), 0.9f),
+        std::vector<float>(positions.size(), 1.0f), makeSettings(0.25f, 0.0f, 0), 2, &cancel);
+    EXPECT_EQ(positions.size(), completed.size());
 }

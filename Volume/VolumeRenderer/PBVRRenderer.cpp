@@ -9,6 +9,7 @@
 #include <chrono>
 #include <cstdio>
 #include <fstream>
+#include <future>
 #include <cmath>
 #include <vector>
 
@@ -136,9 +137,6 @@ void PBVRRenderer::onInit(::VKG::VulkanContext& ctx, const ::VKG::VulkanCommandP
 
     setTransferFunctionPreset(0);
 
-    generator_.setTransferFunction(&tf_);
-    generator_.setDensityScale(densityScale_);
-
     // Create the shadow infrastructure eagerly (not lazily on first use) so that binding=1 of
     // the main PBVRPipeline below always has something valid written to it -- pbvr_render.frag
     // unconditionally declares that binding, so the pipeline layout must always include it here
@@ -186,9 +184,33 @@ void PBVRRenderer::onUpdate(uint32_t frameIndex) {
         return;
     }
 
+    if (pending_.valid() &&
+        pending_.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
+        CpuBuildResult result = pending_.get();
+        if (!result.cancelled)
+            applyCpuBuildResult(std::move(result));
+    }
+
     if (dirty_) {
-        regenerateParticles();
-        dirty_ = false;
+        if (asyncCpu_ && !useGPU_ && dataSource_) {
+            // One build at a time. Newer settings cancel a running build (its
+            // result would be stale anyway); the next build starts as soon as
+            // the cancelled one has returned.
+            if (pending_.valid()) {
+                if (buildCancel_)
+                    buildCancel_->store(true);
+            } else {
+                updateLightBounds();
+                CpuBuildInput input = makeCpuBuildInput();
+                buildCancel_ = std::make_shared<std::atomic<bool>>(false);
+                input.cancel = buildCancel_;
+                pending_ = std::async(std::launch::async, &PBVRRenderer::buildCpuParticles, std::move(input));
+                dirty_ = false;
+            }
+        } else {
+            regenerateParticles();
+            dirty_ = false;
+        }
     }
 
     PBVRPipeline::UBO ubo{};
@@ -296,7 +318,20 @@ void PBVRRenderer::renderShadowDeposit(VkCommandBuffer cmd) {
     shadowContentDirty_ = false;
 }
 
+void PBVRRenderer::waitForRegeneration() {
+    if (!pending_.valid())
+        return;
+    CpuBuildResult result = pending_.get();
+    if (result.cancelled)
+        dirty_ = true; // settings changed while it ran: rebuild with the new ones
+    else
+        applyCpuBuildResult(std::move(result));
+}
+
 void PBVRRenderer::onCleanup(VkDevice device) {
+    if (pending_.valid())
+        pending_.wait(); // the worker reads the data source's volumes
+    pending_ = {};
     computePBVR_.destroy(device);
     vertexBuffer_.destroy(device);
     pipeline_.destroy(device);
@@ -310,17 +345,17 @@ void PBVRRenderer::onCleanup(VkDevice device) {
 void PBVRRenderer::onImGui() {
 }
 
-glm::mat4 PBVRRenderer::computeMVP() const {
+glm::vec3 PBVRRenderer::computeEye() const {
     const float az = glm::radians(azimuth_);
     const float el = glm::radians(elevation_);
-
-    const glm::vec3 target = cameraTarget_;
-    const glm::vec3 eye = target + distance_ * glm::vec3(
+    return cameraTarget_ + distance_ * glm::vec3(
         std::cos(el) * std::sin(az),
         std::sin(el),
         std::cos(el) * std::cos(az));
+}
 
-    const glm::mat4 view = glm::lookAt(eye, target, glm::vec3(0.0f, 1.0f, 0.0f));
+glm::mat4 PBVRRenderer::computeMVP() const {
+    const glm::mat4 view = glm::lookAt(computeEye(), cameraTarget_, glm::vec3(0.0f, 1.0f, 0.0f));
 
     const float aspect = (extent_.height > 0)
         ? static_cast<float>(extent_.width) / static_cast<float>(extent_.height)
@@ -348,13 +383,7 @@ glm::mat4 PBVRRenderer::computeLightProj() const {
     return glm::ortho(-halfSize, halfSize, -halfSize, halfSize, 0.01f, radius * 4.0f + 1.0f);
 }
 
-void PBVRRenderer::regenerateParticles() {
-    if (!dataSource_ || !ctx_ || !pool_) {
-        return;
-    }
-    // New particles (and, with CPU scattering, new colours) need a new deposit.
-    shadowContentDirty_ = true;
-
+void PBVRRenderer::updateLightBounds() {
     lightBounds_ = Phantom::Math::Box3df::createDegeneratedBox();
     bool haveBounds = false;
     for (const auto& entry : dataSource_->getPBVREntries()) {
@@ -363,6 +392,15 @@ void PBVRRenderer::regenerateParticles() {
         if (!haveBounds) { lightBounds_ = box; haveBounds = true; }
         else            { lightBounds_.add(box); }
     }
+}
+
+void PBVRRenderer::regenerateParticles() {
+    if (!dataSource_ || !ctx_ || !pool_) {
+        return;
+    }
+    // New particles (and, with CPU scattering, new colours) need a new deposit.
+    shadowContentDirty_ = true;
+    updateLightBounds();
 
     if (useGPU_) {
         // Serialize all visible volumes into a flat voxel list for the GPU
@@ -386,35 +424,53 @@ void PBVRRenderer::regenerateParticles() {
         return;
     }
 
-    // CPU path
-    vertices_.clear();
-    particleSet_.clear();
-    gpuVertexCount_ = 0;
+    applyCpuBuildResult(buildCpuParticles(makeCpuBuildInput()));
+}
 
-    generator_.setDensityScale(densityScale_);
-    // Every regeneration reproduces the same realization, so changing a
-    // scattering or view parameter does not also resample the medium.
-    generator_.reseed(42U);
-
-    for (const auto& entry : dataSource_->getPBVREntries()) {
-        if (!entry.visible || !entry.volume) {
-            continue;
-        }
-
-        for (int r = 0; r < repeatCount_; ++r) {
-            ParticleSet generated = generator_.generate(*entry.volume);
-            vertices_.reserve(vertices_.size() + generated.particles.size());
-            particleSet_.particles.reserve(particleSet_.particles.size() + generated.particles.size());
-
-            for (const auto& p : generated.particles) {
-                particleSet_.particles.push_back(p);
-                vertices_.push_back(PBVRVertex{p.pos, glm::vec4(p.color, 1.0f)});
-            }
+PBVRRenderer::CpuBuildInput PBVRRenderer::makeCpuBuildInput() const {
+    CpuBuildInput input;
+    if (dataSource_) {
+        for (const auto& entry : dataSource_->getPBVREntries()) {
+            if (entry.visible && entry.volume)
+                input.volumes.push_back(entry.volume);
         }
     }
+    input.tf = tf_;
+    input.densityScale = densityScale_;
+    input.repeatCount = repeatCount_;
+    input.scattering = multipleScatteringEnabled_;
+    input.orders = scatteringOrders_;
+    input.probeCount = probeCount_;
+    input.kernelRadius = probeRadius_;
+    input.phaseG = phaseG_;
+    input.albedo = scatteringAlbedo_;
+    input.exposure = scatteringExposure_;
+    input.sourceBudget = probeSourceBudget_;
+    input.shDegree = scatteringSHDegree_;
+    input.shadow = shadowEnabled_;
+    input.sigma = sigma_;
+    input.shadowMapSize = shadowMapSize_;
+    input.towardsLight = computeLightDir();
+    input.lightBounds = lightBounds_;
+    input.eye = computeEye();
+    return input;
+}
 
-    applyMultipleScattering();
+void PBVRRenderer::applyCpuBuildResult(CpuBuildResult result) {
+    particleSet_ = std::move(result.particles);
+    vertices_ = std::move(result.vertices);
+    particleRadiance_ = std::move(result.radiance);
+    meanScatteredRadiance_ = result.meanScattered;
+    meanIndirectRadiance_ = result.meanIndirect;
+    meanSunTransmittance_ = result.meanSunTransmittance;
+    lastScatteringSolveMs_ = result.solveMs;
+    gpuVertexCount_ = 0;
+    shadowContentDirty_ = true;
+    if (!ctx_ || !pool_)
+        return;
 
+    // A frame still in flight may be drawing from the old buffer.
+    vkDeviceWaitIdle(ctx_->getDevice());
     vertexBuffer_.destroy(ctx_->getDevice());
     if (vertices_.empty()) {
         return;
@@ -426,25 +482,53 @@ void PBVRRenderer::regenerateParticles() {
                          vertices_.data());
 }
 
+PBVRRenderer::CpuBuildResult PBVRRenderer::buildCpuParticles(const CpuBuildInput& input) {
+    CpuBuildResult result;
+    ParticleGenerator generator;
+    generator.setTransferFunction(&input.tf);
+    generator.setDensityScale(input.densityScale);
+    // Every regeneration reproduces the same realization, so changing a
+    // scattering or view parameter does not also resample the medium.
+    generator.reseed(42U);
+
+    for (const SparseVolumef* volume : input.volumes) {
+        for (int r = 0; r < input.repeatCount; ++r) {
+            ParticleSet generated = generator.generate(*volume);
+            result.vertices.reserve(result.vertices.size() + generated.particles.size());
+            result.particles.particles.reserve(result.particles.particles.size() + generated.particles.size());
+
+            for (const auto& p : generated.particles) {
+                result.particles.particles.push_back(p);
+                result.vertices.push_back(PBVRVertex{p.pos, glm::vec4(p.color, 1.0f)});
+            }
+        }
+    }
+
+    const std::atomic<bool>* cancel = input.cancel.get();
+    if (ParticleProbeScattering::cancelled(cancel)) {
+        result.cancelled = true;
+        return result;
+    }
+    applyMultipleScattering(input, result);
+    result.cancelled = ParticleProbeScattering::cancelled(cancel);
+    return result;
+}
+
 bool PBVRRenderer::isCpuScatteringActive() const {
     return multipleScatteringEnabled_ && !useGPU_;
 }
 
-void PBVRRenderer::applyMultipleScattering() {
-    meanScatteredRadiance_ = 0.0f;
-    meanIndirectRadiance_ = 0.0f;
-    meanSunTransmittance_ = 1.0f;
-    particleRadiance_.clear();
-    if (!multipleScatteringEnabled_ || particleSet_.particles.empty() ||
-        scatteringOrders_ < 0) {
+void PBVRRenderer::applyMultipleScattering(const CpuBuildInput& input, CpuBuildResult& result) {
+    const auto& particles = result.particles.particles;
+    if (!input.scattering || particles.empty() || input.orders < 0) {
         return;
     }
 
-    const std::size_t count = particleSet_.particles.size();
+    const std::size_t count = particles.size();
     const auto solveStart = std::chrono::steady_clock::now();
     std::vector<glm::vec3> positions;
     positions.reserve(count);
-    for (const auto& particle : particleSet_.particles)
+    for (const auto& particle : particles)
         positions.push_back(particle.pos);
 
     // Model the particles as the medium the opacity shadow map already sees:
@@ -452,24 +536,24 @@ void PBVRRenderer::applyMultipleScattering() {
     // 1.5 shadow texels), i.e. an opaque-with-probability disc of that radius
     // and opacity 1 - exp(-sigma). Probe maps and T_sun then agree with the
     // GPU shadow in expectation, and SetPBVRExtinction drives both.
-    const glm::vec3 extent = lightBounds_.getLength();
+    const glm::vec3 extent = input.lightBounds.getLength();
     const float lightHalfSize = std::max(0.5f * glm::length(extent), 1.0f) * 1.2f;
-    const float shadowTexel = 2.0f * lightHalfSize / static_cast<float>(std::max(1U, shadowMapSize_));
+    const float shadowTexel = 2.0f * lightHalfSize / static_cast<float>(std::max(1U, input.shadowMapSize));
     ProbeScatteringSettings settings;
     settings.particleRadius = 1.5f * shadowTexel;
-    settings.kernelRadius = probeRadius_;
-    settings.phaseG = phaseG_;
-    settings.degree = scatteringSHDegree_;
+    settings.kernelRadius = input.kernelRadius;
+    settings.phaseG = input.phaseG;
+    settings.degree = input.shDegree;
     // ISM-style subsets keep the CPU reference interactive on real clouds
     // (O(probes * subset) instead of O(probes * particles)).
-    settings.maxSourcesPerProbe = static_cast<std::size_t>(probeSourceBudget_);
-    const std::vector<float> opacity(count, 1.0f - std::exp(-sigma_));
-    const std::vector<float> albedo(count, scatteringAlbedo_);
+    settings.maxSourcesPerProbe = static_cast<std::size_t>(input.sourceBudget);
+    const std::vector<float> opacity(count, 1.0f - std::exp(-input.sigma));
+    const std::vector<float> albedo(count, input.albedo);
 
-    const glm::vec3 towardsLight = computeLightDir();
+    const glm::vec3 towardsLight = input.towardsLight;
     const glm::vec3 lightPropagation = -towardsLight;
     const glm::vec3 sunIrradiance(1.0f, 0.95f, 0.85f); // sunColor in pbvr_render.frag
-    const std::vector<float> sunTransmittance = shadowEnabled_
+    const std::vector<float> sunTransmittance = input.shadow
         ? ParticleProbeScattering::computeDirectionalTransmittance(
               positions, opacity, settings.particleRadius, towardsLight)
         : std::vector<float>(count, 1.0f);
@@ -483,36 +567,33 @@ void PBVRRenderer::applyMultipleScattering() {
     std::vector<Phantom::Math::SHRGB> direct(count);
     for (std::size_t i = 0; i < count; ++i) {
         // The transfer-function colour tints the scattering albedo.
-        singleScatteringWeight[i] = particleSet_.particles[i].color * scatteringAlbedo_ *
+        singleScatteringWeight[i] = particles[i].color * input.albedo *
             sunIrradiance * sunTransmittance[i];
         direct[i].degree = settings.degree;
         for (int coefficient = 0; coefficient < coefficientCount; ++coefficient) {
             const int band = coefficient == 0 ? 0 : (coefficient < 4 ? 1 : 2);
-            const float bandScale = std::pow(phaseG_, static_cast<float>(band));
+            const float bandScale = std::pow(input.phaseG, static_cast<float>(band));
             direct[i].coefficients[static_cast<std::size_t>(coefficient)] = singleScatteringWeight[i] *
                 (bandScale * Phantom::Math::sphericalHarmonicBasis(coefficient, lightPropagation));
         }
     }
 
     const auto probes = ParticleProbeScattering::selectUniform(
-        positions, static_cast<std::size_t>(probeCount_), 0x50425652U);
+        positions, static_cast<std::size_t>(input.probeCount), 0x50425652U);
     const auto total = ParticleProbeScattering::solve(
-        positions, direct, probes, albedo, opacity, settings, scatteringOrders_);
-    if (total.size() != count || vertices_.size() != count)
+        positions, direct, probes, albedo, opacity, settings, input.orders, input.cancel.get());
+    if (total.size() != count || result.vertices.size() != count)
         return;
 
-    const float az = glm::radians(azimuth_);
-    const float el = glm::radians(elevation_);
-    const glm::vec3 eye = cameraTarget_ + distance_ *
-        glm::vec3(std::cos(el) * std::sin(az), std::sin(el), std::cos(el) * std::cos(az));
     constexpr float pi = 3.14159265358979323846f;
-    const float g = phaseG_;
+    const float g = input.phaseG;
     const glm::vec3 luminanceWeights(0.2126f, 0.7152f, 0.0722f);
     double radianceSum = 0.0;
     double indirectSum = 0.0;
     double transmittanceSum = 0.0;
+    result.radiance.reserve(count);
     for (std::size_t i = 0; i < count; ++i) {
-        const glm::vec3 toEye = eye - positions[i];
+        const glm::vec3 toEye = input.eye - positions[i];
         const float eyeDistance = glm::length(toEye);
         const glm::vec3 viewDirection = eyeDistance > 1.0e-6f ? toEye / eyeDistance : glm::vec3(0.0f, 0.0f, 1.0f);
 
@@ -528,20 +609,20 @@ void PBVRRenderer::applyMultipleScattering() {
         radianceSum += glm::dot(radiance, luminanceWeights);
         indirectSum += glm::dot(indirectRadiance, luminanceWeights);
         transmittanceSum += sunTransmittance[i];
-        particleRadiance_.push_back(radiance);
+        result.radiance.push_back(radiance);
 
         // The swapchain is LDR. A soft exposure curve keeps the ratios of the
         // HDR result instead of hard-clipping the forward-scattering peak.
-        vertices_[i].color = glm::vec4(glm::vec3(1.0f) - glm::exp(-scatteringExposure_ * radiance),
-                                       vertices_[i].color.a);
+        result.vertices[i].color = glm::vec4(glm::vec3(1.0f) - glm::exp(-input.exposure * radiance),
+                                             result.vertices[i].color.a);
     }
-    meanScatteredRadiance_ = static_cast<float>(radianceSum / static_cast<double>(count));
-    meanIndirectRadiance_ = static_cast<float>(indirectSum / static_cast<double>(count));
-    meanSunTransmittance_ = static_cast<float>(transmittanceSum / static_cast<double>(count));
-    lastScatteringSolveMs_ = static_cast<float>(
+    result.meanScattered = static_cast<float>(radianceSum / static_cast<double>(count));
+    result.meanIndirect = static_cast<float>(indirectSum / static_cast<double>(count));
+    result.meanSunTransmittance = static_cast<float>(transmittanceSum / static_cast<double>(count));
+    result.solveMs = static_cast<float>(
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - solveStart).count());
     std::fprintf(stderr, "[PBVR] multiple scattering: %zu particles, %d probes, %d orders, %.0f ms\n",
-                 count, probeCount_, scatteringOrders_, lastScatteringSolveMs_);
+                 count, input.probeCount, input.orders, result.solveMs);
 }
 
 bool PBVRRenderer::dumpParticleRadiance(const std::string& path) const {
