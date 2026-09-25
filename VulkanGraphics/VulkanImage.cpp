@@ -5,7 +5,8 @@
 namespace Phantom::VKG {
 
 VkImageView VulkanImage::createView(VkDevice device, VkImage image,
-                                     VkFormat format, VkImageAspectFlags aspect)
+                                     VkFormat format, VkImageAspectFlags aspect,
+                                     uint32_t mipLevels)
 {
     VkImageViewCreateInfo ci{};
     ci.sType                           = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -14,7 +15,7 @@ VkImageView VulkanImage::createView(VkDevice device, VkImage image,
     ci.format                          = format;
     ci.subresourceRange.aspectMask     = aspect;
     ci.subresourceRange.baseMipLevel   = 0;
-    ci.subresourceRange.levelCount     = 1;
+    ci.subresourceRange.levelCount     = mipLevels;
     ci.subresourceRange.baseArrayLayer = 0;
     ci.subresourceRange.layerCount     = 1;
 
@@ -28,13 +29,14 @@ bool VulkanImage::create(const VulkanContext& ctx,
                           uint32_t width, uint32_t height,
                           VkFormat format, VkImageTiling tiling,
                           VkImageUsageFlags usage, VkMemoryPropertyFlags props,
-                          VkImage& image, VkDeviceMemory& memory)
+                          VkImage& image, VkDeviceMemory& memory,
+                          uint32_t mipLevels)
 {
     VkImageCreateInfo ci{};
     ci.sType         = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     ci.imageType     = VK_IMAGE_TYPE_2D;
     ci.extent        = {width, height, 1};
-    ci.mipLevels     = 1;
+    ci.mipLevels     = mipLevels;
     ci.arrayLayers   = 1;
     ci.format        = format;
     ci.tiling        = tiling;

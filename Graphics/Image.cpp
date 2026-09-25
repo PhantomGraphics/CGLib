@@ -52,7 +52,7 @@ ColorRGBA<T> Image<T>::getColor(const int x, const int y) const
 	const auto g = values[index + 1];
 	const auto b = values[index + 2];
 	const auto a = values[index + 3];
-	return ColorRGBAuc(r, g, b, a);
+	return ColorRGBA<T>(r, g, b, a);
 }
 
 template<typename T>

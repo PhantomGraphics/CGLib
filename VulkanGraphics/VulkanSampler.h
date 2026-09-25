@@ -16,7 +16,8 @@ public:
                 VkFilter filter = VK_FILTER_LINEAR,
                 VkSamplerAddressMode addressMode = VK_SAMPLER_ADDRESS_MODE_REPEAT,
                 bool enableAnisotropy = false,
-                float maxAnisotropy = 1.0f);
+                float maxAnisotropy = 1.0f,
+                float maxLod = 0.0f);
 
     void destroy(VkDevice device);
 

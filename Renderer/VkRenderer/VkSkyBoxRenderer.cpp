@@ -54,7 +54,7 @@ void VkSkyBoxRenderer::create(const VulkanContext& ctx,
     uboBinding.binding         = 0;
     uboBinding.descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     uboBinding.descriptorCount = 1;
-    uboBinding.stageFlags      = VK_SHADER_STAGE_VERTEX_BIT;
+    uboBinding.stageFlags      = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 
     // binding 1: samplerCube (fragment stage)
     VkDescriptorSetLayoutBinding cubeBinding{};
@@ -168,7 +168,7 @@ void VkSkyBoxRenderer::setCubeMap(VkDevice device,
 
 void VkSkyBoxRenderer::upload(const Buffer& buffer, uint32_t frameIndex)
 {
-    UBOData ubo{ buffer.projectionMatrix, buffer.viewMatrix };
+    UBOData ubo{ buffer.projectionMatrix, buffer.viewMatrix, glm::vec4(buffer.exposure, 0.f, 0.f, 0.f) };
     uniformBuffers_[frameIndex].write(&ubo, sizeof(ubo));
 }
 

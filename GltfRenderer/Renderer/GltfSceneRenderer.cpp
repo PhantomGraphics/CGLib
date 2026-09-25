@@ -984,6 +984,7 @@ void GltfSceneRenderer::onUpdate(uint32_t frameIndex) {
         glm::mat4 viewNoTranslation = cam.view;
         viewNoTranslation[3] = glm::vec4(0.f, 0.f, 0.f, cam.view[3].w);
         skyBuf.viewMatrix = viewNoTranslation;
+        skyBuf.exposure = cam.exposure; // same linear-HDR scale as the shaded geometry
         skybox_->upload(skyBuf, frameIndex);
     }
 

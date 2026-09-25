@@ -19,7 +19,9 @@ namespace Phantom::VKG {
 /// The cube has side length 2 centered at the origin.
 ///
 /// Descriptor layout:
-///   binding 0 (vertex)   - UBO  { mat4 projection; mat4 view; }
+///   binding 0 (vertex, fragment) - UBO  { mat4 projection; mat4 view; vec4 params; }
+///                        params.x = exposure (a fragment shader may multiply the cube-map
+///                        radiance by it; shaders that do not declare it are unaffected)
 ///   binding 1 (fragment) - samplerCube
 ///
 /// Usage:
@@ -49,6 +51,8 @@ public:
         glm::mat4 projectionMatrix{1.f};
         /// View matrix with translation stripped (rotation only).
         glm::mat4 viewMatrix{1.f};
+        /// Linear radiance scale for HDR hosts (UBO params.x).
+        float exposure = 1.f;
     };
 
     explicit VkSkyBoxRenderer(Config config) : config_(std::move(config)) {}
@@ -79,6 +83,7 @@ private:
     struct UBOData {
         glm::mat4 projection;
         glm::mat4 view;
+        glm::vec4 params; // x = exposure
     };
 
     Config   config_;

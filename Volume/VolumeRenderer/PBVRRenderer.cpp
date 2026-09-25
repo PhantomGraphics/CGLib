@@ -459,6 +459,9 @@ PBVRRenderer::CpuBuildInput PBVRRenderer::makeCpuBuildInput() const {
     input.lightBounds = lightBounds_;
     input.eye = computeEye();
     input.linearColor = linearColorOutput_;
+    input.lightIrradiance = lightIrradiance_;
+    input.envUpper = envUpper_;
+    input.envLower = envLower_;
     return input;
 }
 
@@ -469,6 +472,7 @@ void PBVRRenderer::applyCpuBuildResult(CpuBuildResult result) {
     meanScatteredRadiance_ = result.meanScattered;
     meanIndirectRadiance_ = result.meanIndirect;
     meanSunTransmittance_ = result.meanSunTransmittance;
+    meanEnvironmentRadiance_ = result.meanEnvironment;
     lastScatteringSolveMs_ = result.solveMs;
     gpuVertexCount_ = 0;
     shadowContentDirty_ = true;
@@ -558,11 +562,52 @@ void PBVRRenderer::applyMultipleScattering(const CpuBuildInput& input, CpuBuildR
 
     const glm::vec3 towardsLight = input.towardsLight;
     const glm::vec3 lightPropagation = -towardsLight;
-    const glm::vec3 sunIrradiance(1.0f, 0.95f, 0.85f); // sunColor in pbvr_render.frag
+    const glm::vec3 sunIrradiance = input.lightIrradiance;
     const std::vector<float> sunTransmittance = input.shadow
         ? ParticleProbeScattering::computeDirectionalTransmittance(
               positions, opacity, settings.particleRadius, towardsLight)
         : std::vector<float>(count, 1.0f);
+
+    // Environment in-scattering. The HG lobe averaged over a hemisphere of uniform radiance L
+    // is isotropic, so each hemisphere contributes (2 pi / 4 pi) L = L / 2, attenuated by the
+    // medium's transmittance averaged over a few directions of that hemisphere (zenith + a ring
+    // at 40 deg elevation for the upper one, nadir for the lower one).
+    const bool hasEnvironment = glm::dot(input.envUpper + input.envLower, glm::vec3(1.0f)) > 0.0f;
+    std::vector<glm::vec3> environmentInScatter;
+    if (hasEnvironment) {
+        std::vector<glm::vec3> upperDirections{glm::vec3(0.0f, 1.0f, 0.0f)};
+        const float ringY = std::sin(glm::radians(40.0f));
+        const float ringR = std::cos(glm::radians(40.0f));
+        for (int k = 0; k < 4; ++k) {
+            const float a = glm::radians(45.0f + 90.0f * static_cast<float>(k));
+            upperDirections.emplace_back(ringR * std::cos(a), ringY, ringR * std::sin(a));
+        }
+        std::vector<glm::vec3> directions = upperDirections;
+        directions.emplace_back(0.0f, -1.0f, 0.0f);
+        std::vector<std::vector<float>> transmittance(directions.size());
+        std::vector<std::future<void>> jobs;
+        for (std::size_t d = 0; d < directions.size(); ++d) {
+            jobs.push_back(std::async(std::launch::async, [&, d] {
+                transmittance[d] = input.shadow
+                    ? ParticleProbeScattering::computeDirectionalTransmittance(
+                          positions, opacity, settings.particleRadius, directions[d])
+                    : std::vector<float>(count, 1.0f);
+            }));
+        }
+        for (auto& job : jobs)
+            job.get();
+        const std::size_t upperCount = upperDirections.size();
+        environmentInScatter.resize(count);
+        for (std::size_t i = 0; i < count; ++i) {
+            float upperT = 0.0f;
+            for (std::size_t d = 0; d < upperCount; ++d)
+                upperT += transmittance[d][i];
+            upperT /= static_cast<float>(upperCount);
+            const float lowerT = transmittance[upperCount][i];
+            environmentInScatter[i] = particles[i].color * input.albedo * 0.5f *
+                (input.envUpper * upperT + input.envLower * lowerT);
+        }
+    }
 
     // Single scattering (plan Sec. 3.2 step 1). It is kept exact for the final
     // view-dependent evaluation; only its SH projection (a delta lobe
@@ -582,6 +627,9 @@ void PBVRRenderer::applyMultipleScattering(const CpuBuildInput& input, CpuBuildR
             direct[i].coefficients[static_cast<std::size_t>(coefficient)] = singleScatteringWeight[i] *
                 (bandScale * Phantom::Math::sphericalHarmonicBasis(coefficient, lightPropagation));
         }
+        // Isotropic outgoing radiance A has only an l = 0 coefficient, A / Y_00 = A * 2 sqrt(pi).
+        if (hasEnvironment)
+            direct[i].coefficients[0] += environmentInScatter[i] * (2.0f * std::sqrt(3.14159265358979323846f));
     }
 
     const auto probes = ParticleProbeScattering::selectUniform(
@@ -597,6 +645,7 @@ void PBVRRenderer::applyMultipleScattering(const CpuBuildInput& input, CpuBuildR
     double radianceSum = 0.0;
     double indirectSum = 0.0;
     double transmittanceSum = 0.0;
+    double environmentSum = 0.0;
     result.radiance.reserve(count);
     for (std::size_t i = 0; i < count; ++i) {
         const glm::vec3 toEye = input.eye - positions[i];
@@ -611,8 +660,10 @@ void PBVRRenderer::applyMultipleScattering(const CpuBuildInput& input, CpuBuildR
             indirect.coefficients[static_cast<std::size_t>(coefficient)] -=
                 direct[i].coefficients[static_cast<std::size_t>(coefficient)];
         const glm::vec3 indirectRadiance = Phantom::Math::evaluate(indirect, viewDirection, true);
-        const glm::vec3 radiance = singleScatteringWeight[i] * phase + indirectRadiance;
+        const glm::vec3 environment = hasEnvironment ? environmentInScatter[i] : glm::vec3(0.0f);
+        const glm::vec3 radiance = singleScatteringWeight[i] * phase + environment + indirectRadiance;
         radianceSum += glm::dot(radiance, luminanceWeights);
+        environmentSum += glm::dot(environment, luminanceWeights);
         indirectSum += glm::dot(indirectRadiance, luminanceWeights);
         transmittanceSum += sunTransmittance[i];
         result.radiance.push_back(radiance);
@@ -628,6 +679,7 @@ void PBVRRenderer::applyMultipleScattering(const CpuBuildInput& input, CpuBuildR
     result.meanScattered = static_cast<float>(radianceSum / static_cast<double>(count));
     result.meanIndirect = static_cast<float>(indirectSum / static_cast<double>(count));
     result.meanSunTransmittance = static_cast<float>(transmittanceSum / static_cast<double>(count));
+    result.meanEnvironment = static_cast<float>(environmentSum / static_cast<double>(count));
     result.solveMs = static_cast<float>(
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - solveStart).count());
     std::fprintf(stderr, "[PBVR] multiple scattering: %zu particles, %d probes, %d orders, %.0f ms\n",

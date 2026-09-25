@@ -7,7 +7,8 @@ bool VulkanSampler::create(VkDevice device,
                            VkFilter filter,
                            VkSamplerAddressMode addressMode,
                            bool enableAnisotropy,
-                           float maxAnisotropy)
+                           float maxAnisotropy,
+                           float maxLod)
 {
     VkSamplerCreateInfo ci{};
     ci.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
@@ -25,7 +26,7 @@ bool VulkanSampler::create(VkDevice device,
     ci.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
     ci.mipLodBias = 0.0f;
     ci.minLod = 0.0f;
-    ci.maxLod = 0.0f;
+    ci.maxLod = maxLod;
 
     VKG_CHECK(vkCreateSampler(device, &ci, nullptr, &sampler_),
               "Failed to create sampler", false);

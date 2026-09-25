@@ -110,6 +110,23 @@ public:
     void setScatteringAlbedo(float a) { scatteringAlbedo_ = std::clamp(a, 0.0f, 1.0f); dirty_ = true; shadowContentDirty_ = true; }
     // Radiance is physical (sun irradiance 1); exposure maps it to the LDR swapchain.
     void setScatteringExposure(float e) { scatteringExposure_ = std::max(0.0f, e); dirty_ = true; }
+    // Irradiance (linear RGB) of the directional light in the CPU scattering path; the light's
+    // direction is setLightDir(). The default matches the light colour constant of the GPU /
+    // non-scattering shader. A strong light is simply a large value.
+    void setLightIrradiance(const glm::vec3& e) { lightIrradiance_ = glm::max(e, glm::vec3(0.0f)); dirty_ = true; }
+    glm::vec3 getLightIrradiance() const { return lightIrradiance_; }
+    // Environment light of the CPU scattering path: mean radiance arriving from the upper and
+    // lower hemispheres (e.g. an HDRI's sky and ground halves). Each particle in-scatters it
+    // (the phase function averaged to isotropic) attenuated by the medium's own transmittance
+    // along a few up / down directions, and it seeds the higher orders like the directional
+    // light does. Zero (the default) disables it.
+    void setEnvironmentRadiance(const glm::vec3& upper, const glm::vec3& lower) {
+        envUpper_ = glm::max(upper, glm::vec3(0.0f));
+        envLower_ = glm::max(lower, glm::vec3(0.0f));
+        dirty_ = true;
+    }
+    glm::vec3 getEnvironmentUpperRadiance() const { return envUpper_; }
+    glm::vec3 getEnvironmentLowerRadiance() const { return envLower_; }
     float getDensityScale() const { return densityScale_; }
     float getParticleSize() const { return particleSize_; }
     int getRepeatCount() const { return repeatCount_; }
@@ -127,6 +144,7 @@ public:
     float getMeanScatteredRadiance() const { return meanScatteredRadiance_; }
     float getMeanIndirectRadiance() const { return meanIndirectRadiance_; }
     float getMeanSunTransmittance() const { return meanSunTransmittance_; }
+    float getMeanEnvironmentRadiance() const { return meanEnvironmentRadiance_; }
     size_t getParticleCount() const {
         return useGPU_ ? static_cast<size_t>(gpuVertexCount_) : particleSet_.count();
     }
@@ -184,6 +202,9 @@ private:
         Phantom::Math::Box3df lightBounds = Phantom::Math::Box3df::createDegeneratedBox();
         glm::vec3 eye{0.0f};
         bool linearColor = false;
+        glm::vec3 lightIrradiance{1.0f, 0.95f, 0.85f};
+        glm::vec3 envUpper{0.0f};
+        glm::vec3 envLower{0.0f};
         // Set by the render thread when newer settings arrive; the build then
         // stops early and its result is discarded.
         std::shared_ptr<std::atomic<bool>> cancel;
@@ -195,6 +216,7 @@ private:
         float meanScattered = 0.0f;
         float meanIndirect = 0.0f;
         float meanSunTransmittance = 1.0f;
+        float meanEnvironment = 0.0f;
         float solveMs = 0.0f;
         bool cancelled = false;
     };
@@ -235,6 +257,10 @@ private:
     float meanScatteredRadiance_ = 0.0f;
     float meanIndirectRadiance_ = 0.0f;
     float meanSunTransmittance_ = 1.0f;
+    float meanEnvironmentRadiance_ = 0.0f;
+    glm::vec3 lightIrradiance_{1.0f, 0.95f, 0.85f}; // sunColor in pbvr_render.frag
+    glm::vec3 envUpper_{0.0f};
+    glm::vec3 envLower_{0.0f};
     int probeSourceBudget_ = 4096;
     int scatteringSHDegree_ = 1;
     float lastScatteringSolveMs_ = 0.0f;
