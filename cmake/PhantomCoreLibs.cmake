@@ -129,10 +129,6 @@ function(phantom_add_volume_core)
     endif()
     phantom_add_math_core()
     phantom_add_space_core()
-    # NOTE on OpenVDB: SparseVolumeTree/{VdbReader,VdbWriter}.h read/write the
-    # raw .vdb file format using only the C++ standard library -- no OpenVDB
-    # library dependency despite the file names (see those headers' own
-    # comments). No find_package/system package needed for it.
     add_library(VolumeCore STATIC
         ${CGLIB_ROOT}/Volume/Volume/LevelSet.cpp
         ${CGLIB_ROOT}/Volume/Volume/MCSurfaceBuilder.cpp

@@ -10,8 +10,6 @@
 #include "../Volume/Volume.h"
 #include "../VolumeRenderer/PBVRRenderer.h"
 #include "../../VkAppBase/VkAppBase.h"
-#include "../Volume/SparseVolumeTree/VdbReader.h"
-#include "../Volume/SparseVolumeTree/VdbWriter.h"
 
 #define GLM_FORCE_RADIANS
 #include <glm/geometric.hpp>
@@ -292,22 +290,12 @@ std::string CommandDispatcher::route(const std::string& cmd) {
         return "OK";
     }
 
-    static constexpr std::string_view kExportVDB = "ExportVDB:";
-    if (cmd.rfind(kExportVDB, 0) == 0) {
-        return cmdExportVDB(cmd.substr(kExportVDB.size()));
-    }
-
     // Path argument may contain ':' (drive letters), so match by prefix.
     static constexpr std::string_view kDumpRadiance = "DumpPBVRParticleRadiance:";
     if (cmd.rfind(kDumpRadiance, 0) == 0) {
         if (!pbvrRenderer_) return "Error:no pbvr renderer";
         return pbvrRenderer_->dumpParticleRadiance(std::string(cmd.substr(kDumpRadiance.size())))
             ? "OK" : "Error:no scattering result to dump";
-    }
-
-    static constexpr std::string_view kImportVDB = "ImportVDB:";
-    if (cmd.rfind(kImportVDB, 0) == 0) {
-        return cmdImportVDB(cmd.substr(kImportVDB.size()));
     }
 
     // --- Parametric commands: split entire string by ':' ---
@@ -962,33 +950,6 @@ std::string CommandDispatcher::cmdGetPixelBrightness(uint32_t x, uint32_t y) {
     pixelReadPending_ = true;
     pixelBrightness_  = true;
     return {}; // response is deferred to the next frame
-}
-
-std::string CommandDispatcher::cmdExportVDB(const std::string& path) {
-    if (!world_ || !pActiveSceneId_) return "Error:not initialized";
-
-    const auto* src = world_->findById(*pActiveSceneId_);
-    if (!src || !src->getShape()) return "Error:no active sparse scene";
-
-    Phantom::Volume::SparseVolumeVdbWriter writer;
-    if (!writer.write(path, *src->getShape(), "density")) return "Error:VDB write failed";
-    return "OK";
-}
-
-std::string CommandDispatcher::cmdImportVDB(const std::string& path) {
-    if (!world_) return "Error:no world";
-
-    Phantom::Volume::SparseVolumeVdbReader reader;
-    auto sparse = reader.read(path);
-    if (!sparse) return "Error:VDB read failed";
-
-    const std::string name = "Imported_" + std::to_string(opCount_++);
-    auto* scene = world_->addScene(name);
-    const int voxels = sparse->getActiveVoxelCount();
-    scene->setShape(std::move(sparse));
-    if (pActiveSceneId_) *pActiveSceneId_ = scene->getId();
-    if (onRebuild_) onRebuild_();
-    return "OK:" + name + ":" + std::to_string(voxels) + "vx";
 }
 
 } // namespace VkVolumeView
