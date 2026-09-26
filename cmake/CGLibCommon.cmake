@@ -28,6 +28,9 @@ if(NOT DEFINED CGLIB_ROOT)
 endif()
 get_filename_component(CGLIB_ROOT "${CGLIB_ROOT}" ABSOLUTE)
 
+# Match the MSBuild consumers: /MDd for Debug, /MD for every other configuration.
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+
 # --- Warning flags + MSVC /utf-8 (several sources carry Japanese comments that
 # are invalid in the legacy MSVC source code page -- required, not cosmetic) +
 # /EHsc.

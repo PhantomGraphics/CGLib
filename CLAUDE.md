@@ -35,8 +35,10 @@ cmake -S Space -B build/Space -DCMAKE_BUILD_TYPE=Debug && cmake --build build/Sp
 ```
 
 主なオプション: `CGLIB_ENABLE_VULKAN`（SDK 自動検出、明示 ON で未検出時は `FATAL_ERROR`）、
-`CGLIB_BUILD_TESTING` / `CGLIB_BUILD_EXAMPLES` / `CGLIB_BUILD_VIEWERS` / `CGLIB_FETCH_GTEST`。
-GoogleTest は system → pinned FetchContent（`v1.15.2`）の順で解決。
+`CGLIB_BUILD_TESTING` / `CGLIB_BUILD_EXAMPLES` / `CGLIB_BUILD_VIEWERS`。
+GoogleTest は FetchContent で `v1.15.2` を固定取得してビルドする（system/NuGet 探索なし）。
+MSVC ランタイムは Debug `/MDd`、その他 `/MD`。オフラインでは
+`FETCHCONTENT_SOURCE_DIR_GOOGLETEST` に同バージョンのソースを指定する。
 
 公開ターゲットには `CGLib::<Component>` alias（`CGLib::Math` / `CGLib::Graphics` /
 `CGLib::File` …）。`#include "CGLib/..."` はビルドツリーの転送ヘッダー

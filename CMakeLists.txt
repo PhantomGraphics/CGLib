@@ -17,7 +17,7 @@
 #   CGLIB_BUILD_EXAMPLES  OFF                 examples/ consumer samples
 #   CGLIB_BUILD_VIEWERS   OFF                 Vulkan/GLFW viewer executables
 #   CGLIB_ENABLE_VULKAN   auto-detected       Vulkan/GLFW-dependent modules
-#   CGLIB_FETCH_GTEST     ON                  fetch pinned GTest if none found
+# GoogleTest is fetched at the pinned v1.15.2 version whenever tests are enabled.
 
 cmake_minimum_required(VERSION 3.20)
 
