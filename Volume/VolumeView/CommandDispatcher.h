@@ -55,8 +55,6 @@ private:
     std::string cmdDeleteDense(int id);
     std::string cmdGetPixelColor(uint32_t x, uint32_t y);
     std::string cmdGetPixelBrightness(uint32_t x, uint32_t y);
-    std::string cmdExportVDB(const std::string& path);
-    std::string cmdImportVDB(const std::string& path);
 
     World*            world_          = nullptr;
     int*                    pActiveSceneId_ = nullptr;

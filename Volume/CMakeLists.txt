@@ -39,7 +39,6 @@ if(PHANTOM_GTEST_FOUND)
 
     add_executable(VolumeTest
         ${VOLUME_ROOT}/VolumeTest/LevelSetTest.cpp
-        ${VOLUME_ROOT}/VolumeTest/VdbIOTest.cpp
         ${VOLUME_ROOT}/VolumeTest/MCSurfaceBuilderTest.cpp
         ${VOLUME_ROOT}/VolumeTest/SparseVolumeTreeTest.cpp
         ${VOLUME_ROOT}/VolumeTest/SurfaceVoxelizerTest.cpp
