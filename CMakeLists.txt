@@ -170,6 +170,33 @@ if(PHANTOM_VULKAN_INCLUDE_DIR)
 endif()
 
 # ---------------------------------------------------------------------------
+# Precompiled headers (cmake/PhantomPch.cmake). Targets that are not configured in
+# this build are skipped by the helpers.
+# ---------------------------------------------------------------------------
+
+include(PhantomPch)
+
+# Eigen, through the existing Numerics/pch.h.
+phantom_use_pch(NumericsCore ${CGLIB_ROOT}/Numerics/Numerics/pch.h)
+
+# Test suites: gtest + STL for every TU. (Their legacy pch.h files hold nothing but
+# gtest, and most test files include gtest directly rather than through pch.h.)
+# Suites with only a handful of TUs are left out: building the PCH costs more than
+# it saves there.
+foreach(_t MathTest GraphicsTest NumericsTest SpaceTest VolumeTest FileTest
+           GltfRendererTest AnimationTest VulkanGraphicsTest)
+    phantom_use_pch_headers(${_t} ${PHANTOM_PCH_GTEST})
+endforeach()
+phantom_use_pch_headers(SceneRuntimeTest ${PHANTOM_PCH_GTEST} "${CGLIB_ROOT}/ThirdParty/nlohmann/json.hpp")
+
+# Libraries and larger viewers without a pch.h.
+foreach(_t GltfRendererCore FileCore UIWidgetsCore SpaceCore VolumeCore AnimationCore
+           VolumeRenderer VkAppBaseCore VkRendererCore VolumeView)
+    phantom_use_pch_headers(${_t} ${PHANTOM_PCH_STL})
+endforeach()
+phantom_use_pch_headers(SceneRuntimeCore ${PHANTOM_PCH_STL} "${CGLIB_ROOT}/ThirdParty/nlohmann/json.hpp")
+
+# ---------------------------------------------------------------------------
 # Namespaced public aliases -- consumers link CGLib::<Component>
 # ---------------------------------------------------------------------------
 
