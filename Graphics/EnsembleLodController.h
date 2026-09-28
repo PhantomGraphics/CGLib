@@ -58,7 +58,11 @@ public:
 
     struct Request { uint32_t ensemblesPerFrame; uint32_t targetEnsembles; };
 
-    explicit EnsembleLodController(const Config& cfg = {}) : cfg_(cfg) {}
+    // Two constructors rather than `const Config& cfg = {}`: a default argument that
+    // uses Config's default member initializers is ill-formed while this enclosing
+    // class is still incomplete (clang rejects it; MSVC accepts it).
+    EnsembleLodController() = default;
+    explicit EnsembleLodController(const Config& cfg) : cfg_(cfg) {}
 
     void setConfig(const Config& cfg) { cfg_ = cfg; }
     const Config& config() const { return cfg_; }
