@@ -10,53 +10,44 @@
 
 namespace Phantom::Input {
 
-// Polls GLFW keyboard + gamepad state once per frame (update()) rather than reacting to
-// key-down/key-up callbacks, so "is this action held right now" comes for free -- a character
-// controller needs continuous per-frame movement state, which VulkanWindow::onKey's
-// edge-triggered callback doesn't suit. Mouse-drag camera input is handled separately
-// (getMouseDelta()/isRightDragging()) rather than as a GameAction: it's a raw per-frame delta
-// for FollowCamera's orbit, not a discrete action.
+// Holds the value of each named game action and the gamepad state.
+//
+// What a key, mouse button or stick *means* is not decided here: the app's input router maps
+// physical inputs to actions through a keymap (bind key.W action=move_forward) and writes the
+// result with setActionValue() once per frame. This class only stores those values, lets tests
+// force them (injectAction), and polls the gamepad (update()) so the router can read raw pad
+// buttons and axes (padButton()/padAxis()).
 //
 // MoveForward/MoveBack (and MoveLeft/MoveRight, and the CamRight/CamLeft/CamUp/CamDown right-
-// stick pairs) are modeled as separate actions rather than one signed axis each, so getAxis()
-// always returns a non-negative magnitude in [0,1] -- the caller subtracts pairs itself, e.g.
-// moveZ = getAxis(MoveBack) - getAxis(MoveForward).
+// stick pairs) are separate actions rather than one signed axis each, so getAxis() always
+// returns a magnitude in [0,1] -- the caller subtracts pairs itself.
 class InputManager {
 public:
-    void init(GLFWwindow* window) { window_ = window; }
+    static constexpr size_t kActionCount = 10;
 
-    // Poll glfwGetKey()/glfwGetGamepadState() and finalize this frame's mouse delta.
-    // Call once per frame before reading any action/axis/mouse-delta below.
+    // Polls glfwGetGamepadState(). Call once per frame before the router reads pad state.
     void update();
 
     bool  isPressed(GameAction action) const;
     float getAxis(GameAction action) const;
 
-    glm::vec2 getMouseDelta()    const { return mouseDelta_; }
-    bool      isRightDragging()  const { return rightDown_;  }
+    // Written by the input router (already bound, scaled, clamped to [0,1]).
+    void setActionValue(GameAction action, float value) { values_[static_cast<size_t>(action)] = value; }
 
-    // Connect to VulkanWindow::onMouseButton / onCursorPos.
-    void onMouseButton(int button, int action, int mods);
-    void onCursorPos(double x, double y);
+    // Raw gamepad state (GLFW_GAMEPAD_BUTTON_* / GLFW_GAMEPAD_AXIS_*). Axes have a 0.2 dead zone applied.
+    bool  padButton(int glfwButton) const;
+    float padAxis(int glfwAxis) const;
 
     // Forces isPressed()/getAxis() for this action to a fixed digital value (1.f/0.f for
     // getAxis) until injectAction() is called again for it or clearInjectedActions() runs --
-    // lets a scenario test (no real keyboard/gamepad) drive character input deterministically
-    // (e.g. an "InjectInput" scenario command).
+    // lets a scenario test (no real keyboard/gamepad) drive character input deterministically.
     void injectAction(GameAction action, bool pressed) { injected_[static_cast<size_t>(action)] = pressed ? 1 : 0; }
     void clearInjectedActions() { injected_.fill(-1); }
 
 private:
-    GLFWwindow* window_ = nullptr;
-
-    // -1 = not injected (read real hardware state); 0/1 = forced false/true.
-    std::array<int8_t, 10> injected_ = { -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 };
-
-    glm::vec2 lastCursor_       = { 0.f, 0.f };
-    glm::vec2 accumMouseDelta_  = { 0.f, 0.f }; // accumulated since the last update()
-    glm::vec2 mouseDelta_       = { 0.f, 0.f }; // finalized by update(), read by getMouseDelta()
-    bool      rightDown_        = false;
-    bool      firstCursorSample_ = true;
+    // -1 = not injected (use the routed value); 0/1 = forced false/true.
+    std::array<int8_t, kActionCount> injected_ = { -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 };
+    std::array<float, kActionCount>  values_   = {};
 
     bool             hasGamepad_   = false;
     GLFWgamepadstate gamepadState_ = {};
