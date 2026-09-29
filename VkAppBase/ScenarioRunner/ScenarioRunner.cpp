@@ -368,6 +368,7 @@ bool ScenarioRunner::extractJsonValue(const Step& step, const std::string& resp,
         }
         if (v->kind == JVal::Obj || v->kind == JVal::Arr) value = v->raw;
         else if (v->kind == JVal::Bool) value = v->b ? "true" : "false";
+        else if (v->kind == JVal::Null) value = "null";
         else value = v->str;
     }
     return true;
