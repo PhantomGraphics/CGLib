@@ -4,6 +4,7 @@
 #include <charconv>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <map>
@@ -63,6 +64,7 @@ static std::string detectRepoRoot() {
 struct JVal {
     enum Kind { Null, Str, Bool, Arr, Obj } kind = Null;
     std::string                           str;
+    std::string                           raw; // source text of an Obj/Arr (for JSON responses)
     bool                                  b   = false;
     std::vector<JVal>                     arr;
     std::map<std::string, JVal>           obj;
@@ -76,6 +78,11 @@ struct JVal {
     std::string strOf(const std::string& key, const std::string& def = {}) const {
         const JVal* v = get(key);
         return (v && v->kind == Str) ? v->str : def;
+    }
+    // -1 when absent or not a boolean, else 0/1.
+    int boolOf(const std::string& key) const {
+        const JVal* v = get(key);
+        return (v && v->kind == Bool) ? (v->b ? 1 : 0) : -1;
     }
     int numOf(const std::string& key, int def = 0) const {
         const JVal* v = get(key);
@@ -154,11 +161,18 @@ private:
             s += *p_++;
             while (p_ < end_ && *p_ >= '0' && *p_ <= '9') s += *p_++;
         }
+        if (p_ < end_ && (*p_ == 'e' || *p_ == 'E')) {
+            s += *p_++;
+            if (p_ < end_ && (*p_ == '+' || *p_ == '-')) s += *p_++;
+            while (p_ < end_ && *p_ >= '0' && *p_ <= '9') s += *p_++;
+        }
         JVal v; v.kind = JVal::Str; v.str = std::move(s);
         return v;
     }
 
     JVal object() {
+        ws();
+        const char* start = p_;
         eat('{');
         JVal v; v.kind = JVal::Obj;
         ws();
@@ -171,10 +185,13 @@ private:
             if (!eat(',')) break;
         }
         eat('}');
+        v.raw.assign(start, p_);
         return v;
     }
 
     JVal array() {
+        ws();
+        const char* start = p_;
         eat('[');
         JVal v; v.kind = JVal::Arr;
         ws();
@@ -184,6 +201,7 @@ private:
             if (!eat(',')) break;
         }
         eat(']');
+        v.raw.assign(start, p_);
         return v;
     }
 };
@@ -239,6 +257,9 @@ bool ScenarioRunner::load(const std::string& jsonPath) {
         step.expectRange      = s.strOf("expect_range");
         step.storeAs          = s.strOf("store_as");
         step.stripPrefix      = s.strOf("strip_prefix");
+        step.expectOk         = s.boolOf("expect_ok");
+        step.expectError      = s.strOf("expect_error");
+        step.path             = s.strOf("path");
         if (!step.command.empty()) {
             const int repeat = std::max(1, s.numOf("repeat", 1));
             for (int r = 0; r < repeat; ++r)
@@ -276,10 +297,98 @@ std::string ScenarioRunner::expandVars(const std::string& s) const {
 
 // ---- response validation -------------------------------------------------
 
+namespace {
+
+const JVal* jsonPathGet(const JVal& root, const std::string& path) {
+    const JVal* cur = &root;
+    size_t start = 0;
+    while (cur && start <= path.size()) {
+        size_t dot = path.find('.', start);
+        if (dot == std::string::npos) dot = path.size();
+        const std::string key = path.substr(start, dot - start);
+        if (key.empty()) break;
+        if (cur->kind == JVal::Arr) {
+            char* end = nullptr;
+            const long idx = std::strtol(key.c_str(), &end, 10);
+            cur = (*end == 0 && idx >= 0 && static_cast<size_t>(idx) < cur->arr.size())
+                ? &cur->arr[static_cast<size_t>(idx)] : nullptr;
+        } else if (cur->kind == JVal::Obj) {
+            cur = cur->get(key);
+        } else {
+            cur = nullptr;
+        }
+        start = dot + 1;
+    }
+    return cur;
+}
+
+bool bothNumbers(const std::string& a, const std::string& b, double& x, double& y) {
+    char* ea = nullptr;
+    char* eb = nullptr;
+    x = std::strtod(a.c_str(), &ea);
+    y = std::strtod(b.c_str(), &eb);
+    return !a.empty() && !b.empty() && *ea == 0 && *eb == 0;
+}
+
+} // namespace
+
+bool ScenarioRunner::extractJsonValue(const Step& step, const std::string& resp, std::string& value) {
+    JParser parser(resp.data(), resp.size());
+    const JVal root = parser.parse();
+    if (root.kind != JVal::Obj) {
+        failMsg_ = "response is not a JSON object: '" + resp + "'";
+        return false;
+    }
+    const JVal* ok = root.get("ok");
+    const bool isOk = ok && ok->kind == JVal::Bool && ok->b;
+    if (step.expectOk == 1 && !isOk) {
+        failMsg_ = "expected ok:true, got " + resp;
+        return false;
+    }
+    if (step.expectOk == 0 && isOk) {
+        failMsg_ = "expected ok:false, got " + resp;
+        return false;
+    }
+    if (!step.expectError.empty()) {
+        const JVal* code = jsonPathGet(root, "error.code");
+        if (!code || code->kind != JVal::Str || code->str != step.expectError) {
+            failMsg_ = "expected error.code '" + step.expectError + "' got " + resp;
+            return false;
+        }
+    }
+    value.clear();
+    const bool wantsValue = !step.expect.empty() || !step.expectNot.empty() || !step.expectPrefix.empty() ||
+                            !step.expectNotPrefix.empty() || !step.expectRange.empty() || !step.storeAs.empty();
+    if (!step.path.empty() || wantsValue) {
+        const std::string path = step.path.empty() ? std::string("result.value") : step.path;
+        const JVal* v = jsonPathGet(root, path);
+        if (!v) {
+            failMsg_ = "no value at '" + path + "' in " + resp;
+            return false;
+        }
+        if (v->kind == JVal::Obj || v->kind == JVal::Arr) value = v->raw;
+        else if (v->kind == JVal::Bool) value = v->b ? "true" : "false";
+        else value = v->str;
+    }
+    return true;
+}
+
 bool ScenarioRunner::checkResponse(const Step& step, const std::string& resp) {
+    const bool jsonMode = step.expectOk != -1 || !step.expectError.empty() || !step.path.empty();
+    if (!jsonMode) return checkValue(step, resp);
+    std::string value;
+    if (!extractJsonValue(step, resp, value)) return false;
+    return checkValue(step, value);
+}
+
+bool ScenarioRunner::checkValue(const Step& step, const std::string& resp) {
     if (!step.expect.empty()) {
         const std::string expected = expandVars(step.expect);
-        if (resp != expected) {
+        double x = 0, y = 0;
+        // JSON numbers may print differently from the text a scenario wrote ("0.2" vs "0.200000").
+        const bool numericEqual = bothNumbers(resp, expected, x, y) &&
+                                  std::fabs(x - y) <= 1e-6 * std::max(1.0, std::fabs(y));
+        if (resp != expected && !numericEqual) {
             failMsg_ = "expected '" + expected + "' got '" + resp + "'";
             return false;
         }
@@ -435,6 +544,17 @@ bool ScenarioRunner::tick(IScenarioDispatcher& dispatcher,
 
     if (!step.storeAs.empty()) {
         std::string val = resp;
+        if (step.expectOk != -1 || !step.expectError.empty() || !step.path.empty()) {
+            std::string extracted;
+            if (!extractJsonValue(step, resp, extracted)) {
+                fprintf(stderr, "[Scenario] FAIL [%zu/%zu] %s\n  %s\n",
+                        current_ + 1, steps_.size(), step.label.c_str(), failMsg_.c_str());
+                failed_   = true;
+                finished_ = true;
+                return true;
+            }
+            val = extracted;
+        }
         if (!step.stripPrefix.empty() && val.rfind(step.stripPrefix, 0) == 0)
             val = val.substr(step.stripPrefix.size());
         vars_[step.storeAs] = val;
