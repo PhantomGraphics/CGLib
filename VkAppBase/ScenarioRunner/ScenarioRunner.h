@@ -32,10 +32,20 @@ private:
         std::string expectRange;
         std::string storeAs;
         std::string stripPrefix;
+        // JSON responses (apps whose commands answer {"ok":..,"result":..} / {"ok":false,"error":..}).
+        // Any of these switches the step to JSON mode: the response is parsed, ok / error.code are
+        // checked, and the expect_* / store_as fields apply to the value found at `path`
+        // (dot separated, array indices allowed; default "result.value").
+        int         expectOk = -1;   // -1 unchecked, 0 must be ok:false, 1 must be ok:true
+        std::string expectError;     // required error.code
+        std::string path;
     };
 
     std::string expandVars(const std::string& s) const;
     bool        checkResponse(const Step& step, const std::string& resp);
+    bool        checkValue(const Step& step, const std::string& resp);
+    // JSON mode: validates ok / error.code and extracts the value at step.path into `value`.
+    bool        extractJsonValue(const Step& step, const std::string& resp, std::string& value);
     bool        evaluatePostAssert();
 
     std::vector<Step>                            steps_;
