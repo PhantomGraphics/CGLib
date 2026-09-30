@@ -1,0 +1,72 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "volume_common.glsl"
+#include "volume_pbvr_common.glsl"
+
+// One invocation per grid cell: draws a Poisson number of opaque sub-particles so that
+// sigma = n * a / V holds in expectation (a = projected particle area). The particle diameter
+// grows (never the count is silently cut) when a cell would need more than maxPerCell of them.
+layout(local_size_x = 4, local_size_y = 4, local_size_z = 4) in;
+
+layout(set = 0, binding = 1) uniform sampler3D uDensity;
+layout(set = 0, binding = 2) uniform sampler3D uSunT;
+layout(set = 0, binding = 3, std430) writeonly buffer Particles { Particle particles[]; };
+layout(set = 0, binding = 4, std430) buffer Indirect { uint drawArgs[8]; };   // [0] = vertexCount (drawn count)
+layout(set = 0, binding = 5, std430) buffer Stats { uint stats[4]; };         // overflow, generated
+
+layout(push_constant) uniform Push {
+    uint ensembleSeed;
+} pc;
+
+void main()
+{
+    ivec3 c = ivec3(gl_GlobalInvocationID);
+    vec3 dims = u.gridDims.xyz;
+    if (any(greaterThanEqual(vec3(c), dims))) return;
+
+    float rho = texelFetch(uDensity, c, 0).r;
+    if (rho <= 0.0) return;
+
+    float cell = u.gridOrigin.w;
+    vec3 cellMin = u.gridOrigin.xyz + vec3(c) * cell;
+    vec3 center = cellMin + 0.5 * cell;
+    float sigma = u.scatter.x * rho;
+    float volume = cell * cell * cell;
+
+    float dist = max(length(center - u.camPos.xyz), 1.0e-3);
+    float pixelWorld = dist * u.pbvr.x;                 // world size of one pixel at this depth
+    float dMin = u.pbvr.y;
+    const float kPi = 3.14159265358979;
+
+    // Particle count with the minimum diameter; enlarge the diameter to respect maxPerCell.
+    float a1 = kPi * 0.25 * (dMin * pixelWorld) * (dMin * pixelWorld);
+    float lambda1 = sigma * volume / a1;
+    float dPx = dMin * max(1.0, sqrt(lambda1 / u.pbvr.z));
+    float worldDia = dPx * pixelWorld;
+    float area = kPi * 0.25 * worldDia * worldDia;
+    float lambda = sigma * volume / area;
+
+    uint cellId = uint((c.z * int(dims.y) + c.y) * int(dims.x) + c.x);
+    uint seed = pcgHash(cellId ^ pcgHash(pc.ensembleSeed));
+    uint n = uint(lambda);
+    if (rand01(seed) < fract(lambda)) n += 1u;
+
+    vec3 sunDir = u.sunDirIrr.xyz;
+    vec3 extent = dims * cell;
+    for (uint i = 0u; i < n; ++i) {
+        vec3 p = cellMin + vec3(rand01(seed), rand01(seed), rand01(seed)) * cell;
+        uint slot = atomicAdd(drawArgs[0], 1u);
+        if (slot >= u.limits.x) {
+            atomicAdd(stats[0], 1u);
+            atomicAdd(drawArgs[0], 0xFFFFFFFFu);   // keep the drawn count within capacity
+            continue;
+        }
+        atomicAdd(stats[1], 1u);
+        vec3 viewDir = normalize(p - u.camPos.xyz);
+        float phase = henyeyGreenstein(dot(sunDir, viewDir), u.scatter.z);
+        float tsun = textureLod(uSunT, (p - u.gridOrigin.xyz) / extent, 0.0).r;
+        float src = u.scatter.y * (u.sunDirIrr.w * phase * tsun + u.scatter.w);
+        particles[slot].posSize = vec4(p, worldDia);
+        particles[slot].color = vec4(vec3(src), 1.0);
+    }
+}

@@ -17,5 +17,16 @@ if errorlevel 1 ( echo FAILED: volume_raymarch.frag & exit /b 1 )
 %GLSLC% -fshader-stage=comp "%OUTDIR%volume_sun_transmittance.comp" -o "%OUTDIR%volume_sun_transmittance.comp.spv"
 if errorlevel 1 ( echo FAILED: volume_sun_transmittance.comp & exit /b 1 )
 
+%GLSLC% -fshader-stage=comp "%OUTDIR%volume_pbvr_generate.comp" -o "%OUTDIR%volume_pbvr_generate.comp.spv"
+if errorlevel 1 ( echo FAILED: volume_pbvr_generate.comp & exit /b 1 )
+%GLSLC% -fshader-stage=vert "%OUTDIR%volume_pbvr_point.vert" -o "%OUTDIR%volume_pbvr_point.vert.spv"
+if errorlevel 1 ( echo FAILED: volume_pbvr_point.vert & exit /b 1 )
+%GLSLC% -fshader-stage=frag "%OUTDIR%volume_pbvr_point.frag" -o "%OUTDIR%volume_pbvr_point.frag.spv"
+if errorlevel 1 ( echo FAILED: volume_pbvr_point.frag & exit /b 1 )
+%GLSLC% -fshader-stage=comp "%OUTDIR%volume_pbvr_accumulate.comp" -o "%OUTDIR%volume_pbvr_accumulate.comp.spv"
+if errorlevel 1 ( echo FAILED: volume_pbvr_accumulate.comp & exit /b 1 )
+%GLSLC% -fshader-stage=frag "%OUTDIR%volume_pbvr_composite.frag" -o "%OUTDIR%volume_pbvr_composite.frag.spv"
+if errorlevel 1 ( echo FAILED: volume_pbvr_composite.frag & exit /b 1 )
+
 echo Done.
 endlocal
