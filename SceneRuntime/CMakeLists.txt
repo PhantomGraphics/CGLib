@@ -43,6 +43,7 @@ if(PHANTOM_GTEST_FOUND)
         ${SCENERUNTIME_ROOT}/SceneRuntimeTest/ComponentSchemaTest.cpp
         ${SCENERUNTIME_ROOT}/SceneRuntimeTest/ComponentSchemaRegistryTest.cpp
         ${SCENERUNTIME_ROOT}/SceneRuntimeTest/UniverseSceneV2Test.cpp
+        ${SCENERUNTIME_ROOT}/SceneRuntimeTest/SceneV2EditorTest.cpp
     )
     target_link_libraries(SceneRuntimeTest PRIVATE
         SceneRuntimeCore
