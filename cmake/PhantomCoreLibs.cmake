@@ -236,6 +236,7 @@ function(phantom_add_scene_runtime_core)
         ${CGLIB_ROOT}/SceneRuntime/SceneRuntime/ComponentSchema.cpp
         ${CGLIB_ROOT}/SceneRuntime/SceneRuntime/ComponentSchemaRegistry.cpp
         ${CGLIB_ROOT}/SceneRuntime/SceneRuntime/UniverseSceneV2.cpp
+        ${CGLIB_ROOT}/SceneRuntime/SceneRuntime/SceneV2Editor.cpp
     )
     target_include_directories(SceneRuntimeCore PUBLIC
         ${REPO_ROOT}
