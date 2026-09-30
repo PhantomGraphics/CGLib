@@ -42,6 +42,7 @@ if(PHANTOM_GTEST_FOUND)
         ${VOLUME_ROOT}/VolumeTest/MCSurfaceBuilderTest.cpp
         ${VOLUME_ROOT}/VolumeTest/SparseVolumeTreeTest.cpp
         ${VOLUME_ROOT}/VolumeTest/SurfaceVoxelizerTest.cpp
+        ${VOLUME_ROOT}/VolumeTest/VolumeScatteringTest.cpp
         ${VOLUME_ROOT}/VolumeTest/VolumeTest.cpp
     )
     target_include_directories(VolumeTest PRIVATE
