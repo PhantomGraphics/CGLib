@@ -346,6 +346,7 @@ function(phantom_add_volumeraymarch_core)
     add_library(VolumeRaymarch STATIC
         ${CGLIB_ROOT}/Volume/VolumeRaymarch/Volume3DImage.cpp
         ${CGLIB_ROOT}/Volume/VolumeRaymarch/VolumeRaymarchGpu.cpp
+        ${CGLIB_ROOT}/Volume/VolumeRaymarch/VolumePbvrGpu.cpp
     )
     target_include_directories(VolumeRaymarch PUBLIC
         ${REPO_ROOT}

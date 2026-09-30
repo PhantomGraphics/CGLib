@@ -1,4 +1,5 @@
 #include "Volume3DImage.h"
+#include "VolumeGpuUtil.h"
 
 #include "../../VulkanGraphics/VulkanCommandPool.h"
 #include "../../VulkanGraphics/VulkanContext.h"
@@ -11,61 +12,13 @@ namespace Phantom::Volume {
 namespace {
 constexpr VkFormat kFormat = VK_FORMAT_R32_SFLOAT;
 
-void transition(VkCommandBuffer cmd, VkImage image, VkImageLayout from, VkImageLayout to,
-                VkAccessFlags srcAccess, VkAccessFlags dstAccess,
-                VkPipelineStageFlags srcStage, VkPipelineStageFlags dstStage)
+using detail::HostBuffer;
+inline void transition(VkCommandBuffer cmd, VkImage image, VkImageLayout from, VkImageLayout to,
+                       VkAccessFlags srcAccess, VkAccessFlags dstAccess, VkPipelineStageFlags srcStage,
+                       VkPipelineStageFlags dstStage)
 {
-    VkImageMemoryBarrier b{};
-    b.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    b.oldLayout = from;
-    b.newLayout = to;
-    b.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    b.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    b.image = image;
-    b.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
-    b.srcAccessMask = srcAccess;
-    b.dstAccessMask = dstAccess;
-    vkCmdPipelineBarrier(cmd, srcStage, dstStage, 0, 0, nullptr, 0, nullptr, 1, &b);
+    detail::imageBarrier(cmd, image, from, to, srcAccess, dstAccess, srcStage, dstStage);
 }
-
-// Host-visible scratch buffer for staging / readback.
-struct HostBuffer {
-    VkBuffer buffer = VK_NULL_HANDLE;
-    VkDeviceMemory memory = VK_NULL_HANDLE;
-    void* mapped = nullptr;
-
-    bool create(const Phantom::VKG::VulkanContext& ctx, VkDeviceSize size, VkBufferUsageFlags usage)
-    {
-        VkDevice device = ctx.getDevice();
-        VkBufferCreateInfo bi{};
-        bi.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-        bi.size = size;
-        bi.usage = usage;
-        bi.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-        if (vkCreateBuffer(device, &bi, nullptr, &buffer) != VK_SUCCESS) return false;
-        VkMemoryRequirements req;
-        vkGetBufferMemoryRequirements(device, buffer, &req);
-        auto type = ctx.findMemoryType(req.memoryTypeBits,
-                                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-        if (!type) return false;
-        VkMemoryAllocateInfo ai{};
-        ai.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-        ai.allocationSize = req.size;
-        ai.memoryTypeIndex = *type;
-        if (vkAllocateMemory(device, &ai, nullptr, &memory) != VK_SUCCESS) return false;
-        vkBindBufferMemory(device, buffer, memory, 0);
-        return vkMapMemory(device, memory, 0, size, 0, &mapped) == VK_SUCCESS;
-    }
-
-    void destroy(const Phantom::VKG::VulkanContext& ctx)
-    {
-        VkDevice device = ctx.getDevice();
-        if (mapped) vkUnmapMemory(device, memory);
-        if (buffer) vkDestroyBuffer(device, buffer, nullptr);
-        if (memory) vkFreeMemory(device, memory, nullptr);
-        *this = HostBuffer();
-    }
-};
 }
 
 bool Volume3DImage::isSupported(const Phantom::VKG::VulkanContext& ctx)

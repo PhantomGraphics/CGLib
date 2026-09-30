@@ -1,0 +1,22 @@
+#version 450
+
+// accum += ensemble (or accum = ensemble for the first one after a reset).
+layout(local_size_x = 8, local_size_y = 8) in;
+
+layout(set = 0, binding = 0) uniform sampler2D uEnsemble;
+layout(set = 0, binding = 1, rgba32f) uniform image2D uAccum;
+
+layout(push_constant) uniform Push {
+    uint first;
+    uint width;
+    uint height;
+} pc;
+
+void main()
+{
+    ivec2 p = ivec2(gl_GlobalInvocationID.xy);
+    if (p.x >= int(pc.width) || p.y >= int(pc.height)) return;
+    vec4 e = texelFetch(uEnsemble, p, 0);
+    vec4 a = pc.first != 0u ? vec4(0.0) : imageLoad(uAccum, p);
+    imageStore(uAccum, p, a + e);
+}

@@ -73,6 +73,8 @@ public:
     const Volume3DImage& density() const { return density_; }
     const Volume3DImage& sunTransmittance() const { return sunT_; }
     const ScalarGridDesc& gridDesc() const { return desc_; }
+    VkSampler densitySampler() const { return zeroBorderSampler_; }         ///< border 0
+    VkSampler transmittanceSampler() const { return oneBorderSampler_; }    ///< border 1
     bool hasGrid() const { return density_.isValid(); }
     bool canRaymarch() const { return raymarchPipeline_.getPipeline() != VK_NULL_HANDLE; }
 

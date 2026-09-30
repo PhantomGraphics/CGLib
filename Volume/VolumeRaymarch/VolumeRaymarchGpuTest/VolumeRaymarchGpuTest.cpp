@@ -4,6 +4,7 @@
 #include "VulkanTestFixture.h"
 
 #include "../VolumeRaymarchGpu.h"
+#include "../VolumePbvrGpu.h"
 #include "../../../VulkanGraphics/VulkanSPVResolver.h"
 
 #include <glm/gtc/matrix_transform.hpp>
@@ -145,6 +146,7 @@ protected:
     ASSERT_FALSE(cfg.raymarchFragSpv.empty()) << "shaders missing next to the test binary";
     cfg.renderPass = target_.renderPass;
     ASSERT_TRUE(gpu_.create(ctx_, pool_, cfg));
+    ASSERT_TRUE(createPbvr(1u << 20));
     ready_ = true;
   }
 
@@ -152,16 +154,120 @@ protected:
   {
     if (ctx_.getDevice()) vkDeviceWaitIdle(ctx_.getDevice());
     if (ready_) {
+      pbvr_.destroy(ctx_);
       gpu_.destroy(ctx_);
       target_.destroy(ctx_);
     }
     VulkanTestFixture::TearDown();
   }
 
+  bool createPbvr(uint32_t capacity)
+  {
+    VolumePbvrGpu::Config pc;
+    pc.generateCompSpv = loadSPVRepo("shaders/volume_pbvr_generate.comp.spv");
+    pc.pointVertSpv = loadSPVRepo("shaders/volume_pbvr_point.vert.spv");
+    pc.pointFragSpv = loadSPVRepo("shaders/volume_pbvr_point.frag.spv");
+    pc.accumulateCompSpv = loadSPVRepo("shaders/volume_pbvr_accumulate.comp.spv");
+    pc.fullscreenVertSpv = loadSPVRepo("shaders/volume_fullscreen.vert.spv");
+    pc.compositeFragSpv = loadSPVRepo("shaders/volume_pbvr_composite.frag.spv");
+    pc.compositeRenderPass = target_.renderPass;
+    pc.depthFormat = depthFormat_;
+    pc.particleCapacity = capacity;
+    return pbvr_.create(ctx_, pool_, pc) && pbvr_.setViewport(ctx_, pool_, kW, kH);
+  }
+
+  // RGBA16F target -> host texels (kW*kH*4 half floats).
+  std::vector<uint16_t> readTexels()
+  {
+    VkDevice device = ctx_.getDevice();
+    const VkDeviceSize bytes = static_cast<VkDeviceSize>(kW) * kH * 8;
+    VkBuffer buf = VK_NULL_HANDLE;
+    VkDeviceMemory mem = VK_NULL_HANDLE;
+    VkBufferCreateInfo bi{ VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO, nullptr, 0, bytes, VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                           VK_SHARING_MODE_EXCLUSIVE, 0, nullptr };
+    vkCreateBuffer(device, &bi, nullptr, &buf);
+    VkMemoryRequirements req;
+    vkGetBufferMemoryRequirements(device, buf, &req);
+    auto type = ctx_.findMemoryType(req.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    VkMemoryAllocateInfo mai{ VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO, nullptr, req.size, *type };
+    vkAllocateMemory(device, &mai, nullptr, &mem);
+    vkBindBufferMemory(device, buf, mem, 0);
+    VkCommandBuffer cmd = pool_.beginSingleTimeCommands();
+    VkBufferImageCopy region{};
+    region.imageSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
+    region.imageExtent = { kW, kH, 1 };
+    vkCmdCopyImageToBuffer(cmd, target_.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, buf, 1, &region);
+    pool_.endSingleTimeCommands(cmd);
+    void* mapped = nullptr;
+    vkMapMemory(device, mem, 0, bytes, 0, &mapped);
+    std::vector<uint16_t> texels(static_cast<size_t>(kW) * kH * 4);
+    std::memcpy(texels.data(), mapped, bytes);
+    vkUnmapMemory(device, mem);
+    vkDestroyBuffer(device, buf, nullptr);
+    vkFreeMemory(device, mem, nullptr);
+    return texels;
+  }
+
+  // Ensemble-averaged PBVR of `density` composited into the target (cleared first), read back.
+  uint32_t renderPbvr(const ScalarGrid3D& density, const ScatteringParams& p, const VolumePbvrGpu::Camera& cam,
+                      uint32_t ensembles, std::vector<uint16_t>& texels)
+  {
+    EXPECT_TRUE(gpu_.setGrid(ctx_, pool_, density.desc()));
+    EXPECT_TRUE(gpu_.uploadDensity(ctx_, pool_, density));
+    pbvr_.bindGrid(ctx_, gpu_);
+    pbvr_.resetAccumulation();
+    VkCommandBuffer cmd = pool_.beginSingleTimeCommands();
+    gpu_.recordSunTransmittance(cmd, p);
+    pbvr_.recordEnsembles(cmd, 0, gpu_, cam, p, ensembles);
+    const VkClearValue clear{};
+    VkRenderPassBeginInfo rb{};
+    rb.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    rb.renderPass = target_.renderPass;
+    rb.framebuffer = target_.framebuffer;
+    rb.renderArea = { { 0, 0 }, { kW, kH } };
+    rb.clearValueCount = 1;
+    rb.pClearValues = &clear;
+    vkCmdBeginRenderPass(cmd, &rb, VK_SUBPASS_CONTENTS_INLINE);
+    VkViewport vp{ 0, 0, static_cast<float>(kW), static_cast<float>(kH), 0.0f, 1.0f };
+    VkRect2D sc{ { 0, 0 }, { kW, kH } };
+    vkCmdSetViewport(cmd, 0, 1, &vp);
+    vkCmdSetScissor(cmd, 0, 1, &sc);
+    pbvr_.recordComposite(cmd);
+    vkCmdEndRenderPass(cmd);
+    pool_.endSingleTimeCommands(cmd);
+    texels = readTexels();
+    return pbvr_.accumulatedEnsembles();
+  }
+
+  static VolumePbvrGpu::Camera makeCamera(const glm::vec3& eye, const glm::vec3& target)
+  {
+    const glm::mat4 view = glm::lookAt(eye, target, glm::vec3(0, 1, 0));
+    const glm::mat4 proj = glm::perspective(glm::radians(28.0f), 1.0f, 0.1f, 200.0f);
+    VolumePbvrGpu::Camera cam;
+    cam.viewProj = proj * view;
+    cam.position = eye;
+    cam.pixelAngle = 2.0f / (proj[1][1] * static_cast<float>(kH));
+    cam.projScalePx = proj[1][1] * static_cast<float>(kH) * 0.5f;
+    return cam;
+  }
+
   Target target_;
   VolumeRaymarchGpu gpu_;
+  VolumePbvrGpu pbvr_;
   bool ready_ = false;
 };
+
+ScalarGrid3D makeSlabGrid(float rho)
+{
+  ScalarGridDesc d;
+  d.nx = d.ny = d.nz = 16;
+  d.cellSize = 1.0f;
+  ScalarGrid3D g(d, 0.0f, 0.0f);
+  for (uint32_t k = 4; k < 12; ++k)
+    for (uint32_t j = 0; j < 16; ++j)
+      for (uint32_t i = 0; i < 16; ++i) g.at(i, j, k) = rho;
+  return g;
+}
 }
 
 TEST_F(VolumeRaymarchGpuTest, SunTransmittanceMatchesCpuReference)
@@ -284,4 +390,127 @@ TEST_F(VolumeRaymarchGpuTest, RaymarchMatchesCpuReferencePerPixel)
   }
   EXPECT_GT(covered, 50);          // the blob covers a meaningful part of the image
   EXPECT_LT(maxErr, 6.0e-3f);      // half-float output + trilinear hardware rounding
+}
+
+TEST_F(VolumeRaymarchGpuTest, PbvrUniformSlabMatchesBeerLambert)
+{
+  const ScalarGrid3D density = makeSlabGrid(1.0f);
+  ScatteringParams p;
+  p.extinction = 0.15f;          // optical depth 1.2 through the 8-cell slab
+  p.albedo = 1.0f;
+  p.phaseG = 0.0f;
+  p.sunIrradiance = 0.0f;
+  p.ambient = 1.0f;              // constant source S = 1: radiance == alpha
+  p.sunDirection = glm::vec3(0, 1, 0);
+  const auto cam = makeCamera(glm::vec3(8.0f, 8.0f, -30.0f), glm::vec3(8.0f, 8.0f, 8.0f));
+
+  std::vector<uint16_t> texels;
+  const uint32_t n = renderPbvr(density, p, cam, 64, texels);
+  ASSERT_EQ(n, 64u);
+
+  double sumA = 0.0, sumR = 0.0, sumErr2 = 0.0;
+  int count = 0;
+  const double expected = 1.0 - std::exp(-1.2);
+  for (uint32_t y = 10; y < 22; ++y) {
+    for (uint32_t x = 10; x < 22; ++x) {
+      const uint16_t* px = &texels[(static_cast<size_t>(y) * kW + x) * 4];
+      const double r = halfToFloat(px[0]), a = halfToFloat(px[3]);
+      sumA += a; sumR += r;
+      sumErr2 += (a - expected) * (a - expected);
+      ++count;
+    }
+  }
+  const double meanA = sumA / count;
+  EXPECT_NEAR(meanA, expected, 0.02) << "mean alpha over the block (plan section 8: <= 0.02)";
+  EXPECT_NEAR(sumR / count, meanA, 0.02);          // S = 1 everywhere, so radiance tracks alpha
+  // Per-pixel scatter must look like binomial noise of 64 samples, not structure.
+  const double rms = std::sqrt(sumErr2 / count);
+  EXPECT_LT(rms, 1.5 * std::sqrt(expected * (1.0 - expected) / 64.0));
+  VolumePbvrGpu::Stats st;
+  ASSERT_TRUE(pbvr_.readStats(ctx_, pool_, st));
+  EXPECT_EQ(st.overflowed, 0u);
+  EXPECT_GT(st.generated, 0u);
+}
+
+TEST_F(VolumeRaymarchGpuTest, PbvrConvergesToRaymarchOfTheSameField)
+{
+  const ScalarGrid3D density = makeBlob(16, 3.0f);
+  ScatteringParams p;
+  p.extinction = 0.2f;
+  p.albedo = 0.9f;
+  p.phaseG = 0.3f;
+  p.sunDirection = glm::normalize(glm::vec3(0.4f, 0.5f, 0.8f));
+  p.sunIrradiance = 2.0f;
+  p.ambient = 0.2f;
+  p.stepLength = 0.25f;
+  const auto cam = makeCamera(glm::vec3(8.0f, 8.0f, -30.0f), glm::vec3(8.0f, 8.0f, 8.0f));
+
+  std::vector<uint16_t> texels;
+  renderPbvr(density, p, cam, 64, texels);
+
+  const ScalarGrid3D sunT = VS::computeSunTransmittance(density, p);
+  const glm::mat4 inv = glm::inverse(cam.viewProj);
+  double refA = 0.0, gpuA = 0.0, refR = 0.0, gpuR = 0.0;
+  int count = 0;
+  for (uint32_t y = 8; y < 24; ++y) {
+    for (uint32_t x = 8; x < 24; ++x) {
+      const glm::vec2 ndc((x + 0.5f) / kW * 2.0f - 1.0f, (y + 0.5f) / kH * 2.0f - 1.0f);
+      glm::vec4 n = inv * glm::vec4(ndc, 0.0f, 1.0f);
+      glm::vec4 f = inv * glm::vec4(ndc, 1.0f, 1.0f);
+      const glm::vec3 dir = glm::normalize(glm::vec3(f) / f.w - glm::vec3(n) / n.w);
+      const RayResult ref = VS::marchRay(density, sunT, p, cam.position, dir);
+      const uint16_t* px = &texels[(static_cast<size_t>(y) * kW + x) * 4];
+      refA += 1.0 - ref.transmittance;
+      refR += ref.radiance.x;
+      gpuA += halfToFloat(px[3]);
+      gpuR += halfToFloat(px[0]);
+      ++count;
+    }
+  }
+  refA /= count; gpuA /= count; refR /= count; gpuR /= count;
+  EXPECT_GT(refA, 0.1);                                  // the blob really covers the block
+  EXPECT_NEAR(gpuA, refA, 0.03);
+  EXPECT_NEAR(gpuR, refR, 0.05 * std::max(refR, 0.05));
+}
+
+TEST_F(VolumeRaymarchGpuTest, PbvrMoreEnsemblesReduceNoise)
+{
+  const ScalarGrid3D density = makeSlabGrid(1.0f);
+  ScatteringParams p;
+  p.extinction = 0.1f;
+  p.sunIrradiance = 0.0f;
+  p.ambient = 1.0f;
+  const auto cam = makeCamera(glm::vec3(8.0f, 8.0f, -30.0f), glm::vec3(8.0f, 8.0f, 8.0f));
+  const double expected = 1.0 - std::exp(-0.8);
+  auto rms = [&](uint32_t ensembles) {
+    std::vector<uint16_t> texels;
+    renderPbvr(density, p, cam, ensembles, texels);
+    double s = 0.0;
+    int c = 0;
+    for (uint32_t y = 10; y < 22; ++y)
+      for (uint32_t x = 10; x < 22; ++x, ++c) {
+        const double a = halfToFloat(texels[(static_cast<size_t>(y) * kW + x) * 4 + 3]);
+        s += (a - expected) * (a - expected);
+      }
+    return std::sqrt(s / c);
+  };
+  const double e8 = rms(8), e64 = rms(64);
+  EXPECT_LT(e64, 0.6 * e8);   // ~1/sqrt(8) in expectation
+}
+
+TEST_F(VolumeRaymarchGpuTest, PbvrOverflowIsReportedNotHidden)
+{
+  pbvr_.destroy(ctx_);
+  ASSERT_TRUE(createPbvr(64));   // tiny particle capacity
+
+  ScatteringParams p;
+  p.extinction = 0.15f;
+  p.ambient = 1.0f;
+  p.sunIrradiance = 0.0f;
+  std::vector<uint16_t> texels;
+  renderPbvr(makeSlabGrid(1.0f), p, makeCamera(glm::vec3(8, 8, -30), glm::vec3(8, 8, 8)), 4, texels);
+  VolumePbvrGpu::Stats st;
+  ASSERT_TRUE(pbvr_.readStats(ctx_, pool_, st));
+  EXPECT_GT(st.overflowed, 0u);
+  EXPECT_LE(st.generated, 4u * 64u);
 }
