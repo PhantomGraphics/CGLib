@@ -335,6 +335,28 @@ endfunction()
 # used to duplicate this as GSViewVolumeCore/GSViewVolumeRenderer).
 # ---------------------------------------------------------------------------
 
+# GPU single-scattering raymarcher over a 3D density image (docs/todo/SPEC_volume_raymarch.md).
+# Shaders (.spv committed) live in Volume/VolumeRaymarch/shaders; callers load them with loadSPVRepo().
+function(phantom_add_volumeraymarch_core)
+    if(TARGET VolumeRaymarch)
+        return()
+    endif()
+    phantom_add_volume_core()
+    phantom_add_vulkangraphics_core()
+    add_library(VolumeRaymarch STATIC
+        ${CGLIB_ROOT}/Volume/VolumeRaymarch/Volume3DImage.cpp
+        ${CGLIB_ROOT}/Volume/VolumeRaymarch/VolumeRaymarchGpu.cpp
+    )
+    target_include_directories(VolumeRaymarch PUBLIC
+        ${REPO_ROOT}
+        ${CGLIB_ROOT}/ThirdParty/glm-0.9.9.8
+        ${PHANTOM_VULKAN_INCLUDE_DIR}
+    )
+    target_link_libraries(VolumeRaymarch PUBLIC VulkanGraphicsCore VolumeCore)
+    target_compile_options(VolumeRaymarch PRIVATE ${PHANTOM_WARN_FLAGS})
+    target_compile_features(VolumeRaymarch PRIVATE cxx_std_20)
+endfunction()
+
 function(phantom_add_volumerenderer_core)
     if(TARGET VolumeRenderer)
         return()

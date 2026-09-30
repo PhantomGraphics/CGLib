@@ -87,6 +87,34 @@ phantom_add_file_core()
 phantom_add_vkappbase_core()
 phantom_add_vkrenderer_core()
 phantom_add_volumerenderer_core()
+phantom_add_volumeraymarch_core()
+
+# GPU raymarch vs the CPU reference (needs a real Vulkan device, like VulkanGraphicsTest).
+if(CGLIB_BUILD_TESTING AND PHANTOM_GTEST_FOUND)
+    add_executable(VolumeRaymarchGpuTest
+        ${VOLUME_ROOT}/VolumeRaymarch/VolumeRaymarchGpuTest/VolumeRaymarchGpuTest.cpp
+        ${CGLIB_ROOT}/VulkanGraphics/VulkanGraphicsTest/VulkanTestFixture.cpp
+    )
+    target_include_directories(VolumeRaymarchGpuTest PRIVATE
+        ${REPO_ROOT}
+        ${CGLIB_ROOT}/ThirdParty/glfw-3.3.8/include
+        ${CGLIB_ROOT}/VulkanGraphics/VulkanGraphicsTest
+    )
+    target_link_libraries(VolumeRaymarchGpuTest PRIVATE
+        VolumeRaymarch
+        ${PHANTOM_VULKAN_LIBRARY}
+        ${PHANTOM_GLFW_LIBRARY}
+        GTest::gtest
+        GTest::gtest_main
+    )
+    target_compile_options(VolumeRaymarchGpuTest PRIVATE ${PHANTOM_WARN_FLAGS})
+    target_compile_features(VolumeRaymarchGpuTest PRIVATE cxx_std_20)
+    add_custom_command(TARGET VolumeRaymarchGpuTest POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            ${VOLUME_ROOT}/VolumeRaymarch/shaders
+            $<TARGET_FILE_DIR:VolumeRaymarchGpuTest>/shaders)
+    add_test(NAME VolumeRaymarchGpuTest COMMAND VolumeRaymarchGpuTest)
+endif()
 
 add_executable(VolumeView
     ${VOLUME_ROOT}/VolumeView/main.cpp
