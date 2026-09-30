@@ -1,0 +1,43 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "volume_common.glsl"
+
+// One invocation per cell: exp(-extinction * optical depth toward the sun), cell centre to box exit.
+layout(local_size_x = 4, local_size_y = 4, local_size_z = 4) in;
+
+layout(set = 0, binding = 0) uniform sampler3D uDensity;           // clamp-to-border, border 0
+layout(set = 0, binding = 1, r32f) uniform writeonly image3D uOut;
+
+layout(push_constant) uniform Push {
+    vec4 gridOrigin;   // xyz origin, w cellSize
+    vec4 gridDims;     // xyz nx,ny,nz
+    vec4 sunDirExt;    // xyz unit vector toward the sun, w extinction kExt
+    vec4 step;         // x ds
+} pc;
+
+void main()
+{
+    ivec3 c = ivec3(gl_GlobalInvocationID);
+    vec3 dims = pc.gridDims.xyz;
+    if (any(greaterThanEqual(vec3(c), dims))) return;
+
+    float cell = pc.gridOrigin.w;
+    vec3 origin = pc.gridOrigin.xyz;
+    vec3 extent = dims * cell;
+    vec3 p0 = origin + (vec3(c) + 0.5) * cell;
+    vec3 sunDir = pc.sunDirExt.xyz;
+
+    float tn, tf;
+    float T = 1.0;
+    if (intersectBox(p0, sunDir, origin, origin + extent, tn, tf)) {
+        int n = max(1, int(ceil(tf / pc.step.x)));
+        float h = tf / float(n);
+        float tau = 0.0;
+        for (int s = 0; s < n; ++s) {
+            vec3 p = p0 + sunDir * ((float(s) + 0.5) * h);
+            tau += texture(uDensity, (p - origin) / extent).r * h;
+        }
+        T = exp(-pc.sunDirExt.w * tau);
+    }
+    imageStore(uOut, c, vec4(T));
+}
