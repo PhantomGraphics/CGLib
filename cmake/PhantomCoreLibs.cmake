@@ -135,6 +135,7 @@ function(phantom_add_volume_core)
         ${CGLIB_ROOT}/Volume/Volume/SurfaceVoxelizer.cpp
         ${CGLIB_ROOT}/Volume/Volume/Volume.cpp
         ${CGLIB_ROOT}/Volume/Volume/VolumeNode.cpp
+        ${CGLIB_ROOT}/Volume/Volume/VolumeScattering.cpp
     )
     target_include_directories(VolumeCore PUBLIC ${REPO_ROOT})
     target_link_libraries(VolumeCore PUBLIC MathCore SpaceCore)
