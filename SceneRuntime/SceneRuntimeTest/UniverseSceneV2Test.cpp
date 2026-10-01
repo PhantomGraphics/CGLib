@@ -65,6 +65,26 @@ TEST(SceneV2, JsonRoundTrip)
     EXPECT_TRUE(loaded.renderSettings.value("shadowEnabled", false));
 }
 
+TEST(SceneV2, MigrationRetainsVdbPointsSourceAndSettings)
+{
+    const auto result = migrateV1ToV2(R"({"version":1,"entities":[{"name":"Points",
+        "vdbPoints":{"source":{"path":"points.vdb","grid":"points","maxPoints":100},
+        "settings":{"radiusScale":2,"useSourceColor":false}}}]})");
+    ASSERT_TRUE(result.ok);
+    const auto roots = result.scene.scene.children(NodeId{});
+    ASSERT_EQ(1u, roots.size());
+    const auto* node = result.scene.scene.find(roots[0]);
+    ASSERT_NE(nullptr, node);
+    const auto* points = findComponent(*node, "vdbPoints");
+    ASSERT_NE(nullptr, points);
+    EXPECT_EQ("points.vdb", points->data["source"]["path"]);
+    EXPECT_EQ(2, points->data["settings"]["radiusScale"]);
+    bool ok = false;
+    const auto roundTrip = SceneV2::fromJson(result.scene.toJson(), &ok);
+    ASSERT_TRUE(ok);
+    EXPECT_TRUE(hasComponent(*roundTrip.scene.find(roots[0]), "vdbPoints"));
+}
+
 TEST(SceneV2, FromJsonRejectsWrongVersion)
 {
     bool ok = true;
