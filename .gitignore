@@ -70,3 +70,7 @@
 *.lastbuildstate
 *.vcxproj.FileListAbsolute.txt
 .vs/
+
+# Local VolumeView sample data / test output
+/Volume/VolumeView/samples/
+/Volume/VolumeView/test_roundtrip.vdb
