@@ -240,6 +240,7 @@ function(phantom_add_scene_runtime_core)
         ${CGLIB_ROOT}/SceneRuntime/SceneRuntime/ColliderDesc.cpp
         ${CGLIB_ROOT}/SceneRuntime/SceneRuntime/AssetSidecar.cpp
         ${CGLIB_ROOT}/SceneRuntime/SceneRuntime/SceneV2Merge.cpp
+        ${CGLIB_ROOT}/SceneRuntime/SceneRuntime/PlaySession.cpp
     )
     target_include_directories(SceneRuntimeCore PUBLIC
         ${REPO_ROOT}
