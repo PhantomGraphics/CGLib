@@ -8,6 +8,7 @@ rem  (installed automatically by the Vulkan SDK installer).
 rem
 rem  Output files (written next to this script):
 rem    point.vert.spv / point.frag.spv
+rem    point_batch.vert.spv / point_batch.frag.spv
 rem    line.vert.spv  / line.frag.spv
 rem    triangle.vert.spv / triangle.frag.spv
 rem    tex.vert.spv   / tex.frag.spv
@@ -32,6 +33,12 @@ echo Compiling point shaders...
 if errorlevel 1 ( echo FAILED: point.vert & exit /b 1 )
 %GLSLC% -fshader-stage=frag "%OUTDIR%point.frag" -o "%OUTDIR%point.frag.spv"
 if errorlevel 1 ( echo FAILED: point.frag & exit /b 1 )
+
+echo Compiling point batch shaders...
+%GLSLC% -fshader-stage=vert "%OUTDIR%point_batch.vert" -o "%OUTDIR%point_batch.vert.spv"
+if errorlevel 1 ( echo FAILED: point_batch.vert & exit /b 1 )
+%GLSLC% -fshader-stage=frag "%OUTDIR%point_batch.frag" -o "%OUTDIR%point_batch.frag.spv"
+if errorlevel 1 ( echo FAILED: point_batch.frag & exit /b 1 )
 
 echo Compiling line shaders...
 %GLSLC% -fshader-stage=vert "%OUTDIR%line.vert"  -o "%OUTDIR%line.vert.spv"

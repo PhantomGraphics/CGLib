@@ -240,6 +240,7 @@ function(phantom_add_vkrenderer_core)
     phantom_add_vulkangraphics_core()
     add_library(VkRendererCore STATIC
         ${CGLIB_ROOT}/Renderer/VkRenderer/VkPointRenderer.cpp
+        ${CGLIB_ROOT}/Renderer/VkRenderer/VkPointBatchRenderer.cpp
         ${CGLIB_ROOT}/Renderer/VkRenderer/VkLineRenderer.cpp
         ${CGLIB_ROOT}/Renderer/VkRenderer/VkTriangleRenderer.cpp
         ${CGLIB_ROOT}/Renderer/VkRenderer/VkTexRenderer.cpp
