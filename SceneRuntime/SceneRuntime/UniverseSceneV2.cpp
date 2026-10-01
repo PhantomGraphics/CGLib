@@ -146,7 +146,7 @@ MigrationResult migrateV1ToV2(const std::string& v1Json)
             }
         }
 
-        for (const char* key : { "rigidBody", "cloth", "fluid", "volume", "light" }) {
+        for (const char* key : { "rigidBody", "cloth", "fluid", "volume", "vdbPoints", "light" }) {
             if (e.contains(key) && e[key].is_object()) {
                 ComponentRecord comp;
                 comp.type = key;
