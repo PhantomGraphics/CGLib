@@ -81,6 +81,10 @@ public:
     // Interactive tick. Does nothing unless Playing. Runs whole kFixedDt steps for the
     // accumulated time and returns how many were run.
     int advance(double wallDt);
+    // Seconds a clip-style animation should advance this frame. Edit previews with wall time;
+    // Playing follows the fixed steps advance() just ran (the same ones that move physics);
+    // Paused freezes. stepsRun is advance()'s return value for this frame.
+    double animationDt(double wallDt, int stepsRun) const;
     // The edited scene was cleared out from under the session: forget the snapshot without
     // restoring it.
     void discard();

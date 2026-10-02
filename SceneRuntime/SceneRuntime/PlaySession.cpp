@@ -93,6 +93,16 @@ int PlaySession::advance(double wallDt)
     return steps;
 }
 
+double PlaySession::animationDt(double wallDt, int stepsRun) const
+{
+    switch (state_) {
+    case PlayState::Edit:    return wallDt > 0.0 ? wallDt : 0.0;
+    case PlayState::Playing: return stepsRun > 0 ? stepsRun * kFixedDt : 0.0;
+    case PlayState::Paused:  return 0.0;
+    }
+    return 0.0;
+}
+
 void PlaySession::discard()
 {
     clock_.reset();

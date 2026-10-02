@@ -2,6 +2,8 @@
 
 #include "../SceneRuntime/SceneV2Merge.h"
 
+#include "CGLib/AssetCore/AssetCore/ContentHash.h"
+
 #include <fstream>
 
 using namespace Phantom::SceneRuntime;
@@ -43,11 +45,22 @@ struct Fixture {
         if (rigidBody) o["components"] = { { "rigidBody", *rigidBody } };
         sidecarObjects.push_back(o);
     }
+    // When set, the sidecar records this GLB hash (what phantom_bridge writes); empty = omitted.
+    std::string sidecarHash;
     void write()
     {
         std::ofstream(dir / "asset.gltf") << Json({ { "asset", { { "version", "2.0" } } }, { "nodes", gltfNodes } }).dump();
         std::ofstream(dir / "asset.phantom.json")
-            << Json({ { "schema", "phantom.asset/1" }, { "objects", sidecarObjects } }).dump();
+            << [&] {
+                   Json root = { { "schema", "phantom.asset/1" }, { "objects", sidecarObjects } };
+                   if (!sidecarHash.empty()) root["contentHash"] = sidecarHash;
+                   return root.dump();
+               }();
+    }
+    std::string actualHash() const
+    {
+        const auto h = Phantom::Asset::ContentHash::fromFile(dir / "asset.gltf");
+        return h ? h->value() : std::string();
     }
     void clear() { gltfNodes = Json::array(); sidecarObjects = Json::array(); }
 };
@@ -319,4 +332,124 @@ TEST(SceneV2Merge, GlbNodeWorldTransformsComposeParentChain)
     EXPECT_NEAR(worlds.at("Leaf").translation.y, 2.f, 1e-5f);
     EXPECT_NEAR(worlds.at("Leaf").scale.x, 2.f, 1e-5f);
     EXPECT_FALSE(readGltfNodeWorldTransforms(f.dir / "missing.gltf", worlds, diag));
+}
+
+TEST(SceneV2Merge, MatchingContentHashMerges)
+{
+    Fixture f;
+    const Json rb = body(2, 0.5);
+    f.node("Crate", 1);
+    f.object("Crate", "u-crate", &rb);
+    f.write();
+    f.sidecarHash = f.actualHash();
+    ASSERT_FALSE(f.sidecarHash.empty());
+    f.write();
+    SceneV2 doc = importedDoc(f);
+    MergeReport report;
+    std::string error;
+    EXPECT_TRUE(mergeReexportedAssets(doc, f.scene, report, &error)) << error;
+}
+
+TEST(SceneV2Merge, MismatchedContentHashIsPublishIncompleteAndLeavesDocumentUntouched)
+{
+    Fixture f;
+    const Json rb = body(2, 0.5);
+    f.node("Crate", 1);
+    f.object("Crate", "u-crate", &rb);
+    f.write();
+    SceneV2 doc = importedDoc(f);
+    // A new sidecar landed but the GLB it describes has not (or the GLB is from a later export).
+    f.sidecarHash = "0000000000000000000000000000000000000000000000000000000000000000";
+    f.write();
+    const std::string before = doc.toJson();
+    MergeReport report;
+    std::string error;
+    EXPECT_FALSE(mergeReexportedAssets(doc, f.scene, report, &error));
+    EXPECT_EQ(error.rfind("publish_incomplete:", 0), 0u) << error;
+    EXPECT_EQ(doc.toJson(), before);
+    EXPECT_TRUE(report.empty());
+}
+
+TEST(SceneV2Merge, SidecarWithoutContentHashStillMerges)
+{
+    Fixture f;
+    const Json rb = body(2, 0.5);
+    f.node("Crate", 1);
+    f.object("Crate", "u-crate", &rb);
+    f.write(); // sidecarHash empty -> field omitted (older exporter)
+    SceneV2 doc = importedDoc(f);
+    MergeReport report;
+    EXPECT_TRUE(mergeReexportedAssets(doc, f.scene, report));
+}
+
+namespace {
+// What phantom_bridge writes last: one SHA-256 per artifact of the export.
+void writeManifest(const Fixture& f, const std::vector<std::string>& artifacts)
+{
+    Json list = Json::array();
+    for (const auto& rel : artifacts) {
+        const auto h = Phantom::Asset::ContentHash::fromFile(f.dir / rel);
+        list.push_back({ { "path", rel }, { "sha256", h ? h->value() : std::string() } });
+    }
+    std::ofstream(f.dir / "asset.publish.json")
+        << Json({ { "schema", "phantom.publish/1" }, { "generation", "gen-1" }, { "artifacts", list } }).dump();
+}
+}
+
+TEST(SceneV2Merge, PublishManifestMatchingGenerationMerges)
+{
+    Fixture f;
+    const Json rb = body(2, 0.5);
+    f.node("Crate", 1);
+    f.object("Crate", "u-crate", &rb);
+    f.write();
+    SceneV2 doc = importedDoc(f);
+    writeManifest(f, { "asset.gltf", "asset.phantom.json" });
+    MergeReport report;
+    std::string error;
+    EXPECT_TRUE(mergeReexportedAssets(doc, f.scene, report, &error)) << error;
+}
+
+TEST(SceneV2Merge, SidecarChangedUnderSameGlbIsPublishIncomplete)
+{
+    Fixture f;
+    const Json rb = body(2, 0.5);
+    f.node("Crate", 1);
+    f.object("Crate", "u-crate", &rb);
+    f.write();
+    SceneV2 doc = importedDoc(f);
+    writeManifest(f, { "asset.gltf", "asset.phantom.json" });
+    // A re-export has replaced the sidecar but not yet the GLB or the manifest. The sidecar has no
+    // contentHash, so only the manifest can tell this is a half-published export.
+    const Json rb2 = body(9, 0.5);
+    f.clear();
+    f.node("Crate", 1);
+    f.object("Crate", "u-crate", &rb2);
+    f.write();
+    const std::string before = doc.toJson();
+    MergeReport report;
+    std::string error;
+    EXPECT_FALSE(mergeReexportedAssets(doc, f.scene, report, &error));
+    EXPECT_EQ(error.rfind("publish_incomplete:", 0), 0u) << error;
+    EXPECT_EQ(doc.toJson(), before);
+}
+
+TEST(SceneV2Merge, MissingOrMalformedPublishManifestEntriesAreIncomplete)
+{
+    Fixture f;
+    const Json rb = body(2, 0.5);
+    f.node("Crate", 1);
+    f.object("Crate", "u-crate", &rb);
+    f.write();
+    SceneV2 doc = importedDoc(f);
+    MergeReport report;
+    std::string error;
+
+    writeManifest(f, { "asset.gltf", "asset.phmat" }); // listed file is not there yet
+    EXPECT_FALSE(mergeReexportedAssets(doc, f.scene, report, &error));
+    EXPECT_EQ(error.rfind("publish_incomplete:", 0), 0u) << error;
+
+    std::ofstream(f.dir / "asset.publish.json") << "{ not json";
+    EXPECT_FALSE(mergeReexportedAssets(doc, f.scene, report, &error));
+    EXPECT_EQ(error.rfind("publish_incomplete:", 0), 0u) << error;
 }

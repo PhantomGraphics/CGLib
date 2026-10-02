@@ -1,6 +1,8 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include "AssetSidecar.h"
 
+#include "CGLib/AssetCore/AssetCore/ContentHash.h"
+
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtx/matrix_decompose.hpp>
@@ -122,6 +124,62 @@ bool parseSidecarRigidBody(const Json& body, SidecarRigidBody& parsed,
         || parsed.friction < 0.f || parsed.friction > 1.f) {
         diagnostic = "rigidBody sidecar contains an invalid physical value";
         return false;
+    }
+    return true;
+}
+
+bool verifyPublishedPair(const std::filesystem::path& sidecar, const std::filesystem::path& glb,
+                         std::string& diagnostic)
+{
+    std::error_code ec;
+    if (!std::filesystem::is_regular_file(sidecar, ec)) return true;
+    std::ifstream input(sidecar, std::ios::binary);
+    if (!input) return true; // reported by readSidecarObjects()
+    const Json root = Json::parse(input, nullptr, false);
+    if (root.is_discarded() || !root.is_object()) return true; // ditto
+    const std::string expected = root.value("contentHash", std::string());
+    if (expected.empty()) return true;
+    const auto actual = Phantom::Asset::ContentHash::fromFile(glb);
+    if (!actual) {
+        diagnostic = "publish_incomplete: cannot read '" + glb.string() + "' to verify its sidecar";
+        return false;
+    }
+    if (actual->value() != expected) {
+        diagnostic = "publish_incomplete: '" + sidecar.filename().string() + "' describes a different export of '"
+                   + glb.filename().string() + "' (hash mismatch); the re-export is probably still being written";
+        return false;
+    }
+    return true;
+}
+
+bool verifyPublishedGeneration(const std::filesystem::path& glb, std::string& diagnostic)
+{
+    std::error_code ec;
+    std::filesystem::path manifest = glb;
+    manifest.replace_extension(".publish.json");
+    if (!std::filesystem::is_regular_file(manifest, ec)) return true;
+    const std::string name = manifest.filename().string();
+    std::ifstream input(manifest, std::ios::binary);
+    const Json root = input ? Json::parse(input, nullptr, false) : Json();
+    if (root.is_discarded() || !root.is_object() || root.value("schema", "") != "phantom.publish/1" ||
+        !root.contains("artifacts") || !root["artifacts"].is_array()) {
+        diagnostic = "publish_incomplete: '" + name + "' is not a valid phantom.publish/1 manifest";
+        return false;
+    }
+    const std::string generation = root.value("generation", std::string());
+    for (const auto& artifact : root["artifacts"]) {
+        const std::string rel = artifact.is_object() ? artifact.value("path", std::string()) : std::string();
+        const std::string expected = artifact.is_object() ? artifact.value("sha256", std::string()) : std::string();
+        if (rel.empty() || expected.empty()) {
+            diagnostic = "publish_incomplete: '" + name + "' has an artifact without path or sha256";
+            return false;
+        }
+        const auto actual = Phantom::Asset::ContentHash::fromFile(glb.parent_path() / std::filesystem::path(std::u8string(rel.begin(), rel.end())));
+        if (!actual || actual->value() != expected) {
+            diagnostic = "publish_incomplete: '" + rel + "' does not match generation " + generation + " in '" + name +
+                         "'; the export is probably still being written";
+            return false;
+        }
     }
     return true;
 }
