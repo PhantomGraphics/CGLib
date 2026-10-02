@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-namespace VkVolumeView {
+namespace VolumeView {
 
 SparseVolumeScene* World::addScene(const std::string& name) {
     auto scene   = std::make_unique<SparseVolumeScene>();
@@ -79,4 +79,4 @@ std::vector<Phantom::Volume::PBVRSceneEntry> World::getPBVREntries() const {
     return result;
 }
 
-} // namespace VkVolumeView
+} // namespace VolumeView

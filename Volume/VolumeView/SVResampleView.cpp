@@ -14,7 +14,7 @@
 #include <memory>
 #include <string>
 
-namespace VkVolumeView {
+namespace VolumeView {
 
 void SVResampleView::onImGui(World& world, int activeSceneId,
                               const std::function<void()>& onRebuild)
@@ -80,4 +80,4 @@ void SVResampleView::onImGui(World& world, int activeSceneId,
     }
 }
 
-} // namespace VkVolumeView
+} // namespace VolumeView

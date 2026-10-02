@@ -2,7 +2,7 @@
 
 #include "../../../CGLib/VulkanGraphics/VulkanContext.h"
 
-namespace VkVolumeView {
+namespace VolumeView {
 
 void VolumePipeline::create(const Phantom::VKG::VulkanContext& ctx, VkRenderPass renderPass, uint32_t framesInFlight,
                                std::vector<uint32_t> vertSpv, std::vector<uint32_t> fragSpv) {
@@ -82,4 +82,4 @@ void VolumePipeline::updateUBO(uint32_t frameIndex, const UBO& ubo) {
     }
 }
 
-} // namespace VkVolumeView
+} // namespace VolumeView

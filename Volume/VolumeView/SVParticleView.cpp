@@ -3,7 +3,7 @@
 // (Physics/VkFluidView/VkSPHVolumePanel). Use the "Volume > SPH to Volume"
 // menu in VkFluidView to build volumes from simulation particles.
 //
-// This translation unit is intentionally empty so that VkVolumeView no longer
+// This translation unit is intentionally empty so that VolumeView no longer
 // depends on the Physics/Fluid library.
 
 #include "SVParticleView.h"
@@ -12,7 +12,7 @@
 
 #include "imgui.h"
 
-namespace VkVolumeView {
+namespace VolumeView {
 
 void SVParticleView::onImGui(World& /*world*/, int /*activeSceneId*/,
                               const std::function<void()>& /*onRebuild*/)
@@ -25,4 +25,4 @@ void SVParticleView::onImGui(World& /*world*/, int /*activeSceneId*/,
         "  3. Build the volume there.");
 }
 
-} // namespace VkVolumeView
+} // namespace VolumeView

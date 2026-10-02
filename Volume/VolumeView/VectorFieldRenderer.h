@@ -13,7 +13,7 @@
 
 #include <vector>
 
-namespace VkVolumeView {
+namespace VolumeView {
 
 class VectorFieldRenderer : public ::VKG::IVkSubRenderer {
 public:
@@ -63,4 +63,4 @@ private:
     std::vector<LineVertex> vertices_;
 };
 
-} // namespace VkVolumeView
+} // namespace VolumeView

@@ -13,7 +13,7 @@
 #include <memory>
 #include <string>
 
-namespace VkVolumeView {
+namespace VolumeView {
 
 void DVFromSparseView::onImGui(World& world, int activeSceneId,
 							   const std::function<void()>& onRebuild)
@@ -90,4 +90,4 @@ void DVFromSparseView::onImGui(World& world, int activeSceneId,
 	}
 }
 
-} // namespace VkVolumeView
+} // namespace VolumeView

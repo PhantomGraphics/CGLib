@@ -9,7 +9,7 @@
 #include <algorithm>
 #include <limits>
 
-namespace VkVolumeView {
+namespace VolumeView {
 
 namespace {
 
@@ -194,4 +194,4 @@ void DenseVolumeRenderer::rebuildVertices() {
 						 vertices_.data());
 }
 
-} // namespace VkVolumeView
+} // namespace VolumeView

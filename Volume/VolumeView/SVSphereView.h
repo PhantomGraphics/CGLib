@@ -4,7 +4,7 @@
 
 #include <string>
 
-namespace VkVolumeView {
+namespace VolumeView {
 
 class SVSphereView : public IVolumeProcessView {
 public:
@@ -20,4 +20,4 @@ private:
     std::string statusMsg_;
 };
 
-} // namespace VkVolumeView
+} // namespace VolumeView

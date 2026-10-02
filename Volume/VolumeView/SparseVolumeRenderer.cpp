@@ -11,7 +11,7 @@
 
 #include <algorithm>
 
-namespace VkVolumeView {
+namespace VolumeView {
 
 void SparseVolumeRenderer::onInit(Phantom::VKG::VulkanContext& ctx, const Phantom::VKG::VulkanCommandPool& pool,
                                     VkRenderPass renderPass, uint32_t framesInFlight) {
@@ -153,4 +153,4 @@ void SparseVolumeRenderer::rebuildVertices() {
                          vertices_.data());
 }
 
-} // namespace VkVolumeView
+} // namespace VolumeView

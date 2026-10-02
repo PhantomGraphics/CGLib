@@ -15,7 +15,7 @@
 #include <memory>
 #include <vector>
 
-namespace VkVolumeView {
+namespace VolumeView {
 
 // IVkSubRenderer that renders PolygonMesh overlays stored in VolumeWorld.
 // Wraps VKG::VkTriangleRenderer, which is an IVkRenderer (not IVkSubRenderer).
@@ -57,4 +57,4 @@ private:
     Phantom::VKG::VkTriangleRenderer::Buffer buffer_;
 };
 
-} // namespace VkVolumeView
+} // namespace VolumeView

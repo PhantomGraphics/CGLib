@@ -15,7 +15,7 @@
 #include <cstdint>
 #include <unordered_set>
 
-namespace VkVolumeView {
+namespace VolumeView {
 
 namespace {
 
@@ -279,4 +279,4 @@ void VectorFieldRenderer::rebuildLines() {
                          vertices_.data());
 }
 
-} // namespace VkVolumeView
+} // namespace VolumeView

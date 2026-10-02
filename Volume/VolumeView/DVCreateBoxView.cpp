@@ -8,7 +8,7 @@
 #include <memory>
 #include <string>
 
-namespace VkVolumeView {
+namespace VolumeView {
 
 void DVCreateBoxView::onImGui(World& world, int /*activeSceneId*/,
 							  const std::function<void()>& onRebuild)
@@ -56,4 +56,4 @@ void DVCreateBoxView::onImGui(World& world, int /*activeSceneId*/,
 	}
 }
 
-} // namespace VkVolumeView
+} // namespace VolumeView

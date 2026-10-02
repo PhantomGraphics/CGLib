@@ -3,7 +3,7 @@
 #include "World.h"
 #include <functional>
 
-namespace VkVolumeView {
+namespace VolumeView {
 
 class IVolumeProcessView {
 public:
@@ -13,4 +13,4 @@ public:
                          const std::function<void()>& onRebuild) = 0;
 };
 
-} // namespace VkVolumeView
+} // namespace VolumeView

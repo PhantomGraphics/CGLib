@@ -5,7 +5,7 @@
 #include <algorithm>
 #include <string>
 
-namespace VkVolumeView {
+namespace VolumeView {
 
 void SceneListPanel::init(World* world, int* pActiveSceneId, int* pActiveDenseSceneId,
                                  std::function<void()> onWorldChanged,
@@ -128,4 +128,4 @@ void SceneListPanel::onImGui() {
     ImGui::EndTabBar();
 }
 
-} // namespace VkVolumeView
+} // namespace VolumeView

@@ -4,7 +4,7 @@
 
 #include <glm/gtc/matrix_transform.hpp>
 
-namespace VkVolumeView {
+namespace VolumeView {
 
 void MeshOverlayRenderer::onInit(Phantom::VKG::VulkanContext& ctx,
                                     const Phantom::VKG::VulkanCommandPool& pool,
@@ -94,4 +94,4 @@ void MeshOverlayRenderer::rebuildMesh() {
     renderer_->upload(*ctx_, *pool_, buffer_);
 }
 
-} // namespace VkVolumeView
+} // namespace VolumeView

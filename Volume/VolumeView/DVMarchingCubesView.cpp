@@ -9,7 +9,7 @@
 #include <cstdint>
 #include <string>
 
-namespace VkVolumeView {
+namespace VolumeView {
 
 void DVMarchingCubesView::onImGui(World& world, int activeSceneId,
 								  const std::function<void()>& onRebuild)
@@ -59,4 +59,4 @@ void DVMarchingCubesView::onImGui(World& world, int activeSceneId,
 	}
 }
 
-} // namespace VkVolumeView
+} // namespace VolumeView

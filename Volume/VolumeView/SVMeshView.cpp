@@ -20,7 +20,7 @@
 #include <string>
 #include <vector>
 
-namespace VkVolumeView {
+namespace VolumeView {
 
 void SVMeshView::onImGui(World& world, int /*activeSceneId*/,
                           const std::function<void()>& onRebuild)
@@ -92,4 +92,4 @@ void SVMeshView::onImGui(World& world, int /*activeSceneId*/,
     }
 }
 
-} // namespace VkVolumeView
+} // namespace VolumeView

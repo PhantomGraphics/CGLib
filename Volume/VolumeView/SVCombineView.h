@@ -5,7 +5,7 @@
 #include <functional>
 #include <string>
 
-namespace VkVolumeView {
+namespace VolumeView {
 
 // CSG Union / Intersection / Difference of two SDF volumes.
 class SVCombineView : public IVolumeProcessView {
@@ -24,4 +24,4 @@ private:
     std::string statusMsg_;
 };
 
-} // namespace VkVolumeView
+} // namespace VolumeView

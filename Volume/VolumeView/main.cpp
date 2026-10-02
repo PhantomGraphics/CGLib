@@ -1,4 +1,4 @@
-﻿// VkVolumeView - Vulkan-based sparse volume viewer
+﻿// VolumeView - Vulkan-based sparse volume viewer
 //
 // Controls:
 //   Left drag  : rotate camera
@@ -27,7 +27,7 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    VkVolumeView::VolumeViewApp app;
+    VolumeView::VolumeViewApp app;
 
     if (!scenarioPath.empty()) {
         if (!app.loadScenario(scenarioPath)) {

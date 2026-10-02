@@ -10,7 +10,7 @@
 
 #include <vector>
 
-namespace VkVolumeView {
+namespace VolumeView {
 
 struct PointVertex {
     glm::vec3 pos;
@@ -44,4 +44,4 @@ private:
     std::vector<Phantom::VKG::VulkanBuffer> ubos_;
 };
 
-} // namespace VkVolumeView
+} // namespace VolumeView
