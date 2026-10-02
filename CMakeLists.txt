@@ -156,6 +156,7 @@ if(PHANTOM_VULKAN_INCLUDE_DIR)
         # Enumerating cases needs a real Vulkan device; register as one ctest
         # entry so `cmake --build` always succeeds and running it is opt-in.
         add_test(NAME VulkanGraphicsTest COMMAND VulkanGraphicsTest)
+        set_tests_properties(VulkanGraphicsTest PROPERTIES LABELS gpu)
     elseif(CGLIB_BUILD_TESTING AND PHANTOM_GTEST_FOUND)
         message(STATUS "CGLib: Vulkan/GLFW loader not found -- VulkanGraphicsTest skipped (VulkanGraphicsCore still builds).")
     endif()

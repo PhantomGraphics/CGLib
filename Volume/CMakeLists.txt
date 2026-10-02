@@ -114,6 +114,7 @@ if(CGLIB_BUILD_TESTING AND PHANTOM_GTEST_FOUND)
             ${VOLUME_ROOT}/VolumeRaymarch/shaders
             $<TARGET_FILE_DIR:VolumeRaymarchGpuTest>/shaders)
     add_test(NAME VolumeRaymarchGpuTest COMMAND VolumeRaymarchGpuTest)
+    set_tests_properties(VolumeRaymarchGpuTest PROPERTIES LABELS gpu)
 endif()
 
 add_executable(VolumeView
