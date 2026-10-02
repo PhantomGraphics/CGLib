@@ -110,4 +110,4 @@ jobs:
       # No GPU/ICD on CI runners -- "links successfully" is the bar for the
       # Vulkan targets; the GPU integration tests are a manual release gate.
       - name: Test (non-GPU)
-        run: ctest --preset linux-debug
+        run: ctest --preset linux-debug -LE gpu
