@@ -64,20 +64,20 @@ void ControlPanel::onImGui() {
             if (node.skin >= 0 && node.skin < static_cast<int>(document_->skins.size())) {
                 const GltfSkin& skin = document_->skins[node.skin];
                 ImGui::Text("Skin: %s (%d joints)",
-                    skin.name.empty() ? "Skin " + std::to_string(node.skin) : skin.name,
+                    (skin.name.empty() ? "Skin " + std::to_string(node.skin) : skin.name).c_str(),
                     static_cast<int>(skin.joints.size()));
             }
             if (node.cameraIndex >= 0 && node.cameraIndex < static_cast<int>(document_->cameras.size())) {
                 const GltfCamera& camera = document_->cameras[node.cameraIndex];
                 ImGui::Separator();
                 ImGui::Text("Camera: %s (%s)",
-                    camera.name.empty() ? "Camera " + std::to_string(node.cameraIndex) : camera.name,
+                    (camera.name.empty() ? "Camera " + std::to_string(node.cameraIndex) : camera.name).c_str(),
                     camera.type.c_str());
             }
             if (node.lightIndex >= 0 && node.lightIndex < static_cast<int>(document_->lights.size())) {
                 const GltfLight& light = document_->lights[node.lightIndex];
                 ImGui::Text("Light: %s (%s)",
-                    light.name.empty() ? "Light " + std::to_string(node.lightIndex) : light.name,
+                    (light.name.empty() ? "Light " + std::to_string(node.lightIndex) : light.name).c_str(),
                     light.type.c_str());
             }
         }
