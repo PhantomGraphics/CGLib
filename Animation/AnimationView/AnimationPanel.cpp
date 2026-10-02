@@ -2,7 +2,7 @@
 #include "AnimationViewApp.h"
 
 #include "imgui.h"
-#include "CGLib/ThirdParty/tinyfiledialogs/tinyfiledialogs.h"
+#include "../../ThirdParty/tinyfiledialogs/tinyfiledialogs.h"
 #include <cinttypes>
 
 namespace Phantom::Animation {

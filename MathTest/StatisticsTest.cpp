@@ -21,7 +21,7 @@ TEST(StatisticsTest, TestGetVariance)
 TEST(StatisticsTest, TestGetStandardDeviation)
 {
 	Statistics<float> stat({ 5.0f, 8.0f, 9.0f, 7.0f });
-	EXPECT_FLOAT_EQ(std::sqrtf(2.1875f), stat.getStandardDeviation());
+	EXPECT_FLOAT_EQ(std::sqrt(2.1875f), stat.getStandardDeviation());
 }
 
 TEST(StatisticsTest, TestSingleValue)
