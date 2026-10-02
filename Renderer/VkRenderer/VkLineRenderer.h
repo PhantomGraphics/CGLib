@@ -5,7 +5,7 @@
 #include <glm/glm.hpp>
 
 #include "IVkRenderer.h"
-#include "VkRenderBufferTypes.h"
+#include "RenderBufferTypes.h"
 #include "../../../CGLib/VulkanGraphics/VulkanBuffer.h"
 #include "../../../CGLib/VulkanGraphics/VulkanDescriptorPool.h"
 #include "../../../CGLib/VulkanGraphics/VulkanPipeline.h"
@@ -30,7 +30,7 @@ public:
         VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT; ///< MSAA sample count (must match render pass).
     };
 
-    using Buffer = VkLineBufferData;
+    using Buffer = LineBufferData;
 
     explicit VkLineRenderer(Config config) : config_(std::move(config)) {}
 

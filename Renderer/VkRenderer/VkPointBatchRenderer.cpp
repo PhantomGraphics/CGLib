@@ -53,7 +53,7 @@ void VkPointBatchRenderer::destroy(VkDevice device)
     pipeline_.destroy(device);
 }
 
-uint32_t VkPointBatchRenderer::addBatch(const VkPointBatchData& d)
+uint32_t VkPointBatchRenderer::addBatch(const PointBatchData& d)
 {
     if (!ctx_ || !pool_ || !d.positions || d.count == 0) return 0;
     const uint64_t n = std::min<uint64_t>(d.count, 0xFFFFFFFFull);
@@ -104,7 +104,7 @@ void VkPointBatchRenderer::setCamera(const glm::mat4& view, const glm::mat4& pro
     pixelsPerUnit_ = 0.5f * static_cast<float>(viewportHeightPx) * std::abs(proj[1][1]);
 }
 
-void VkPointBatchRenderer::render(VkCommandBuffer cmd, const std::vector<VkPointBatchDraw>& draws) const
+void VkPointBatchRenderer::render(VkCommandBuffer cmd, const std::vector<PointBatchDraw>& draws) const
 {
     if (!isValid() || draws.empty()) return;
     bool bound = false;
