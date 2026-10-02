@@ -63,11 +63,11 @@ else()
 endif()
 
 # ---------------------------------------------------------------------------
-# VolumeRenderer (Phantom::VKR PBVR pipeline) + VolumeView (VkVolumeView) --
+# VolumeRenderer (Phantom::VKR PBVR pipeline) + VolumeView (VolumeView) --
 # standalone ImGui + Vulkan volume viewer. Skipped with a warning (not a hard
 # error) if Vulkan/GLFW aren't found, so Volume/VolumeTest above still build.
 #
-# VkVolumeView.vcxproj additionally references File.vcxproj, Numerics.vcxproj,
+# VolumeView.vcxproj additionally references File.vcxproj, Numerics.vcxproj,
 # Scene.vcxproj and Renderer/VkRenderer.vcxproj (confirmed by reading the
 # .vcxproj's <ProjectReference> list directly, not assumed).
 # ---------------------------------------------------------------------------

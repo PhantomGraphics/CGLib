@@ -9,7 +9,7 @@
 
 namespace Phantom::Volume { class PBVRRenderer; }
 
-namespace VkVolumeView {
+namespace VolumeView {
 
 class SparseVolumeRenderer;
 class DenseVolumeRenderer;
@@ -96,4 +96,4 @@ private:
     void drawProcessView();
 };
 
-} // namespace VkVolumeView
+} // namespace VolumeView

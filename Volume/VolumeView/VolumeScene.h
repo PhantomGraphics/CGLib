@@ -5,7 +5,7 @@
 #include <memory>
 #include <string>
 
-namespace VkVolumeView {
+namespace VolumeView {
 
 class SparseVolumeScene {
 public:
@@ -32,4 +32,4 @@ private:
     std::unique_ptr<Phantom::Volume::SparseVolumef> shape_;
 };
 
-} // namespace VkVolumeView
+} // namespace VolumeView

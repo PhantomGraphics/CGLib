@@ -16,7 +16,7 @@
 namespace VKG { class VkAppBase; }
 namespace Phantom::Volume { class PBVRRenderer; }
 
-namespace VkVolumeView {
+namespace VolumeView {
 
 class CommandDispatcher : public IScenarioDispatcher {
 public:
@@ -80,4 +80,4 @@ private:
     std::queue<std::string> outputQueue_;
 };
 
-} // namespace VkVolumeView
+} // namespace VolumeView

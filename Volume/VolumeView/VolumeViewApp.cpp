@@ -1,9 +1,9 @@
 ﻿#include "VolumeViewApp.h"
 
-namespace VkVolumeView {
+namespace VolumeView {
 
 VolumeViewApp::VolumeViewApp()
-    : ::VKG::VkAppBase(1280, 720, "VkVolumeView")
+    : ::VKG::VkAppBase(1280, 720, "VolumeView")
 {
     dispatcher_.setWorld(&world_);
     dispatcher_.setActiveSceneId(&activeSceneId_);
@@ -212,4 +212,4 @@ void VolumeViewApp::setupCallbacks() {
     };
 }
 
-} // namespace VkVolumeView
+} // namespace VolumeView

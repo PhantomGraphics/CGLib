@@ -11,7 +11,7 @@
 #include <cstdint>
 #include <vector>
 
-namespace VkVolumeView {
+namespace VolumeView {
 
 class DenseVolumeRenderer : public ::VKG::IVkSubRenderer {
 public:
@@ -71,4 +71,4 @@ private:
 	std::vector<PointVertex> vertices_;
 };
 
-} // namespace VkVolumeView
+} // namespace VolumeView

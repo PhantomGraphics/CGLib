@@ -3,7 +3,7 @@
 #include "World.h"
 #include <functional>
 
-namespace VkVolumeView {
+namespace VolumeView {
 
 // Renders the scene list section inside an existing ImGui window.
 // Call onImGui() from within an ImGui::Begin() / ImGui::End() block.
@@ -23,4 +23,4 @@ private:
     std::function<void()> onSceneSelectionChanged_;
 };
 
-} // namespace VkVolumeView
+} // namespace VolumeView

@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-namespace VkVolumeView {
+namespace VolumeView {
 
 struct PolygonMesh {
     std::string           name;
@@ -55,4 +55,4 @@ private:
     std::vector<PolygonMesh>                  polygons_;
 };
 
-} // namespace VkVolumeView
+} // namespace VolumeView

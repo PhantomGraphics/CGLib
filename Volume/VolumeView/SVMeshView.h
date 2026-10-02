@@ -5,7 +5,7 @@
 #include <functional>
 #include <string>
 
-namespace VkVolumeView {
+namespace VolumeView {
 
 // Generate a signed-distance field from an STL triangle mesh.
 class SVMeshView : public IVolumeProcessView {
@@ -21,4 +21,4 @@ private:
     std::string statusMsg_;
 };
 
-} // namespace VkVolumeView
+} // namespace VolumeView

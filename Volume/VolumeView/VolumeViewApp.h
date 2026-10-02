@@ -17,7 +17,7 @@
 
 #include <string>
 
-namespace VkVolumeView {
+namespace VolumeView {
 
 class VolumeViewApp : public ::VKG::VkAppBase, public ::IScenarioHost {
 public:
@@ -64,4 +64,4 @@ private:
     void setupCallbacks();
 };
 
-} // namespace VkVolumeView
+} // namespace VolumeView

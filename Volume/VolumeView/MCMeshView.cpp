@@ -10,7 +10,7 @@
 
 #include <string>
 
-namespace VkVolumeView {
+namespace VolumeView {
 
 void MCMeshView::onImGui(World& world, int activeSceneId,
                           const std::function<void()>& onRebuild)
@@ -67,4 +67,4 @@ void MCMeshView::onImGui(World& world, int activeSceneId,
     }
 }
 
-} // namespace VkVolumeView
+} // namespace VolumeView

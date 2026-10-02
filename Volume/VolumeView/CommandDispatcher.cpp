@@ -26,7 +26,7 @@
 #include <string_view>
 #include <vector>
 
-namespace VkVolumeView {
+namespace VolumeView {
 
 namespace {
 
@@ -952,4 +952,4 @@ std::string CommandDispatcher::cmdGetPixelBrightness(uint32_t x, uint32_t y) {
     return {}; // response is deferred to the next frame
 }
 
-} // namespace VkVolumeView
+} // namespace VolumeView

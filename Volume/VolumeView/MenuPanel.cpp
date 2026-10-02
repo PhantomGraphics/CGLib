@@ -20,7 +20,7 @@
 #include <memory>
 #include <utility>
 
-namespace VkVolumeView {
+namespace VolumeView {
 
 void MenuPanel::init(World* world, int* pActiveSceneId, int* pActiveDenseSceneId,
                             std::function<void()> onRebuild,
@@ -320,4 +320,4 @@ void MenuPanel::drawProcessView() {
     ImGui::Separator();
 }
 
-} // namespace VkVolumeView
+} // namespace VolumeView

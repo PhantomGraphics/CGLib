@@ -2,7 +2,7 @@
 
 #include "IVolumeProcessView.h"
 
-namespace VkVolumeView {
+namespace VolumeView {
 
 class SVBoxView : public IVolumeProcessView {
 public:
@@ -18,4 +18,4 @@ private:
     std::string statusMsg_;
 };
 
-} // namespace VkVolumeView
+} // namespace VolumeView
