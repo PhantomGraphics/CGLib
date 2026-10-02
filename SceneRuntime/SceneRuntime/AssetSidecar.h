@@ -57,6 +57,22 @@ bool parseSidecarRigidBody(const nlohmann::json& body, SidecarRigidBody& parsed,
 bool readSidecarObjects(const std::filesystem::path& path, std::vector<SidecarObject>& result,
                         std::string& diagnostic, SidecarSeverity* severityOut = nullptr);
 
+// Publish consistency check for a re-exported asset: the sidecar records the SHA-256 of the GLB it
+// was written for ("contentHash"). A mismatch means the pair is mid-publish (or one file is stale),
+// and merging it would mix two exports. True when the sidecar is absent, has no hash (older
+// exporter), or the hash matches; false with a "publish_incomplete: ..." diagnostic otherwise.
+bool verifyPublishedPair(const std::filesystem::path& sidecar, const std::filesystem::path& glb,
+                         std::string& diagnostic);
+
+// Whole-export check. The exporter writes "<glb stem>.publish.json" (schema phantom.publish/1) last:
+// a generation id plus the SHA-256 of every artifact of the export (GLB, sidecar, reports, .phmat).
+// While a re-export is in flight the previous manifest is still in place, so any artifact that has
+// already been replaced no longer matches it -- including a sidecar or .phmat changed under an
+// unchanged GLB, which verifyPublishedPair() cannot see. True when there is no manifest (older
+// exporter) or every listed artifact matches; false with a "publish_incomplete: ..." diagnostic
+// (a malformed manifest counts as incomplete) otherwise. Artifact paths are relative to the GLB's folder.
+bool verifyPublishedGeneration(const std::filesystem::path& glb, std::string& diagnostic);
+
 // World transform of every named node of a .glb/.gltf (first node of a name wins; TRS or
 // matrix, composed through the parent chain). Only the JSON part is read, no mesh data.
 // False if the file is not a parsable glTF.

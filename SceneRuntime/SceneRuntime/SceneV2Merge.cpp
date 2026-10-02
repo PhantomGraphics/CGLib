@@ -248,6 +248,8 @@ bool mergeReexportedAssets(U::SceneV2& doc, const std::filesystem::path& scenePa
         const auto sidecar = sidecarPathFor(group.path);
         if (!std::filesystem::is_regular_file(sidecar, ec)) continue;
         std::string diagnostic;
+        if (!verifyPublishedPair(sidecar, group.path, diagnostic)) return fail(diagnostic);
+        if (!verifyPublishedGeneration(group.path, diagnostic)) return fail(diagnostic);
         if (!readSidecarObjects(sidecar, group.objects, diagnostic))
             return fail(sidecar.string() + ": " + diagnostic);
         std::unordered_map<std::string, Transform> byName;

@@ -189,3 +189,20 @@ TEST(PlaySessionTest, ToStringNamesStates)
     EXPECT_STREQ(toString(PlayState::Playing), "Playing");
     EXPECT_STREQ(toString(PlayState::Paused), "Paused");
 }
+
+TEST(PlaySession, AnimationDtFollowsStateNotFrameRate)
+{
+    PlaySession session;
+    EXPECT_DOUBLE_EQ(session.animationDt(0.05, 0), 0.05); // Edit: wall-clock preview
+
+    session.play();
+    const int steps = session.advance(0.05);               // 3 fixed steps
+    EXPECT_EQ(steps, 3);
+    EXPECT_NEAR(session.animationDt(0.05, steps), 3 * PlaySession::kFixedDt, 1e-12);
+    EXPECT_DOUBLE_EQ(session.animationDt(0.001, 0), 0.0);  // sub-step frame: nothing yet
+
+    session.pause();
+    EXPECT_DOUBLE_EQ(session.animationDt(0.5, 0), 0.0);    // Paused freezes however long it lasts
+    session.stop();
+    EXPECT_DOUBLE_EQ(session.animationDt(0.05, 0), 0.05);
+}
