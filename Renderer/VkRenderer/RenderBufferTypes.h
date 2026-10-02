@@ -14,7 +14,7 @@
 
 namespace Phantom::VKG {
 
-struct VkPointBufferData {
+struct PointBufferData {
     std::vector<float> positions; ///< Interleaved x,y,z (3 floats per point).
     std::vector<float> colors;    ///< Interleaved r,g,b,a (4 floats per point).
     std::vector<float> sizes;     ///< Point size (1 float per point).
@@ -22,7 +22,7 @@ struct VkPointBufferData {
     glm::mat4           modelViewMatrix{1.f};
 };
 
-struct VkTriangleBufferData {
+struct TriangleBufferData {
     std::vector<float>    positions; ///< Interleaved x,y,z (3 floats per vertex).
     std::vector<float>    colors;    ///< Interleaved r,g,b,a (4 floats per vertex).
     std::vector<uint32_t> indices;   ///< Index list (3 indices per triangle).
@@ -30,7 +30,7 @@ struct VkTriangleBufferData {
     glm::mat4              modelViewMatrix{1.f};
 };
 
-struct VkLineBufferData {
+struct LineBufferData {
     std::vector<float>    positions; ///< Interleaved x,y,z (3 floats per vertex).
     std::vector<float>    colors;    ///< Interleaved r,g,b,a (4 floats per vertex).
     std::vector<uint32_t> indices;   ///< Index list (2 indices per segment).

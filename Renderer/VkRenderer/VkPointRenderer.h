@@ -5,7 +5,7 @@
 #include <glm/glm.hpp>
 
 #include "IVkRenderer.h"
-#include "VkRenderBufferTypes.h"
+#include "RenderBufferTypes.h"
 #include "../../../CGLib/VulkanGraphics/VulkanBuffer.h"
 #include "../../../CGLib/VulkanGraphics/VulkanDescriptorPool.h"
 #include "../../../CGLib/VulkanGraphics/VulkanPipeline.h"
@@ -34,7 +34,7 @@ public:
     };
 
     /// @brief Per-frame draw data.
-    using Buffer = VkPointBufferData;
+    using Buffer = PointBufferData;
 
     explicit VkPointRenderer(Config config) : config_(std::move(config)) {}
 

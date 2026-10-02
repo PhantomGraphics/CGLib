@@ -17,7 +17,7 @@ class VulkanContext;
 class VulkanCommandPool;
 
 /// @brief CPU-side points of one batch. Pointers are only read during addBatch().
-struct VkPointBatchData {
+struct PointBatchData {
     const float* positions = nullptr; ///< xyz interleaved, @c count points.
     const float* colors    = nullptr; ///< rgb interleaved (linear), or null => defaultColor.
     const float* radii     = nullptr; ///< one world-space radius per point, or null => defaultRadius.
@@ -27,7 +27,7 @@ struct VkPointBatchData {
 };
 
 /// @brief One draw of a batch.
-struct VkPointBatchDraw {
+struct PointBatchDraw {
     uint32_t  batch = 0;
     glm::mat4 model{ 1.f };
     bool      useTint = false;               ///< true: draw every point with @c tint instead of its own colour.
@@ -60,7 +60,7 @@ public:
     bool isValid() const { return pipeline_.getPipeline() != VK_NULL_HANDLE; }
 
     /// @return batch id (> 0), or 0 on failure (no data, or buffer creation failed).
-    uint32_t addBatch(const VkPointBatchData& data);
+    uint32_t addBatch(const PointBatchData& data);
     void     removeBatch(uint32_t id);
     uint64_t batchPointCount(uint32_t id) const;
     uint64_t gpuBytes() const;
@@ -71,7 +71,7 @@ public:
     void setMinPointSize(float px) { minPointSize_ = px; }
 
     /// @brief Record draws. Unknown batch ids are skipped.
-    void render(VkCommandBuffer cmd, const std::vector<VkPointBatchDraw>& draws) const;
+    void render(VkCommandBuffer cmd, const std::vector<PointBatchDraw>& draws) const;
 
 private:
     struct Batch { VulkanBuffer buffer; uint32_t count = 0; uint64_t bytes = 0; };
