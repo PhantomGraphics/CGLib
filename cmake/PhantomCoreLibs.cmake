@@ -241,6 +241,7 @@ function(phantom_add_scene_runtime_core)
         ${CGLIB_ROOT}/SceneRuntime/SceneRuntime/AssetSidecar.cpp
         ${CGLIB_ROOT}/SceneRuntime/SceneRuntime/SceneV2Merge.cpp
         ${CGLIB_ROOT}/SceneRuntime/SceneRuntime/PlaySession.cpp
+        ${CGLIB_ROOT}/SceneRuntime/SceneRuntime/ClipPlayback.cpp
     )
     target_include_directories(SceneRuntimeCore PUBLIC
         ${REPO_ROOT}

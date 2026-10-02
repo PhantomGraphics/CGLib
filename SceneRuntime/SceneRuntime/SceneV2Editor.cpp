@@ -115,6 +115,7 @@ Json describeNode(const SceneV2& doc, const SceneNode& node)
         j["meshAsset"] = std::move(m);
     }
     if (const ComponentRecord* rb = findComponent(node, "rigidBody")) j["rigidBody"] = rb->data;
+    if (const ComponentRecord* ap = findComponent(node, "animationPlayer")) j["animationPlayer"] = ap->data;
     return j;
 }
 

@@ -46,6 +46,7 @@ if(PHANTOM_GTEST_FOUND)
         ${SCENERUNTIME_ROOT}/SceneRuntimeTest/SceneV2EditorTest.cpp
         ${SCENERUNTIME_ROOT}/SceneRuntimeTest/SceneV2MergeTest.cpp
         ${SCENERUNTIME_ROOT}/SceneRuntimeTest/PlaySessionTest.cpp
+        ${SCENERUNTIME_ROOT}/SceneRuntimeTest/ClipPlaybackTest.cpp
     )
     target_link_libraries(SceneRuntimeTest PRIVATE
         SceneRuntimeCore
