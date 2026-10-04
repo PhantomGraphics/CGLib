@@ -713,8 +713,9 @@ PhmatLoadResult loadPhmatMaterial(const std::string& phmatPath, const std::strin
     ss << in.rdbuf();
     const std::string text = ss.str();
 
-    PhmatGraph graph;
+    PhmatGraph& graph = result.graph;
     if (!parsePhmatGraph(text, graph, result.diagnostics)) return result;
+    result.graphParsed = true;
 
     std::vector<std::string> topoOrder;
     if (!validateAndSort(graph, topoOrder, result.diagnostics)) return result;

@@ -91,6 +91,9 @@ bool compileGlslToSpirv(const std::string& glslSource, const std::string& cacheD
                          std::vector<uint32_t>& outSpirv, std::string& outErrorLog);
 
 struct PhmatLoadResult {
+    // Source snapshot for inspection, including invalid graphs and compile failures.
+    PhmatGraph graph;
+    bool graphParsed = false;
     bool                         success = false;
     std::vector<uint32_t>        fragSpirv;   // valid only if success
     std::vector<PhmatDiagnostic> diagnostics; // parse/validate/compile errors, whichever stage failed

@@ -166,6 +166,7 @@ App::App(const std::filesystem::path& gltfPath)
     add(&renderer_);
     add(&panel_);
     add(&sceneGraphPanel_);
+    add(&shaderGraphPanel_);
     add(&viewPanel_);
     //add(&console_);
     add(&scenarioBrowser_);
@@ -227,6 +228,7 @@ std::string phmatCacheDir() {
 
 bool App::loadPhmatMaterial(int materialIndex, const std::string& path, std::string* outError) {
     Phantom::Gltf::Phmat::PhmatLoadResult result = Phantom::Gltf::Phmat::loadPhmatMaterial(path, phmatCacheDir());
+    shaderGraphPanel_.setSource(materialIndex, path, result);
     if (!result.success) {
         if (outError) *outError = result.diagnostics.empty() ? "unknown .phmat error" : result.diagnostics.front().message;
         refreshPhmatWatchMTimes(materialIndex); // see checkPhmatHotReload()'s comment on why
@@ -238,6 +240,9 @@ bool App::loadPhmatMaterial(int materialIndex, const std::string& path, std::str
     vkDeviceWaitIdle(getDevice());
     std::string pipelineError;
     if (!renderer_.setMaterialShaderOverride(materialIndex, result.fragSpirv, &pipelineError)) {
+        result.success = false;
+        result.diagnostics.push_back({Phantom::Gltf::Phmat::PhmatDiagnostic::Severity::Error, "", pipelineError});
+        shaderGraphPanel_.setSource(materialIndex, path, result);
         if (outError) *outError = pipelineError;
         refreshPhmatWatchMTimes(materialIndex);
         return false;
@@ -261,6 +266,7 @@ void App::clearPhmatMaterial(int materialIndex) {
     vkDeviceWaitIdle(getDevice()); // same hazard as loadPhmatMaterial() above
     renderer_.clearMaterialShaderOverride(materialIndex);
     phmatWatches_.erase(materialIndex);
+    shaderGraphPanel_.clearMaterial(materialIndex);
 }
 
 void App::refreshPhmatWatchMTimes(int materialIndex) {
@@ -388,6 +394,7 @@ bool App::loadFile(const std::filesystem::path& path) {
     // GltfSceneRenderer::onCleanup() itself drops materialPipelineOverrides_ above) -- an entry
     // left in place could watch the wrong files for whatever ends up at that index next.
     phmatWatches_.clear();
+    shaderGraphPanel_.clear();
 
     GltfDocument newDoc;
     VrmViewState newVrm;
@@ -587,6 +594,9 @@ void App::drawMainMenuBar() {
             sceneGraphPanel_.setVisible(!sceneGraphVisible);
 
         bool scenarioVisible = scenarioBrowser_.isVisible();
+        bool shaderGraphVisible = shaderGraphPanel_.isVisible();
+        if (ImGui::MenuItem("Shader Graph", nullptr, shaderGraphVisible))
+            shaderGraphPanel_.setVisible(!shaderGraphVisible);
         if (ImGui::MenuItem("Scenario Browser", nullptr, scenarioVisible))
             scenarioBrowser_.setVisible(!scenarioVisible);
         ImGui::EndMenu();

@@ -61,6 +61,7 @@ void ViewPanel::onImGui() {
             const int materialCount = renderer_->document() ? static_cast<int>(renderer_->document()->materials.size()) : 0;
             const int maxIndex = materialCount > 0 ? materialCount - 1 : 0;
             ImGui::SliderInt("Material Index", &materialIndex_, 0, maxIndex);
+            if (ImGui::Button("Show Shader Graph")) app_->showShaderGraph(materialIndex_);
             if (materialCount == 0) ImGui::TextDisabled("(document has no materials -- index 0 is the implicit default)");
 
             const bool hasOverride = app_->hasPhmatOverride(materialIndex_);

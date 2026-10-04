@@ -193,6 +193,16 @@ std::string CommandDispatcher::route(const std::string& cmd) {
             return "Error:" + err;
         return "OK";
     }
+    if (cmd.rfind("ShowShaderGraph:", 0) == 0) {
+        if (!app_) return "Error:no app";
+        int materialIndex = -1;
+        const std::string value = cmd.substr(16);
+        const auto parsed = std::from_chars(value.data(), value.data() + value.size(), materialIndex);
+        if (parsed.ec != std::errc{} || parsed.ptr != value.data() + value.size() || materialIndex < 0)
+            return "Error:invalid materialIndex";
+        app_->showShaderGraph(materialIndex);
+        return "OK";
+    }
     if (cmd.rfind("ClearPhmat:", 0) == 0) {
         if (!app_) return "Error:no app";
         int materialIndex = -1;
