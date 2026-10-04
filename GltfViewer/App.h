@@ -10,6 +10,7 @@
 #include "CommandDispatcher.h"
 #include "ControlPanel.h"
 #include "SceneGraphPanel.h"
+#include "ShaderGraphPanel.h"
 #include "ViewPanel.h"
 #include "VrmViewState.h"
 #include <vulkan/vulkan.h>
@@ -76,6 +77,7 @@ namespace Phantom::Gltf {
         bool loadPhmatMaterial(int materialIndex, const std::string& path, std::string* outError = nullptr);
         // Reverts materialIndex to the shared default pipeline.
         void clearPhmatMaterial(int materialIndex);
+        void showShaderGraph(int materialIndex) { shaderGraphPanel_.selectMaterial(materialIndex); shaderGraphPanel_.setVisible(true); }
         bool hasPhmatOverride(int materialIndex) const { return renderer_.hasMaterialShaderOverride(materialIndex); }
         // Distinct VkPipeline objects behind every active/previously-applied .phmat override --
         // see GltfSceneRenderer::materialPipelineVariantCount()'s comment (Phase 4C item 5).
@@ -114,6 +116,7 @@ namespace Phantom::Gltf {
         GltfSceneRenderer        renderer_;
         ControlPanel          panel_;
         SceneGraphPanel       sceneGraphPanel_;
+        ShaderGraphPanel      shaderGraphPanel_;
         ViewPanel             viewPanel_;
         CommandDispatcher    dispatcher_;
         ScenarioRunner           runner_;

@@ -81,6 +81,40 @@ TEST(PhmatCompilerTest, GeneratesGlslWithExpectedShape) {
     EXPECT_NE(glsl.find("outColor = vec4(color, alpha);"), std::string::npos);
 }
 
+TEST(PhmatCompilerTest, RetainsSourceSnapshotOnValidationFailure) {
+    const auto path = writeTempFile("phmat_inspection_invalid.phmat", R"JSON(
+        {"version":1,"output":"out","nodes":[
+          {"id":"out","type":"pbrOutput","baseColor":"missing","metallic":"missing","roughness":"missing"}
+        ]})JSON");
+    const auto result = loadPhmatMaterial(path.string(), std::filesystem::temp_directory_path().string());
+    EXPECT_FALSE(result.success);
+    EXPECT_TRUE(result.graphParsed);
+    ASSERT_EQ(result.graph.nodes.size(), 1u);
+    EXPECT_EQ(result.graph.nodes[0].id, "out");
+    EXPECT_EQ(result.graph.nodes[0].pbrBaseColor, "missing");
+    EXPECT_FALSE(result.diagnostics.empty());
+    std::error_code ec;
+    std::filesystem::remove(path, ec);
+}
+
+TEST(PhmatCompilerTest, RetainsGraphWhenCustomShaderCannotBeLoaded) {
+    const auto path = writeTempFile("phmat_inspection_missing_custom.phmat", R"JSON(
+        {"version":1,"output":"out","nodes":[
+          {"id":"color","type":"constant","value":[1,1,1,1]},
+          {"id":"value","type":"custom","phshader":"phmat_inspection_absent.phshader","output":"float","inputs":[]},
+          {"id":"out","type":"pbrOutput","baseColor":"color","metallic":"value","roughness":"value"}
+        ]})JSON");
+    const auto result = loadPhmatMaterial(path.string(), std::filesystem::temp_directory_path().string());
+    EXPECT_FALSE(result.success);
+    EXPECT_TRUE(result.graphParsed);
+    EXPECT_EQ(result.graph.nodes.size(), 3u);
+    EXPECT_EQ(result.graph.outputNode, "out");
+    ASSERT_FALSE(result.diagnostics.empty());
+    EXPECT_EQ(result.diagnostics.front().nodeId, "value");
+    std::error_code ec;
+    std::filesystem::remove(path, ec);
+}
+
 TEST(PhmatCompilerTest, DefaultsForOptionalPbrOutputFieldsMatchFixedShader) {
     const char* json = R"JSON(
     { "version": 1, "output": "out", "nodes": [
@@ -120,6 +154,9 @@ TEST(PhmatCompilerTest, LoadPhmatMaterialCompilesEndToEndWhenGlslcAvailable) {
 
     PhmatLoadResult result = loadPhmatMaterial(phmatPath.string(), cacheDir.string());
     ASSERT_TRUE(result.success) << (result.diagnostics.empty() ? "" : result.diagnostics[0].message);
+    EXPECT_TRUE(result.graphParsed);
+    EXPECT_EQ(result.graph.nodes.size(), 9u);
+    EXPECT_EQ(result.graph.outputNode, "out");
     EXPECT_FALSE(result.fragSpirv.empty());
     // SPIR-V is a binary word stream; a real module starts with the fixed magic number 0x07230203.
     EXPECT_EQ(result.fragSpirv.front(), 0x07230203u);

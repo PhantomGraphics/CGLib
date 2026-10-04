@@ -1,0 +1,18 @@
+{
+  "name": "phmat_graph_inspection",
+  "steps": [
+    { "command": "LoadFile:scenarios/models/pbr_basic.gltf", "expect_prefix": "OK:" },
+    { "command": "ShowShaderGraph:-1", "expect_prefix": "Error:" },
+    { "command": "ShowShaderGraph:0junk", "expect_prefix": "Error:" },
+    { "command": "ShowShaderGraph:0", "expect": "OK" },
+    { "command": "LoadPhmat:0,scenarios/materials/custom_node_tint.phmat", "expect": "OK" },
+    { "command": "SaveScreenshot:scenarios/screenshots/phmat_graph_inspection.png", "expect_prefix": "OK:" },
+    { "command": "LoadPhmat:0,scenarios/materials/custom_node_illegal.phmat", "expect_prefix": "Error:" },
+    { "command": "GetHasPhmatOverride:0", "expect": "Val:1" },
+    { "command": "SaveScreenshot:scenarios/screenshots/phmat_graph_diagnostic.png", "expect_prefix": "OK:" },
+    { "command": "ClearPhmat:0", "expect": "OK" },
+    { "command": "GetHasPhmatOverride:0", "expect": "Val:0" },
+    { "command": "LoadFile:scenarios/models/pbr_basic.gltf", "expect_prefix": "OK:" },
+    { "command": "GetStatus", "expect": "OK" }
+  ]
+}
