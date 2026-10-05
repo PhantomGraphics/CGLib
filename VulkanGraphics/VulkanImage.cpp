@@ -1,7 +1,10 @@
 #include "VulkanImage.h"
 #include "VulkanContext.h"
 #include "VulkanCommandPool.h"
+#include "VulkanBuffer.h"
 #include "detail/VkCheckInternal.h"
+
+#include <algorithm>
 
 namespace Phantom::VKG {
 
@@ -79,6 +82,119 @@ bool VulkanImage::create(const VulkanContext& ctx,
         image  = VK_NULL_HANDLE;
         return false;
     }
+    return true;
+}
+
+bool VulkanImage::createFromPixelsRGBA8(const VulkanContext& ctx, const VulkanCommandPool& pool,
+                                        const uint8_t* pixels, uint32_t width, uint32_t height,
+                                        bool generateMips,
+                                        VkImage& image, VkDeviceMemory& memory, VkImageView& view,
+                                        uint32_t* outMipLevels)
+{
+    image = VK_NULL_HANDLE;
+    memory = VK_NULL_HANDLE;
+    view = VK_NULL_HANDLE;
+    if (outMipLevels) *outMipLevels = 1;
+    if (!pixels || width == 0 || height == 0) return false;
+
+    const VkFormat format = VK_FORMAT_R8G8B8A8_UNORM;
+    const VkDeviceSize imageSize = static_cast<VkDeviceSize>(width) * height * 4;
+
+    uint32_t mipLevels = 1;
+    if (generateMips) {
+        VkFormatProperties props{};
+        vkGetPhysicalDeviceFormatProperties(ctx.getPhysicalDevice(), format, &props);
+        const VkFormatFeatureFlags need = VK_FORMAT_FEATURE_BLIT_SRC_BIT | VK_FORMAT_FEATURE_BLIT_DST_BIT |
+                                          VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT;
+        if ((props.optimalTilingFeatures & need) == need) {
+            for (uint32_t size = std::max(width, height); size > 1; size >>= 1)
+                ++mipLevels;
+        }
+    }
+
+    VulkanBuffer staging;
+    if (!staging.createMapped(ctx, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT)) return false;
+    staging.write(pixels, imageSize);
+
+    VkImageUsageFlags usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    if (mipLevels > 1) usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+    if (!create(ctx, width, height, format, VK_IMAGE_TILING_OPTIMAL, usage,
+                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, image, memory, mipLevels)) {
+        staging.destroy();
+        image = VK_NULL_HANDLE;
+        memory = VK_NULL_HANDLE;
+        return false;
+    }
+
+    VkCommandBuffer cmd = pool.beginSingleTimeCommands();
+    VkImageMemoryBarrier barrier{};
+    barrier.sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barrier.oldLayout           = VK_IMAGE_LAYOUT_UNDEFINED;
+    barrier.newLayout           = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.image               = image;
+    barrier.subresourceRange    = {VK_IMAGE_ASPECT_COLOR_BIT, 0, mipLevels, 0, 1};
+    barrier.dstAccessMask       = VK_ACCESS_TRANSFER_WRITE_BIT;
+    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                         0, 0, nullptr, 0, nullptr, 1, &barrier);
+
+    VkBufferImageCopy region{};
+    region.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+    region.imageExtent      = {width, height, 1};
+    vkCmdCopyBufferToImage(cmd, staging.get(), image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+
+    // Each level is blitted from the previous one, which is first moved to TRANSFER_SRC and,
+    // once consumed, to SHADER_READ_ONLY; the last level goes straight to SHADER_READ_ONLY.
+    int32_t mipW = static_cast<int32_t>(width), mipH = static_cast<int32_t>(height);
+    for (uint32_t level = 1; level < mipLevels; ++level) {
+        barrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, level - 1, 1, 0, 1};
+        barrier.oldLayout     = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        barrier.newLayout     = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                             0, 0, nullptr, 0, nullptr, 1, &barrier);
+
+        const int32_t nextW = std::max(mipW / 2, 1);
+        const int32_t nextH = std::max(mipH / 2, 1);
+        VkImageBlit blit{};
+        blit.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, level - 1, 0, 1};
+        blit.srcOffsets[1]  = {mipW, mipH, 1};
+        blit.dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, level, 0, 1};
+        blit.dstOffsets[1]  = {nextW, nextH, 1};
+        vkCmdBlitImage(cmd, image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                       image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, VK_FILTER_LINEAR);
+
+        barrier.oldLayout     = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        barrier.newLayout     = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                             0, 0, nullptr, 0, nullptr, 1, &barrier);
+        mipW = nextW;
+        mipH = nextH;
+    }
+
+    barrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, mipLevels - 1, 1, 0, 1};
+    barrier.oldLayout     = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    barrier.newLayout     = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                         0, 0, nullptr, 0, nullptr, 1, &barrier);
+    pool.endSingleTimeCommands(cmd);
+    staging.destroy();
+
+    view = createView(ctx.getDevice(), image, format, VK_IMAGE_ASPECT_COLOR_BIT, mipLevels);
+    if (view == VK_NULL_HANDLE) {
+        vkDestroyImage(ctx.getDevice(), image, nullptr);
+        vkFreeMemory(ctx.getDevice(), memory, nullptr);
+        image = VK_NULL_HANDLE;
+        memory = VK_NULL_HANDLE;
+        return false;
+    }
+    if (outMipLevels) *outMipLevels = mipLevels;
     return true;
 }
 

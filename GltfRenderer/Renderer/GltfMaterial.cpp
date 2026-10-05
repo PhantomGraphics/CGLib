@@ -16,141 +16,20 @@ using namespace Phantom::Gltf;
 // ============================================================
 
 // Full mip chain (box-filtered by vkCmdBlitImage) so tiled textures on large surfaces --
-// terrain, floors -- minify without shimmering. Falls back to a single level if the format
-// cannot be linearly blitted on this device. Returns the level count for the sampler's maxLod.
+// terrain, floors -- minify without shimmering; VulkanImage falls back to a single level if the
+// format cannot be linearly blitted. Returns the level count for the sampler's maxLod, or 0 on
+// failure (outputs are then left VK_NULL_HANDLE and nothing is leaked).
 static uint32_t createTextureFromPixels(
     const Phantom::VKG::VulkanContext& ctx,
     const Phantom::VKG::VulkanCommandPool& pool,
     const uint8_t* pixels, int w, int h,
     VkImage& outImage, VkDeviceMemory& outMemory, VkImageView& outView)
 {
-    VkDeviceSize imageSize = static_cast<VkDeviceSize>(w) * h * 4;
-    const VkFormat format = VK_FORMAT_R8G8B8A8_UNORM;
-
-    uint32_t mipLevels = 1;
-    {
-        VkFormatProperties props{};
-        vkGetPhysicalDeviceFormatProperties(ctx.getPhysicalDevice(), format, &props);
-        const VkFormatFeatureFlags need = VK_FORMAT_FEATURE_BLIT_SRC_BIT | VK_FORMAT_FEATURE_BLIT_DST_BIT |
-                                          VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT;
-        if ((props.optimalTilingFeatures & need) == need) {
-            for (int size = std::max(w, h); size > 1; size >>= 1)
-                ++mipLevels;
-        }
-    }
-
-    // Staging buffer
-    VkBuffer stagingBuf;
-    VkDeviceMemory stagingMem;
-    {
-        VkBufferCreateInfo bi{};
-        bi.sType       = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-        bi.size        = imageSize;
-        bi.usage       = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-        bi.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-        vkCreateBuffer(ctx.getDevice(), &bi, nullptr, &stagingBuf);
-
-        VkMemoryRequirements mr;
-        vkGetBufferMemoryRequirements(ctx.getDevice(), stagingBuf, &mr);
-        auto memType = ctx.findMemoryType(mr.memoryTypeBits,
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-        assert(memType.has_value());
-
-        VkMemoryAllocateInfo ai{};
-        ai.sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-        ai.allocationSize  = mr.size;
-        ai.memoryTypeIndex = memType.value_or(0);
-        vkAllocateMemory(ctx.getDevice(), &ai, nullptr, &stagingMem);
-        vkBindBufferMemory(ctx.getDevice(), stagingBuf, stagingMem, 0);
-
-        void* mapped;
-        vkMapMemory(ctx.getDevice(), stagingMem, 0, imageSize, 0, &mapped);
-        std::memcpy(mapped, pixels, static_cast<size_t>(imageSize));
-        vkUnmapMemory(ctx.getDevice(), stagingMem);
-    }
-
-    Phantom::VKG::VulkanImage::create(ctx,
-        static_cast<uint32_t>(w), static_cast<uint32_t>(h),
-        format,
-        VK_IMAGE_TILING_OPTIMAL,
-        VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-        outImage, outMemory, mipLevels);
-
-    auto cmd = pool.beginSingleTimeCommands();
-    {
-        VkImageMemoryBarrier barrier{};
-        barrier.sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-        barrier.oldLayout           = VK_IMAGE_LAYOUT_UNDEFINED;
-        barrier.newLayout           = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        barrier.image               = outImage;
-        barrier.subresourceRange    = {VK_IMAGE_ASPECT_COLOR_BIT, 0, mipLevels, 0, 1};
-        barrier.dstAccessMask       = VK_ACCESS_TRANSFER_WRITE_BIT;
-        vkCmdPipelineBarrier(cmd,
-            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
-            0, 0, nullptr, 0, nullptr, 1, &barrier);
-
-        VkBufferImageCopy region{};
-        region.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
-        region.imageExtent      = {(uint32_t)w, (uint32_t)h, 1};
-        vkCmdCopyBufferToImage(cmd, stagingBuf, outImage,
-            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
-
-        // Each level is blitted from the previous one, which is first moved to TRANSFER_SRC and,
-        // once consumed, to SHADER_READ_ONLY; the last level goes straight to SHADER_READ_ONLY.
-        int32_t mipW = w, mipH = h;
-        for (uint32_t level = 1; level < mipLevels; ++level) {
-            barrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, level - 1, 1, 0, 1};
-            barrier.oldLayout     = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-            barrier.newLayout     = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-            barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-            barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-            vkCmdPipelineBarrier(cmd,
-                VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
-                0, 0, nullptr, 0, nullptr, 1, &barrier);
-
-            const int32_t nextW = std::max(mipW / 2, 1);
-            const int32_t nextH = std::max(mipH / 2, 1);
-            VkImageBlit blit{};
-            blit.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, level - 1, 0, 1};
-            blit.srcOffsets[1]  = {mipW, mipH, 1};
-            blit.dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, level, 0, 1};
-            blit.dstOffsets[1]  = {nextW, nextH, 1};
-            vkCmdBlitImage(cmd,
-                outImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                outImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                1, &blit, VK_FILTER_LINEAR);
-
-            barrier.oldLayout     = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-            barrier.newLayout     = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-            barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-            barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-            vkCmdPipelineBarrier(cmd,
-                VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-                0, 0, nullptr, 0, nullptr, 1, &barrier);
-            mipW = nextW;
-            mipH = nextH;
-        }
-
-        barrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, mipLevels - 1, 1, 0, 1};
-        barrier.oldLayout     = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-        barrier.newLayout     = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-        vkCmdPipelineBarrier(cmd,
-            VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-            0, 0, nullptr, 0, nullptr, 1, &barrier);
-    }
-    pool.endSingleTimeCommands(cmd);
-
-    vkDestroyBuffer(ctx.getDevice(), stagingBuf, nullptr);
-    vkFreeMemory(ctx.getDevice(), stagingMem, nullptr);
-
-    outView = Phantom::VKG::VulkanImage::createView(ctx.getDevice(), outImage,
-                                           format,
-                                           VK_IMAGE_ASPECT_COLOR_BIT, mipLevels);
+    uint32_t mipLevels = 0;
+    if (!Phantom::VKG::VulkanImage::createFromPixelsRGBA8(ctx, pool, pixels,
+            static_cast<uint32_t>(w), static_cast<uint32_t>(h), true,
+            outImage, outMemory, outView, &mipLevels))
+        return 0;
     return mipLevels;
 }
 
@@ -186,6 +65,7 @@ bool GltfGpuMaterial::uploadTexture(const Phantom::VKG::VulkanContext& ctx, cons
     const uint32_t mipLevels = createTextureFromPixels(ctx, pool,
         img.pixels.data(), img.width, img.height,
         texImages_[slotIndex], texMemory_[slotIndex], outView);
+    if (mipLevels == 0) return false; // upload failed: nothing was left allocated, slot keeps the fallback
     texViews_[slotIndex] = outView;
 
     VkFilter filter             = VK_FILTER_LINEAR;
