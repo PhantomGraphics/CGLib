@@ -1,0 +1,58 @@
+#pragma once
+
+// Pure geometry operations used by the built-in nodes. Exception-free: every
+// failure is an OpStatus; outputs are replaced only on success.
+
+#include <string>
+
+#include "GeometryTypes.h"
+
+namespace Phantom::GeometryNode {
+
+enum class OpStatus {
+    Ok,
+    InvalidArgument,   // non-finite or out-of-range parameter
+    LimitExceeded,     // would exceed Limits (checked before allocating)
+    SingularTransform, // determinant ~ 0 / zero scale
+    InvalidMesh,       // inconsistent attributes, bad index, NaN/Inf
+};
+
+const char* toString(OpStatus s);
+
+// Estimated heap footprint of a mesh with the given counts (overflow-safe,
+// saturates at UINT64_MAX).
+uint64_t estimateMeshBytes(uint64_t vertices, uint64_t indices);
+
+// True if a mesh with these counts fits in `limits`.
+bool fitsLimits(uint64_t vertices, uint64_t indices, const Limits& limits);
+
+// Checks attribute sizes, index range / multiple of 3, and finiteness.
+OpStatus validateMesh(const Mesh& mesh, std::string* message = nullptr);
+
+Bounds computeBounds(const Mesh& mesh);
+
+// Axis-aligned box centred on the origin, 24 vertices (flat normals, per-face UV).
+OpStatus makeBox(const Vec3& size, const Limits& limits, Mesh& out);
+
+// Grid on the XZ plane, +Y up, centred on the origin. verticesX/Z >= 2.
+// Winding matches PrimitiveBuilder::buildPlane (normals face +Y).
+OpStatus makeGrid(float sizeX, float sizeZ, int32_t verticesX, int32_t verticesZ,
+                  const Limits& limits, Mesh& out);
+
+// p' = T * R * S * p. rotationDegrees is Euler XYZ (R = Rz * Ry * Rx, as Blender).
+// Normals use the inverse-transpose of the linear part, so non-uniform scale is
+// handled; when the linear part has negative determinant the triangle winding is
+// reversed so faces still point outwards. Zero/near-zero scale is rejected.
+OpStatus transformMesh(const Mesh& in, const Vec3& translation, const Vec3& rotationDegrees,
+                       const Vec3& scale, Mesh& out);
+
+// Concatenates meshes (index offsets are range-checked in 64 bits first).
+// Attribute rule: the output has normals if any input has them, UVs if any input
+// has them; an input lacking normals gets area-weighted smooth normals computed
+// from its triangles, an input lacking UVs gets (0,0).
+OpStatus joinMeshes(const std::vector<GeometryPtr>& inputs, const Limits& limits, Mesh& out);
+
+// Area-weighted vertex normals (zero-area vertices get +Y).
+std::vector<Vec3> computeSmoothNormals(const Mesh& mesh);
+
+}  // namespace Phantom::GeometryNode
