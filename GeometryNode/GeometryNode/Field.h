@@ -19,6 +19,8 @@
 // The context seed is the Graph's `seed`, which is saved with the graph.
 
 #include <cstdint>
+#include <atomic>
+#include <map>
 #include <functional>
 #include <memory>
 #include <vector>
@@ -31,14 +33,19 @@ enum class Domain { Point, Edge, Face, FaceCorner, Instance };
 const char* toString(Domain d);
 
 enum class FieldType { Float, Vector3, Bool };
+struct FieldEvaluation;
 
 struct FieldContext {
     const Mesh* mesh = nullptr;
     uint32_t seed = 0;            // EvalContext::seed
     Domain domain = Domain::Point;
+    FieldEvaluation* evaluation = nullptr; // scoped to one geometry/domain/seed; never retained by a Field
+    const std::atomic<bool>* cancel = nullptr;
+    uint64_t maxMemoryBytes = 1024ull * 1024 * 1024;
 
     // Number of elements of the domain (Point: vertices, Face: triangles, FaceCorner: indices).
     size_t size() const;
+    bool stopped() const;
 };
 
 // One evaluation result; only the vector matching the Field's type is filled.
@@ -53,6 +60,15 @@ struct Field {
     std::function<void(const FieldContext&, FieldData&)> eval;
 };
 using FieldPtr = std::shared_ptr<const Field>;
+
+// Consumer-local memoization and conservative workspace accounting, including temporary arrays.
+struct FieldEvaluation {
+    std::map<FieldPtr, FieldData, std::owner_less<FieldPtr>> results;
+    uint64_t reservedBytes = 0;
+    size_t depth = 0;
+    bool limitExceeded = false;
+    bool cancelled = false;
+};
 
 // Evaluate helpers. A null or wrongly typed field yields an empty vector.
 std::vector<float> evaluateFloats(const FieldPtr& f, const FieldContext& ctx);

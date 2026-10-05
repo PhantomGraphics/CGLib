@@ -32,20 +32,24 @@ void fit(std::vector<T>& v, size_t n) {
 // Float-field operand: the linked field, else the scalar broadcast.
 std::vector<float> operand(const FieldPtr& f, float scalar, const FieldContext& ctx) {
     const size_t n = ctx.size();
+    if (ctx.stopped()) return {};
     if (!f) return std::vector<float>(n, scalar);
     std::vector<float> v = evaluateFloats(f, ctx);
+    if (ctx.stopped()) return {};
     fit(v, n);
     return v;
 }
 
 std::vector<float> optionalFloats(const FieldPtr& f, const FieldContext& ctx) {
     std::vector<float> v = f ? evaluateFloats(f, ctx) : std::vector<float>();
+    if (ctx.stopped()) return {};
     fit(v, ctx.size());
     return v;
 }
 
 std::vector<Vec3> vectorsOf(const FieldPtr& f, const FieldContext& ctx) {
     std::vector<Vec3> v = evaluateVectors(f, ctx);
+    if (ctx.stopped()) return {};
     fit(v, ctx.size());
     return v;
 }
@@ -69,15 +73,17 @@ void addMath(NodeRegistry& r, const char* type, const char* name, float defaultV
             c.setOutput("Result", Value(makeBoolField([a, b, scalar, op](const FieldContext& ctx, std::vector<uint8_t>& out) {
                 const auto x = operand(a, 0.0f, ctx);
                 const auto y = operand(b, scalar, ctx);
+                if (ctx.stopped()) return;
                 out.resize(x.size());
-                for (size_t i = 0; i < x.size(); ++i) out[i] = op(x[i], y[i]) != 0.0f ? 1 : 0;
+                for (size_t i = 0; i < x.size() && !ctx.stopped(); ++i) out[i] = op(x[i], y[i]) != 0.0f ? 1 : 0;
             })));
         } else {
             c.setOutput("Result", Value(makeFloatField([a, b, scalar, op](const FieldContext& ctx, std::vector<float>& out) {
                 const auto x = operand(a, 0.0f, ctx);
                 const auto y = operand(b, scalar, ctx);
+                if (ctx.stopped()) return;
                 out.resize(x.size());
-                for (size_t i = 0; i < x.size(); ++i) out[i] = op(x[i], y[i]);
+                for (size_t i = 0; i < x.size() && !ctx.stopped(); ++i) out[i] = op(x[i], y[i]);
             })));
         }
     };
@@ -90,6 +96,27 @@ bool sizeIs(NodeEvalContext& c, size_t got, size_t want, const char* socket) {
     c.fail(DiagCode::FieldMismatch, std::string("field '") + socket + "' produced " + std::to_string(got) + " values for " +
                                         std::to_string(want) + " points", socket);
     return false;
+}
+
+bool fieldFailed(NodeEvalContext& c, const FieldContext& ctx) {
+    if (!ctx.stopped()) return false;
+    const bool cancelled = ctx.evaluation->cancelled;
+    c.fail(cancelled ? DiagCode::Cancelled : DiagCode::LimitExceeded,
+           cancelled ? "field evaluation cancelled" : "field workspace or expression depth limit exceeded");
+    return true;
+}
+
+FieldContext consumerContext(NodeEvalContext& c, const Mesh& mesh, FieldEvaluation& state) {
+    FieldContext ctx{&mesh, c.seed(), Domain::Point, &state, c.cancelFlag()};
+    // Reserve space for the input, output mesh and the consumer's target/offset/normal arrays.
+    const uint64_t meshBytes = estimateMeshBytes(mesh.positions.size(), mesh.indices.size());
+    const uint64_t arrays = mesh.positions.size() * sizeof(Vec3) * 3;
+    const uint64_t budget = c.limits().maxMemoryBytes;
+    if (arrays > budget || meshBytes > (budget - arrays) / 2) {
+        ctx.maxMemoryBytes = 0;
+        state.limitExceeded = true;
+    } else ctx.maxMemoryBytes = budget - arrays - meshBytes * 2;
+    return ctx;
 }
 
 }  // namespace
@@ -119,7 +146,7 @@ void registerFieldNodes(NodeRegistry& r) {
         d.evaluate = [](NodeEvalContext& c) {
             c.setOutput("Index", Value(makeFloatField([](const FieldContext& ctx, std::vector<float>& out) {
                 out.resize(ctx.size());
-                for (size_t i = 0; i < out.size(); ++i) out[i] = static_cast<float>(i);
+                for (size_t i = 0; i < out.size() && !ctx.stopped(); ++i) out[i] = static_cast<float>(i);
             })));
         };
         r.add(std::move(d));
@@ -139,7 +166,7 @@ void registerFieldNodes(NodeRegistry& r) {
             const int32_t seed = c.getInt("Seed");
             c.setOutput("Value", Value(makeFloatField([lo, hi, seed](const FieldContext& ctx, std::vector<float>& out) {
                 out.resize(ctx.size());
-                for (size_t i = 0; i < out.size(); ++i)
+                for (size_t i = 0; i < out.size() && !ctx.stopped(); ++i)
                     out[i] = lo + (hi - lo) * randomUnit(ctx.seed, seed, static_cast<uint32_t>(i));
             })));
         };
@@ -195,8 +222,9 @@ void registerFieldNodes(NodeRegistry& r) {
             const FieldPtr x = c.getField("X"), y = c.getField("Y"), z = c.getField("Z");
             c.setOutput("Vector", Value(makeVectorField([x, y, z](const FieldContext& ctx, std::vector<Vec3>& out) {
                 const auto fx = optionalFloats(x, ctx), fy = optionalFloats(y, ctx), fz = optionalFloats(z, ctx);
+                if (ctx.stopped()) return;
                 out.resize(fx.size());
-                for (size_t i = 0; i < out.size(); ++i) out[i] = Vec3{fx[i], fy[i], fz[i]};
+                for (size_t i = 0; i < out.size() && !ctx.stopped(); ++i) out[i] = Vec3{fx[i], fy[i], fz[i]};
             })));
         };
         r.add(std::move(d));
@@ -214,8 +242,9 @@ void registerFieldNodes(NodeRegistry& r) {
             auto component = [v](float Vec3::*member) {
                 return makeFloatField([v, member](const FieldContext& ctx, std::vector<float>& out) {
                     const auto vec = vectorsOf(v, ctx);
+                    if (ctx.stopped()) return;
                     out.resize(vec.size());
-                    for (size_t i = 0; i < vec.size(); ++i) out[i] = vec[i].*member;
+                    for (size_t i = 0; i < vec.size() && !ctx.stopped(); ++i) out[i] = vec[i].*member;
                 });
             };
             c.setOutput("X", Value(component(&Vec3::x)));
@@ -236,8 +265,9 @@ void registerFieldNodes(NodeRegistry& r) {
             const FieldPtr a = c.getField("A"), b = c.getField("B");
             c.setOutput("Result", Value(makeVectorField([a, b](const FieldContext& ctx, std::vector<Vec3>& out) {
                 const auto x = vectorsOf(a, ctx), y = vectorsOf(b, ctx);
+                if (ctx.stopped()) return;
                 out.resize(x.size());
-                for (size_t i = 0; i < out.size(); ++i) out[i] = Vec3{x[i].x + y[i].x, x[i].y + y[i].y, x[i].z + y[i].z};
+                for (size_t i = 0; i < out.size() && !ctx.stopped(); ++i) out[i] = Vec3{x[i].x + y[i].x, x[i].y + y[i].y, x[i].z + y[i].z};
             })));
         };
         r.add(std::move(d));
@@ -257,8 +287,9 @@ void registerFieldNodes(NodeRegistry& r) {
             c.setOutput("Result", Value(makeVectorField([v, s, scalar](const FieldContext& ctx, std::vector<Vec3>& out) {
                 const auto vec = vectorsOf(v, ctx);
                 const auto k = operand(s, scalar, ctx);
+                if (ctx.stopped()) return;
                 out.resize(vec.size());
-                for (size_t i = 0; i < out.size(); ++i) out[i] = Vec3{vec[i].x * k[i], vec[i].y * k[i], vec[i].z * k[i]};
+                for (size_t i = 0; i < out.size() && !ctx.stopped(); ++i) out[i] = Vec3{vec[i].x * k[i], vec[i].y * k[i], vec[i].z * k[i]};
             })));
         };
         r.add(std::move(d));
@@ -283,24 +314,30 @@ void registerFieldNodes(NodeRegistry& r) {
                 return;
             }
             const size_t n = in->positions.size();
-            const FieldContext ctx{in.get(), c.seed(), Domain::Point};
+            FieldEvaluation state;
+            const FieldContext ctx = consumerContext(c, *in, state);
+            if (fieldFailed(c, ctx)) return;
             std::vector<uint8_t> selected(n, 1);
             if (const FieldPtr f = c.getField("Selection")) {
                 selected = evaluateBools(f, ctx);
+                if (fieldFailed(c, ctx)) return;
                 if (!sizeIs(c, selected.size(), n, "Selection")) return;
             }
             std::vector<Vec3> target = in->positions;
             if (const FieldPtr f = c.getField("Position")) {
                 target = evaluateVectors(f, ctx);
+                if (fieldFailed(c, ctx)) return;
                 if (!sizeIs(c, target.size(), n, "Position")) return;
             }
             std::vector<Vec3> offset;
             if (const FieldPtr f = c.getField("Offset")) {
                 offset = evaluateVectors(f, ctx);
+                if (fieldFailed(c, ctx)) return;
                 if (!sizeIs(c, offset.size(), n, "Offset")) return;
             }
             Mesh m = *in;
             for (size_t i = 0; i < n; ++i) {
+                if ((i & 1023) == 0 && fieldFailed(c, ctx)) return;
                 if (!selected[i]) continue;
                 Vec3 p = target[i];
                 if (!offset.empty()) p = Vec3{p.x + offset[i].x, p.y + offset[i].y, p.z + offset[i].z};
@@ -328,11 +365,16 @@ void registerFieldNodes(NodeRegistry& r) {
                 return;
             }
             const size_t n = in->positions.size();
-            const std::vector<uint8_t> del = evaluateBools(c.getField("Selection"), FieldContext{in.get(), c.seed(), Domain::Point});
+            FieldEvaluation state;
+            const FieldContext ctx = consumerContext(c, *in, state);
+            if (fieldFailed(c, ctx)) return;
+            const std::vector<uint8_t> del = evaluateBools(c.getField("Selection"), ctx);
+            if (fieldFailed(c, ctx)) return;
             if (!sizeIs(c, del.size(), n, "Selection")) return;
             std::vector<uint32_t> remap(n, 0xFFFFFFFFu);
             Mesh m;
             for (size_t i = 0; i < n; ++i) {
+                if ((i & 1023) == 0 && fieldFailed(c, ctx)) return;
                 if (del[i]) continue;
                 remap[i] = static_cast<uint32_t>(m.positions.size());
                 m.positions.push_back(in->positions[i]);
@@ -340,6 +382,7 @@ void registerFieldNodes(NodeRegistry& r) {
                 if (!in->uvs.empty()) m.uvs.push_back(in->uvs[i]);
             }
             for (size_t t = 0; t + 2 < in->indices.size(); t += 3) {
+                if ((t & 1023) == 0 && fieldFailed(c, ctx)) return;
                 const uint32_t a = remap[in->indices[t]], b = remap[in->indices[t + 1]], d2 = remap[in->indices[t + 2]];
                 if (a == 0xFFFFFFFFu || b == 0xFFFFFFFFu || d2 == 0xFFFFFFFFu) continue;
                 m.indices.insert(m.indices.end(), {a, b, d2});

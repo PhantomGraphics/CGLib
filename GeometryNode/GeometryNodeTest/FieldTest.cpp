@@ -218,3 +218,82 @@ TEST(Field, GraphSeedJson) {
     EXPECT_FALSE(parseGraph(R"({"schema":1,"seed":4294967296,"nodes":[]})", g).ok);
     EXPECT_EQ(g.seed, 4000000000u);  // untouched on failure
 }
+
+TEST(Field, SharedBranchesEvaluateOncePerConsumer) {
+    Mesh mesh;
+    mesh.positions.resize(4);
+    int calls = 0;
+    FieldPtr f = makeFloatField([&](const FieldContext& ctx, std::vector<float>& out) {
+        ++calls;
+        out.assign(ctx.size(), static_cast<float>(ctx.seed + 1));
+    });
+    for (int depth = 0; depth < 24; ++depth) {
+        f = makeFloatField([input = f](const FieldContext& ctx, std::vector<float>& out) {
+            const auto a = evaluateFloats(input, ctx), b = evaluateFloats(input, ctx);
+            if (ctx.stopped()) return;
+            out.resize(a.size());
+            for (size_t i = 0; i < a.size(); ++i) out[i] = a[i] + b[i];
+        });
+    }
+    EXPECT_EQ(evaluateFloats(f, FieldContext{&mesh, 0}), std::vector<float>(4, 16777216.0f));
+    EXPECT_EQ(calls, 1);
+    EXPECT_EQ(evaluateFloats(f, FieldContext{&mesh, 1}), std::vector<float>(4, 33554432.0f));
+    EXPECT_EQ(calls, 2); // a new consumer/seed must not reuse the previous arrays
+}
+
+TEST(Field, WorkspaceLimitAndCancellationStopBeforeAllocation) {
+    Mesh mesh;
+    mesh.positions.resize(4);
+    int calls = 0;
+    const FieldPtr f = makeFloatField([&](const FieldContext& ctx, std::vector<float>& out) {
+        ++calls;
+        out.assign(ctx.size(), 1.0f);
+    });
+    FieldEvaluation state;
+    FieldContext ctx{&mesh, 0, Domain::Point, &state};
+    ctx.maxMemoryBytes = 1;
+    EXPECT_TRUE(evaluateFloats(f, ctx).empty());
+    EXPECT_TRUE(state.limitExceeded);
+    EXPECT_EQ(calls, 0);
+    std::atomic<bool> cancel{true};
+    FieldEvaluation cancelled;
+    ctx.evaluation = &cancelled;
+    ctx.cancel = &cancel;
+    EXPECT_TRUE(evaluateFloats(f, ctx).empty());
+    EXPECT_TRUE(cancelled.cancelled);
+    EXPECT_EQ(calls, 0);
+}
+
+TEST(Field, WorkspaceFailureIsDiagnosedByConsumer) {
+    Jitter j = makeJitter();
+    EvalContext ctx;
+    ctx.limits.maxMemoryBytes = 4096; // the Grid fits, but Set Position's workspace does not
+    const auto r = evaluateGraph(j.g, reg(), ctx);
+    EXPECT_FALSE(r.success);
+    EXPECT_TRUE(hasCode(r.diagnostics, DiagCode::LimitExceeded, j.set));
+}
+
+TEST(Field, DeepExpressionsAreRejectedAndCancellationPropagates) {
+    Mesh mesh;
+    mesh.positions.resize(1);
+    FieldPtr f = makeFloatField([](const FieldContext& ctx, std::vector<float>& out) { out.assign(ctx.size(), 1.0f); });
+    for (int depth = 0; depth < 300; ++depth)
+        f = makeFloatField([input = f](const FieldContext& ctx, std::vector<float>& out) { out = evaluateFloats(input, ctx); });
+    FieldEvaluation state;
+    FieldContext ctx{&mesh, 0, Domain::Point, &state};
+    EXPECT_TRUE(evaluateFloats(f, ctx).empty());
+    EXPECT_TRUE(state.limitExceeded);
+
+    std::atomic<bool> cancel{false};
+    f = makeFloatField([&](const FieldContext& c, std::vector<float>& out) {
+        out.assign(c.size(), 1.0f);
+        cancel.store(true);
+    });
+    f = makeFloatField([input = f](const FieldContext& c, std::vector<float>& out) { out = evaluateFloats(input, c); });
+    FieldEvaluation cancelled;
+    ctx.evaluation = &cancelled;
+    ctx.cancel = &cancel;
+    EXPECT_TRUE(evaluateFloats(f, ctx).empty());
+    EXPECT_TRUE(cancelled.cancelled);
+    EXPECT_TRUE(cancelled.results.empty());
+}
