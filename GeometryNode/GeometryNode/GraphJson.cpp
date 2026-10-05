@@ -62,6 +62,31 @@ json graphToJson(const Graph& graph) {
     }
     root["links"] = std::move(links);
 
+    if (!graph.groups.empty()) {
+        json groups = json::array();
+        for (const GroupDef& d : graph.groups) {
+            auto sockets = [](const std::vector<GroupSocket>& list) {
+                json out = json::array();
+                for (const GroupSocket& s : list) {
+                    json j = json::object();
+                    j["id"] = s.id;
+                    j["name"] = s.name;
+                    j["type"] = toString(s.type);
+                    if (!s.defaultValue.is_null()) j["default"] = s.defaultValue;
+                    out.push_back(std::move(j));
+                }
+                return out;
+            };
+            json g = json::object();
+            g["name"] = d.name;
+            g["inputs"] = sockets(d.inputs);
+            g["outputs"] = sockets(d.outputs);
+            g["graph"] = d.graph ? graphToJson(*d.graph) : json::object();
+            groups.push_back(std::move(g));
+        }
+        root["groups"] = std::move(groups);
+    }
+
     if (!graph.exposed.empty()) {
         json exposed = json::array();
         for (const ExposedParam& e : graph.exposed) {
@@ -102,7 +127,7 @@ GraphParseResult graphFromJson(const json& j, Graph& out) {
 
     for (auto it = j.begin(); it != j.end(); ++it) {
         const std::string& k = it.key();
-        if (k != "schema" && k != "seed" && k != "nodes" && k != "links" && k != "layout" && k != "exposed") g.extra[k] = it.value();
+        if (k != "schema" && k != "seed" && k != "nodes" && k != "links" && k != "layout" && k != "exposed" && k != "groups") g.extra[k] = it.value();
     }
 
     auto seed = j.find("seed");  // optional: files written before Phase 4 have none (= 0)
@@ -153,6 +178,43 @@ GraphParseResult graphFromJson(const json& j, Graph& out) {
             if (from == lj.end() || to == lj.end() || !readEndpoint(*from, l.from) || !readEndpoint(*to, l.to))
                 return fail("graph: link needs valid 'from' and 'to' endpoints");
             g.links.push_back(std::move(l));
+        }
+    }
+
+    auto groups = j.find("groups");
+    if (groups != j.end()) {
+        if (!groups->is_array()) return fail("graph: 'groups' must be an array");
+        auto readSockets = [](const json& list, std::vector<GroupSocket>& out) {
+            if (!list.is_array()) return false;
+            for (const json& sj : list) {
+                auto id = sj.is_object() ? sj.find("id") : sj.end();
+                auto type = sj.is_object() ? sj.find("type") : sj.end();
+                GroupSocket s;
+                if (!sj.is_object() || id == sj.end() || type == sj.end() || !id->is_string() || !type->is_string() ||
+                    !socketTypeFromString(type->get<std::string>(), s.type))
+                    return false;
+                s.id = id->get<std::string>();
+                s.name = sj.value("name", s.id);
+                auto def = sj.find("default");
+                if (def != sj.end()) s.defaultValue = *def;
+                out.push_back(std::move(s));
+            }
+            return true;
+        };
+        for (const json& gj : *groups) {
+            auto name = gj.is_object() ? gj.find("name") : gj.end();
+            auto inner = gj.is_object() ? gj.find("graph") : gj.end();
+            GroupDef d;
+            if (!gj.is_object() || name == gj.end() || !name->is_string() || inner == gj.end() ||
+                !readSockets(gj.value("inputs", json::array()), d.inputs) || !readSockets(gj.value("outputs", json::array()), d.outputs))
+                return fail("graph: a group needs a 'name', valid 'inputs' / 'outputs' and a 'graph'");
+            d.name = name->get<std::string>();
+            Graph innerGraph;
+            if (inner->is_object() && inner->contains("groups")) return fail("graph: group '" + d.name + "' contains a nested group library");
+            const GraphParseResult r = graphFromJson(*inner, innerGraph);
+            if (!r.ok) return fail("graph: group '" + d.name + "': " + r.error);
+            d.graph = std::make_shared<const Graph>(std::move(innerGraph));
+            g.groups.push_back(std::move(d));
         }
     }
 

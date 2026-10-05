@@ -74,6 +74,27 @@ struct NodeLayout {
     double y = 0.0;
 };
 
+struct Graph;
+
+// Node groups (docs/todo/PLAN_geometry_node.md Phase 6). A group is a named sub-graph with an explicit interface; a
+// "Group:<name>" node in the graph evaluates it like a function. The definition is plain data stored in the owning
+// Graph's library (Graph::groups) and is immutable once made: the inner graph's GroupInput node provides the interface
+// inputs as outputs, its GroupOutput node collects the interface outputs, and its Group nodes refer to the same
+// (flat) library by name. See GraphGroup.h.
+struct GroupSocket {
+    std::string id;    // socket id on the Group node and on GroupInput / GroupOutput (letters, digits, underscore)
+    std::string name;  // display name
+    SocketType type = SocketType::Geometry;
+    nlohmann::json defaultValue;  // value types only; null = the type's zero value
+};
+
+struct GroupDef {
+    std::string name;
+    std::vector<GroupSocket> inputs;
+    std::vector<GroupSocket> outputs;
+    std::shared_ptr<const Graph> graph;  // never null in a valid definition
+};
+
 // A public parameter: a name that stands for one unlinked input socket of one node, so a graph used as a
 // reusable asset can be driven (overridden) per object without editing its structure. See GraphAsset.h.
 struct ExposedParam {
@@ -89,6 +110,7 @@ struct Graph {
     std::vector<Node> nodes;
     std::vector<Link> links;                 // order = order of multi-input sockets
     std::vector<ExposedParam> exposed;       // public parameters (see GraphAsset.h)
+    std::vector<GroupDef> groups;            // node group library (see GraphGroup.h)
     std::map<NodeId, NodeLayout> layout;     // editor only; not part of any cache key
     nlohmann::json extra = nlohmann::json::object();  // unknown root keys, preserved
 

@@ -192,6 +192,7 @@ function(phantom_add_geometrynode_core)
         ${CGLIB_ROOT}/GeometryNode/GeometryNode/GeometryOps.cpp
         ${CGLIB_ROOT}/GeometryNode/GeometryNode/TerrainOps.cpp
         ${CGLIB_ROOT}/GeometryNode/GeometryNode/GraphAsset.cpp
+        ${CGLIB_ROOT}/GeometryNode/GeometryNode/GraphGroup.cpp
         ${CGLIB_ROOT}/GeometryNode/GeometryNode/GraphTypes.cpp
         ${CGLIB_ROOT}/GeometryNode/GeometryNode/NodeRegistry.cpp
         ${CGLIB_ROOT}/GeometryNode/GeometryNode/GraphEvaluator.cpp
