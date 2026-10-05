@@ -62,6 +62,18 @@ json graphToJson(const Graph& graph) {
     }
     root["links"] = std::move(links);
 
+    if (!graph.exposed.empty()) {
+        json exposed = json::array();
+        for (const ExposedParam& e : graph.exposed) {
+            json j = json::object();
+            j["name"] = e.name;
+            j["node"] = e.node;
+            j["socket"] = e.socket;
+            exposed.push_back(std::move(j));
+        }
+        root["exposed"] = std::move(exposed);
+    }
+
     json layoutNodes = json::object();
     for (const auto& [id, p] : graph.layout) {
         json j = json::object();
@@ -90,7 +102,7 @@ GraphParseResult graphFromJson(const json& j, Graph& out) {
 
     for (auto it = j.begin(); it != j.end(); ++it) {
         const std::string& k = it.key();
-        if (k != "schema" && k != "seed" && k != "nodes" && k != "links" && k != "layout") g.extra[k] = it.value();
+        if (k != "schema" && k != "seed" && k != "nodes" && k != "links" && k != "layout" && k != "exposed") g.extra[k] = it.value();
     }
 
     auto seed = j.find("seed");  // optional: files written before Phase 4 have none (= 0)
@@ -141,6 +153,20 @@ GraphParseResult graphFromJson(const json& j, Graph& out) {
             if (from == lj.end() || to == lj.end() || !readEndpoint(*from, l.from) || !readEndpoint(*to, l.to))
                 return fail("graph: link needs valid 'from' and 'to' endpoints");
             g.links.push_back(std::move(l));
+        }
+    }
+
+    auto exposed = j.find("exposed");
+    if (exposed != j.end()) {
+        if (!exposed->is_array()) return fail("graph: 'exposed' must be an array");
+        for (const json& ej : *exposed) {
+            auto name = ej.is_object() ? ej.find("name") : ej.end();
+            auto node = ej.is_object() ? ej.find("node") : ej.end();
+            auto socket = ej.is_object() ? ej.find("socket") : ej.end();
+            if (!ej.is_object() || name == ej.end() || node == ej.end() || socket == ej.end() || !name->is_string() ||
+                !node->is_number_unsigned() || !socket->is_string())
+                return fail("graph: 'exposed' entries need string 'name', numeric 'node' and string 'socket'");
+            g.exposed.push_back(ExposedParam{name->get<std::string>(), node->get<uint64_t>(), socket->get<std::string>()});
         }
     }
 

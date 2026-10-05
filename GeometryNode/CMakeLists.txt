@@ -44,6 +44,7 @@ if(PHANTOM_GTEST_FOUND)
         ${GEOMETRYNODE_ROOT}/GeometryNodeTest/FieldTest.cpp
         ${GEOMETRYNODE_ROOT}/GeometryNodeTest/InstanceTest.cpp
         ${GEOMETRYNODE_ROOT}/GeometryNodeTest/TerrainNodeTest.cpp
+        ${GEOMETRYNODE_ROOT}/GeometryNodeTest/GraphAssetTest.cpp
     )
     target_include_directories(GeometryNodeTest PRIVATE
         ${REPO_ROOT}

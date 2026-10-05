@@ -74,12 +74,21 @@ struct NodeLayout {
     double y = 0.0;
 };
 
+// A public parameter: a name that stands for one unlinked input socket of one node, so a graph used as a
+// reusable asset can be driven (overridden) per object without editing its structure. See GraphAsset.h.
+struct ExposedParam {
+    std::string name;
+    NodeId node = 0;
+    std::string socket;
+};
+
 struct Graph {
     uint32_t schema = kGraphSchemaVersion;
     // Context seed of every random field (see Field.h). Saved with the graph so results reproduce.
     uint32_t seed = 0;
     std::vector<Node> nodes;
     std::vector<Link> links;                 // order = order of multi-input sockets
+    std::vector<ExposedParam> exposed;       // public parameters (see GraphAsset.h)
     std::map<NodeId, NodeLayout> layout;     // editor only; not part of any cache key
     nlohmann::json extra = nlohmann::json::object();  // unknown root keys, preserved
 
