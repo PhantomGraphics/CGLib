@@ -45,6 +45,16 @@ struct VulkanImage {
                        VkImage& image, VkDeviceMemory& memory,
                        uint32_t mipLevels = 1);
 
+    /// @brief createFromPixelsRGBA8() for any uncompressed color @p format whose texel is
+    ///        @p bytesPerPixel bytes (e.g. VK_FORMAT_R8G8_SNORM with 2). The mip chain, when requested,
+    ///        needs the format to support linear blits on this device; otherwise one level is made.
+    static bool createFromPixels(const VulkanContext& ctx, const VulkanCommandPool& pool,
+                                 const uint8_t* pixels, uint32_t bytesPerPixel,
+                                 uint32_t width, uint32_t height, VkFormat format,
+                                 bool generateMips,
+                                 VkImage& image, VkDeviceMemory& memory, VkImageView& view,
+                                 uint32_t* outMipLevels = nullptr);
+
     /// @brief Uploads six square RGBA8 faces into a new device-local cube image (single mip level,
     ///        VK_IMAGE_VIEW_TYPE_CUBE view, left in SHADER_READ_ONLY_OPTIMAL).
     ///

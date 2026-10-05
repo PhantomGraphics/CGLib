@@ -95,3 +95,20 @@ TEST_F(VulkanImageTest, CreateCubeFromFacesRGBA8RejectsBadInput) {
     EXPECT_FALSE(VulkanImage::createCubeFromFacesRGBA8(ctx_, pool_, px, 0, image, memory, view));
     EXPECT_EQ(view, VK_NULL_HANDLE);
 }
+
+TEST_F(VulkanImageTest, CreateFromPixelsTwoChannelSnorm) {
+    std::vector<uint8_t> texels(4u * 4u * 2u, 64);
+    VkImage image = VK_NULL_HANDLE;
+    VkDeviceMemory memory = VK_NULL_HANDLE;
+    VkImageView view = VK_NULL_HANDLE;
+    uint32_t mips = 0;
+    ASSERT_TRUE(VulkanImage::createFromPixels(ctx_, pool_, texels.data(), 2, 4, 4,
+                                              VK_FORMAT_R8G8_SNORM, false, image, memory, view, &mips));
+    EXPECT_EQ(mips, 1u);
+    EXPECT_NE(view, VK_NULL_HANDLE);
+    destroyUploaded(ctx_, image, memory, view);
+
+    EXPECT_FALSE(VulkanImage::createFromPixels(ctx_, pool_, texels.data(), 0, 4, 4,
+                                               VK_FORMAT_R8G8_SNORM, false, image, memory, view));
+    EXPECT_EQ(image, VK_NULL_HANDLE);
+}

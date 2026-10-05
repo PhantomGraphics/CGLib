@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
 #include <random>
 #include <vector>
@@ -58,76 +59,13 @@ void SSAOEffect::createKernelAndNoise(const Phantom::VKG::VulkanCommandPool& poo
     VkDevice device = ctx_->getDevice();
     constexpr VkFormat kNoiseFormat = VK_FORMAT_R8G8_SNORM;
 
-    Phantom::VKG::VulkanImage::create(*ctx_, kNoiseDim, kNoiseDim, kNoiseFormat,
-                                      VK_IMAGE_TILING_OPTIMAL,
-                                      VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
-                                      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-                                      noiseImage_, noiseMemory_);
-    noiseView_ = Phantom::VKG::VulkanImage::createView(device, noiseImage_, kNoiseFormat, VK_IMAGE_ASPECT_COLOR_BIT);
+    // Upload through the shared helper: on failure it leaves null handles and nothing allocated,
+    // and the effect simply has no noise texture (the descriptor write below sees a null view).
+    if (!Phantom::VKG::VulkanImage::createFromPixels(*ctx_, pool,
+            reinterpret_cast<const uint8_t*>(snormPixels.data()), 2, kNoiseDim, kNoiseDim, kNoiseFormat, false,
+            noiseImage_, noiseMemory_, noiseView_))
+        std::fprintf(stderr, "[SSAOEffect] noise texture upload failed\n");
     noiseSampler_.create(device, VK_FILTER_NEAREST, VK_SAMPLER_ADDRESS_MODE_REPEAT);
-
-    // --- Upload via staging buffer + one-shot transfer (same recipe as
-    // GltfSceneRenderer::createFallbackCube) ---
-    VkDeviceSize dataSize = static_cast<VkDeviceSize>(snormPixels.size());
-
-    VkBuffer stageBuf; VkDeviceMemory stageMem;
-    VkBufferCreateInfo bi{};
-    bi.sType       = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    bi.size        = dataSize;
-    bi.usage       = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-    bi.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    vkCreateBuffer(device, &bi, nullptr, &stageBuf);
-
-    VkMemoryRequirements mr;
-    vkGetBufferMemoryRequirements(device, stageBuf, &mr);
-    auto memType = ctx_->findMemoryType(mr.memoryTypeBits,
-                                        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                                        VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-    assert(memType.has_value());
-
-    VkMemoryAllocateInfo ai{};
-    ai.sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    ai.allocationSize  = mr.size;
-    ai.memoryTypeIndex = memType.value_or(0);
-    vkAllocateMemory(device, &ai, nullptr, &stageMem);
-    vkBindBufferMemory(device, stageBuf, stageMem, 0);
-
-    void* mapped = nullptr;
-    vkMapMemory(device, stageMem, 0, dataSize, 0, &mapped);
-    std::memcpy(mapped, snormPixels.data(), static_cast<size_t>(dataSize));
-    vkUnmapMemory(device, stageMem);
-
-    VkCommandBuffer cmd = pool.beginSingleTimeCommands();
-
-    VkImageMemoryBarrier barrier{};
-    barrier.sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    barrier.oldLayout           = VK_IMAGE_LAYOUT_UNDEFINED;
-    barrier.newLayout           = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.image               = noiseImage_;
-    barrier.subresourceRange    = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
-    barrier.dstAccessMask       = VK_ACCESS_TRANSFER_WRITE_BIT;
-    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
-                        0, 0, nullptr, 0, nullptr, 1, &barrier);
-
-    VkBufferImageCopy copy{};
-    copy.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    copy.imageSubresource.layerCount = 1;
-    copy.imageExtent                 = { kNoiseDim, kNoiseDim, 1 };
-    vkCmdCopyBufferToImage(cmd, stageBuf, noiseImage_, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy);
-
-    barrier.oldLayout     = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-    barrier.newLayout     = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-                        0, 0, nullptr, 0, nullptr, 1, &barrier);
-
-    pool.endSingleTimeCommands(cmd);
-
-    vkDestroyBuffer(device, stageBuf, nullptr);
-    vkFreeMemory(device, stageMem, nullptr);
 }
 
 void SSAOEffect::init(const PostEffectContext& ctx, VkImageView inputView, VkSampler inputSampler)
