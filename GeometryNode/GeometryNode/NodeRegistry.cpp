@@ -185,6 +185,44 @@ NodeRegistry makeBuiltin() {
     }
     {
         NodeDefinition d;
+        d.typeId = "Terrain";
+        d.displayName = "Terrain";
+        d.category = "Mesh Primitives";
+        d.description = "Height-field terrain on XZ (+Y up, centred): seeded gradient-noise fBm, normalised by the "
+                        "amplitude sum so Height Scale keeps its meaning. Reproduces the former Terrain generator v1.";
+        d.inputs = {sock("Width", "Width", SocketType::Float, 10.0f, "X extent (> 0)."),
+                    sock("Depth", "Depth", SocketType::Float, 10.0f, "Z extent (> 0)."),
+                    sock("SegmentsX", "Segments X", SocketType::Int, int32_t(128), "Quad columns (1..4096)."),
+                    sock("SegmentsZ", "Segments Z", SocketType::Int, int32_t(128), "Quad rows (1..4096)."),
+                    sock("HeightScale", "Height Scale", SocketType::Float, 2.0f, "fBm amplitude (>= 0)."),
+                    sock("Frequency", "Frequency", SocketType::Float, 0.15f, "Base spatial frequency (> 0)."),
+                    sock("Octaves", "Octaves", SocketType::Int, int32_t(5), "fBm octaves (1..12)."),
+                    sock("Lacunarity", "Lacunarity", SocketType::Float, 2.0f, "Per-octave frequency multiplier (> 1)."),
+                    sock("Persistence", "Persistence", SocketType::Float, 0.5f, "Per-octave amplitude multiplier (0..1)."),
+                    sock("Seed", "Seed", SocketType::Int, int32_t(0), "Noise permutation seed (a 32-bit seed is stored as its int32 bit pattern)."),
+                    sock("HeightOffset", "Height Offset", SocketType::Float, 0.0f, "Added to every height.")};
+        d.outputs = {sock("Geometry", "Geometry", SocketType::Geometry)};
+        d.evaluate = [](NodeEvalContext& c) {
+            TerrainParams p;
+            p.width = c.getFloat("Width");
+            p.depth = c.getFloat("Depth");
+            p.segmentsX = c.getInt("SegmentsX");
+            p.segmentsZ = c.getInt("SegmentsZ");
+            p.heightScale = c.getFloat("HeightScale");
+            p.frequency = c.getFloat("Frequency");
+            p.octaves = c.getInt("Octaves");
+            p.lacunarity = c.getFloat("Lacunarity");
+            p.persistence = c.getFloat("Persistence");
+            p.seed = c.getInt("Seed");
+            p.heightOffset = c.getFloat("HeightOffset");
+            Mesh m;
+            if (!check(c, makeTerrain(p, c.limits(), m), "Terrain")) return;
+            c.setOutput("Geometry", GeometryPtr(std::make_shared<const Mesh>(std::move(m))));
+        };
+        r.add(std::move(d));
+    }
+    {
+        NodeDefinition d;
         d.typeId = "TransformGeometry";
         d.displayName = "Transform Geometry";
         d.category = "Geometry";
