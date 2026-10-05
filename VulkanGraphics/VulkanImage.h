@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vulkan/vulkan.h>
+#include <cstdint>
 
 namespace Phantom::VKG {
 
@@ -51,6 +52,22 @@ struct VulkanImage {
     static bool createZeroArrayTexture(const VulkanContext& ctx, const VulkanCommandPool& pool,
                                        VkFormat format, VkImage& image, VkDeviceMemory& memory,
                                        VkImageView& view);
+
+    /// @brief Uploads tightly packed RGBA8 pixels into a new device-local 2D image
+    ///        (VK_FORMAT_R8G8B8A8_UNORM, left in SHADER_READ_ONLY_OPTIMAL) with a full-image view.
+    ///
+    /// Blocks until the upload completes. With @p generateMips a full mip chain is built by
+    /// vkCmdBlitImage (box-filtered); if the format cannot be linearly blitted on this device a
+    /// single level is created instead. On failure every partially created object is released and
+    /// all outputs are left VK_NULL_HANDLE, so the caller never has to clean up after a false return.
+    /// The caller owns the outputs on success (destroy view, image, then free memory).
+    /// @param outMipLevels [out, optional] Level count actually created (for a sampler's maxLod).
+    /// @return false on failure.
+    static bool createFromPixelsRGBA8(const VulkanContext& ctx, const VulkanCommandPool& pool,
+                                      const uint8_t* pixels, uint32_t width, uint32_t height,
+                                      bool generateMips,
+                                      VkImage& image, VkDeviceMemory& memory, VkImageView& view,
+                                      uint32_t* outMipLevels = nullptr);
 };
 
 } // namespace VKG
