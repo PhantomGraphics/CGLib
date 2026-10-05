@@ -91,14 +91,24 @@ bool VulkanImage::createFromPixelsRGBA8(const VulkanContext& ctx, const VulkanCo
                                         VkImage& image, VkDeviceMemory& memory, VkImageView& view,
                                         uint32_t* outMipLevels)
 {
+    return createFromPixels(ctx, pool, pixels, 4, width, height, VK_FORMAT_R8G8B8A8_UNORM, generateMips,
+                            image, memory, view, outMipLevels);
+}
+
+bool VulkanImage::createFromPixels(const VulkanContext& ctx, const VulkanCommandPool& pool,
+                                   const uint8_t* pixels, uint32_t bytesPerPixel,
+                                   uint32_t width, uint32_t height, VkFormat format,
+                                   bool generateMips,
+                                   VkImage& image, VkDeviceMemory& memory, VkImageView& view,
+                                   uint32_t* outMipLevels)
+{
     image = VK_NULL_HANDLE;
     memory = VK_NULL_HANDLE;
     view = VK_NULL_HANDLE;
     if (outMipLevels) *outMipLevels = 1;
-    if (!pixels || width == 0 || height == 0) return false;
+    if (!pixels || width == 0 || height == 0 || bytesPerPixel == 0) return false;
 
-    const VkFormat format = VK_FORMAT_R8G8B8A8_UNORM;
-    const VkDeviceSize imageSize = static_cast<VkDeviceSize>(width) * height * 4;
+    const VkDeviceSize imageSize = static_cast<VkDeviceSize>(width) * height * bytesPerPixel;
 
     uint32_t mipLevels = 1;
     if (generateMips) {
