@@ -145,6 +145,14 @@ void VkPointRenderer::upload(const VulkanContext& ctx,
     }
 }
 
+void VkPointRenderer::updateMVP(uint32_t frameIndex, const glm::mat4& mvp)
+{
+    if (frameIndex < uniformBuffers_.size()) {
+        UBOData ubo{ mvp };
+        uniformBuffers_[frameIndex].write(&ubo, sizeof(ubo));
+    }
+}
+
 // -----------------------------------------------------------------
 //  render
 // -----------------------------------------------------------------

@@ -54,8 +54,7 @@ private:
     VkImageView    imageView_ = VK_NULL_HANDLE;
     VkSampler      sampler_   = VK_NULL_HANDLE;
 
-    bool createImage(const VulkanContext& ctx, uint32_t size);
-    bool createViewAndSampler(VkDevice device);
+    bool createSampler(VkDevice device);
 };
 
 } // namespace VKG

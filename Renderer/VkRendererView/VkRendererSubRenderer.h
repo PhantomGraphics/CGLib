@@ -99,6 +99,7 @@ private:
     VkImageView externalCubeMapView_ = VK_NULL_HANDLE;
     VkSampler externalCubeMapSampler_ = VK_NULL_HANDLE;
 
+    void uploadSampleGeometry(); // uploads the point/triangle samples once (see onInit)
     void uploadSamplePoint();
     void uploadSampleLine();
     void uploadSampleTriangle();
