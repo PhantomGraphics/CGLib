@@ -12,9 +12,9 @@ if(MSVC)
     add_compile_options(/utf-8 /EHsc)
 endif()
 
-find_package(CGLib CONFIG REQUIRED COMPONENTS Math Graphics Numerics Space Scene Volume File Animation Terrain Asset SceneRuntime)
+find_package(CGLib CONFIG REQUIRED COMPONENTS Math Graphics Numerics Space Scene Volume File Animation GeometryNode Asset SceneRuntime)
 
 add_executable(cglib_install_consumer main.cpp)
 target_link_libraries(cglib_install_consumer PRIVATE
     CGLib::Math CGLib::Numerics CGLib::Space CGLib::Volume CGLib::File
-    CGLib::Animation CGLib::Terrain CGLib::SceneRuntime CGLib::Scene)
+    CGLib::Animation CGLib::GeometryNode CGLib::SceneRuntime CGLib::Scene)

@@ -108,7 +108,7 @@ add_library(PugixmlCore STATIC ${CGLIB_ROOT}/ThirdParty/pugixml/pugixml.cpp)
 target_include_directories(PugixmlCore PUBLIC ${CGLIB_ROOT}/ThirdParty/pugixml)
 target_compile_options(PugixmlCore PRIVATE ${PHANTOM_WARN_FLAGS})
 
-# Numerics / Scene / File / Animation / Volume / Space / Terrain / GeometryNode / AssetCore / SceneRuntime
+# Numerics / Scene / File / Animation / Volume / Space / GeometryNode / AssetCore / SceneRuntime
 # each own a CMakeLists.txt (also usable standalone). Their *Core builders are idempotent,
 # their *Test targets register with CTest.
 add_subdirectory(Numerics)
@@ -117,7 +117,6 @@ add_subdirectory(File)
 add_subdirectory(Animation)
 add_subdirectory(Volume)
 add_subdirectory(Space)
-add_subdirectory(Terrain)
 add_subdirectory(GeometryNode)
 add_subdirectory(AssetCore)
 add_subdirectory(SceneRuntime)
@@ -207,7 +206,7 @@ phantom_use_pch_headers(SceneRuntimeCore ${PHANTOM_PCH_STL} "${CGLIB_ROOT}/Third
 set(CGLIB_ALIAS_MAP
     Math=MathCore  Graphics=GraphicsCore  Numerics=NumericsCore  Space=SpaceCore
     Scene=SceneCore  Volume=VolumeCore  File=FileCore  Animation=AnimationCore
-    Terrain=TerrainCore  GeometryNode=GeometryNodeCore  Asset=AssetCore  SceneRuntime=SceneRuntimeCore
+    GeometryNode=GeometryNodeCore  Asset=AssetCore  SceneRuntime=SceneRuntimeCore
     Pugixml=PugixmlCore
     VulkanGraphics=VulkanGraphicsCore  UI=UIWidgetsCore  VkAppBase=VkAppBaseCore
     VkRenderer=VkRendererCore  GltfRenderer=GltfRendererCore  VolumeRenderer=VolumeRenderer

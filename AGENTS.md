@@ -45,7 +45,7 @@ MSVC ランタイムは Debug `/MDd`、その他 `/MD`。オフラインでは
 （`<build>/_cglib_headers/`）で解決される（ソースは無改変）。
 
 主なターゲット: `MathCore`, `MathTest`, `GraphicsCore`, `GraphicsTest`, `NumericsCore`,
-`SpaceCore`, `SceneCore`, `FileCore`, `AnimationCore`, `VolumeCore`, `TerrainCore`,
+`SpaceCore`, `SceneCore`, `FileCore`, `AnimationCore`, `VolumeCore`,
 `AssetCore`, `AssetCoreTest`, `PugixmlCore`, `VulkanGraphicsCore`, `VulkanGraphicsTest`,
 `UIWidgetsCore`。`AssetCore`（`Phantom::Asset` -- project-relative asset id/URI/manifest、
 Vulkan/Math 非依存）は `docs/spec/phantom_asset_manifest.md` を参照。

@@ -29,8 +29,6 @@ include(PhantomGTest)
 include(PhantomCoreLibs)
 
 phantom_add_geometrynode_core()
-# Temporary: TerrainNodeTest compares the Terrain node with the legacy generator it replaces (docs/todo/PLAN_geometry_node.md section 9).
-phantom_add_terrain_core()
 
 # --- GeometryNodeTest (GoogleTest) ---
 
@@ -53,7 +51,6 @@ if(PHANTOM_GTEST_FOUND)
     )
     target_link_libraries(GeometryNodeTest PRIVATE
         GeometryNodeCore
-        TerrainCore
         GTest::gtest
         GTest::gtest_main
     )

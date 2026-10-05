@@ -4,8 +4,8 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <vector>
 
-#include "../../Terrain/Terrain/TerrainGenerator.h"  // legacy generator, compared until it is deleted
 #include "../GeometryNode/GeometryOps.h"
 #include "../GeometryNode/GraphEvaluator.h"
 
@@ -31,65 +31,42 @@ uint64_t digest(const Mesh& m) {
     return h;
 }
 
-Phantom::Terrain::TerrainSettings legacy(const TerrainParams& p) {
-    Phantom::Terrain::TerrainSettings s;
-    s.width = p.width;
-    s.depth = p.depth;
-    s.segmentsX = static_cast<uint32_t>(p.segmentsX);
-    s.segmentsZ = static_cast<uint32_t>(p.segmentsZ);
-    s.heightScale = p.heightScale;
-    s.frequency = p.frequency;
-    s.octaves = static_cast<uint32_t>(p.octaves);
-    s.lacunarity = p.lacunarity;
-    s.persistence = p.persistence;
-    s.seed = static_cast<uint32_t>(p.seed);
-    s.heightOffset = p.heightOffset;
-    return s;
-}
+// Parameter sets that were compared bit-for-bit against the former Phantom::Terrain generator (generatorVersion 1)
+// before it was deleted; their digests are the frozen reference now.
+struct LegacyCase {
+    const char* name;
+    TerrainParams params;
+    uint64_t digest;  // MSVC bit pattern
+};
 
-bool sameAsLegacy(const TerrainParams& p) {
-    Mesh m;
-    if (makeTerrain(p, Limits{}, m) != OpStatus::Ok) return false;
-    Phantom::Terrain::TerrainMesh t;
-    if (Phantom::Terrain::generate(legacy(p), t) != Phantom::Terrain::TerrainError::None) return false;
-    if (m.positions.size() != t.vertices.size() || m.indices != t.indices) return false;
-    for (size_t i = 0; i < t.vertices.size(); ++i) {
-        const auto& v = t.vertices[i];
-        if (std::memcmp(&m.positions[i], v.position, sizeof(float) * 3) != 0) return false;
-        if (std::memcmp(&m.normals[i], v.normal, sizeof(float) * 3) != 0) return false;
-        if (std::memcmp(&m.uvs[i], v.uv, sizeof(float) * 2) != 0) return false;
-    }
-    return true;
+std::vector<LegacyCase> legacyCases() {
+    std::vector<LegacyCase> cases;
+    TerrainParams p;
+    cases.push_back({"defaults", p, 5192843624707731235ull});
+    p.seed = 12345; p.segmentsX = 37; p.segmentsZ = 53; p.width = 25.5f; p.depth = 7.25f;
+    cases.push_back({"odd grid", p, 14392506333757915474ull});
+    p = TerrainParams{};
+    p.octaves = 12; p.lacunarity = 2.7f; p.persistence = 0.8f; p.frequency = 0.5f; p.heightScale = 9.0f; p.heightOffset = -3.5f;
+    cases.push_back({"12 octaves", p, 11468247552074274650ull});
+    p = TerrainParams{};
+    p.seed = static_cast<int32_t>(0xDEADBEEFu); p.octaves = 1; p.persistence = 0.0f;  // 32-bit seeds survive as their int32 bit pattern
+    cases.push_back({"big seed", p, 6555976045359306570ull});
+    p = TerrainParams{};
+    p.segmentsX = 1; p.segmentsZ = 1;
+    cases.push_back({"single quad", p, 13616270680078957128ull});
+    return cases;
 }
 
 }  // namespace
 
-TEST(TerrainNode, MatchesTheLegacyGeneratorBitForBit) {
-    TerrainParams p;
-    EXPECT_TRUE(sameAsLegacy(p));
-    p.seed = 12345;
-    p.segmentsX = 37;
-    p.segmentsZ = 53;
-    p.width = 25.5f;
-    p.depth = 7.25f;
-    EXPECT_TRUE(sameAsLegacy(p));
-    p = TerrainParams{};
-    p.octaves = 12;
-    p.lacunarity = 2.7f;
-    p.persistence = 0.8f;
-    p.frequency = 0.5f;
-    p.heightScale = 9.0f;
-    p.heightOffset = -3.5f;
-    EXPECT_TRUE(sameAsLegacy(p));
-    p = TerrainParams{};
-    p.seed = static_cast<int32_t>(0xDEADBEEFu);  // 32-bit seeds survive as their int32 bit pattern
-    p.octaves = 1;
-    p.persistence = 0.0f;
-    EXPECT_TRUE(sameAsLegacy(p));
-    p = TerrainParams{};
-    p.segmentsX = 1;
-    p.segmentsZ = 1;
-    EXPECT_TRUE(sameAsLegacy(p));
+TEST(TerrainNode, MatchesTheFormerGeneratorDigests) {
+    for (const LegacyCase& c : legacyCases()) {
+        Mesh m;
+        ASSERT_EQ(makeTerrain(c.params, Limits{}, m), OpStatus::Ok) << c.name;
+#if defined(_WIN32)
+        EXPECT_EQ(digest(m), c.digest) << c.name;
+#endif
+    }
 }
 
 TEST(TerrainNode, GoldenDigestIsFrozen) {
