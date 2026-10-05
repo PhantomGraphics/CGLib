@@ -12,7 +12,14 @@ if(MSVC)
     add_compile_options(/utf-8 /EHsc)
 endif()
 
-find_package(CGLib CONFIG REQUIRED COMPONENTS Math Graphics Numerics Space Scene Volume File Animation GeometryNode Asset SceneRuntime)
+# -DCGLIB_CONSUMER_VULKAN=ON additionally requests the VulkanGraphics component (needs the
+# Vulkan headers; the package config find_dependency()s Vulkan itself).
+option(CGLIB_CONSUMER_VULKAN "Also consume CGLib::VulkanGraphics" OFF)
+set(_vk_components "")
+if(CGLIB_CONSUMER_VULKAN)
+    set(_vk_components VulkanGraphics)
+endif()
+find_package(CGLib CONFIG REQUIRED COMPONENTS Math Graphics Numerics Space Scene Volume File Animation GeometryNode Asset SceneRuntime ${_vk_components})
 
 add_executable(cglib_install_consumer main.cpp)
 target_link_libraries(cglib_install_consumer PRIVATE
@@ -31,6 +38,9 @@ foreach(_h IN LISTS _cglib_pkg_headers)
     if(_h MATCHES "ThirdParty/")
         continue()
     endif()
+    if(_h MATCHES "^VulkanGraphics/" AND NOT CGLIB_CONSUMER_VULKAN)
+        continue()
+    endif()
     string(MAKE_C_IDENTIFIER "${_h}" _id)
     set(_tu "${CMAKE_CURRENT_BINARY_DIR}/header_check/${_id}.cpp")
     file(GENERATE OUTPUT "${_tu}" CONTENT "#include \"CGLib/${_h}\"\n")
@@ -40,3 +50,6 @@ add_library(cglib_header_check OBJECT ${_hdr_tus})
 target_link_libraries(cglib_header_check PRIVATE
     CGLib::Math CGLib::Graphics CGLib::Numerics CGLib::Space CGLib::Volume CGLib::File
     CGLib::Animation CGLib::GeometryNode CGLib::SceneRuntime CGLib::Scene CGLib::Asset)
+if(CGLIB_CONSUMER_VULKAN)
+    target_link_libraries(cglib_header_check PRIVATE CGLib::VulkanGraphics)
+endif()
