@@ -41,6 +41,7 @@ if(PHANTOM_GTEST_FOUND)
         ${GEOMETRYNODE_ROOT}/GeometryNodeTest/GeometryOpsTest.cpp
         ${GEOMETRYNODE_ROOT}/GeometryNodeTest/GraphEvaluatorTest.cpp
         ${GEOMETRYNODE_ROOT}/GeometryNodeTest/GraphJsonTest.cpp
+        ${GEOMETRYNODE_ROOT}/GeometryNodeTest/FieldTest.cpp
     )
     target_include_directories(GeometryNodeTest PRIVATE
         ${REPO_ROOT}
