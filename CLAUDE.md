@@ -50,7 +50,7 @@ MSVC ランタイムは Debug `/MDd`、その他 `/MD`。オフラインでは
 （`<build>/_cglib_headers/`）で解決される（ソースは無改変）。
 
 主なターゲット: `MathCore`, `MathTest`, `GraphicsCore`, `GraphicsTest`, `NumericsCore`,
-`SpaceCore`, `SceneCore`, `FileCore`, `AnimationCore`, `VolumeCore`, `TerrainCore`,
+`SpaceCore`, `SceneCore`, `FileCore`, `AnimationCore`, `VolumeCore`,
 `GeometryNodeCore`（`Phantom::GeometryNode` -- ノードグラフの CPU 評価、Field/属性 domain/seed 契約を含む、`docs/todo/PLAN_geometry_node.md`）, `GeometryNodeTest`,
 `AssetCore`, `AssetCoreTest`, `SceneRuntimeCore`, `SceneRuntimeTest`, `PugixmlCore`,
 `VulkanGraphicsCore`, `VulkanGraphicsTest`, `UIWidgetsCore`。`AssetCore`（`Phantom::Asset` --

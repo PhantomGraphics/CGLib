@@ -5,7 +5,7 @@
 #include "CGLib/Volume/Volume/Volume.h"
 #include "CGLib/File/File/OBJFileReader.h"
 #include "CGLib/Animation/Animation/Animator.h"
-#include "CGLib/Terrain/Terrain/TerrainGenerator.h"
+#include "CGLib/GeometryNode/GeometryNode/GeometryOps.h"
 #include "CGLib/Scene/Scene/SceneBase.h"
 #include "CGLib/SceneRuntime/SceneRuntime/SceneGraph.h"
 
@@ -31,8 +31,8 @@ int main()
     Phantom::File::OBJFileReader reader;
     check(reader.read(obj) && reader.getOBJ().positions.size() == 3, "File");
 
-    Phantom::Terrain::TerrainSettings terrain;
-    check(Phantom::Terrain::validate(terrain) == Phantom::Terrain::TerrainError::None, "Terrain");
+    Phantom::GeometryNode::Mesh terrain;
+    check(Phantom::GeometryNode::makeTerrain(Phantom::GeometryNode::TerrainParams{}, Phantom::GeometryNode::Limits{}, terrain) == Phantom::GeometryNode::OpStatus::Ok, "GeometryNode terrain");
 
     Phantom::SceneRuntime::SceneGraph graph;
     check(graph.size() == 0, "SceneRuntime (nlohmann bundled)");
