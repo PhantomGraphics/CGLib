@@ -112,3 +112,15 @@ TEST_F(VulkanImageTest, CreateFromPixelsTwoChannelSnorm) {
                                                VK_FORMAT_R8G8_SNORM, false, image, memory, view));
     EXPECT_EQ(image, VK_NULL_HANDLE);
 }
+
+TEST_F(VulkanImageTest, CreateCubeFromFacesFloatFormat) {
+    std::vector<float> faces(6u * 1u * 1u * 4u, 0.25f);
+    VkImage image = VK_NULL_HANDLE;
+    VkDeviceMemory memory = VK_NULL_HANDLE;
+    VkImageView view = VK_NULL_HANDLE;
+    ASSERT_TRUE(VulkanImage::createCubeFromFaces(ctx_, pool_, reinterpret_cast<const uint8_t*>(faces.data()),
+                                                 4 * sizeof(float), 1, VK_FORMAT_R32G32B32A32_SFLOAT,
+                                                 image, memory, view));
+    EXPECT_NE(view, VK_NULL_HANDLE);
+    destroyUploaded(ctx_, image, memory, view);
+}

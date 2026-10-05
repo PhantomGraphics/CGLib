@@ -24,115 +24,15 @@ bool GltfEnvironmentCubemap::create(const Phantom::VKG::VulkanContext& ctx, cons
 {
     VkDevice device = ctx.getDevice();
     const VkDeviceSize pixBytes = kSize * kSize * 4 * sizeof(float);
-    const VkDeviceSize total    = pixBytes * kFaces;
 
-    VkImageCreateInfo ici{};
-    ici.sType         = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    ici.flags         = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
-    ici.imageType     = VK_IMAGE_TYPE_2D;
-    ici.format        = kFormat;
-    ici.extent        = { kSize, kSize, 1 };
-    ici.mipLevels     = 1;
-    ici.arrayLayers   = kFaces;
-    ici.samples       = VK_SAMPLE_COUNT_1_BIT;
-    ici.tiling        = VK_IMAGE_TILING_OPTIMAL;
-    ici.usage         = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-    ici.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    if (vkCreateImage(device, &ici, nullptr, &image_) != VK_SUCCESS) return false;
-
-    VkMemoryRequirements mr;
-    vkGetImageMemoryRequirements(device, image_, &mr);
-    auto memType = ctx.findMemoryType(mr.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-    if (!memType) { destroy(device); return false; }
-
-    VkMemoryAllocateInfo mai{};
-    mai.sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    mai.allocationSize  = mr.size;
-    mai.memoryTypeIndex = *memType;
-    if (vkAllocateMemory(device, &mai, nullptr, &memory_) != VK_SUCCESS) { destroy(device); return false; }
-    vkBindImageMemory(device, image_, memory_, 0);
-
-    // Staging buffer: the same dim tint repeated for all 6 faces.
-    VkBuffer stageBuf = VK_NULL_HANDLE;
-    VkDeviceMemory stageMem = VK_NULL_HANDLE;
-    {
-        VkBufferCreateInfo bci{};
-        bci.sType       = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-        bci.size        = total;
-        bci.usage       = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-        bci.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-        if (vkCreateBuffer(device, &bci, nullptr, &stageBuf) != VK_SUCCESS) { destroy(device); return false; }
-
-        VkMemoryRequirements smr;
-        vkGetBufferMemoryRequirements(device, stageBuf, &smr);
-        auto stageMemType = ctx.findMemoryType(smr.memoryTypeBits,
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-        if (!stageMemType) { vkDestroyBuffer(device, stageBuf, nullptr); destroy(device); return false; }
-
-        VkMemoryAllocateInfo smai{};
-        smai.sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-        smai.allocationSize  = smr.size;
-        smai.memoryTypeIndex = *stageMemType;
-        if (vkAllocateMemory(device, &smai, nullptr, &stageMem) != VK_SUCCESS) {
-            vkDestroyBuffer(device, stageBuf, nullptr);
-            destroy(device);
-            return false;
-        }
-        vkBindBufferMemory(device, stageBuf, stageMem, 0);
-
-        void* mapped = nullptr;
-        vkMapMemory(device, stageMem, 0, total, 0, &mapped);
-        for (uint32_t f = 0; f < kFaces; ++f)
-            std::memcpy(static_cast<char*>(mapped) + pixBytes * f, kSkyColor, sizeof(kSkyColor));
-        vkUnmapMemory(device, stageMem);
-    }
-
-    // UNDEFINED -> TRANSFER_DST -> SHADER_READ_ONLY
-    {
-        VkCommandBuffer cmd = pool.beginSingleTimeCommands();
-
-        VkImageMemoryBarrier barrier{};
-        barrier.sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-        barrier.oldLayout           = VK_IMAGE_LAYOUT_UNDEFINED;
-        barrier.newLayout           = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        barrier.image               = image_;
-        barrier.subresourceRange    = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, kFaces };
-        barrier.dstAccessMask       = VK_ACCESS_TRANSFER_WRITE_BIT;
-        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
-                             0, 0, nullptr, 0, nullptr, 1, &barrier);
-
-        for (uint32_t f = 0; f < kFaces; ++f) {
-            VkBufferImageCopy region{};
-            region.bufferOffset                    = pixBytes * f;
-            region.imageSubresource.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
-            region.imageSubresource.baseArrayLayer = f;
-            region.imageSubresource.layerCount     = 1;
-            region.imageExtent                     = { kSize, kSize, 1 };
-            vkCmdCopyBufferToImage(cmd, stageBuf, image_, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
-        }
-
-        barrier.oldLayout     = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-        barrier.newLayout     = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-                             0, 0, nullptr, 0, nullptr, 1, &barrier);
-
-        pool.endSingleTimeCommands(cmd);
-    }
-
-    vkDestroyBuffer(device, stageBuf, nullptr);
-    vkFreeMemory(device, stageMem, nullptr);
-
-    VkImageViewCreateInfo vci{};
-    vci.sType            = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    vci.image            = image_;
-    vci.viewType         = VK_IMAGE_VIEW_TYPE_CUBE;
-    vci.format           = kFormat;
-    vci.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, kFaces };
-    if (vkCreateImageView(device, &vci, nullptr, &view_) != VK_SUCCESS) { destroy(device); return false; }
+    // The same dim tint repeated for all 6 faces; the helper owns staging and releases everything
+    // (leaving null handles) if any step fails.
+    std::vector<uint8_t> faces(static_cast<size_t>(pixBytes) * kFaces);
+    for (uint32_t f = 0; f < kFaces; ++f)
+        std::memcpy(faces.data() + pixBytes * f, kSkyColor, sizeof(kSkyColor));
+    if (!Phantom::VKG::VulkanImage::createCubeFromFaces(ctx, pool, faces.data(),
+            4 * sizeof(float), kSize, kFormat, image_, memory_, view_))
+        return false;
 
     VkSamplerCreateInfo sci{};
     sci.sType        = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
@@ -193,86 +93,14 @@ bool createEquirectTexture(const Phantom::VKG::VulkanContext& ctx, const Phantom
     }
 
     constexpr VkFormat fmt = VK_FORMAT_R16G16B16A16_SFLOAT;
-    const VkDeviceSize imageSize = static_cast<VkDeviceSize>(half.size()) * sizeof(glm::u16vec4);
     VkDevice device = ctx.getDevice();
 
-    VkBuffer stagingBuf = VK_NULL_HANDLE;
-    VkDeviceMemory stagingMem = VK_NULL_HANDLE;
-    {
-        VkBufferCreateInfo bi{};
-        bi.sType       = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-        bi.size        = imageSize;
-        bi.usage       = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-        bi.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-        if (vkCreateBuffer(device, &bi, nullptr, &stagingBuf) != VK_SUCCESS) return false;
-
-        VkMemoryRequirements mr;
-        vkGetBufferMemoryRequirements(device, stagingBuf, &mr);
-        auto memType = ctx.findMemoryType(mr.memoryTypeBits,
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-        if (!memType) { vkDestroyBuffer(device, stagingBuf, nullptr); return false; }
-
-        VkMemoryAllocateInfo ai{};
-        ai.sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-        ai.allocationSize  = mr.size;
-        ai.memoryTypeIndex = *memType;
-        if (vkAllocateMemory(device, &ai, nullptr, &stagingMem) != VK_SUCCESS) {
-            vkDestroyBuffer(device, stagingBuf, nullptr);
-            return false;
-        }
-        vkBindBufferMemory(device, stagingBuf, stagingMem, 0);
-
-        void* mapped = nullptr;
-        vkMapMemory(device, stagingMem, 0, imageSize, 0, &mapped);
-        std::memcpy(mapped, half.data(), static_cast<size_t>(imageSize));
-        vkUnmapMemory(device, stagingMem);
-    }
-
-    if (!Phantom::VKG::VulkanImage::create(ctx, static_cast<uint32_t>(w), static_cast<uint32_t>(h), fmt,
-            VK_IMAGE_TILING_OPTIMAL,
-            VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-            outImage, outMem)) {
-        vkDestroyBuffer(device, stagingBuf, nullptr);
-        vkFreeMemory(device, stagingMem, nullptr);
+    // Shared upload helper: single level, leaves null handles and frees everything on failure.
+    if (!Phantom::VKG::VulkanImage::createFromPixels(ctx, pool,
+            reinterpret_cast<const uint8_t*>(half.data()), sizeof(glm::u16vec4),
+            static_cast<uint32_t>(w), static_cast<uint32_t>(h), fmt, false,
+            outImage, outMem, outView))
         return false;
-    }
-
-    {
-        VkCommandBuffer cmd = pool.beginSingleTimeCommands();
-
-        VkImageMemoryBarrier barrier{};
-        barrier.sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-        barrier.oldLayout           = VK_IMAGE_LAYOUT_UNDEFINED;
-        barrier.newLayout           = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        barrier.image               = outImage;
-        barrier.subresourceRange    = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
-        barrier.dstAccessMask       = VK_ACCESS_TRANSFER_WRITE_BIT;
-        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
-                             0, 0, nullptr, 0, nullptr, 1, &barrier);
-
-        VkBufferImageCopy region{};
-        region.imageSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
-        region.imageExtent      = { static_cast<uint32_t>(w), static_cast<uint32_t>(h), 1 };
-        vkCmdCopyBufferToImage(cmd, stagingBuf, outImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
-
-        barrier.oldLayout     = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-        barrier.newLayout     = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-                             0, 0, nullptr, 0, nullptr, 1, &barrier);
-
-        pool.endSingleTimeCommands(cmd);
-    }
-
-    vkDestroyBuffer(device, stagingBuf, nullptr);
-    vkFreeMemory(device, stagingMem, nullptr);
-
-    outView = Phantom::VKG::VulkanImage::createView(device, outImage, fmt, VK_IMAGE_ASPECT_COLOR_BIT);
-    if (outView == VK_NULL_HANDLE) return false;
 
     VkSamplerCreateInfo sci{};
     sci.sType        = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;

@@ -67,6 +67,14 @@ struct VulkanImage {
                                          const uint8_t* faces, uint32_t size,
                                          VkImage& image, VkDeviceMemory& memory, VkImageView& view);
 
+    /// @brief createCubeFromFacesRGBA8() for any uncompressed color @p format (@p bytesPerPixel
+    ///        bytes per texel, e.g. VK_FORMAT_R32G32B32A32_SFLOAT with 16). The format must support
+    ///        sampling with the usage this helper requests (SAMPLED | TRANSFER_DST).
+    static bool createCubeFromFaces(const VulkanContext& ctx, const VulkanCommandPool& pool,
+                                    const uint8_t* faces, uint32_t bytesPerPixel, uint32_t size,
+                                    VkFormat format,
+                                    VkImage& image, VkDeviceMemory& memory, VkImageView& view);
+
     /// @brief 1x1, single-layer 2D-array image cleared to zero, left in SHADER_READ_ONLY_OPTIMAL,
     ///        with a VK_IMAGE_VIEW_TYPE_2D_ARRAY view: a "nothing here" stand-in for an optional
     ///        sampler2DArray binding (e.g. an opacity shadow map that does not exist yet).
