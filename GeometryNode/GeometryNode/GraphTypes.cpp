@@ -13,12 +13,16 @@ const char* toString(SocketType t) {
         case SocketType::Int: return "Int";
         case SocketType::Bool: return "Bool";
         case SocketType::Vector3: return "Vector3";
+        case SocketType::FieldFloat: return "FieldFloat";
+        case SocketType::FieldVector3: return "FieldVector3";
+        case SocketType::FieldBool: return "FieldBool";
     }
     return "Unknown";
 }
 
 bool socketTypeFromString(const std::string& s, SocketType& out) {
-    for (SocketType t : {SocketType::Geometry, SocketType::Float, SocketType::Int, SocketType::Bool, SocketType::Vector3}) {
+    for (SocketType t : {SocketType::Geometry, SocketType::Float, SocketType::Int, SocketType::Bool, SocketType::Vector3,
+                         SocketType::FieldFloat, SocketType::FieldVector3, SocketType::FieldBool}) {
         if (s == toString(t)) {
             out = t;
             return true;
@@ -34,6 +38,13 @@ bool valueType(const Value& v, SocketType& out) {
         case 3: out = SocketType::Int; return true;
         case 4: out = SocketType::Bool; return true;
         case 5: out = SocketType::Vector3; return true;
+        case 6: {
+            const FieldPtr& f = std::get<FieldPtr>(v);
+            if (!f) return false;
+            out = f->type == FieldType::Float ? SocketType::FieldFloat
+                : f->type == FieldType::Vector3 ? SocketType::FieldVector3 : SocketType::FieldBool;
+            return true;
+        }
         default: return false;
     }
 }
@@ -73,7 +84,10 @@ bool paramFromJson(SocketType type, const nlohmann::json& j, Value& out) {
             return true;
         }
         case SocketType::Geometry:
-            return false;
+        case SocketType::FieldFloat:
+        case SocketType::FieldVector3:
+        case SocketType::FieldBool:
+            return false;  // no literal form
     }
     return false;
 }
@@ -159,6 +173,7 @@ const char* toString(DiagCode c) {
         case DiagCode::LimitExceeded: return "LimitExceeded";
         case DiagCode::InvalidGeometry: return "InvalidGeometry";
         case DiagCode::SingularTransform: return "SingularTransform";
+        case DiagCode::FieldMismatch: return "FieldMismatch";
         case DiagCode::Cancelled: return "Cancelled";
         case DiagCode::Upstream: return "Upstream";
         case DiagCode::Internal: return "Internal";

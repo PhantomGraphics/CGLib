@@ -208,6 +208,8 @@ function(phantom_add_geometrynode_core)
         ${CGLIB_ROOT}/GeometryNode/GeometryNode/GraphTypes.cpp
         ${CGLIB_ROOT}/GeometryNode/GeometryNode/NodeRegistry.cpp
         ${CGLIB_ROOT}/GeometryNode/GeometryNode/GraphEvaluator.cpp
+        ${CGLIB_ROOT}/GeometryNode/GeometryNode/Field.cpp
+        ${CGLIB_ROOT}/GeometryNode/GeometryNode/FieldNodes.cpp
         ${CGLIB_ROOT}/GeometryNode/GeometryNode/GraphJson.cpp
     )
     target_include_directories(GeometryNodeCore PUBLIC ${REPO_ROOT})

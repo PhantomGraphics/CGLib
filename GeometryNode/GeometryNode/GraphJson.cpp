@@ -38,6 +38,7 @@ json writeEndpoint(const Endpoint& e) {
 json graphToJson(const Graph& graph) {
     json root = graph.extra.is_object() ? graph.extra : json::object();
     root["schema"] = graph.schema;
+    root["seed"] = graph.seed;
 
     json nodes = json::array();
     for (const Node& n : graph.nodes) {
@@ -89,7 +90,13 @@ GraphParseResult graphFromJson(const json& j, Graph& out) {
 
     for (auto it = j.begin(); it != j.end(); ++it) {
         const std::string& k = it.key();
-        if (k != "schema" && k != "nodes" && k != "links" && k != "layout") g.extra[k] = it.value();
+        if (k != "schema" && k != "seed" && k != "nodes" && k != "links" && k != "layout") g.extra[k] = it.value();
+    }
+
+    auto seed = j.find("seed");  // optional: files written before Phase 4 have none (= 0)
+    if (seed != j.end()) {
+        if (!seed->is_number_unsigned() || seed->get<uint64_t>() > 0xFFFFFFFFull) return fail("graph: invalid 'seed'");
+        g.seed = static_cast<uint32_t>(seed->get<uint64_t>());
     }
 
     auto nodes = j.find("nodes");

@@ -49,6 +49,7 @@ public:
     bool getBool(const std::string& id) const;
     Vec3 getVec3(const std::string& id) const;
     GeometryPtr getGeometry(const std::string& id) const;                 // null if absent
+    FieldPtr getField(const std::string& id) const;                       // null if absent (optional field inputs)
     std::vector<GeometryPtr> getGeometries(const std::string& id) const;  // multi inputs
 
     void setOutput(const std::string& id, Value v) { outputs_[id] = std::move(v); }
@@ -94,7 +95,7 @@ public:
     const NodeDefinition* find(const std::string& typeId) const;
     const std::vector<NodeDefinition>& all() const { return defs_; }
 
-    // Box, Grid, Transform Geometry, Join Geometry, Float/Vector value, Output.
+    // Box, Grid, Transform/Join Geometry, Float/Vector value, Output, plus the Field nodes (FieldNodes.h).
     static const NodeRegistry& builtin();
 
 private:

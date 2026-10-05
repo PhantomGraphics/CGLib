@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "../../ThirdParty/nlohmann/json.hpp"
+#include "Field.h"
 #include "GeometryTypes.h"
 
 namespace Phantom::GeometryNode {
@@ -24,14 +25,19 @@ using NodeId = uint64_t;  // 0 is "no node" and never a valid node id.
 
 inline constexpr uint32_t kGraphSchemaVersion = 1;
 
-enum class SocketType { Geometry, Float, Int, Bool, Vector3 };
+// Field* are per-element expressions (Field.h), distinct from the single values Float/Bool/Vector3.
+enum class SocketType { Geometry, Float, Int, Bool, Vector3, FieldFloat, FieldVector3, FieldBool };
+
+inline bool isFieldType(SocketType t) {
+    return t == SocketType::FieldFloat || t == SocketType::FieldVector3 || t == SocketType::FieldBool;
+}
 
 const char* toString(SocketType t);
 bool socketTypeFromString(const std::string& s, SocketType& out);
 
 // No implicit conversion exists between socket types; a conversion is an
 // explicit node. monostate = "no value".
-using Value = std::variant<std::monostate, GeometryPtr, float, int32_t, bool, Vec3>;
+using Value = std::variant<std::monostate, GeometryPtr, float, int32_t, bool, Vec3, FieldPtr>;
 
 // The SocketType a Value currently holds (false for monostate).
 bool valueType(const Value& v, SocketType& out);
@@ -70,6 +76,8 @@ struct NodeLayout {
 
 struct Graph {
     uint32_t schema = kGraphSchemaVersion;
+    // Context seed of every random field (see Field.h). Saved with the graph so results reproduce.
+    uint32_t seed = 0;
     std::vector<Node> nodes;
     std::vector<Link> links;                 // order = order of multi-input sockets
     std::map<NodeId, NodeLayout> layout;     // editor only; not part of any cache key
@@ -106,6 +114,7 @@ enum class DiagCode {
     LimitExceeded,
     InvalidGeometry,
     SingularTransform,
+    FieldMismatch,  // a field could not be evaluated on the geometry it is applied to
     Cancelled,
     Upstream,  // not evaluated because an upstream node failed
     Internal,

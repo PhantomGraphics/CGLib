@@ -224,6 +224,7 @@ bool checkOutputs(const NodeDefinition& def, NodeEvalContext& ctx, const Limits&
                                      "node '" + def.typeId + "' did not produce output '" + id + "'"));
             return false;
         }
+        if (isFieldType(type)) return true;  // non-null by valueType()
         if (type == SocketType::Geometry) {
             const GeometryPtr& g = std::get<GeometryPtr>(it->second);
             if (!g) {
@@ -311,7 +312,7 @@ EvalResult evaluateGraph(const Graph& graph, const NodeRegistry& registry, const
                     appendPod(key, up.revision);
                     values.push_back(up.outputs.at(l.from.socket));
                 }
-            } else if (s.type != SocketType::Geometry) {
+            } else if (s.type != SocketType::Geometry && !isFieldType(s.type)) {  // geometry/fields have no default: unlinked = absent
                 Value v = s.defaultValue;
                 auto pit = n->params.find(s.id);
                 if (pit != n->params.end()) paramFromJson(s.type, pit->second, v);  // validated in analyze()

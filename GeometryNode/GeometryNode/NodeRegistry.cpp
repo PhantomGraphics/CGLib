@@ -1,5 +1,6 @@
 #include "NodeRegistry.h"
 
+#include "FieldNodes.h"
 #include "GeometryOps.h"
 
 namespace Phantom::GeometryNode {
@@ -48,6 +49,14 @@ GeometryPtr NodeEvalContext::getGeometry(const std::string& id) const {
     const Value* v = first(id);
     if (v) {
         if (const GeometryPtr* g = std::get_if<GeometryPtr>(v)) return *g;
+    }
+    return nullptr;
+}
+
+FieldPtr NodeEvalContext::getField(const std::string& id) const {
+    const Value* v = first(id);
+    if (v) {
+        if (const FieldPtr* f = std::get_if<FieldPtr>(v)) return *f;
     }
     return nullptr;
 }
@@ -250,6 +259,7 @@ NodeRegistry makeBuiltin() {
         };
         r.add(std::move(d));
     }
+    registerFieldNodes(r);
     return r;
 }
 
