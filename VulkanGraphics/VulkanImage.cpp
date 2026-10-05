@@ -212,13 +212,20 @@ bool VulkanImage::createCubeFromFacesRGBA8(const VulkanContext& ctx, const Vulka
                                            const uint8_t* faces, uint32_t size,
                                            VkImage& image, VkDeviceMemory& memory, VkImageView& view)
 {
+    return createCubeFromFaces(ctx, pool, faces, 4, size, VK_FORMAT_R8G8B8A8_UNORM, image, memory, view);
+}
+
+bool VulkanImage::createCubeFromFaces(const VulkanContext& ctx, const VulkanCommandPool& pool,
+                                      const uint8_t* faces, uint32_t bytesPerPixel, uint32_t size,
+                                      VkFormat format,
+                                      VkImage& image, VkDeviceMemory& memory, VkImageView& view)
+{
     image = VK_NULL_HANDLE;
     memory = VK_NULL_HANDLE;
     view = VK_NULL_HANDLE;
-    if (!faces || size == 0) return false;
+    if (!faces || size == 0 || bytesPerPixel == 0) return false;
 
-    const VkFormat format = VK_FORMAT_R8G8B8A8_UNORM;
-    const VkDeviceSize faceBytes = static_cast<VkDeviceSize>(size) * size * 4;
+    const VkDeviceSize faceBytes = static_cast<VkDeviceSize>(size) * size * bytesPerPixel;
     const VkDeviceSize totalBytes = faceBytes * 6;
     VkDevice dev = ctx.getDevice();
 
