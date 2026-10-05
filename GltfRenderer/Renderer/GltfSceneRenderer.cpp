@@ -64,110 +64,13 @@ void GltfSceneRenderer::handleScroll(double dy) {
 void GltfSceneRenderer::createFallbackCube(const Phantom::VKG::VulkanContext& ctx,
                                             const Phantom::VKG::VulkanCommandPool& pool)
 {
-    VkDevice dev = ctx.getDevice();
-
-    // Create 1x1 cube image
-    VkImageCreateInfo ci{};
-    ci.sType         = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    ci.flags         = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
-    ci.imageType     = VK_IMAGE_TYPE_2D;
-    ci.format        = VK_FORMAT_R8G8B8A8_UNORM;
-    ci.extent        = { 1, 1, 1 };
-    ci.mipLevels     = 1;
-    ci.arrayLayers   = 6;
-    ci.samples       = VK_SAMPLE_COUNT_1_BIT;
-    ci.tiling        = VK_IMAGE_TILING_OPTIMAL;
-    ci.usage         = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-    ci.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    vkCreateImage(dev, &ci, nullptr, &fallbackCubeImage_);
-
-    VkMemoryRequirements mr;
-    vkGetImageMemoryRequirements(dev, fallbackCubeImage_, &mr);
-    auto memType = ctx.findMemoryType(mr.memoryTypeBits,
-                                      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-    assert(memType.has_value());
-
-    VkMemoryAllocateInfo ai{};
-    ai.sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    ai.allocationSize  = mr.size;
-    ai.memoryTypeIndex = memType.value_or(0);
-    vkAllocateMemory(dev, &ai, nullptr, &fallbackCubeMem_);
-    vkBindImageMemory(dev, fallbackCubeImage_, fallbackCubeMem_, 0);
-
-    // Upload white pixels to all 6 faces via staging buffer
-    const uint8_t white[4] = {255, 255, 255, 255};
-    uint8_t pixels[6 * 4];
-    for (int i = 0; i < 6; ++i) std::memcpy(pixels + i * 4, white, 4);
-
-    VkBuffer stageBuf; VkDeviceMemory stageMem;
-    VkBufferCreateInfo bi{};
-    bi.sType       = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    bi.size        = sizeof(pixels);
-    bi.usage       = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-    bi.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    vkCreateBuffer(dev, &bi, nullptr, &stageBuf);
-
-    vkGetBufferMemoryRequirements(dev, stageBuf, &mr);
-    auto stageMemType = ctx.findMemoryType(mr.memoryTypeBits,
-                                           VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                                           VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-    assert(stageMemType.has_value());
-    ai.allocationSize  = mr.size;
-    ai.memoryTypeIndex = stageMemType.value_or(0);
-    vkAllocateMemory(dev, &ai, nullptr, &stageMem);
-    vkBindBufferMemory(dev, stageBuf, stageMem, 0);
-
-    void* mapped;
-    vkMapMemory(dev, stageMem, 0, sizeof(pixels), 0, &mapped);
-    std::memcpy(mapped, pixels, sizeof(pixels));
-    vkUnmapMemory(dev, stageMem);
-
-    VkCommandBuffer cmd = pool.beginSingleTimeCommands();
-
-    VkImageMemoryBarrier barrier{};
-    barrier.sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    barrier.oldLayout           = VK_IMAGE_LAYOUT_UNDEFINED;
-    barrier.newLayout           = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.image               = fallbackCubeImage_;
-    barrier.subresourceRange    = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 6};
-    barrier.dstAccessMask       = VK_ACCESS_TRANSFER_WRITE_BIT;
-    vkCmdPipelineBarrier(cmd,
-        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
-        0, 0, nullptr, 0, nullptr, 1, &barrier);
-
-    VkBufferImageCopy copies[6]{};
-    for (int f = 0; f < 6; ++f) {
-        copies[f].bufferOffset                    = static_cast<VkDeviceSize>(f * 4);
-        copies[f].imageSubresource.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
-        copies[f].imageSubresource.layerCount     = 1;
-        copies[f].imageSubresource.baseArrayLayer = static_cast<uint32_t>(f);
-        copies[f].imageExtent                     = {1, 1, 1};
-    }
-    vkCmdCopyBufferToImage(cmd, stageBuf, fallbackCubeImage_,
-                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 6, copies);
-
-    barrier.oldLayout     = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-    barrier.newLayout     = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-    vkCmdPipelineBarrier(cmd,
-        VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-        0, 0, nullptr, 0, nullptr, 1, &barrier);
-
-    pool.endSingleTimeCommands(cmd);
-
-    vkDestroyBuffer(dev, stageBuf, nullptr);
-    vkFreeMemory(dev, stageMem, nullptr);
-
-    VkImageViewCreateInfo vci{};
-    vci.sType    = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    vci.image    = fallbackCubeImage_;
-    vci.viewType = VK_IMAGE_VIEW_TYPE_CUBE;
-    vci.format   = VK_FORMAT_R8G8B8A8_UNORM;
-    vci.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 6};
-    vkCreateImageView(dev, &vci, nullptr, &fallbackCubeView_);
+    // Six 1x1 white faces. On failure VulkanImage releases everything and leaves the handles null,
+    // so destroyFallbackCube() stays a no-op and the descriptor writer sees a null view.
+    uint8_t faces[6 * 4];
+    std::memset(faces, 255, sizeof(faces));
+    if (!Phantom::VKG::VulkanImage::createCubeFromFacesRGBA8(ctx, pool, faces, 1,
+            fallbackCubeImage_, fallbackCubeMem_, fallbackCubeView_))
+        std::fprintf(stderr, "[GltfSceneRenderer] fallback IBL cube creation failed\n");
 }
 
 void GltfSceneRenderer::destroyFallbackCube(VkDevice device) {

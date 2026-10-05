@@ -198,6 +198,115 @@ bool VulkanImage::createFromPixelsRGBA8(const VulkanContext& ctx, const VulkanCo
     return true;
 }
 
+bool VulkanImage::createCubeFromFacesRGBA8(const VulkanContext& ctx, const VulkanCommandPool& pool,
+                                           const uint8_t* faces, uint32_t size,
+                                           VkImage& image, VkDeviceMemory& memory, VkImageView& view)
+{
+    image = VK_NULL_HANDLE;
+    memory = VK_NULL_HANDLE;
+    view = VK_NULL_HANDLE;
+    if (!faces || size == 0) return false;
+
+    const VkFormat format = VK_FORMAT_R8G8B8A8_UNORM;
+    const VkDeviceSize faceBytes = static_cast<VkDeviceSize>(size) * size * 4;
+    const VkDeviceSize totalBytes = faceBytes * 6;
+    VkDevice dev = ctx.getDevice();
+
+    VulkanBuffer staging;
+    if (!staging.createMapped(ctx, totalBytes, VK_BUFFER_USAGE_TRANSFER_SRC_BIT)) return false;
+    staging.write(faces, totalBytes);
+
+    VkImageCreateInfo ci{};
+    ci.sType         = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    ci.flags         = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
+    ci.imageType     = VK_IMAGE_TYPE_2D;
+    ci.format        = format;
+    ci.extent        = {size, size, 1};
+    ci.mipLevels     = 1;
+    ci.arrayLayers   = 6;
+    ci.samples       = VK_SAMPLE_COUNT_1_BIT;
+    ci.tiling        = VK_IMAGE_TILING_OPTIMAL;
+    ci.usage         = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    ci.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    ci.sharingMode   = VK_SHARING_MODE_EXCLUSIVE;
+    auto fail = [&]() {
+        if (image)  vkDestroyImage(dev, image, nullptr);
+        if (memory) vkFreeMemory(dev, memory, nullptr);
+        image = VK_NULL_HANDLE;
+        memory = VK_NULL_HANDLE;
+        view = VK_NULL_HANDLE;
+        staging.destroy();
+        return false;
+    };
+    if (vkCreateImage(dev, &ci, nullptr, &image) != VK_SUCCESS) {
+        std::fprintf(stderr, "[VKG] Failed to create cube image\n");
+        image = VK_NULL_HANDLE;
+        return fail();
+    }
+    VkMemoryRequirements req;
+    vkGetImageMemoryRequirements(dev, image, &req);
+    auto memType = ctx.findMemoryType(req.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    if (!memType) return fail();
+    VkMemoryAllocateInfo ai{};
+    ai.sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    ai.allocationSize  = req.size;
+    ai.memoryTypeIndex = *memType;
+    if (vkAllocateMemory(dev, &ai, nullptr, &memory) != VK_SUCCESS) {
+        std::fprintf(stderr, "[VKG] Failed to allocate cube image memory\n");
+        memory = VK_NULL_HANDLE;
+        return fail();
+    }
+    if (vkBindImageMemory(dev, image, memory, 0) != VK_SUCCESS) {
+        std::fprintf(stderr, "[VKG] Failed to bind cube image memory\n");
+        return fail();
+    }
+
+    VkCommandBuffer cmd = pool.beginSingleTimeCommands();
+    VkImageMemoryBarrier barrier{};
+    barrier.sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barrier.oldLayout           = VK_IMAGE_LAYOUT_UNDEFINED;
+    barrier.newLayout           = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.image               = image;
+    barrier.subresourceRange    = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 6};
+    barrier.dstAccessMask       = VK_ACCESS_TRANSFER_WRITE_BIT;
+    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                         0, 0, nullptr, 0, nullptr, 1, &barrier);
+
+    VkBufferImageCopy copies[6]{};
+    for (uint32_t f = 0; f < 6; ++f) {
+        copies[f].bufferOffset                    = faceBytes * f;
+        copies[f].imageSubresource.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+        copies[f].imageSubresource.layerCount     = 1;
+        copies[f].imageSubresource.baseArrayLayer = f;
+        copies[f].imageExtent                     = {size, size, 1};
+    }
+    vkCmdCopyBufferToImage(cmd, staging.get(), image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 6, copies);
+
+    barrier.oldLayout     = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    barrier.newLayout     = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                         0, 0, nullptr, 0, nullptr, 1, &barrier);
+    pool.endSingleTimeCommands(cmd);
+    staging.destroy();
+
+    VkImageViewCreateInfo vci{};
+    vci.sType            = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    vci.image            = image;
+    vci.viewType         = VK_IMAGE_VIEW_TYPE_CUBE;
+    vci.format           = format;
+    vci.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 6};
+    if (vkCreateImageView(dev, &vci, nullptr, &view) != VK_SUCCESS) {
+        std::fprintf(stderr, "[VKG] Failed to create cube image view\n");
+        view = VK_NULL_HANDLE;
+        return fail();
+    }
+    return true;
+}
+
 bool VulkanImage::createZeroArrayTexture(const VulkanContext& ctx, const VulkanCommandPool& pool,
                                          VkFormat format, VkImage& image, VkDeviceMemory& memory,
                                          VkImageView& view)

@@ -45,6 +45,18 @@ struct VulkanImage {
                        VkImage& image, VkDeviceMemory& memory,
                        uint32_t mipLevels = 1);
 
+    /// @brief Uploads six square RGBA8 faces into a new device-local cube image (single mip level,
+    ///        VK_IMAGE_VIEW_TYPE_CUBE view, left in SHADER_READ_ONLY_OPTIMAL).
+    ///
+    /// @param faces Six tightly packed size*size*4-byte faces in +X,-X,+Y,-Y,+Z,-Z order.
+    /// Blocks until the upload completes. On failure everything partially created is released and
+    /// all outputs are VK_NULL_HANDLE (same contract as createFromPixelsRGBA8). The caller owns the
+    /// outputs on success (destroy view, image, then free memory).
+    /// @return false on failure.
+    static bool createCubeFromFacesRGBA8(const VulkanContext& ctx, const VulkanCommandPool& pool,
+                                         const uint8_t* faces, uint32_t size,
+                                         VkImage& image, VkDeviceMemory& memory, VkImageView& view);
+
     /// @brief 1x1, single-layer 2D-array image cleared to zero, left in SHADER_READ_ONLY_OPTIMAL,
     ///        with a VK_IMAGE_VIEW_TYPE_2D_ARRAY view: a "nothing here" stand-in for an optional
     ///        sampler2DArray binding (e.g. an opacity shadow map that does not exist yet).
