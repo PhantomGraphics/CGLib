@@ -15,6 +15,8 @@ public:
     ~VulkanDescriptorSetLayout() = default;
 
     bool create(VkDevice device, const std::vector<VkDescriptorSetLayoutBinding>& bindings) {
+        // Re-creating a live object releases the previous handles first (no leak).
+        destroy(device);
         VkDescriptorSetLayoutCreateInfo ci{};
         ci.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
         ci.bindingCount = static_cast<uint32_t>(bindings.size());
@@ -52,6 +54,8 @@ public:
                 uint32_t maxSets,
                 VkDescriptorPoolCreateFlags flags = 0)
     {
+        // Re-creating a live object releases the previous handles first (no leak).
+        destroy(device);
         VkDescriptorPoolCreateInfo ci{};
         ci.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
         ci.flags = flags;

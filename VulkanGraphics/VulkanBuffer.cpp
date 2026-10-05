@@ -15,6 +15,8 @@ bool VulkanBuffer::create(const VulkanContext& ctx, const VulkanCommandPool& poo
                            VkDeviceSize size, VkBufferUsageFlags usage,
                            const void* initialData)
 {
+    // Re-creating a live object releases the previous handles first (no leak).
+    destroy();
     allocator_ = ctx.getAllocator();
     size_      = size;
 
@@ -69,6 +71,8 @@ bool VulkanBuffer::create(const VulkanContext& ctx, const VulkanCommandPool& poo
 bool VulkanBuffer::createMapped(const VulkanContext& ctx,
                                  VkDeviceSize size, VkBufferUsageFlags usage)
 {
+    // Re-creating a live object releases the previous handles first (no leak).
+    destroy();
     allocator_ = ctx.getAllocator();
     size_      = size;
 

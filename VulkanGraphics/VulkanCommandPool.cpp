@@ -5,8 +5,14 @@
 namespace Phantom::VKG {
 
 bool VulkanCommandPool::init(VulkanContext* ctx, VkSurfaceKHR surface) {
+    // Re-creating a live object releases the previous handles first (no leak).
+    destroy();
     ctx_ = ctx;
     auto indices = ctx_->findQueueFamilies(ctx_->getPhysicalDevice(), surface);
+    if (!indices.graphicsFamily) {
+        std::fprintf(stderr, "[VKG] VulkanCommandPool: no graphics queue family\n");
+        return false;
+    }
 
     VkCommandPoolCreateInfo ci{};
     ci.sType            = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -19,7 +25,7 @@ bool VulkanCommandPool::init(VulkanContext* ctx, VkSurfaceKHR surface) {
 }
 
 void VulkanCommandPool::destroy() {
-    if (pool_) {
+    if (pool_ && ctx_) {
         vkDestroyCommandPool(ctx_->getDevice(), pool_, nullptr);
         pool_ = VK_NULL_HANDLE;
     }

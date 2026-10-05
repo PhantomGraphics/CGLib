@@ -10,6 +10,9 @@ bool VulkanSampler::create(VkDevice device,
                            float maxAnisotropy,
                            float maxLod)
 {
+    // Re-creating a live object releases the previous handles first (no leak).
+    destroy(device);
+
     VkSamplerCreateInfo ci{};
     ci.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
     ci.magFilter = filter;

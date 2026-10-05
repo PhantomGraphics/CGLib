@@ -9,6 +9,8 @@ bool VulkanPipeline::create(const VulkanContext& ctx,
                              VkRenderPass renderPass, const PipelineConfig& cfg)
 {
     VkDevice device = ctx.getDevice();
+    // Re-creating a live object releases the previous handles first (no leak).
+    destroy(device);
 
     VkShaderModule vertMod = createShaderModule(device, cfg.vertSpv);
     if (vertMod == VK_NULL_HANDLE) return false;
