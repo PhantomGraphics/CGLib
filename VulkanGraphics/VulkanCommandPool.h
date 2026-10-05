@@ -54,7 +54,8 @@ public:
     /// @brief Begins a one-shot command buffer for a transient GPU operation.
     ///
     /// Must be paired with a call to endSingleTimeCommands().
-    /// @return A newly allocated, already-begun VkCommandBuffer.
+    /// @return A newly allocated, already-begun VkCommandBuffer, or VK_NULL_HANDLE if allocation
+    ///         failed (logged to stderr). endSingleTimeCommands(VK_NULL_HANDLE) is a no-op.
     VkCommandBuffer beginSingleTimeCommands() const;
 
     /// @brief Ends, submits, and waits for the one-shot command buffer to complete.

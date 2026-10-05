@@ -165,7 +165,8 @@ bool VolumePbvrGpu::setViewport(const VulkanContext& ctx, const VulkanCommandPoo
     if (!type) return false;
     VkMemoryAllocateInfo ai{ VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO, nullptr, req.size, *type };
     if (vkAllocateMemory(device, &ai, nullptr, &accumMemory_) != VK_SUCCESS) return false;
-    vkBindImageMemory(device, accumImage_, accumMemory_, 0);
+    // On failure the handles stay set; destroyTargets() (next setViewport()/destroy()) releases them.
+    if (vkBindImageMemory(device, accumImage_, accumMemory_, 0) != VK_SUCCESS) return false;
     VkImageViewCreateInfo vi{};
     vi.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     vi.image = accumImage_;

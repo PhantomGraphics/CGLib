@@ -65,7 +65,7 @@ bool Volume3DImage::create(const Phantom::VKG::VulkanContext& ctx, const Phantom
     ai.allocationSize = req.size;
     ai.memoryTypeIndex = *type;
     if (vkAllocateMemory(device, &ai, nullptr, &memory_) != VK_SUCCESS) { destroy(ctx); return false; }
-    vkBindImageMemory(device, image_, memory_, 0);
+    if (vkBindImageMemory(device, image_, memory_, 0) != VK_SUCCESS) { destroy(ctx); return false; }
 
     VkImageViewCreateInfo vi{};
     vi.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;

@@ -307,7 +307,14 @@ bool VulkanSwapChain::createImage(
         return false;
     }
 
-    vkBindImageMemory(ctx_->getDevice(), image, memory, 0);
+    if (vkBindImageMemory(ctx_->getDevice(), image, memory, 0) != VK_SUCCESS) {
+        std::fprintf(stderr, "[VKG] Failed to bind image memory\n");
+        vkFreeMemory(ctx_->getDevice(), memory, nullptr);
+        vkDestroyImage(ctx_->getDevice(), image, nullptr);
+        memory = VK_NULL_HANDLE;
+        image = VK_NULL_HANDLE;
+        return false;
+    }
     return true;
 }
 

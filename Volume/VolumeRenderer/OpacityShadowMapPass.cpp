@@ -57,7 +57,11 @@ bool OpacityShadowMapPass::create(const Phantom::VKG::VulkanContext& ctx, uint32
         destroy(ctx);
         return false;
     }
-    vkBindImageMemory(device, image_, memory_, 0);
+    if (vkBindImageMemory(device, image_, memory_, 0) != VK_SUCCESS) {
+        std::fprintf(stderr, "[Volume] OpacityShadowMapPass: failed to bind image memory\n");
+        destroy(ctx);
+        return false;
+    }
 
     // --- Array view (sampling, all layers) ---
     VkImageViewCreateInfo arrayViewCI{};
