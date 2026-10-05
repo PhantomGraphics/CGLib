@@ -36,22 +36,60 @@ size_t FieldContext::size() const {
     return 0;
 }
 
+bool FieldContext::stopped() const {
+    if (cancel && cancel->load(std::memory_order_relaxed)) {
+        if (evaluation) evaluation->cancelled = true;
+        return true;
+    }
+    return evaluation && (evaluation->limitExceeded || evaluation->cancelled);
+}
+
+namespace {
+const FieldData& evaluateField(const FieldPtr& f, const FieldContext& ctx) {
+    static const FieldData empty;
+    if (!f || !f->eval || ctx.stopped()) return empty;
+    FieldEvaluation& state = *ctx.evaluation;
+    const auto found = state.results.find(f);
+    if (found != state.results.end()) return found->second;
+    const uint64_t bytesPerElement = 4 * (f->type == FieldType::Vector3 ? sizeof(Vec3) :
+                                         f->type == FieldType::Float ? sizeof(float) : sizeof(uint8_t));
+    if (state.depth >= 256 || state.reservedBytes > ctx.maxMemoryBytes ||
+        ctx.size() > (ctx.maxMemoryBytes - state.reservedBytes) / bytesPerElement) {
+        state.limitExceeded = true;
+        return empty;
+    }
+    state.reservedBytes += ctx.size() * bytesPerElement;
+    ++state.depth;
+    FieldData data;
+    f->eval(ctx, data);
+    --state.depth;
+    if (ctx.stopped()) return empty;
+    return state.results.emplace(f, std::move(data)).first->second;
+}
+} // namespace
+
 std::vector<float> evaluateFloats(const FieldPtr& f, const FieldContext& ctx) {
-    FieldData d;
-    if (f && f->type == FieldType::Float && f->eval) f->eval(ctx, d);
-    return std::move(d.floats);
+    if (!f || f->type != FieldType::Float) return {};
+    FieldEvaluation local;
+    FieldContext scoped = ctx;
+    if (!scoped.evaluation) scoped.evaluation = &local;
+    return evaluateField(f, scoped).floats;
 }
 
 std::vector<Vec3> evaluateVectors(const FieldPtr& f, const FieldContext& ctx) {
-    FieldData d;
-    if (f && f->type == FieldType::Vector3 && f->eval) f->eval(ctx, d);
-    return std::move(d.vectors);
+    if (!f || f->type != FieldType::Vector3) return {};
+    FieldEvaluation local;
+    FieldContext scoped = ctx;
+    if (!scoped.evaluation) scoped.evaluation = &local;
+    return evaluateField(f, scoped).vectors;
 }
 
 std::vector<uint8_t> evaluateBools(const FieldPtr& f, const FieldContext& ctx) {
-    FieldData d;
-    if (f && f->type == FieldType::Bool && f->eval) f->eval(ctx, d);
-    return std::move(d.bools);
+    if (!f || f->type != FieldType::Bool) return {};
+    FieldEvaluation local;
+    FieldContext scoped = ctx;
+    if (!scoped.evaluation) scoped.evaluation = &local;
+    return evaluateField(f, scoped).bools;
 }
 
 FieldPtr makeFloatField(std::function<void(const FieldContext&, std::vector<float>&)> fn) {

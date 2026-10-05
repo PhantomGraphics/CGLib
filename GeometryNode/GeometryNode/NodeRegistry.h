@@ -41,6 +41,7 @@ public:
 
     const EvalContext& eval() const { return eval_; }
     const Limits& limits() const { return eval_.limits; }
+    const std::atomic<bool>* cancelFlag() const { return eval_.cancel; }
     uint32_t seed() const { return eval_.seed; }
     NodeId node() const { return node_; }
 

@@ -124,6 +124,16 @@ TEST(GraphEvaluator, CycleIsRejected) {
     EXPECT_FALSE(evaluateGraph(c.g, reg(), EvalContext{}).success);
 }
 
+TEST(GraphEvaluator, DisconnectedCycleIsRejected) {
+    Chain c = makeChain();
+    const NodeId a = addNode(c.g, "TransformGeometry").id;
+    const NodeId b = addNode(c.g, "TransformGeometry").id;
+    addLink(c.g, a, "Geometry", b, "Geometry");
+    addLink(c.g, b, "Geometry", a, "Geometry");
+    EXPECT_TRUE(hasCode(validateGraph(c.g, reg()), DiagCode::Cycle));
+    EXPECT_FALSE(evaluateGraph(c.g, reg(), EvalContext{}).success);
+}
+
 TEST(GraphEvaluator, UnknownTypeIsDiagnosedOnlyWhenReachable) {
     Chain c = makeChain();
     Node& stray = addNode(c.g, "FutureNode", 3);

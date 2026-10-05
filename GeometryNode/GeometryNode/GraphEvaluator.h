@@ -2,8 +2,9 @@
 
 // Graph validation and CPU evaluation.
 //
-// Only the part of the graph that the (single) Output node depends on is
-// validated for per-node problems and evaluated, in topological order. Results
+// The entire graph is checked for structural problems (including disconnected cycles).
+// Only the part that the (single) Output node depends on is checked for per-node problems
+// and evaluated, in topological order. Results
 // are immutable and shared. An EvalCache lets a caller re-evaluate after an edit
 // and recompute only the changed nodes and what is downstream of them.
 //

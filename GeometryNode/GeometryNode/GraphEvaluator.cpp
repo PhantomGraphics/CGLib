@@ -133,24 +133,31 @@ Analysis analyze(const Graph& graph, const NodeRegistry& registry) {
         NodeId id;
         size_t next;
     };
-    std::vector<Frame> stack{{a.output, 0}};
-    state[a.output] = 1;
-    while (!stack.empty()) {
-        Frame& f = stack.back();
-        const std::vector<NodeId>& d = deps[f.id];
-        if (f.next < d.size()) {
-            const NodeId dep = d[f.next++];
-            const int s = state[dep];
-            if (s == 1) {
-                a.diags.push_back(makeDiag(Severity::Error, DiagCode::Cycle, dep, {}, "graph contains a cycle"));
-            } else if (s == 0) {
-                state[dep] = 1;
-                stack.push_back({dep, 0});
+    // Walk Output first to record evaluation order, then validate disconnected components.
+    std::vector<NodeId> roots{a.output};
+    for (const auto& [id, node] : a.byId) if (id != a.output) roots.push_back(id);
+    for (NodeId root : roots) {
+        if (state[root] != 0) continue;
+        const bool reachable = root == a.output;
+        std::vector<Frame> stack{{root, 0}};
+        state[root] = 1;
+        while (!stack.empty()) {
+            Frame& f = stack.back();
+            const std::vector<NodeId>& d = deps[f.id];
+            if (f.next < d.size()) {
+                const NodeId dep = d[f.next++];
+                const int s = state[dep];
+                if (s == 1) {
+                    a.diags.push_back(makeDiag(Severity::Error, DiagCode::Cycle, dep, {}, "graph contains a cycle"));
+                } else if (s == 0) {
+                    state[dep] = 1;
+                    stack.push_back({dep, 0});
+                }
+            } else {
+                state[f.id] = 2;
+                if (reachable) a.order.push_back(a.byId[f.id]);
+                stack.pop_back();
             }
-        } else {
-            state[f.id] = 2;
-            a.order.push_back(a.byId[f.id]);
-            stack.pop_back();
         }
     }
 
