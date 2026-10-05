@@ -50,36 +50,26 @@ phantom_add_gltfrenderer_core()
 if(PHANTOM_GTEST_FOUND)
     enable_testing()
 
-    add_executable(GltfRendererTest
-        ${GLTFR_ROOT}/GltfRendererTest/ObjToGltfConverterTest.cpp
-        ${GLTFR_ROOT}/GltfRendererTest/StlToGltfConverterTest.cpp
-        ${GLTFR_ROOT}/GltfRendererTest/MmdAnimationBakerTest.cpp
-        ${GLTFR_ROOT}/GltfRendererTest/GltfAnimationEvaluatorTest.cpp
-        ${GLTFR_ROOT}/GltfRendererTest/SkeletonGltfConverterTest.cpp
-        ${GLTFR_ROOT}/GltfRendererTest/MmdToGltfConverterTest.cpp
-        ${GLTFR_ROOT}/GltfRendererTest/GLTFFileReaderMorphTargetTest.cpp
-        ${GLTFR_ROOT}/GltfRendererTest/GltfMorphApplyTest.cpp
-        ${GLTFR_ROOT}/GltfRendererTest/GLTFFileReaderNodeMatrixTest.cpp
-        ${GLTFR_ROOT}/GltfRendererTest/GltfLightsCamerasTest.cpp
-        ${GLTFR_ROOT}/GltfRendererTest/PhmatGraphTest.cpp
-        ${GLTFR_ROOT}/GltfRendererTest/PhmatCompilerTest.cpp
-        ${GLTFR_ROOT}/GltfRendererTest/PhmatReflectionTest.cpp
-        ${GLTFR_ROOT}/GltfRendererTest/VrmExtensionParserTest.cpp
-        ${GLTFR_ROOT}/GltfRendererTest/VrmReaderTest.cpp
+    cglib_add_test(GltfRendererTest
+        SOURCES
+            ${GLTFR_ROOT}/GltfRendererTest/ObjToGltfConverterTest.cpp
+            ${GLTFR_ROOT}/GltfRendererTest/StlToGltfConverterTest.cpp
+            ${GLTFR_ROOT}/GltfRendererTest/MmdAnimationBakerTest.cpp
+            ${GLTFR_ROOT}/GltfRendererTest/GltfAnimationEvaluatorTest.cpp
+            ${GLTFR_ROOT}/GltfRendererTest/SkeletonGltfConverterTest.cpp
+            ${GLTFR_ROOT}/GltfRendererTest/MmdToGltfConverterTest.cpp
+            ${GLTFR_ROOT}/GltfRendererTest/GLTFFileReaderMorphTargetTest.cpp
+            ${GLTFR_ROOT}/GltfRendererTest/GltfMorphApplyTest.cpp
+            ${GLTFR_ROOT}/GltfRendererTest/GLTFFileReaderNodeMatrixTest.cpp
+            ${GLTFR_ROOT}/GltfRendererTest/GltfLightsCamerasTest.cpp
+            ${GLTFR_ROOT}/GltfRendererTest/PhmatGraphTest.cpp
+            ${GLTFR_ROOT}/GltfRendererTest/PhmatCompilerTest.cpp
+            ${GLTFR_ROOT}/GltfRendererTest/PhmatReflectionTest.cpp
+            ${GLTFR_ROOT}/GltfRendererTest/VrmExtensionParserTest.cpp
+            ${GLTFR_ROOT}/GltfRendererTest/VrmReaderTest.cpp
+        INCLUDES ${GLTFR_ROOT}/GltfRendererTest
+        LINK GltfRendererCore ${PHANTOM_VULKAN_LIBRARY}
     )
-    target_include_directories(GltfRendererTest PRIVATE
-        ${GLTFR_ROOT}/GltfRendererTest
-    )
-    target_link_libraries(GltfRendererTest PRIVATE
-        GltfRendererCore
-        GTest::gtest
-        GTest::gtest_main
-        ${PHANTOM_VULKAN_LIBRARY}
-    )
-    target_compile_options(GltfRendererTest PRIVATE ${PHANTOM_WARN_FLAGS})
-
-    include(GoogleTest)
-    gtest_discover_tests(GltfRendererTest)
 else()
     message(STATUS "GTest unavailable or tests disabled -- skipping GltfRendererTest target")
 endif()
@@ -88,6 +78,9 @@ endif()
 # GltfViewer (Phantom::Gltf app) -- standalone ImGui + Vulkan glTF/VRM viewer
 # ---------------------------------------------------------------------------
 
+# Viewer executables are opt-out only for the CGLib top-level (CGLIB_BUILD_VIEWERS); a module
+# configured on its own leaves the variable undefined and keeps building its viewer.
+if(NOT DEFINED CGLIB_BUILD_VIEWERS OR CGLIB_BUILD_VIEWERS)
 add_executable(GltfViewer
     ${GLTFVIEWER_ROOT}/main.cpp
     ${GLTFVIEWER_ROOT}/CommandDispatcher.cpp
@@ -118,11 +111,12 @@ add_custom_command(TARGET GltfViewer POST_BUILD
         ${GLTFVIEWER_ROOT}/shaders
         $<TARGET_FILE_DIR:GltfViewer>/shaders
 )
-
-else()
-    message(WARNING "GltfRenderer: Vulkan and/or GLFW loader not found -- GltfRendererCore/GltfRendererTest/GltfViewer are all skipped.")
 endif()
 
 else()
-    message(WARNING "GltfRenderer: vulkan/vulkan.h not found -- GltfRendererCore/GltfRendererTest/GltfViewer are all skipped (they all need Vulkan, see file header). Pass -DVULKAN_INCLUDE_DIR=/path/to/include to enable them.")
+    phantom_gpu_target_skipped("GltfRenderer: Vulkan and/or GLFW loader not found -- GltfRendererCore/GltfRendererTest/GltfViewer are all skipped.")
+endif()
+
+else()
+    phantom_gpu_target_skipped("GltfRenderer: vulkan/vulkan.h not found -- GltfRendererCore/GltfRendererTest/GltfViewer are all skipped (they all need Vulkan, see file header). Pass -DVULKAN_INCLUDE_DIR=/path/to/include to enable them.")
 endif()

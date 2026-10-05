@@ -26,6 +26,17 @@
 # below (compile-only); the loader/GLFW discovery is only needed to link an
 # actual executable.
 
+# A GPU target that cannot be configured (no Vulkan headers / loader / GLFW) is skipped
+# with a warning by default. With -DCGLIB_REQUIRE_VIEWERS=ON it is a hard error, so an
+# explicit request for the Vulkan modules is never silently dropped.
+function(phantom_gpu_target_skipped msg)
+    if(CGLIB_REQUIRE_VIEWERS)
+        message(FATAL_ERROR "${msg} (CGLIB_REQUIRE_VIEWERS=ON)")
+    else()
+        message(WARNING "${msg}")
+    endif()
+endfunction()
+
 function(phantom_find_vulkan_headers)
     if(DEFINED CACHE{PHANTOM_VULKAN_INCLUDE_DIR})
         return()

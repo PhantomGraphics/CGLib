@@ -37,26 +37,19 @@ phantom_find_gtest()
 if(PHANTOM_GTEST_FOUND)
     enable_testing()
 
-    add_executable(SceneRuntimeTest
-        ${SCENERUNTIME_ROOT}/SceneRuntimeTest/TransformTest.cpp
-        ${SCENERUNTIME_ROOT}/SceneRuntimeTest/SceneGraphTest.cpp
-        ${SCENERUNTIME_ROOT}/SceneRuntimeTest/ComponentSchemaTest.cpp
-        ${SCENERUNTIME_ROOT}/SceneRuntimeTest/ComponentSchemaRegistryTest.cpp
-        ${SCENERUNTIME_ROOT}/SceneRuntimeTest/UniverseSceneV2Test.cpp
-        ${SCENERUNTIME_ROOT}/SceneRuntimeTest/SceneV2EditorTest.cpp
-        ${SCENERUNTIME_ROOT}/SceneRuntimeTest/SceneV2MergeTest.cpp
-        ${SCENERUNTIME_ROOT}/SceneRuntimeTest/PlaySessionTest.cpp
-        ${SCENERUNTIME_ROOT}/SceneRuntimeTest/ClipPlaybackTest.cpp
+    cglib_add_test(SceneRuntimeTest
+        SOURCES
+            ${SCENERUNTIME_ROOT}/SceneRuntimeTest/TransformTest.cpp
+            ${SCENERUNTIME_ROOT}/SceneRuntimeTest/SceneGraphTest.cpp
+            ${SCENERUNTIME_ROOT}/SceneRuntimeTest/ComponentSchemaTest.cpp
+            ${SCENERUNTIME_ROOT}/SceneRuntimeTest/ComponentSchemaRegistryTest.cpp
+            ${SCENERUNTIME_ROOT}/SceneRuntimeTest/UniverseSceneV2Test.cpp
+            ${SCENERUNTIME_ROOT}/SceneRuntimeTest/SceneV2EditorTest.cpp
+            ${SCENERUNTIME_ROOT}/SceneRuntimeTest/SceneV2MergeTest.cpp
+            ${SCENERUNTIME_ROOT}/SceneRuntimeTest/PlaySessionTest.cpp
+            ${SCENERUNTIME_ROOT}/SceneRuntimeTest/ClipPlaybackTest.cpp
+        LINK SceneRuntimeCore
     )
-    target_link_libraries(SceneRuntimeTest PRIVATE
-        SceneRuntimeCore
-        GTest::gtest
-        GTest::gtest_main
-    )
-    target_compile_options(SceneRuntimeTest PRIVATE ${PHANTOM_WARN_FLAGS})
-
-    include(GoogleTest)
-    gtest_discover_tests(SceneRuntimeTest)
 else()
     message(STATUS "GTest unavailable or tests disabled -- skipping SceneRuntimeTest target")
 endif()

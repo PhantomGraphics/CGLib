@@ -37,21 +37,14 @@ phantom_find_gtest()
 if(PHANTOM_GTEST_FOUND)
     enable_testing()
 
-    add_executable(AssetCoreTest
-        ${ASSETCORE_ROOT}/AssetCoreTest/AssetIdTest.cpp
-        ${ASSETCORE_ROOT}/AssetCoreTest/AssetUriTest.cpp
-        ${ASSETCORE_ROOT}/AssetCoreTest/AssetManifestTest.cpp
-        ${ASSETCORE_ROOT}/AssetCoreTest/FileWatcherTest.cpp
+    cglib_add_test(AssetCoreTest
+        SOURCES
+            ${ASSETCORE_ROOT}/AssetCoreTest/AssetIdTest.cpp
+            ${ASSETCORE_ROOT}/AssetCoreTest/AssetUriTest.cpp
+            ${ASSETCORE_ROOT}/AssetCoreTest/AssetManifestTest.cpp
+            ${ASSETCORE_ROOT}/AssetCoreTest/FileWatcherTest.cpp
+        LINK AssetCore
     )
-    target_link_libraries(AssetCoreTest PRIVATE
-        AssetCore
-        GTest::gtest
-        GTest::gtest_main
-    )
-    target_compile_options(AssetCoreTest PRIVATE ${PHANTOM_WARN_FLAGS})
-
-    include(GoogleTest)
-    gtest_discover_tests(AssetCoreTest)
 else()
     message(STATUS "GTest unavailable or tests disabled -- skipping AssetCoreTest target")
 endif()

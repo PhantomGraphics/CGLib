@@ -35,34 +35,28 @@ phantom_find_gtest()
 if(PHANTOM_GTEST_FOUND)
     enable_testing()
 
-    add_executable(FileTest
-        ${FILE_ROOT}/FileTest/BVHFileReaderTest.cpp
-        ${FILE_ROOT}/FileTest/FileErrorHandlingTest.cpp
-        ${FILE_ROOT}/FileTest/GLTFFileReaderWriterTest.cpp
-        ${FILE_ROOT}/FileTest/MTLFileReaderTest.cpp
-        ${FILE_ROOT}/FileTest/MTLFileWriterTest.cpp
-        ${FILE_ROOT}/FileTest/OBJFileReaderTest.cpp
-        ${FILE_ROOT}/FileTest/OBJFileWriterTest.cpp
-        ${FILE_ROOT}/FileTest/PLYFileReaderTest.cpp
-        ${FILE_ROOT}/FileTest/PLYFileWriterTest.cpp
-        ${FILE_ROOT}/FileTest/PMDFileReaderTest.cpp
-        ${FILE_ROOT}/FileTest/PMXFileReaderTest.cpp
-        ${FILE_ROOT}/FileTest/STLASCIIFileReaderTest.cpp
-        ${FILE_ROOT}/FileTest/STLASCIIFileWriterTest.cpp
-        ${FILE_ROOT}/FileTest/STLBinaryFileReaderTest.cpp
-        ${FILE_ROOT}/FileTest/STLBinaryFileWriterTest.cpp
-        ${FILE_ROOT}/FileTest/VMDFileReaderTest.cpp
+    cglib_add_test(FileTest
+        SOURCES
+            ${FILE_ROOT}/FileTest/BVHFileReaderTest.cpp
+            ${FILE_ROOT}/FileTest/FileErrorHandlingTest.cpp
+            ${FILE_ROOT}/FileTest/GLTFFileReaderWriterTest.cpp
+            ${FILE_ROOT}/FileTest/MTLFileReaderTest.cpp
+            ${FILE_ROOT}/FileTest/MTLFileWriterTest.cpp
+            ${FILE_ROOT}/FileTest/OBJFileReaderTest.cpp
+            ${FILE_ROOT}/FileTest/OBJFileWriterTest.cpp
+            ${FILE_ROOT}/FileTest/PLYFileReaderTest.cpp
+            ${FILE_ROOT}/FileTest/PLYFileWriterTest.cpp
+            ${FILE_ROOT}/FileTest/PMDFileReaderTest.cpp
+            ${FILE_ROOT}/FileTest/PMXFileReaderTest.cpp
+            ${FILE_ROOT}/FileTest/STLASCIIFileReaderTest.cpp
+            ${FILE_ROOT}/FileTest/STLASCIIFileWriterTest.cpp
+            ${FILE_ROOT}/FileTest/STLBinaryFileReaderTest.cpp
+            ${FILE_ROOT}/FileTest/STLBinaryFileWriterTest.cpp
+            ${FILE_ROOT}/FileTest/VMDFileReaderTest.cpp
+        INCLUDES ${FILE_ROOT}/FileTest
+        LINK FileCore
+        WORKING_DIRECTORY $<TARGET_FILE_DIR:FileTest>
     )
-    target_include_directories(FileTest PRIVATE
-        ${REPO_ROOT}
-        ${FILE_ROOT}/FileTest
-    )
-    target_link_libraries(FileTest PRIVATE
-        FileCore
-        GTest::gtest
-        GTest::gtest_main
-    )
-    target_compile_options(FileTest PRIVATE ${PHANTOM_WARN_FLAGS})
 
     # A number of *ReaderTest/*WriterTest cases read/write fixtures relative to
     # the process' current working directory (File/FileTest/TestFiles/...),
@@ -74,9 +68,6 @@ if(PHANTOM_GTEST_FOUND)
             ${FILE_ROOT}/FileTest/TestFiles
             $<TARGET_FILE_DIR:FileTest>/TestFiles
     )
-
-    include(GoogleTest)
-    gtest_discover_tests(FileTest WORKING_DIRECTORY $<TARGET_FILE_DIR:FileTest>)
 else()
     message(STATUS "GTest unavailable or tests disabled -- skipping FileTest target")
 endif()

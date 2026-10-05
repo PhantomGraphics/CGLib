@@ -37,25 +37,16 @@ phantom_find_gtest()
 if(PHANTOM_GTEST_FOUND)
     enable_testing()
 
-    add_executable(AnimationTest
-        ${ANIMATION_ROOT}/AnimationTest/AnimatorTest.cpp
-        ${ANIMATION_ROOT}/AnimationTest/BVHConverterTest.cpp
-        ${ANIMATION_ROOT}/AnimationTest/IKSolverTest.cpp
-        ${ANIMATION_ROOT}/AnimationTest/MorphAnimatorTest.cpp
-        ${ANIMATION_ROOT}/AnimationTest/VMDConverterTest.cpp
+    cglib_add_test(AnimationTest
+        SOURCES
+            ${ANIMATION_ROOT}/AnimationTest/AnimatorTest.cpp
+            ${ANIMATION_ROOT}/AnimationTest/BVHConverterTest.cpp
+            ${ANIMATION_ROOT}/AnimationTest/IKSolverTest.cpp
+            ${ANIMATION_ROOT}/AnimationTest/MorphAnimatorTest.cpp
+            ${ANIMATION_ROOT}/AnimationTest/VMDConverterTest.cpp
+        INCLUDES ${ANIMATION_ROOT}/AnimationTest
+        LINK AnimationCore
     )
-    target_include_directories(AnimationTest PRIVATE
-        ${ANIMATION_ROOT}/AnimationTest
-    )
-    target_link_libraries(AnimationTest PRIVATE
-        AnimationCore
-        GTest::gtest
-        GTest::gtest_main
-    )
-    target_compile_options(AnimationTest PRIVATE ${PHANTOM_WARN_FLAGS})
-
-    include(GoogleTest)
-    gtest_discover_tests(AnimationTest)
 else()
     message(STATUS "GTest unavailable or tests disabled -- skipping AnimationTest target")
 endif()
@@ -100,6 +91,9 @@ target_compile_features(AnimationRenderer PUBLIC cxx_std_20)
 
 # --- AnimationView (standalone ImGui + Vulkan MMD animation viewer) ---
 
+# Viewer executables are opt-out only for the CGLib top-level (CGLIB_BUILD_VIEWERS); a module
+# configured on its own leaves the variable undefined and keeps building its viewer.
+if(NOT DEFINED CGLIB_BUILD_VIEWERS OR CGLIB_BUILD_VIEWERS)
 add_executable(AnimationView
     ${ANIMATIONVIEW_ROOT}/CommandDispatcher.cpp
     ${ANIMATIONVIEW_ROOT}/AnimationPanel.cpp
@@ -125,11 +119,12 @@ add_custom_command(TARGET AnimationView POST_BUILD
         ${ANIMATIONVIEW_ROOT}/shaders
         $<TARGET_FILE_DIR:AnimationView>/shaders
 )
+endif()
 
 else()
-    message(WARNING "Animation: Vulkan and/or GLFW loader not found -- AnimationRenderer/AnimationView are skipped.")
+    phantom_gpu_target_skipped("Animation: Vulkan and/or GLFW loader not found -- AnimationRenderer/AnimationView are skipped.")
 endif()
 
 elseif(NOT DEFINED CGLIB_ENABLE_VULKAN OR CGLIB_ENABLE_VULKAN)
-    message(WARNING "Animation: vulkan/vulkan.h not found -- AnimationRenderer/AnimationView are skipped.")
+    phantom_gpu_target_skipped("Animation: vulkan/vulkan.h not found -- AnimationRenderer/AnimationView are skipped.")
 endif()

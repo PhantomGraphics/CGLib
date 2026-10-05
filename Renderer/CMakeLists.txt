@@ -46,6 +46,9 @@ phantom_add_vkrenderer_core()
 # VkRendererView -- standalone ImGui + Vulkan viewer exercising VkRenderer
 # ---------------------------------------------------------------------------
 
+# Viewer executables are opt-out only for the CGLib top-level (CGLIB_BUILD_VIEWERS); a module
+# configured on its own leaves the variable undefined and keeps building its viewer.
+if(NOT DEFINED CGLIB_BUILD_VIEWERS OR CGLIB_BUILD_VIEWERS)
 add_executable(VkRendererView
     ${RENDERER_ROOT}/VkRendererView/main.cpp
     ${RENDERER_ROOT}/VkRendererView/VkRendererApp.cpp
@@ -75,11 +78,12 @@ add_custom_command(TARGET VkRendererView POST_BUILD
         ${RENDERER_ROOT}/VkRenderer/Shaders
         $<TARGET_FILE_DIR:VkRendererView>/shaders
 )
-
-else()
-    message(WARNING "VkRendererView: Vulkan and/or GLFW loader not found -- VkRendererView is skipped. Pass -DVULKAN_LIBRARY=... -DGLFW_LIBRARY=... to enable it.")
 endif()
 
 else()
-    message(WARNING "VkRendererView: vulkan/vulkan.h not found -- VkRendererView is skipped. Pass -DVULKAN_INCLUDE_DIR=/path/to/include to enable it (on Windows, check $ENV{VULKAN_SDK} is set).")
+    phantom_gpu_target_skipped("VkRendererView: Vulkan and/or GLFW loader not found -- VkRendererView is skipped. Pass -DVULKAN_LIBRARY=... -DGLFW_LIBRARY=... to enable it.")
+endif()
+
+else()
+    phantom_gpu_target_skipped("VkRendererView: vulkan/vulkan.h not found -- VkRendererView is skipped. Pass -DVULKAN_INCLUDE_DIR=/path/to/include to enable it (on Windows, check $ENV{VULKAN_SDK} is set).")
 endif()

@@ -35,25 +35,15 @@ phantom_find_gtest()
 if(PHANTOM_GTEST_FOUND)
     enable_testing()
 
-    add_executable(NumericsTest
-        ${NUMERICS_ROOT}/NumericsTest/ConverterTest.cpp
-        ${NUMERICS_ROOT}/NumericsTest/SVD2dTest.cpp
-        ${NUMERICS_ROOT}/NumericsTest/SVD3dTest.cpp
-        ${NUMERICS_ROOT}/NumericsTest/test.cpp
+    cglib_add_test(NumericsTest
+        SOURCES
+            ${NUMERICS_ROOT}/NumericsTest/ConverterTest.cpp
+            ${NUMERICS_ROOT}/NumericsTest/SVD2dTest.cpp
+            ${NUMERICS_ROOT}/NumericsTest/SVD3dTest.cpp
+            ${NUMERICS_ROOT}/NumericsTest/test.cpp
+        INCLUDES ${NUMERICS_ROOT}/NumericsTest
+        LINK NumericsCore
     )
-    target_include_directories(NumericsTest PRIVATE
-        ${REPO_ROOT}
-        ${NUMERICS_ROOT}/NumericsTest
-    )
-    target_link_libraries(NumericsTest PRIVATE
-        NumericsCore
-        GTest::gtest
-        GTest::gtest_main
-    )
-    target_compile_options(NumericsTest PRIVATE ${PHANTOM_WARN_FLAGS})
-
-    include(GoogleTest)
-    gtest_discover_tests(NumericsTest)
 else()
     message(STATUS "GTest unavailable or tests disabled -- skipping NumericsTest target")
 endif()
