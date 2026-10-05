@@ -55,8 +55,11 @@ VkCommandBuffer VulkanCommandPool::beginSingleTimeCommands() const {
     ai.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     ai.commandBufferCount = 1;
 
-    VkCommandBuffer cmd;
-    vkAllocateCommandBuffers(ctx_->getDevice(), &ai, &cmd);
+    VkCommandBuffer cmd = VK_NULL_HANDLE;
+    if (vkAllocateCommandBuffers(ctx_->getDevice(), &ai, &cmd) != VK_SUCCESS) {
+        std::fprintf(stderr, "[VKG] VulkanCommandPool: failed to allocate a single-time command buffer\n");
+        return VK_NULL_HANDLE; // callers that ignore this crash on a null handle instead of using garbage
+    }
 
     VkCommandBufferBeginInfo bi{};
     bi.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -66,6 +69,7 @@ VkCommandBuffer VulkanCommandPool::beginSingleTimeCommands() const {
 }
 
 void VulkanCommandPool::endSingleTimeCommands(VkCommandBuffer cmd) const {
+    if (cmd == VK_NULL_HANDLE) return; // beginSingleTimeCommands() failed
     vkEndCommandBuffer(cmd);
 
     VkSubmitInfo si{};

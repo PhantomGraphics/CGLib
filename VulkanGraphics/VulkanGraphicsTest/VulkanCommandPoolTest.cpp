@@ -23,3 +23,11 @@ TEST_F(VulkanCommandPoolTest, SingleTimeCommandsRoundTrip) {
     ASSERT_NE(cmd, VK_NULL_HANDLE);
     pool_.endSingleTimeCommands(cmd);
 }
+
+// A null handle (what beginSingleTimeCommands() returns when allocation fails) must be accepted.
+TEST_F(VulkanCommandPoolTest, EndSingleTimeCommandsIgnoresNullHandle) {
+    pool_.endSingleTimeCommands(VK_NULL_HANDLE);
+    VkCommandBuffer cmd = pool_.beginSingleTimeCommands();
+    EXPECT_NE(cmd, VK_NULL_HANDLE);
+    pool_.endSingleTimeCommands(cmd);
+}
