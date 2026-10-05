@@ -57,7 +57,7 @@ if(PHANTOM_GTEST_FOUND)
     include(GoogleTest)
     gtest_discover_tests(AnimationTest)
 else()
-    message(WARNING "GTest not found -- skipping AnimationTest target")
+    message(STATUS "GTest unavailable or tests disabled -- skipping AnimationTest target")
 endif()
 
 # ---------------------------------------------------------------------------
@@ -96,7 +96,7 @@ target_include_directories(AnimationRenderer PRIVATE
 )
 target_link_libraries(AnimationRenderer PRIVATE AnimationCore VulkanGraphicsCore VkRendererCore)
 target_compile_options(AnimationRenderer PRIVATE ${PHANTOM_WARN_FLAGS})
-target_compile_features(AnimationRenderer PRIVATE cxx_std_20)
+target_compile_features(AnimationRenderer PUBLIC cxx_std_20)
 
 # --- AnimationView (standalone ImGui + Vulkan MMD animation viewer) ---
 

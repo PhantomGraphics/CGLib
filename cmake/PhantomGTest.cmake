@@ -4,6 +4,13 @@
 include_guard(GLOBAL)
 
 function(phantom_find_gtest)
+    # Honor an explicit CGLIB_BUILD_TESTING=OFF: no fetch, no test targets. When the
+    # variable is undefined (a module configured standalone) tests stay on.
+    if(DEFINED CGLIB_BUILD_TESTING AND NOT CGLIB_BUILD_TESTING)
+        set(PHANTOM_GTEST_FOUND FALSE CACHE INTERNAL "GoogleTest targets available" FORCE)
+        return()
+    endif()
+
     if(TARGET GTest::gtest AND TARGET GTest::gtest_main)
         set(PHANTOM_GTEST_FOUND TRUE CACHE INTERNAL "GoogleTest targets available" FORCE)
         return()

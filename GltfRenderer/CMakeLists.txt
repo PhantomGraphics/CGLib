@@ -81,7 +81,7 @@ if(PHANTOM_GTEST_FOUND)
     include(GoogleTest)
     gtest_discover_tests(GltfRendererTest)
 else()
-    message(WARNING "GTest not found -- skipping GltfRendererTest target")
+    message(STATUS "GTest unavailable or tests disabled -- skipping GltfRendererTest target")
 endif()
 
 # ---------------------------------------------------------------------------

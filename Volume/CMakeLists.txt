@@ -59,7 +59,7 @@ if(PHANTOM_GTEST_FOUND)
     include(GoogleTest)
     gtest_discover_tests(VolumeTest)
 else()
-    message(WARNING "GTest not found -- skipping VolumeTest target")
+    message(STATUS "GTest unavailable or tests disabled -- skipping VolumeTest target")
 endif()
 
 # ---------------------------------------------------------------------------
