@@ -37,29 +37,19 @@ phantom_find_gtest()
 if(PHANTOM_GTEST_FOUND)
     enable_testing()
 
-    add_executable(GeometryNodeTest
-        ${GEOMETRYNODE_ROOT}/GeometryNodeTest/GeometryOpsTest.cpp
-        ${GEOMETRYNODE_ROOT}/GeometryNodeTest/GraphEvaluatorTest.cpp
-        ${GEOMETRYNODE_ROOT}/GeometryNodeTest/GraphJsonTest.cpp
-        ${GEOMETRYNODE_ROOT}/GeometryNodeTest/FieldTest.cpp
-        ${GEOMETRYNODE_ROOT}/GeometryNodeTest/InstanceTest.cpp
-        ${GEOMETRYNODE_ROOT}/GeometryNodeTest/TerrainNodeTest.cpp
-        ${GEOMETRYNODE_ROOT}/GeometryNodeTest/GraphAssetTest.cpp
-        ${GEOMETRYNODE_ROOT}/GeometryNodeTest/GraphGroupTest.cpp
+    cglib_add_test(GeometryNodeTest
+        SOURCES
+            ${GEOMETRYNODE_ROOT}/GeometryNodeTest/GeometryOpsTest.cpp
+            ${GEOMETRYNODE_ROOT}/GeometryNodeTest/GraphEvaluatorTest.cpp
+            ${GEOMETRYNODE_ROOT}/GeometryNodeTest/GraphJsonTest.cpp
+            ${GEOMETRYNODE_ROOT}/GeometryNodeTest/FieldTest.cpp
+            ${GEOMETRYNODE_ROOT}/GeometryNodeTest/InstanceTest.cpp
+            ${GEOMETRYNODE_ROOT}/GeometryNodeTest/TerrainNodeTest.cpp
+            ${GEOMETRYNODE_ROOT}/GeometryNodeTest/GraphAssetTest.cpp
+            ${GEOMETRYNODE_ROOT}/GeometryNodeTest/GraphGroupTest.cpp
+        INCLUDES ${GEOMETRYNODE_ROOT}/GeometryNodeTest
+        LINK GeometryNodeCore
     )
-    target_include_directories(GeometryNodeTest PRIVATE
-        ${REPO_ROOT}
-        ${GEOMETRYNODE_ROOT}/GeometryNodeTest
-    )
-    target_link_libraries(GeometryNodeTest PRIVATE
-        GeometryNodeCore
-        GTest::gtest
-        GTest::gtest_main
-    )
-    target_compile_options(GeometryNodeTest PRIVATE ${PHANTOM_WARN_FLAGS})
-
-    include(GoogleTest)
-    gtest_discover_tests(GeometryNodeTest)
 else()
     message(STATUS "GTest unavailable or tests disabled -- skipping GeometryNodeTest target")
 endif()

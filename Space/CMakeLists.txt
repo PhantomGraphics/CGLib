@@ -46,13 +46,7 @@ if(PHANTOM_GTEST_FOUND)
     file(GLOB SPACETEST_SOURCES ${SPACE_ROOT}/SpaceTest/*.cpp)
     list(FILTER SPACETEST_SOURCES EXCLUDE REGEX "pch\\.cpp$")
 
-    add_executable(SpaceTest ${SPACETEST_SOURCES})
-    target_include_directories(SpaceTest PRIVATE ${REPO_ROOT} ${SPACE_ROOT}/SpaceTest)
-    target_link_libraries(SpaceTest PRIVATE SpaceCore GTest::gtest GTest::gtest_main)
-    target_compile_options(SpaceTest PRIVATE ${PHANTOM_WARN_FLAGS})
-
-    include(GoogleTest)
-    gtest_discover_tests(SpaceTest)
+    cglib_add_test(SpaceTest SOURCES ${SPACETEST_SOURCES} INCLUDES ${SPACE_ROOT}/SpaceTest LINK SpaceCore)
 endif()
 
 # ---------------------------------------------------------------------------
@@ -71,6 +65,9 @@ if(PHANTOM_VULKAN_LIBRARY AND PHANTOM_GLFW_LIBRARY)
 phantom_add_vkappbase_core()
 phantom_add_vkrenderer_core()
 
+# Viewer executables are opt-out only for the CGLib top-level (CGLIB_BUILD_VIEWERS); a module
+# configured on its own leaves the variable undefined and keeps building its viewer.
+if(NOT DEFINED CGLIB_BUILD_VIEWERS OR CGLIB_BUILD_VIEWERS)
 add_executable(SpaceView
     ${SPACE_ROOT}/SpaceView/CompactSpaceHashPanel.cpp
     ${SPACE_ROOT}/SpaceView/KDTreePanel.cpp
@@ -107,11 +104,12 @@ add_custom_command(TARGET SpaceView POST_BUILD
         ${SPACE_ROOT}/SpaceView/shaders
         $<TARGET_FILE_DIR:SpaceView>/shaders
 )
+endif()
 
 else()
-    message(WARNING "Space: Vulkan and/or GLFW loader not found -- SpaceView is skipped (Space/SpaceTest still build). Pass -DVULKAN_LIBRARY=... -DGLFW_LIBRARY=... to enable it.")
+    phantom_gpu_target_skipped("Space: Vulkan and/or GLFW loader not found -- SpaceView is skipped (Space/SpaceTest still build). Pass -DVULKAN_LIBRARY=... -DGLFW_LIBRARY=... to enable it.")
 endif()
 
 elseif(NOT DEFINED CGLIB_ENABLE_VULKAN OR CGLIB_ENABLE_VULKAN)
-    message(WARNING "Space: vulkan/vulkan.h not found -- SpaceView is skipped. Pass -DVULKAN_INCLUDE_DIR=/path/to/include to enable it (on Windows, check $ENV{VULKAN_SDK} is set).")
+    phantom_gpu_target_skipped("Space: vulkan/vulkan.h not found -- SpaceView is skipped. Pass -DVULKAN_INCLUDE_DIR=/path/to/include to enable it (on Windows, check $ENV{VULKAN_SDK} is set).")
 endif()

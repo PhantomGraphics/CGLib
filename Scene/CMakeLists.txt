@@ -35,23 +35,13 @@ phantom_find_gtest()
 if(PHANTOM_GTEST_FOUND)
     enable_testing()
 
-    add_executable(SceneTest
-        ${SCENE_ROOT}/SceneTest/SceneBaseTest.cpp
-        ${SCENE_ROOT}/SceneTest/SceneGroupTest.cpp
+    cglib_add_test(SceneTest
+        SOURCES
+            ${SCENE_ROOT}/SceneTest/SceneBaseTest.cpp
+            ${SCENE_ROOT}/SceneTest/SceneGroupTest.cpp
+        INCLUDES ${SCENE_ROOT}/SceneTest
+        LINK SceneCore
     )
-    target_include_directories(SceneTest PRIVATE
-        ${REPO_ROOT}
-        ${SCENE_ROOT}/SceneTest
-    )
-    target_link_libraries(SceneTest PRIVATE
-        SceneCore
-        GTest::gtest
-        GTest::gtest_main
-    )
-    target_compile_options(SceneTest PRIVATE ${PHANTOM_WARN_FLAGS})
-
-    include(GoogleTest)
-    gtest_discover_tests(SceneTest)
 else()
     message(STATUS "GTest unavailable or tests disabled -- skipping SceneTest target")
 endif()

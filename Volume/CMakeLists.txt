@@ -37,27 +37,17 @@ phantom_find_gtest()
 if(PHANTOM_GTEST_FOUND)
     enable_testing()
 
-    add_executable(VolumeTest
-        ${VOLUME_ROOT}/VolumeTest/LevelSetTest.cpp
-        ${VOLUME_ROOT}/VolumeTest/MCSurfaceBuilderTest.cpp
-        ${VOLUME_ROOT}/VolumeTest/SparseVolumeTreeTest.cpp
-        ${VOLUME_ROOT}/VolumeTest/SurfaceVoxelizerTest.cpp
-        ${VOLUME_ROOT}/VolumeTest/VolumeScatteringTest.cpp
-        ${VOLUME_ROOT}/VolumeTest/VolumeTest.cpp
+    cglib_add_test(VolumeTest
+        SOURCES
+            ${VOLUME_ROOT}/VolumeTest/LevelSetTest.cpp
+            ${VOLUME_ROOT}/VolumeTest/MCSurfaceBuilderTest.cpp
+            ${VOLUME_ROOT}/VolumeTest/SparseVolumeTreeTest.cpp
+            ${VOLUME_ROOT}/VolumeTest/SurfaceVoxelizerTest.cpp
+            ${VOLUME_ROOT}/VolumeTest/VolumeScatteringTest.cpp
+            ${VOLUME_ROOT}/VolumeTest/VolumeTest.cpp
+        INCLUDES ${VOLUME_ROOT}/VolumeTest
+        LINK VolumeCore
     )
-    target_include_directories(VolumeTest PRIVATE
-        ${REPO_ROOT}
-        ${VOLUME_ROOT}/VolumeTest
-    )
-    target_link_libraries(VolumeTest PRIVATE
-        VolumeCore
-        GTest::gtest
-        GTest::gtest_main
-    )
-    target_compile_options(VolumeTest PRIVATE ${PHANTOM_WARN_FLAGS})
-
-    include(GoogleTest)
-    gtest_discover_tests(VolumeTest)
 else()
     message(STATUS "GTest unavailable or tests disabled -- skipping VolumeTest target")
 endif()
@@ -117,6 +107,9 @@ if(CGLIB_BUILD_TESTING AND PHANTOM_GTEST_FOUND)
     set_tests_properties(VolumeRaymarchGpuTest PROPERTIES LABELS gpu)
 endif()
 
+# Viewer executables are opt-out only for the CGLib top-level (CGLIB_BUILD_VIEWERS); a module
+# configured on its own leaves the variable undefined and keeps building its viewer.
+if(NOT DEFINED CGLIB_BUILD_VIEWERS OR CGLIB_BUILD_VIEWERS)
 add_executable(VolumeView
     ${VOLUME_ROOT}/VolumeView/main.cpp
     ${VOLUME_ROOT}/VolumeView/DVCreateBoxView.cpp
@@ -175,11 +168,12 @@ add_custom_command(TARGET VolumeView POST_BUILD
         ${VOLUME_ROOT}/VolumeView/scenarios
         $<TARGET_FILE_DIR:VolumeView>/scenarios
 )
+endif()
 
 else()
-    message(WARNING "Volume: Vulkan and/or GLFW loader not found -- VolumeView is skipped (Volume/VolumeTest still build). Pass -DVULKAN_LIBRARY=... -DGLFW_LIBRARY=... to enable it.")
+    phantom_gpu_target_skipped("Volume: Vulkan and/or GLFW loader not found -- VolumeView is skipped (Volume/VolumeTest still build). Pass -DVULKAN_LIBRARY=... -DGLFW_LIBRARY=... to enable it.")
 endif()
 
 elseif(NOT DEFINED CGLIB_ENABLE_VULKAN OR CGLIB_ENABLE_VULKAN)
-    message(WARNING "Volume: vulkan/vulkan.h not found -- VolumeView is skipped. Pass -DVULKAN_INCLUDE_DIR=/path/to/include to enable it (on Windows, check $ENV{VULKAN_SDK} is set).")
+    phantom_gpu_target_skipped("Volume: vulkan/vulkan.h not found -- VolumeView is skipped. Pass -DVULKAN_INCLUDE_DIR=/path/to/include to enable it (on Windows, check $ENV{VULKAN_SDK} is set).")
 endif()

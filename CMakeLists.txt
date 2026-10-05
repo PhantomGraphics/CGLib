@@ -15,7 +15,8 @@
 # Options (see the table in docs/standalone-repository-plan.md section 3):
 #   CGLIB_BUILD_TESTING   ON when top-level   CTest/GoogleTest suites
 #   CGLIB_BUILD_EXAMPLES  OFF                 examples/ consumer samples
-#   CGLIB_BUILD_VIEWERS   OFF                 Vulkan/GLFW viewer executables
+#   CGLIB_BUILD_VIEWERS   ON when top-level   Vulkan/GLFW viewer executables
+#   CGLIB_REQUIRE_VIEWERS OFF                 error (not warning) if a viewer/GPU target is skipped
 #   CGLIB_ENABLE_VULKAN   auto-detected       Vulkan/GLFW-dependent modules
 #   CGLIB_INSTALL         ON when top-level   install rules + CGLibConfig.cmake (CPU components)
 # GoogleTest is fetched at the pinned v1.15.2 version whenever tests are enabled.
@@ -45,7 +46,8 @@ endif()
 
 option(CGLIB_BUILD_TESTING "Build the GoogleTest suites" ${CGLIB_IS_TOP_LEVEL})
 option(CGLIB_BUILD_EXAMPLES "Build the examples/ consumer samples" OFF)
-option(CGLIB_BUILD_VIEWERS "Build the Vulkan/GLFW viewer executables" OFF)
+option(CGLIB_BUILD_VIEWERS "Build the Vulkan/GLFW viewer executables" ${CGLIB_IS_TOP_LEVEL})
+option(CGLIB_REQUIRE_VIEWERS "Fail configure instead of warning when a Vulkan/viewer target cannot be built" OFF)
 option(CGLIB_INSTALL "Generate install rules and the CGLib package config (CPU components)" ${CGLIB_IS_TOP_LEVEL})
 
 # CGLIB_ENABLE_VULKAN defaults to whether a Vulkan SDK is discoverable. Forcing
@@ -68,24 +70,6 @@ if(CGLIB_BUILD_TESTING)
     phantom_find_gtest()
     include(GoogleTest)
 endif()
-
-# gtest_discover_tests() runs the test binary at build time to enumerate cases;
-# a wrapper keeps the call sites short and consistent.
-function(cglib_add_test target)
-    if(NOT CGLIB_BUILD_TESTING OR NOT PHANTOM_GTEST_FOUND)
-        return()
-    endif()
-    cmake_parse_arguments(A "" "WORKING_DIRECTORY" "SOURCES;LINK;INCLUDES" ${ARGN})
-    add_executable(${target} ${A_SOURCES})
-    target_include_directories(${target} PRIVATE ${REPO_ROOT} ${A_INCLUDES})
-    target_link_libraries(${target} PRIVATE ${A_LINK} GTest::gtest GTest::gtest_main)
-    target_compile_options(${target} PRIVATE ${PHANTOM_WARN_FLAGS})
-    if(A_WORKING_DIRECTORY)
-        gtest_discover_tests(${target} WORKING_DIRECTORY ${A_WORKING_DIRECTORY})
-    else()
-        gtest_discover_tests(${target})
-    endif()
-endfunction()
 
 # ---------------------------------------------------------------------------
 # CPU-only modules (always built)
