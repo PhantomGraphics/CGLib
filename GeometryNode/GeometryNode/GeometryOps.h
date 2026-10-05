@@ -71,6 +71,27 @@ OpStatus instanceOnPoints(const Mesh& points, const GeometryPtr& source, const s
 // are rejected at creation, so one level is enough.
 OpStatus realizeInstances(const Mesh& in, const Limits& limits, const std::atomic<bool>* cancel, Mesh& out);
 
+// Height-field terrain on the XZ plane (+Y up, centred on the origin, buildPlane() topology/winding):
+// seeded gradient-noise fBm. This is the algorithm of the former Phantom::Terrain generatorVersion 1, so a
+// recipe reproduces the same mesh. `seed` is the 32-bit permutation seed stored as int32 (bit pattern).
+inline constexpr int32_t kMaxTerrainSegmentsPerAxis = 4096;
+struct TerrainParams {
+    float width = 10.0f;
+    float depth = 10.0f;
+    int32_t segmentsX = 128;
+    int32_t segmentsZ = 128;
+    float heightScale = 2.0f;
+    float frequency = 0.15f;
+    int32_t octaves = 5;
+    float lacunarity = 2.0f;
+    float persistence = 0.5f;
+    int32_t seed = 0;
+    float heightOffset = 0.0f;
+};
+// InvalidArgument for out-of-range / non-finite values, LimitExceeded for a grid over the limits.
+OpStatus validateTerrain(const TerrainParams& params, const Limits& limits);
+OpStatus makeTerrain(const TerrainParams& params, const Limits& limits, Mesh& out);
+
 // Area-weighted vertex normals (zero-area vertices get +Y).
 std::vector<Vec3> computeSmoothNormals(const Mesh& mesh);
 

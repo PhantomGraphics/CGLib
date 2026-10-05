@@ -205,6 +205,7 @@ function(phantom_add_geometrynode_core)
     # (reached by a relative include from GraphTypes.h).
     add_library(GeometryNodeCore STATIC
         ${CGLIB_ROOT}/GeometryNode/GeometryNode/GeometryOps.cpp
+        ${CGLIB_ROOT}/GeometryNode/GeometryNode/TerrainOps.cpp
         ${CGLIB_ROOT}/GeometryNode/GeometryNode/GraphTypes.cpp
         ${CGLIB_ROOT}/GeometryNode/GeometryNode/NodeRegistry.cpp
         ${CGLIB_ROOT}/GeometryNode/GeometryNode/GraphEvaluator.cpp
