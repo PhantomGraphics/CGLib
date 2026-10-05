@@ -77,13 +77,13 @@ endif()
 
 # Math (Phantom::Math)
 phantom_add_math_core()
-file(GLOB MATHTEST_SOURCES ${CGLIB_ROOT}/MathTest/*.cpp)
+file(GLOB MATHTEST_SOURCES CONFIGURE_DEPENDS ${CGLIB_ROOT}/MathTest/*.cpp)
 list(FILTER MATHTEST_SOURCES EXCLUDE REGEX "pch\\.cpp$")
 cglib_add_test(MathTest SOURCES ${MATHTEST_SOURCES} INCLUDES ${CGLIB_ROOT}/MathTest LINK MathCore)
 
 # Graphics (Phantom::Graphics)
 phantom_add_graphics_core()
-file(GLOB GRAPHICSTEST_SOURCES ${CGLIB_ROOT}/GraphicsTest/*.cpp)
+file(GLOB GRAPHICSTEST_SOURCES CONFIGURE_DEPENDS ${CGLIB_ROOT}/GraphicsTest/*.cpp)
 list(FILTER GRAPHICSTEST_SOURCES EXCLUDE REGEX "pch\\.cpp$")
 cglib_add_test(GraphicsTest SOURCES ${GRAPHICSTEST_SOURCES} INCLUDES ${CGLIB_ROOT}/GraphicsTest LINK GraphicsCore MathCore)
 
@@ -126,7 +126,7 @@ if(PHANTOM_VULKAN_INCLUDE_DIR)
     phantom_find_glfw_loader()
 
     if(CGLIB_BUILD_TESTING AND PHANTOM_GTEST_FOUND AND PHANTOM_VULKAN_LIBRARY AND PHANTOM_GLFW_LIBRARY)
-        file(GLOB VULKANGRAPHICSTEST_SOURCES ${CGLIB_ROOT}/VulkanGraphics/VulkanGraphicsTest/*.cpp)
+        file(GLOB VULKANGRAPHICSTEST_SOURCES CONFIGURE_DEPENDS ${CGLIB_ROOT}/VulkanGraphics/VulkanGraphicsTest/*.cpp)
         add_executable(VulkanGraphicsTest ${VULKANGRAPHICSTEST_SOURCES})
         target_include_directories(VulkanGraphicsTest PRIVATE
             ${CGLIB_ROOT}/ThirdParty/glfw-3.3.8/include

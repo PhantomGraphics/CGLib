@@ -43,7 +43,7 @@ phantom_find_gtest()
 if(PHANTOM_GTEST_FOUND)
     enable_testing()
 
-    file(GLOB SPACETEST_SOURCES ${SPACE_ROOT}/SpaceTest/*.cpp)
+    file(GLOB SPACETEST_SOURCES CONFIGURE_DEPENDS ${SPACE_ROOT}/SpaceTest/*.cpp)
     list(FILTER SPACETEST_SOURCES EXCLUDE REGEX "pch\\.cpp$")
 
     cglib_add_test(SpaceTest SOURCES ${SPACETEST_SOURCES} INCLUDES ${SPACE_ROOT}/SpaceTest LINK SpaceCore)

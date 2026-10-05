@@ -43,7 +43,7 @@ Remove-Item -Recurse -Force $build
 
 & $cmake -S (Join-Path $root 'tests\install_consumer') -B $cons -G Ninja "-DCMAKE_BUILD_TYPE=$Configuration" "-DCMAKE_PREFIX_PATH=$moved"
 if ($LASTEXITCODE) { throw 'consumer configure failed' }
-& $cmake --build $cons
+& $cmake --build $cons -- -k 0
 if ($LASTEXITCODE) { throw 'consumer build failed' }
 & (Join-Path $cons 'cglib_install_consumer.exe')
 if ($LASTEXITCODE) { throw 'consumer run failed' }
