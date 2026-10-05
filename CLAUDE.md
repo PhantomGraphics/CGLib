@@ -51,6 +51,7 @@ MSVC ランタイムは Debug `/MDd`、その他 `/MD`。オフラインでは
 
 主なターゲット: `MathCore`, `MathTest`, `GraphicsCore`, `GraphicsTest`, `NumericsCore`,
 `SpaceCore`, `SceneCore`, `FileCore`, `AnimationCore`, `VolumeCore`, `TerrainCore`,
+`GeometryNodeCore`（`Phantom::GeometryNode` -- ノードグラフの CPU 評価、Field/属性 domain/seed 契約を含む、`docs/todo/PLAN_geometry_node.md`）, `GeometryNodeTest`,
 `AssetCore`, `AssetCoreTest`, `SceneRuntimeCore`, `SceneRuntimeTest`, `PugixmlCore`,
 `VulkanGraphicsCore`, `VulkanGraphicsTest`, `UIWidgetsCore`。`AssetCore`（`Phantom::Asset` --
 project-relative asset id/URI/manifest、Vulkan/Math 非依存）は `docs/spec/phantom_asset_manifest.md`
