@@ -18,10 +18,42 @@
 # license files next to their headers where upstream ships them.
 #
 # Targets are exported as CGLib::<Component> (Math, Graphics, ...) via EXPORT_NAME, the same
-# names as the build-tree aliases. Vulkan-dependent components are NOT exported yet.
+# names as the build-tree aliases. Of the Vulkan-dependent components only VulkanGraphics is
+# exported so far (own CGLibVulkanTargets file, loaded when the component is requested).
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
+
+# Split a target's include directories into BUILD_INTERFACE (source/shim path) and
+# INSTALL_INTERFACE (path relative to the prefix). The shim root (REPO_ROOT) holds
+# generated forwarding headers with absolute source paths; it must never be exported.
+# With BUILD_ONLY_OUTSIDE (Vulkan targets) a directory that is not under the shim root or
+# CGLIB_ROOT -- the system Vulkan SDK -- and vendored trees the public headers do not
+# include are build-only; the package config supplies Vulkan::Headers instead.
+function(cglib_split_include_dirs target)
+    cmake_parse_arguments(A "BUILD_ONLY_OUTSIDE" "" "BUILD_ONLY_DIRS" ${ARGN})
+    get_target_property(_incs ${target} INTERFACE_INCLUDE_DIRECTORIES)
+    set(_new "")
+    foreach(_inc IN LISTS _incs)
+        if(_inc MATCHES "^\\$<")
+            list(APPEND _new "${_inc}")
+        elseif(_inc STREQUAL "${REPO_ROOT}")
+            list(APPEND _new "$<BUILD_INTERFACE:${_inc}>" "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>")
+        elseif(_inc STREQUAL "${CGLIB_ROOT}")
+            list(APPEND _new "$<BUILD_INTERFACE:${_inc}>" "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/CGLib>")
+        else()
+            file(RELATIVE_PATH _rel "${CGLIB_ROOT}" "${_inc}")
+            if(A_BUILD_ONLY_OUTSIDE AND (_rel MATCHES "^\\.\\." OR _inc IN_LIST A_BUILD_ONLY_DIRS))
+                list(APPEND _new "$<BUILD_INTERFACE:${_inc}>")
+            elseif(_rel MATCHES "^\\.\\.")
+                message(FATAL_ERROR "CGLib install: ${target} exposes include dir outside the source tree: ${_inc}")
+            else()
+                list(APPEND _new "$<BUILD_INTERFACE:${_inc}>" "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/CGLib/${_rel}>")
+            endif()
+        endif()
+    endforeach()
+    set_property(TARGET ${target} PROPERTY INTERFACE_INCLUDE_DIRECTORIES "${_new}")
+endfunction()
 
 # component name = target name
 set(_cglib_install_components
@@ -42,27 +74,7 @@ foreach(_pair IN LISTS _cglib_install_components)
     list(APPEND _cglib_install_targets ${_target})
     list(APPEND _cglib_install_component_names ${_name})
 
-    # Split each include directory into BUILD_INTERFACE (source/shim path) and
-    # INSTALL_INTERFACE (path relative to the prefix). The shim root (REPO_ROOT) holds
-    # generated forwarding headers with absolute source paths; it must never be exported.
-    get_target_property(_incs ${_target} INTERFACE_INCLUDE_DIRECTORIES)
-    set(_new "")
-    foreach(_inc IN LISTS _incs)
-        if(_inc MATCHES "^\\$<")
-            list(APPEND _new "${_inc}")
-        elseif(_inc STREQUAL "${REPO_ROOT}")
-            list(APPEND _new "$<BUILD_INTERFACE:${_inc}>" "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>")
-        elseif(_inc STREQUAL "${CGLIB_ROOT}")
-            list(APPEND _new "$<BUILD_INTERFACE:${_inc}>" "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/CGLib>")
-        else()
-            file(RELATIVE_PATH _rel "${CGLIB_ROOT}" "${_inc}")
-            if(_rel MATCHES "^\\.\\.")
-                message(FATAL_ERROR "CGLib install: ${_target} exposes include dir outside the source tree: ${_inc}")
-            endif()
-            list(APPEND _new "$<BUILD_INTERFACE:${_inc}>" "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/CGLib/${_rel}>")
-        endif()
-    endforeach()
-    set_property(TARGET ${_target} PROPERTY INTERFACE_INCLUDE_DIRECTORIES "${_new}")
+    cglib_split_include_dirs(${_target})
 endforeach()
 
 install(TARGETS ${_cglib_install_targets} EXPORT CGLibTargets
@@ -71,6 +83,23 @@ install(TARGETS ${_cglib_install_targets} EXPORT CGLibTargets
 install(EXPORT CGLibTargets
     NAMESPACE CGLib::
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/CGLib)
+
+# --- Vulkan components (separate export, loaded only when requested) ----------
+# VulkanGraphics' public headers include only <vulkan/vulkan.h> (verified by the consumer's
+# header check); glm and VulkanMemoryAllocator are implementation details. The package
+# config therefore find_dependency()s Vulkan and links Vulkan::Headers.
+set(_cglib_vulkan_components "")
+if(TARGET VulkanGraphicsCore)
+    set_target_properties(VulkanGraphicsCore PROPERTIES EXPORT_NAME VulkanGraphics)
+    cglib_split_include_dirs(VulkanGraphicsCore BUILD_ONLY_OUTSIDE
+        BUILD_ONLY_DIRS ${CGLIB_ROOT}/ThirdParty/glm-0.9.9.8 ${CGLIB_ROOT}/ThirdParty/VulkanMemoryAllocator)
+    install(TARGETS VulkanGraphicsCore EXPORT CGLibVulkanTargets ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
+    install(EXPORT CGLibVulkanTargets NAMESPACE CGLib:: DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/CGLib)
+    install(DIRECTORY ${CGLIB_ROOT}/VulkanGraphics/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/CGLib/VulkanGraphics
+        FILES_MATCHING PATTERN "*.h" PATTERN "detail" EXCLUDE PATTERN "VulkanGraphicsTest" EXCLUDE)
+    set(_cglib_vulkan_components VulkanGraphics)
+endif()
+set(CGLIB_PACKAGE_VULKAN_COMPONENTS "${_cglib_vulkan_components}")
 
 # --- Headers -----------------------------------------------------------------
 # Public API = headers of the exported components + the vendored headers they include.

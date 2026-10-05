@@ -6,9 +6,21 @@ if(@CGLIB_PACKAGE_NEEDS_OPENMP@)
     find_dependency(OpenMP)
 endif()
 
-set(CGLib_COMPONENTS_AVAILABLE @CGLIB_PACKAGE_COMPONENTS@)
+set(CGLib_COMPONENTS_AVAILABLE @CGLIB_PACKAGE_COMPONENTS@ @CGLIB_PACKAGE_VULKAN_COMPONENTS@)
 
 include("${CMAKE_CURRENT_LIST_DIR}/CGLibTargets.cmake")
+
+# Vulkan components pull in the Vulkan headers; load them only when asked for, so CPU-only
+# consumers never need a Vulkan SDK.
+if("VulkanGraphics" IN_LIST CGLib_FIND_COMPONENTS AND EXISTS "${CMAKE_CURRENT_LIST_DIR}/CGLibVulkanTargets.cmake")
+    find_dependency(Vulkan)
+    include("${CMAKE_CURRENT_LIST_DIR}/CGLibVulkanTargets.cmake")
+    if(TARGET Vulkan::Headers)
+        set_property(TARGET CGLib::VulkanGraphics APPEND PROPERTY INTERFACE_LINK_LIBRARIES Vulkan::Headers)
+    else()
+        set_property(TARGET CGLib::VulkanGraphics APPEND PROPERTY INTERFACE_INCLUDE_DIRECTORIES "${Vulkan_INCLUDE_DIRS}")
+    endif()
+endif()
 
 # find_package(CGLib CONFIG REQUIRED COMPONENTS Math Space): every required component must
 # be an installed one. All installed targets are loaded regardless of the selection.

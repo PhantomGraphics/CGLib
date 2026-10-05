@@ -9,7 +9,9 @@
 #>
 param(
     [ValidateSet('Debug', 'Release')][string]$Configuration = 'Debug',
-    [string]$WorkDir = (Join-Path $env:TEMP 'cglib_install_check')
+    [string]$WorkDir = (Join-Path $env:TEMP 'cglib_install_check'),
+    # Build/install with Vulkan ON and also consume the exported VulkanGraphics component.
+    [switch]$Vulkan
 )
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
@@ -26,7 +28,7 @@ $prefix = Join-Path $WorkDir 'prefix'
 $moved = Join-Path $WorkDir 'moved_prefix'
 $cons = Join-Path $WorkDir 'consumer_build'
 
-& $cmake -S $root -B $build -G Ninja "-DCMAKE_BUILD_TYPE=$Configuration" -DCGLIB_ENABLE_VULKAN=OFF -DCGLIB_BUILD_TESTING=OFF
+& $cmake -S $root -B $build -G Ninja "-DCMAKE_BUILD_TYPE=$Configuration" "-DCGLIB_ENABLE_VULKAN=$(if ($Vulkan) { 'ON' } else { 'OFF' })" -DCGLIB_BUILD_TESTING=OFF -DCGLIB_BUILD_VIEWERS=OFF
 if ($LASTEXITCODE) { throw 'configure failed' }
 & $cmake --build $build
 if ($LASTEXITCODE) { throw 'build failed' }
@@ -41,7 +43,7 @@ if ($leaks) { $leaks | ForEach-Object { Write-Host $_ }; throw 'install tree ref
 Move-Item $prefix $moved
 Remove-Item -Recurse -Force $build
 
-& $cmake -S (Join-Path $root 'tests\install_consumer') -B $cons -G Ninja "-DCMAKE_BUILD_TYPE=$Configuration" "-DCMAKE_PREFIX_PATH=$moved"
+& $cmake -S (Join-Path $root 'tests\install_consumer') -B $cons -G Ninja "-DCMAKE_BUILD_TYPE=$Configuration" "-DCMAKE_PREFIX_PATH=$moved" "-DCGLIB_CONSUMER_VULKAN=$(if ($Vulkan) { 'ON' } else { 'OFF' })"
 if ($LASTEXITCODE) { throw 'consumer configure failed' }
 & $cmake --build $cons -- -k 0
 if ($LASTEXITCODE) { throw 'consumer build failed' }
