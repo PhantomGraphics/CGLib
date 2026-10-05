@@ -1,5 +1,7 @@
 #include "GeometryOps.h"
 
+#include "Field.h"
+
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -328,6 +330,119 @@ OpStatus joinMeshes(const std::vector<GeometryPtr>& inputs, const Limits& limits
     }
     out = std::move(m);
     return OpStatus::Ok;
+}
+
+OpStatus distributePointsOnFaces(const Mesh& in, int32_t count, uint32_t contextSeed, int32_t nodeSeed,
+                                 const Limits& limits, const std::atomic<bool>* cancel, Mesh& out) {
+    if (count < 0) return OpStatus::InvalidArgument;
+    if (!in.instances.empty()) return OpStatus::InvalidMesh;
+    if (OpStatus s = validateMesh(in); s != OpStatus::Ok) return s;
+    if (!fitsLimits(static_cast<uint64_t>(count), 0, limits)) return OpStatus::LimitExceeded;
+
+    const size_t tris = in.triangleCount();
+    std::vector<double> cumulative(tris);  // running area, normals are cross products
+    std::vector<Vec3> faceNormals(tris);
+    double total = 0.0;
+    for (size_t t = 0; t < tris; ++t) {
+        const Vec3& a = in.positions[in.indices[t * 3]];
+        const Vec3& b = in.positions[in.indices[t * 3 + 1]];
+        const Vec3& c = in.positions[in.indices[t * 3 + 2]];
+        const double ux = double(b.x) - a.x, uy = double(b.y) - a.y, uz = double(b.z) - a.z;
+        const double vx = double(c.x) - a.x, vy = double(c.y) - a.y, vz = double(c.z) - a.z;
+        const double nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+        const double len = std::sqrt(nx * nx + ny * ny + nz * nz);
+        total += 0.5 * len;
+        cumulative[t] = total;
+        faceNormals[t] = len > 0.0 ? Vec3{float(nx / len), float(ny / len), float(nz / len)} : Vec3{0, 1, 0};
+    }
+    Mesh m;
+    if (tris == 0 || !(total > 0.0) || !std::isfinite(total) || count == 0) {
+        out = std::move(m);
+        return OpStatus::Ok;
+    }
+    m.positions.reserve(static_cast<size_t>(count));
+    m.normals.reserve(static_cast<size_t>(count));
+    for (uint32_t i = 0; i < static_cast<uint32_t>(count); ++i) {
+        if ((i & 1023) == 0 && cancel && cancel->load(std::memory_order_relaxed)) return OpStatus::InvalidArgument;
+        const double pick = double(randomUnit(contextSeed, nodeSeed, i * 3)) * total;
+        size_t t = static_cast<size_t>(std::upper_bound(cumulative.begin(), cumulative.end(), pick) - cumulative.begin());
+        if (t >= tris) t = tris - 1;
+        // Zero-area triangles share their predecessor's running area; step to one that has area.
+        while (t + 1 < tris && cumulative[t] == (t ? cumulative[t - 1] : 0.0)) ++t;
+        const double r1 = std::sqrt(double(randomUnit(contextSeed, nodeSeed, i * 3 + 1)));
+        const double r2 = double(randomUnit(contextSeed, nodeSeed, i * 3 + 2));
+        const double wa = 1.0 - r1, wb = r1 * (1.0 - r2), wc = r1 * r2;
+        const Vec3& a = in.positions[in.indices[t * 3]];
+        const Vec3& b = in.positions[in.indices[t * 3 + 1]];
+        const Vec3& c = in.positions[in.indices[t * 3 + 2]];
+        m.positions.push_back({float(wa * a.x + wb * b.x + wc * c.x), float(wa * a.y + wb * b.y + wc * c.y),
+                               float(wa * a.z + wb * b.z + wc * c.z)});
+        m.normals.push_back(faceNormals[t]);
+    }
+    out = std::move(m);
+    return OpStatus::Ok;
+}
+
+OpStatus instanceOnPoints(const Mesh& points, const GeometryPtr& source, const std::vector<uint8_t>& selected,
+                          const std::vector<Vec3>& rotations, const std::vector<Vec3>& scales,
+                          const Limits& limits, Mesh& out) {
+    if (!source || !points.instances.empty() || !source->instances.empty()) return OpStatus::InvalidMesh;
+    const size_t n = points.positions.size();
+    if ((!selected.empty() && selected.size() != n) || (!rotations.empty() && rotations.size() != n) ||
+        (!scales.empty() && scales.size() != n)) {
+        return OpStatus::InvalidArgument;
+    }
+    if (OpStatus s = validateMesh(points); s != OpStatus::Ok) return s;
+    if (OpStatus s = validateMesh(*source); s != OpStatus::Ok) return s;
+    uint64_t count = 0;
+    for (size_t i = 0; i < n; ++i)
+        if (selected.empty() || selected[i]) ++count;
+    if (count > limits.maxInstances) return OpStatus::LimitExceeded;
+
+    Mesh m;
+    m.instances.reserve(static_cast<size_t>(count));
+    for (size_t i = 0; i < n; ++i) {
+        if (!selected.empty() && !selected[i]) continue;
+        Instance inst;
+        inst.source = source;
+        inst.translation = points.positions[i];
+        if (!rotations.empty()) inst.rotation = rotations[i];
+        if (!scales.empty()) inst.scale = scales[i];
+        if (!finite3(inst.rotation) || !finite3(inst.scale)) return OpStatus::InvalidArgument;
+        if (std::fabs(inst.scale.x) < 1.0e-12 || std::fabs(inst.scale.y) < 1.0e-12 || std::fabs(inst.scale.z) < 1.0e-12) {
+            return OpStatus::SingularTransform;
+        }
+        m.instances.push_back(inst);
+    }
+    out = std::move(m);
+    return OpStatus::Ok;
+}
+
+OpStatus realizeInstances(const Mesh& in, const Limits& limits, const std::atomic<bool>* cancel, Mesh& out) {
+    if (in.instances.size() > limits.maxInstances) return OpStatus::LimitExceeded;
+    Mesh base = in;
+    base.instances.clear();
+    uint64_t verts = base.positions.size(), idx = base.indices.size();
+    for (const Instance& inst : in.instances) {
+        if (!inst.source || !inst.source->instances.empty()) return OpStatus::InvalidMesh;
+        verts = satAdd(verts, inst.source->positions.size());
+        idx = satAdd(idx, inst.source->indices.size());
+    }
+    // The transformed copies and the joined result coexist, so both must fit.
+    if (!fitsLimits(satMul(verts, 2), satMul(idx, 2), limits) || !fitsLimits(verts, idx, limits)) {
+        return OpStatus::LimitExceeded;
+    }
+    std::vector<GeometryPtr> parts;
+    parts.reserve(in.instances.size() + 1);
+    parts.push_back(std::make_shared<const Mesh>(std::move(base)));
+    size_t k = 0;
+    for (const Instance& inst : in.instances) {
+        if ((k++ & 255) == 0 && cancel && cancel->load(std::memory_order_relaxed)) return OpStatus::InvalidArgument;
+        Mesh t;
+        if (OpStatus s = transformMesh(*inst.source, inst.translation, inst.rotation, inst.scale, t); s != OpStatus::Ok) return s;
+        parts.push_back(std::make_shared<const Mesh>(std::move(t)));
+    }
+    return joinMeshes(parts, limits, out);
 }
 
 }  // namespace Phantom::GeometryNode
