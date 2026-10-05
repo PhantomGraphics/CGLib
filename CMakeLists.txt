@@ -69,6 +69,13 @@ if(CGLIB_BUILD_TESTING)
     enable_testing()
     phantom_find_gtest()
     include(GoogleTest)
+
+    # Declared PUBLIC link graph of the CPU *Core targets vs. their real #includes.
+    find_package(Python3 QUIET COMPONENTS Interpreter)
+    if(Python3_Interpreter_FOUND)
+        add_test(NAME CoreLinkAudit COMMAND ${Python3_EXECUTABLE} ${CGLIB_ROOT}/tools/core_link_audit.py)
+        set_tests_properties(CoreLinkAudit PROPERTIES LABELS audit)
+    endif()
 endif()
 
 # ---------------------------------------------------------------------------
