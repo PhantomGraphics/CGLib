@@ -113,7 +113,7 @@ function(phantom_add_vulkangraphics_core)
         ${CGLIB_ROOT}/ThirdParty/VulkanMemoryAllocator
     )
     target_compile_options(VulkanGraphicsCore PRIVATE ${PHANTOM_WARN_FLAGS})
-    target_compile_features(VulkanGraphicsCore PRIVATE cxx_std_20)
+    target_compile_features(VulkanGraphicsCore PUBLIC cxx_std_20)
 endfunction()
 
 # ---------------------------------------------------------------------------
@@ -194,7 +194,7 @@ function(phantom_add_uiwidgets_core)
     # glfw3.h> directly inherit the same definition, instead of each one
     # re-declaring it themselves as every pre-Phase-4 copy of this block did.
     target_compile_definitions(UIWidgetsCore PUBLIC GLFW_INCLUDE_NONE)
-    target_compile_features(UIWidgetsCore PRIVATE cxx_std_20)
+    target_compile_features(UIWidgetsCore PUBLIC cxx_std_20)
 endfunction()
 
 # ---------------------------------------------------------------------------
@@ -226,7 +226,7 @@ function(phantom_add_vkappbase_core)
     )
     target_link_libraries(VkAppBaseCore PUBLIC VulkanGraphicsCore UIWidgetsCore)
     target_compile_options(VkAppBaseCore PRIVATE ${PHANTOM_WARN_FLAGS})
-    target_compile_features(VkAppBaseCore PRIVATE cxx_std_20)
+    target_compile_features(VkAppBaseCore PUBLIC cxx_std_20)
 endfunction()
 
 # ---------------------------------------------------------------------------
@@ -259,7 +259,7 @@ function(phantom_add_vkrenderer_core)
     )
     target_link_libraries(VkRendererCore PUBLIC VulkanGraphicsCore)
     target_compile_options(VkRendererCore PRIVATE ${PHANTOM_WARN_FLAGS})
-    target_compile_features(VkRendererCore PRIVATE cxx_std_20)
+    target_compile_features(VkRendererCore PUBLIC cxx_std_20)
 endfunction()
 
 # ---------------------------------------------------------------------------
@@ -327,7 +327,7 @@ function(phantom_add_gltfrenderer_core)
         GraphicsCore
     )
     target_compile_options(GltfRendererCore PRIVATE ${PHANTOM_WARN_FLAGS})
-    target_compile_features(GltfRendererCore PRIVATE cxx_std_20)
+    target_compile_features(GltfRendererCore PUBLIC cxx_std_20)
 endfunction()
 
 # ---------------------------------------------------------------------------
@@ -356,7 +356,7 @@ function(phantom_add_volumeraymarch_core)
     )
     target_link_libraries(VolumeRaymarch PUBLIC VulkanGraphicsCore VolumeCore)
     target_compile_options(VolumeRaymarch PRIVATE ${PHANTOM_WARN_FLAGS})
-    target_compile_features(VolumeRaymarch PRIVATE cxx_std_20)
+    target_compile_features(VolumeRaymarch PUBLIC cxx_std_20)
 endfunction()
 
 function(phantom_add_volumerenderer_core)
@@ -385,5 +385,5 @@ function(phantom_add_volumerenderer_core)
         target_link_libraries(VolumeRenderer PRIVATE OpenMP::OpenMP_CXX)
     endif()
     target_compile_options(VolumeRenderer PRIVATE ${PHANTOM_WARN_FLAGS})
-    target_compile_features(VolumeRenderer PRIVATE cxx_std_20)
+    target_compile_features(VolumeRenderer PUBLIC cxx_std_20)
 endfunction()

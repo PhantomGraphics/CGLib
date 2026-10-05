@@ -17,6 +17,7 @@
 #   CGLIB_BUILD_EXAMPLES  OFF                 examples/ consumer samples
 #   CGLIB_BUILD_VIEWERS   OFF                 Vulkan/GLFW viewer executables
 #   CGLIB_ENABLE_VULKAN   auto-detected       Vulkan/GLFW-dependent modules
+#   CGLIB_INSTALL         ON when top-level   install rules + CGLibConfig.cmake (CPU components)
 # GoogleTest is fetched at the pinned v1.15.2 version whenever tests are enabled.
 
 cmake_minimum_required(VERSION 3.20)
@@ -45,6 +46,7 @@ endif()
 option(CGLIB_BUILD_TESTING "Build the GoogleTest suites" ${CGLIB_IS_TOP_LEVEL})
 option(CGLIB_BUILD_EXAMPLES "Build the examples/ consumer samples" OFF)
 option(CGLIB_BUILD_VIEWERS "Build the Vulkan/GLFW viewer executables" OFF)
+option(CGLIB_INSTALL "Generate install rules and the CGLib package config (CPU components)" ${CGLIB_IS_TOP_LEVEL})
 
 # CGLIB_ENABLE_VULKAN defaults to whether a Vulkan SDK is discoverable. Forcing
 # it ON without the SDK present is a hard error (a plan requirement: an enabled
@@ -204,7 +206,7 @@ phantom_use_pch_headers(SceneRuntimeCore ${PHANTOM_PCH_STL} "${CGLIB_ROOT}/Third
 set(CGLIB_ALIAS_MAP
     Math=MathCore  Graphics=GraphicsCore  Numerics=NumericsCore  Space=SpaceCore
     Scene=SceneCore  Volume=VolumeCore  File=FileCore  Animation=AnimationCore
-    Terrain=TerrainCore
+    Terrain=TerrainCore  Asset=AssetCore  SceneRuntime=SceneRuntimeCore
     Pugixml=PugixmlCore
     VulkanGraphics=VulkanGraphicsCore  UI=UIWidgetsCore  VkAppBase=VkAppBaseCore
     VkRenderer=VkRendererCore  GltfRenderer=GltfRendererCore  VolumeRenderer=VolumeRenderer
@@ -220,6 +222,10 @@ endforeach()
 
 if(CGLIB_BUILD_EXAMPLES)
     add_subdirectory(examples)
+endif()
+
+if(CGLIB_INSTALL)
+    include(CGLibInstall)
 endif()
 
 # ---------------------------------------------------------------------------

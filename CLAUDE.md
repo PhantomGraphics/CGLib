@@ -35,7 +35,12 @@ cmake -S Space -B build/Space -DCMAKE_BUILD_TYPE=Debug && cmake --build build/Sp
 ```
 
 主なオプション: `CGLIB_ENABLE_VULKAN`（SDK 自動検出、明示 ON で未検出時は `FATAL_ERROR`）、
-`CGLIB_BUILD_TESTING` / `CGLIB_BUILD_EXAMPLES` / `CGLIB_BUILD_VIEWERS`。
+`CGLIB_BUILD_TESTING` / `CGLIB_BUILD_EXAMPLES` / `CGLIB_BUILD_VIEWERS` / `CGLIB_INSTALL`。
+`CGLIB_BUILD_TESTING=OFF` ではどのモジュールも GoogleTest を取得せずテストターゲットを作らない
+（モジュール単独 configure で未定義の場合のみ従来どおり ON）。各 `*Core` の C++20 要件は PUBLIC。
+CPU コンポーネントは `cmake --install` 可能で `find_package(CGLib CONFIG)` から `CGLib::<Component>` を使える
+（`cmake/CGLibInstall.cmake`）。移動済み prefix からの外部 consumer 検証は
+`tests\run_install_consumer.ps1`。Vulkan コンポーネントは未対応。
 GoogleTest は FetchContent で `v1.15.2` を固定取得してビルドする（system/NuGet 探索なし）。
 MSVC ランタイムは Debug `/MDd`、その他 `/MD`。オフラインでは
 `FETCHCONTENT_SOURCE_DIR_GOOGLETEST` に同バージョンのソースを指定する。

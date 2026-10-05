@@ -1,0 +1,26 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+
+if(@CGLIB_PACKAGE_NEEDS_OPENMP@)
+    find_dependency(OpenMP)
+endif()
+
+set(CGLib_COMPONENTS_AVAILABLE @CGLIB_PACKAGE_COMPONENTS@)
+
+include("${CMAKE_CURRENT_LIST_DIR}/CGLibTargets.cmake")
+
+# find_package(CGLib CONFIG REQUIRED COMPONENTS Math Space): every required component must
+# be an installed one. All installed targets are loaded regardless of the selection.
+foreach(_comp IN LISTS CGLib_FIND_COMPONENTS)
+    if(TARGET CGLib::${_comp})
+        set(CGLib_${_comp}_FOUND TRUE)
+    else()
+        set(CGLib_${_comp}_FOUND FALSE)
+        if(CGLib_FIND_REQUIRED_${_comp})
+            set(CGLib_FOUND FALSE)
+            set(CGLib_NOT_FOUND_MESSAGE
+                "CGLib component '${_comp}' is not part of this installation (available: ${CGLib_COMPONENTS_AVAILABLE})")
+        endif()
+    endif()
+endforeach()
