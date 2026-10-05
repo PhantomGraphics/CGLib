@@ -115,7 +115,7 @@ function(phantom_add_vulkangraphics_core)
     if(TARGET VulkanGraphicsCore)
         return()
     endif()
-    file(GLOB _sources ${CGLIB_ROOT}/VulkanGraphics/*.cpp)
+    file(GLOB _sources CONFIGURE_DEPENDS ${CGLIB_ROOT}/VulkanGraphics/*.cpp)
     add_library(VulkanGraphicsCore STATIC ${_sources})
     target_include_directories(VulkanGraphicsCore PUBLIC
         ${CGLIB_ROOT}
