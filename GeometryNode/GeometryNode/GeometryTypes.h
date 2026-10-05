@@ -39,11 +39,25 @@ struct Bounds {
     Vec3 max;
 };
 
+struct Mesh;
+
+// A reference to another geometry placed with its own T * R * S (rotation: Euler XYZ degrees, as
+// TransformGeometry). Kept as a reference until Realize Instances expands it.
+struct Instance {
+    std::shared_ptr<const Mesh> source;
+    Vec3 translation;
+    Vec3 rotation;
+    Vec3 scale{1.0f, 1.0f, 1.0f};
+};
+
 struct Mesh {
     std::vector<Vec3> positions;
     std::vector<Vec3> normals;      // empty or positions.size()
     std::vector<Vec2> uvs;          // empty or positions.size()
     std::vector<uint32_t> indices;  // triangle list, size % 3 == 0
+    // Points are a Mesh without indices. Instances (Phase 5) are carried unrealized; only Realize
+    // Instances consumes them -- every other node (and Output) rejects a mesh that has some.
+    std::vector<Instance> instances;
 
     size_t vertexCount() const { return positions.size(); }
     size_t triangleCount() const { return indices.size() / 3; }
@@ -57,7 +71,7 @@ using GeometryPtr = std::shared_ptr<const Mesh>;
 struct Limits {
     uint64_t maxVertices = 8ull * 1024 * 1024;
     uint64_t maxIndices = 24ull * 1024 * 1024;
-    uint64_t maxInstances = 1ull * 1024 * 1024;  // reserved for the instance phase
+    uint64_t maxInstances = 1ull * 1024 * 1024;  // checked when instancing / realizing
     uint64_t maxMemoryBytes = 1024ull * 1024 * 1024;
 };
 

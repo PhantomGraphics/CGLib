@@ -3,6 +3,7 @@
 // Pure geometry operations used by the built-in nodes. Exception-free: every
 // failure is an OpStatus; outputs are replaced only on success.
 
+#include <atomic>
 #include <string>
 
 #include "GeometryTypes.h"
@@ -51,6 +52,24 @@ OpStatus transformMesh(const Mesh& in, const Vec3& translation, const Vec3& rota
 // has them; an input lacking normals gets area-weighted smooth normals computed
 // from its triangles, an input lacking UVs gets (0,0).
 OpStatus joinMeshes(const std::vector<GeometryPtr>& inputs, const Limits& limits, Mesh& out);
+
+// Phase 5. Points are a Mesh with positions (+ optional normals) and no indices.
+
+// `count` points spread over the triangles proportionally to their area, a pure function of
+// (contextSeed, nodeSeed, point index); normals are the face normals. No triangles / zero area
+// yield an empty point set.
+OpStatus distributePointsOnFaces(const Mesh& in, int32_t count, uint32_t contextSeed, int32_t nodeSeed,
+                                 const Limits& limits, const std::atomic<bool>* cancel, Mesh& out);
+
+// One instance of `source` per selected point (empty `selected` = all), placed at the point with the
+// per-point rotation (Euler XYZ degrees) / scale (empty = zero / one). The output holds only instances.
+OpStatus instanceOnPoints(const Mesh& points, const GeometryPtr& source, const std::vector<uint8_t>& selected,
+                          const std::vector<Vec3>& rotations, const std::vector<Vec3>& scales,
+                          const Limits& limits, Mesh& out);
+
+// The mesh's own geometry joined with every instance transformed into place. Instances of instances
+// are rejected at creation, so one level is enough.
+OpStatus realizeInstances(const Mesh& in, const Limits& limits, const std::atomic<bool>* cancel, Mesh& out);
 
 // Area-weighted vertex normals (zero-area vertices get +Y).
 std::vector<Vec3> computeSmoothNormals(const Mesh& mesh);

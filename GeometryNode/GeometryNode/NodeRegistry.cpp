@@ -130,6 +130,12 @@ SocketDef geomIn(const char* id, const char* name, bool multi, const char* desc)
 }
 
 // Maps a geometry-op status to a node failure. Returns true when ok.
+bool noInstances(NodeEvalContext& c, const GeometryPtr& g, const char* what) {
+    if (!g || g->instances.empty()) return true;
+    c.fail(DiagCode::InvalidGeometry, std::string(what) + ": geometry has unrealized instances; add Realize Instances first", "Geometry");
+    return false;
+}
+
 bool check(NodeEvalContext& c, OpStatus s, const char* what) {
     switch (s) {
         case OpStatus::Ok: return true;
@@ -194,6 +200,7 @@ NodeRegistry makeBuiltin() {
                 c.fail(DiagCode::MissingInput, "Transform Geometry: no geometry input", "Geometry");
                 return;
             }
+            if (!noInstances(c, in, "Transform Geometry")) return;
             Mesh m;
             if (!check(c, transformMesh(*in, c.getVec3("Translation"), c.getVec3("Rotation"), c.getVec3("Scale"), m),
                        "Transform Geometry")) return;
@@ -210,8 +217,11 @@ NodeRegistry makeBuiltin() {
         d.inputs = {geomIn("Geometry", "Geometry", true, "Any number of geometries.")};
         d.outputs = {sock("Geometry", "Geometry", SocketType::Geometry)};
         d.evaluate = [](NodeEvalContext& c) {
+            const std::vector<GeometryPtr> inputs = c.getGeometries("Geometry");
+            for (const GeometryPtr& g : inputs)
+                if (!noInstances(c, g, "Join Geometry")) return;
             Mesh m;
-            if (!check(c, joinMeshes(c.getGeometries("Geometry"), c.limits(), m), "Join Geometry")) return;
+            if (!check(c, joinMeshes(inputs, c.limits(), m), "Join Geometry")) return;
             c.setOutput("Geometry", GeometryPtr(std::make_shared<const Mesh>(std::move(m))));
         };
         r.add(std::move(d));
@@ -255,6 +265,7 @@ NodeRegistry makeBuiltin() {
                 c.fail(DiagCode::MissingInput, "Output: no geometry input", "Geometry");
                 return;
             }
+            if (!noInstances(c, in, "Output")) return;
             c.setOutput("Geometry", in);
         };
         r.add(std::move(d));

@@ -119,6 +119,28 @@ FieldContext consumerContext(NodeEvalContext& c, const Mesh& mesh, FieldEvaluati
     return ctx;
 }
 
+// Phase 5 nodes: points and instances.
+bool opOk(NodeEvalContext& c, OpStatus s, const char* what) {
+    if (s == OpStatus::Ok) return true;
+    if (c.eval().cancelled()) {
+        c.fail(DiagCode::Cancelled, std::string(what) + ": cancelled");
+        return false;
+    }
+    switch (s) {
+        case OpStatus::InvalidArgument: c.fail(DiagCode::InvalidParameter, std::string(what) + ": invalid parameter value"); break;
+        case OpStatus::LimitExceeded: c.fail(DiagCode::LimitExceeded, std::string(what) + ": result exceeds the resource limits"); break;
+        case OpStatus::SingularTransform: c.fail(DiagCode::SingularTransform, std::string(what) + ": singular transform (zero scale)"); break;
+        default: c.fail(DiagCode::InvalidGeometry, std::string(what) + ": invalid geometry (nested or non-finite)"); break;
+    }
+    return false;
+}
+
+bool noInstances(NodeEvalContext& c, const GeometryPtr& g, const char* what) {
+    if (!g || g->instances.empty()) return true;
+    c.fail(DiagCode::InvalidGeometry, std::string(what) + ": geometry has unrealized instances; add Realize Instances first", "Geometry");
+    return false;
+}
+
 }  // namespace
 
 void registerFieldNodes(NodeRegistry& r) {
@@ -313,6 +335,7 @@ void registerFieldNodes(NodeRegistry& r) {
                 c.fail(DiagCode::MissingInput, "Set Position: no geometry input", "Geometry");
                 return;
             }
+            if (!noInstances(c, in, "Set Position")) return;
             const size_t n = in->positions.size();
             FieldEvaluation state;
             const FieldContext ctx = consumerContext(c, *in, state);
@@ -364,6 +387,7 @@ void registerFieldNodes(NodeRegistry& r) {
                 c.fail(DiagCode::MissingInput, "Delete Geometry: no geometry input", "Geometry");
                 return;
             }
+            if (!noInstances(c, in, "Delete Geometry")) return;
             const size_t n = in->positions.size();
             FieldEvaluation state;
             const FieldContext ctx = consumerContext(c, *in, state);
@@ -387,6 +411,143 @@ void registerFieldNodes(NodeRegistry& r) {
                 if (a == 0xFFFFFFFFu || b == 0xFFFFFFFFu || d2 == 0xFFFFFFFFu) continue;
                 m.indices.insert(m.indices.end(), {a, b, d2});
             }
+            c.setOutput("Geometry", GeometryPtr(std::make_shared<const Mesh>(std::move(m))));
+        };
+        r.add(std::move(d));
+    }
+    {
+        NodeDefinition d;
+        d.typeId = "MeshToPoints";
+        d.displayName = "Mesh to Points";
+        d.category = "Points";
+        d.description = "Turns the selected vertices into points (a mesh without triangles; normals are kept).";
+        SocketDef geometry = sock("Geometry", "Geometry", SocketType::Geometry);
+        geometry.required = true;
+        d.inputs = {geometry, sock("Selection", "Selection", SocketType::FieldBool, {}, "Optional; default: all points.")};
+        d.outputs = {sock("Points", "Points", SocketType::Geometry)};
+        d.evaluate = [](NodeEvalContext& c) {
+            const GeometryPtr in = c.getGeometry("Geometry");
+            if (!in) {
+                c.fail(DiagCode::MissingInput, "Mesh to Points: no geometry input", "Geometry");
+                return;
+            }
+            if (!noInstances(c, in, "Mesh to Points")) return;
+            const size_t n = in->positions.size();
+            FieldEvaluation state;
+            const FieldContext ctx = consumerContext(c, *in, state);
+            if (fieldFailed(c, ctx)) return;
+            std::vector<uint8_t> selected(n, 1);
+            if (const FieldPtr f = c.getField("Selection")) {
+                selected = evaluateBools(f, ctx);
+                if (fieldFailed(c, ctx)) return;
+                if (!sizeIs(c, selected.size(), n, "Selection")) return;
+            }
+            Mesh m;
+            for (size_t i = 0; i < n; ++i) {
+                if (!selected[i]) continue;
+                m.positions.push_back(in->positions[i]);
+                if (!in->normals.empty()) m.normals.push_back(in->normals[i]);
+            }
+            c.setOutput("Points", GeometryPtr(std::make_shared<const Mesh>(std::move(m))));
+        };
+        r.add(std::move(d));
+    }
+    {
+        NodeDefinition d;
+        d.typeId = "DistributePointsOnFaces";
+        d.displayName = "Distribute Points on Faces";
+        d.category = "Points";
+        d.description = "Scatters Count points over the triangles, proportional to area. Deterministic: a pure "
+                        "function of (graph seed, node Seed, point index). Points carry the face normal.";
+        SocketDef geometry = sock("Geometry", "Geometry", SocketType::Geometry);
+        geometry.required = true;
+        d.inputs = {geometry, sock("Count", "Count", SocketType::Int, int32_t(100), "Number of points (>= 0)."),
+                    sock("Seed", "Seed", SocketType::Int, int32_t(0), "Independent of every other node Seed.")};
+        d.outputs = {sock("Points", "Points", SocketType::Geometry)};
+        d.evaluate = [](NodeEvalContext& c) {
+            const GeometryPtr in = c.getGeometry("Geometry");
+            if (!in) {
+                c.fail(DiagCode::MissingInput, "Distribute Points on Faces: no geometry input", "Geometry");
+                return;
+            }
+            if (!noInstances(c, in, "Distribute Points on Faces")) return;
+            Mesh m;
+            if (!opOk(c, distributePointsOnFaces(*in, c.getInt("Count"), c.seed(), c.getInt("Seed"), c.limits(),
+                                                 c.cancelFlag(), m), "Distribute Points on Faces")) return;
+            c.setOutput("Points", GeometryPtr(std::make_shared<const Mesh>(std::move(m))));
+        };
+        r.add(std::move(d));
+    }
+    {
+        NodeDefinition d;
+        d.typeId = "InstanceOnPoints";
+        d.displayName = "Instance on Points";
+        d.category = "Points";
+        d.description = "Places a reference to Instance at every selected point. Nothing is copied until Realize "
+                        "Instances. Rotation (Euler XYZ degrees) and Scale are optional per-point fields.";
+        SocketDef points = sock("Points", "Points", SocketType::Geometry);
+        points.required = true;
+        SocketDef instance = sock("Instance", "Instance", SocketType::Geometry, {}, "Geometry to place (must not contain instances).");
+        instance.required = true;
+        d.inputs = {points, instance, sock("Selection", "Selection", SocketType::FieldBool, {}, "Optional; default: all points."),
+                    sock("Rotation", "Rotation", SocketType::FieldVector3, {}, "Optional; default 0."),
+                    sock("Scale", "Scale", SocketType::FieldVector3, {}, "Optional; default 1.")};
+        d.outputs = {sock("Instances", "Instances", SocketType::Geometry)};
+        d.evaluate = [](NodeEvalContext& c) {
+            const GeometryPtr points = c.getGeometry("Points");
+            const GeometryPtr source = c.getGeometry("Instance");
+            if (!points || !source) {
+                c.fail(DiagCode::MissingInput, "Instance on Points: Points and Instance are required", points ? "Instance" : "Points");
+                return;
+            }
+            if (!noInstances(c, points, "Instance on Points")) return;
+            if (!source->instances.empty()) {
+                c.fail(DiagCode::InvalidGeometry, "Instance on Points: nested instances are not supported; realize the instance first", "Instance");
+                return;
+            }
+            const size_t n = points->positions.size();
+            FieldEvaluation state;
+            const FieldContext ctx = consumerContext(c, *points, state);
+            if (fieldFailed(c, ctx)) return;
+            std::vector<uint8_t> selected;
+            std::vector<Vec3> rotations, scales;
+            if (const FieldPtr f = c.getField("Selection")) {
+                selected = evaluateBools(f, ctx);
+                if (fieldFailed(c, ctx) || !sizeIs(c, selected.size(), n, "Selection")) return;
+            }
+            if (const FieldPtr f = c.getField("Rotation")) {
+                rotations = evaluateVectors(f, ctx);
+                if (fieldFailed(c, ctx) || !sizeIs(c, rotations.size(), n, "Rotation")) return;
+            }
+            if (const FieldPtr f = c.getField("Scale")) {
+                scales = evaluateVectors(f, ctx);
+                if (fieldFailed(c, ctx) || !sizeIs(c, scales.size(), n, "Scale")) return;
+            }
+            Mesh m;
+            if (!opOk(c, instanceOnPoints(*points, source, selected, rotations, scales, c.limits(), m), "Instance on Points")) return;
+            c.setOutput("Instances", GeometryPtr(std::make_shared<const Mesh>(std::move(m))));
+        };
+        r.add(std::move(d));
+    }
+    {
+        NodeDefinition d;
+        d.typeId = "RealizeInstances";
+        d.displayName = "Realize Instances";
+        d.category = "Points";
+        d.description = "Expands every instance into real triangles (joined with the geometry's own mesh). "
+                        "Fails, instead of truncating, when the result would exceed the resource limits.";
+        SocketDef geometry = sock("Geometry", "Geometry", SocketType::Geometry);
+        geometry.required = true;
+        d.inputs = {geometry};
+        d.outputs = {sock("Geometry", "Geometry", SocketType::Geometry)};
+        d.evaluate = [](NodeEvalContext& c) {
+            const GeometryPtr in = c.getGeometry("Geometry");
+            if (!in) {
+                c.fail(DiagCode::MissingInput, "Realize Instances: no geometry input", "Geometry");
+                return;
+            }
+            Mesh m;
+            if (!opOk(c, realizeInstances(*in, c.limits(), c.cancelFlag(), m), "Realize Instances")) return;
             c.setOutput("Geometry", GeometryPtr(std::make_shared<const Mesh>(std::move(m))));
         };
         r.add(std::move(d));
