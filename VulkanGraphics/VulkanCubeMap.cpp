@@ -47,6 +47,8 @@ bool VulkanCubeMap::create(const VulkanContext& ctx,
                             const std::array<std::string, 6>& facePaths)
 {
     VkDevice device = ctx.getDevice();
+    // Re-creating a live object releases the previous handles first (no leak).
+    destroy(device);
 
     // Load 6 faces
     int faceW = 0, faceH = 0;
@@ -105,6 +107,8 @@ bool VulkanCubeMap::create(const VulkanContext& ctx,
 bool VulkanCubeMap::createDummy(const VulkanContext& ctx, const VulkanCommandPool& pool)
 {
     VkDevice device = ctx.getDevice();
+    // Re-creating a live object releases the previous handles first (no leak).
+    destroy(device);
 
     // 1x1 black RGBA pixel repeated for each of the 6 faces
     const uint8_t kBlack[4] = { 0, 0, 0, 255 };

@@ -10,6 +10,8 @@ bool VulkanRenderPass::create(const VulkanContext& ctx,
                                VkFormat colorFormat, VkFormat depthFormat,
                                VkSampleCountFlagBits samples)
 {
+    // Re-creating a live object releases the previous handles first (no leak).
+    destroy(ctx.getDevice());
     samples_ = samples;
 
     // Common subpass dependency (same for both MSAA and non-MSAA paths).

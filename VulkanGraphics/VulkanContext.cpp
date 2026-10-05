@@ -56,6 +56,8 @@ bool VulkanContext::createInstance(const std::string& appName,
                                     const std::vector<const char*>& requiredExtensions,
                                     bool enableValidation)
 {
+    // Re-creating a live object releases the previous handles first (no leak).
+    destroy();
     validation_ = enableValidation;
 
     if (validation_ && !checkValidationLayerSupport()) {
@@ -116,6 +118,7 @@ void VulkanContext::destroy() {
         vkDestroyInstance(instance_, nullptr);
         instance_ = VK_NULL_HANDLE;
     }
+    physicalDevice_ = VK_NULL_HANDLE;
 }
 
 void VulkanContext::setupDebugMessenger() {

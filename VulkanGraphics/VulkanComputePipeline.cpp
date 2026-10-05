@@ -22,6 +22,8 @@ bool VulkanComputePipeline::create(const VulkanContext& ctx,
                                     const ComputePipelineConfig& config)
 {
     VkDevice device = ctx.getDevice();
+    // Re-creating a live object releases the previous handles first (no leak).
+    destroy(device);
 
     // --- Pipeline layout ---
     VkPipelineLayoutCreateInfo layoutCI{};

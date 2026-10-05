@@ -55,17 +55,25 @@ const GpuTexture& VulkanTextureHelper::load(
     auto it = cache_.find(absPath);
     if (it != cache_.end()) return it->second;
 
-    int w, h, ch;
+    // A path that already failed is not retried (it would re-read the file and log every call).
+    if (failed_.count(absPath)) return fallback_;
+
+    int w = 0, h = 0, ch = 0;
     uint8_t* pixels = stbi_load(absPath.c_str(), &w, &h, &ch, 4);
-    if (!pixels) {
+    if (!pixels || w <= 0 || h <= 0) {
         std::fprintf(stderr, "[VulkanTextureHelper] Failed to load: %s\n", absPath.c_str());
+        if (pixels) stbi_image_free(pixels);
+        failed_.insert(absPath);
         return fallback_;
     }
 
     GpuTexture t = uploadPixels(ctx, pool, pixels, w, h);
     stbi_image_free(pixels);
 
-    if (t.image == VK_NULL_HANDLE) return fallback_;
+    if (t.image == VK_NULL_HANDLE) {
+        failed_.insert(absPath);
+        return fallback_;
+    }
 
     cache_[absPath] = t;
     return cache_[absPath];
@@ -80,6 +88,7 @@ void VulkanTextureHelper::destroyAll(VkDevice device)
         if (tex.memory)  vkFreeMemory(device, tex.memory, nullptr);
     }
     cache_.clear();
+    failed_.clear();
 
     if (fallback_.sampler) vkDestroySampler(device, fallback_.sampler, nullptr);
     if (fallback_.view)    vkDestroyImageView(device, fallback_.view, nullptr);

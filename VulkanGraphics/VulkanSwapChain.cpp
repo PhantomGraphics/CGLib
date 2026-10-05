@@ -20,6 +20,8 @@ void VulkanSwapChain::init(VulkanContext* ctx, VkSurfaceKHR surface,
 // ============================================================
 
 bool VulkanSwapChain::createSwapChainAndViews() {
+    // Re-creating a live object releases the previous handles first (no leak).
+    destroySwapChainObjects();
     if (!createSwapChain()) return false;
     return createImageViews();
 }
@@ -60,6 +62,10 @@ void VulkanSwapChain::destroy() {
 
 bool VulkanSwapChain::createSwapChain() {
     auto support = ctx_->querySwapChainSupport(ctx_->getPhysicalDevice(), surface_);
+    if (support.formats.empty()) {
+        std::fprintf(stderr, "[VKG] VulkanSwapChain: surface reports no formats\n");
+        return false;
+    }
     auto sf      = chooseSurfaceFormat(support.formats);
     auto pm      = choosePresentMode(support.presentModes);
     auto extent  = chooseExtent(support.capabilities);
@@ -80,6 +86,10 @@ bool VulkanSwapChain::createSwapChain() {
                           VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 
     auto indices = ctx_->findQueueFamilies(ctx_->getPhysicalDevice(), surface_);
+    if (!indices.graphicsFamily || !indices.presentFamily) {
+        std::fprintf(stderr, "[VKG] VulkanSwapChain: surface has no graphics/present queue family\n");
+        return false;
+    }
     uint32_t queueFamilyIndices[] = {
         indices.graphicsFamily.value(),
         indices.presentFamily.value()
@@ -178,6 +188,7 @@ bool VulkanSwapChain::createFramebuffers(VkRenderPass renderPass) {
 }
 
 void VulkanSwapChain::destroySwapChainObjects() {
+    if (!ctx_ || ctx_->getDevice() == VK_NULL_HANDLE) return;  // never initialised / context already gone
     VkDevice dev = ctx_->getDevice();
 
     // Release MSAA color resources.

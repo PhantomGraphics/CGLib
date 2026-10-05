@@ -92,6 +92,8 @@ bool VulkanOffscreen::create(const VulkanContext& ctx,
                               VkFormat colorFormat,
                               VkFormat depthFormat)
 {
+    // Re-creating a live object releases the previous handles first (no leak).
+    destroy(ctx);
     extent_      = { width, height };
     colorFormat_ = colorFormat;
     depthFormat_ = depthFormat;

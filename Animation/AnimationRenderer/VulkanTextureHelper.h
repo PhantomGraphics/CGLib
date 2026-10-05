@@ -2,6 +2,7 @@
 #include <vulkan/vulkan.h>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace Phantom::VKG { class VulkanContext; class VulkanCommandPool; }
 
@@ -27,6 +28,7 @@ public:
 
 private:
     std::unordered_map<std::string, GpuTexture> cache_;
+    std::unordered_set<std::string> failed_;  // paths whose load/upload failed (not retried)
     GpuTexture fallback_;
 
     static GpuTexture uploadPixels(const Phantom::VKG::VulkanContext& ctx,
