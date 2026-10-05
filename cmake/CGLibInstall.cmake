@@ -101,6 +101,12 @@ install(DIRECTORY ${CGLIB_ROOT}/File/ThirdParty/cgltf DESTINATION ${_hdr_dest}/F
         FILES_MATCHING PATTERN "*.h")
 
 install(FILES ${CGLIB_ROOT}/LICENSE DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/CGLib)
+# Public third-party dependencies ship their license texts (docs/third-party.md).
+install(FILES ${CGLIB_ROOT}/ThirdParty/glm-0.9.9.8/copying.txt
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/CGLib/glm)
+file(GLOB _eigen_licenses ${CGLIB_ROOT}/Numerics/ThirdParty/eigen-3.4.0/COPYING.*)
+install(FILES ${_eigen_licenses} DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/CGLib/eigen)
+install(FILES ${CGLIB_ROOT}/docs/third-party.md DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/CGLib)
 
 # --- Package config ----------------------------------------------------------
 set(CGLIB_PACKAGE_COMPONENTS "${_cglib_install_component_names}")
