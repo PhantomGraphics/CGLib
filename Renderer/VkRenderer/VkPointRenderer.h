@@ -52,6 +52,11 @@ public:
                 const VulkanCommandPool& pool,
                 const Buffer& buffer);
 
+    /// @brief Writes only this frame's MVP uniform. Use it for per-frame camera updates:
+    ///        upload() recreates the vertex buffers, which may still be referenced by a command
+    ///        buffer of an earlier frame in flight.
+    void updateMVP(uint32_t frameIndex, const glm::mat4& mvp);
+
     void render(VkCommandBuffer cmd, uint32_t frameIndex) override;
 
     bool isValid() const override { return pipeline_.getPipeline() != VK_NULL_HANDLE; }
