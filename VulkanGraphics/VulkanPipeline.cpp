@@ -1,6 +1,7 @@
 #include "VulkanPipeline.h"
 #include "VulkanContext.h"
 #include "detail/VkCheckInternal.h"
+#include "detail/SpirvVertexInputs.h"
 
 namespace Phantom::VKG {
 
@@ -32,8 +33,16 @@ bool VulkanPipeline::create(const VulkanContext& ctx,
     vi.sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
     vi.vertexBindingDescriptionCount   = (uint32_t)cfg.bindingDescs.size();
     vi.pVertexBindingDescriptions      = cfg.bindingDescs.data();
-    vi.vertexAttributeDescriptionCount = (uint32_t)cfg.attrDescs.size();
-    vi.pVertexAttributeDescriptions    = cfg.attrDescs.data();
+    // Declare only the attributes the vertex shader reads: a vertex layout shared by several
+    // shaders (e.g. glTF's 8-attribute Vertex used by shaders that read a prefix of it) would
+    // otherwise log "Vertex attribute at location N not consumed" for every pipeline. The buffer
+    // layout (bindings/offsets) is unchanged. A module the reader cannot parse keeps them all.
+    std::vector<VkVertexInputAttributeDescription> usedAttrs;
+    const detail::SpirvVertexInputs consumed = detail::reflectVertexInputs(cfg.vertSpv);
+    for (const auto& attr : cfg.attrDescs)
+        if (!consumed.ok || consumed.consumes(attr.location)) usedAttrs.push_back(attr);
+    vi.vertexAttributeDescriptionCount = (uint32_t)usedAttrs.size();
+    vi.pVertexAttributeDescriptions    = usedAttrs.data();
 
     VkPipelineInputAssemblyStateCreateInfo ia{};
     ia.sType    = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
