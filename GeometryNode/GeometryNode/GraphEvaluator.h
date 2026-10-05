@@ -26,7 +26,8 @@ struct EvalStats {
 
 struct EvalResult {
     bool success = false;
-    GeometryPtr geometry;                 // non-null iff success
+    GeometryPtr geometry;                 // non-null iff success (null for the inside of a node group)
+    std::map<std::string, Value> values;  // outputs of the result node (a group's interface outputs)
     NodeId outputNode = 0;
     std::vector<Diagnostic> diagnostics;  // warnings may be present on success
     EvalStats stats;

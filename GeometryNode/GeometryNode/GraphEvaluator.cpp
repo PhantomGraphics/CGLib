@@ -109,7 +109,7 @@ Analysis analyze(const Graph& graph, const NodeRegistry& registry) {
     size_t outputs = 0;
     for (const Node& n : graph.nodes) {
         auto it = a.defs.find(n.id);
-        if (it != a.defs.end() && it->second && it->second->isOutput && a.byId[n.id] == &n) {
+        if (it != a.defs.end() && it->second && (it->second->isOutput || it->second->isGroupOutput) && a.byId[n.id] == &n) {
             ++outputs;
             a.output = n.id;
         }
@@ -294,6 +294,7 @@ EvalResult evaluateGraph(const Graph& graph, const NodeRegistry& registry, const
         std::string key;
         appendString(key, def.typeId);
         appendPod(key, n->version);
+        appendPod(key, def.contentHash);
         appendPod(key, context.seed);
         appendPod(key, context.limits.maxVertices);
         appendPod(key, context.limits.maxIndices);
@@ -361,6 +362,11 @@ EvalResult evaluateGraph(const Graph& graph, const NodeRegistry& registry, const
 
     if (failed.count(a.output)) return result;
     const EvalCache::Entry& out = store.entries.at(a.output);
+    result.values = out.outputs;
+    if (a.defs[a.output]->isGroupOutput) {  // the inside of a node group: its outputs are the result, there is no mesh
+        result.success = true;
+        return result;
+    }
     result.geometry = std::get<GeometryPtr>(out.outputs.at("Geometry"));
     result.success = true;
     return result;

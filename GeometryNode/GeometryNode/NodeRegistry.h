@@ -19,6 +19,10 @@ struct EvalContext {
     uint32_t seed = 0;
     Limits limits;
     const std::atomic<bool>* cancel = nullptr;  // polled between nodes; may be null
+    // Evaluating the inside of a node group: the values of the group's interface inputs (read by GroupInput) and how
+    // deep the group nesting is (a self-referencing group is cut off instead of recursing forever).
+    const std::map<std::string, Value>* groupInputs = nullptr;
+    int groupDepth = 0;
 
     bool cancelled() const { return cancel && cancel->load(std::memory_order_relaxed); }
 };
@@ -83,6 +87,8 @@ struct NodeDefinition {
     std::vector<SocketDef> inputs;
     std::vector<SocketDef> outputs;
     bool isOutput = false;   // the graph result node (exactly one per graph)
+    bool isGroupOutput = false;  // the result node of a group's inner graph (its outputs are the interface outputs)
+    uint64_t contentHash = 0;    // part of the cache key for definitions whose behaviour is data (node groups)
     NodeEvalFn evaluate;
 
     const SocketDef* findInput(const std::string& id) const;
