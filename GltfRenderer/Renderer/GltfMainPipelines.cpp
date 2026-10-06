@@ -13,19 +13,24 @@ GltfFixedFunctionState gltfFixedFunctionState(bool blend, bool doubleSided, VkCu
     return s;
 }
 
-void GltfMainPipelines::create(Phantom::VKG::VulkanContext& ctx, VkRenderPass renderPass,
+bool GltfMainPipelines::create(Phantom::VKG::VulkanContext& ctx, VkRenderPass renderPass,
                                Phantom::VKG::PipelineConfig base, VkCullModeFlags defaultCull)
 {
     destroy(ctx.getDevice());
+    if (base.vertSpv.empty() || base.fragSpv.empty()) return false;
     for (int blend = 0; blend < 2; ++blend) {
         for (int dbl = 0; dbl < 2; ++dbl) {
             const GltfFixedFunctionState s = gltfFixedFunctionState(blend != 0, dbl != 0, defaultCull);
             base.cullMode    = s.cullMode;
             base.blendEnable = s.blendEnable;
             base.depthWrite  = s.depthWrite;
-            select(blend != 0, dbl != 0).create(ctx, renderPass, base);
+            if (!select(blend != 0, dbl != 0).create(ctx, renderPass, base)) {
+                destroy(ctx.getDevice());
+                return false;
+            }
         }
     }
+    return true;
 }
 
 void GltfMainPipelines::destroy(VkDevice device)

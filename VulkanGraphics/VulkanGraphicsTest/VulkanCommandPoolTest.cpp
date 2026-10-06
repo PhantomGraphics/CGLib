@@ -21,13 +21,19 @@ TEST_F(VulkanCommandPoolTest, AllocateAndFreeCommandBuffers) {
 TEST_F(VulkanCommandPoolTest, SingleTimeCommandsRoundTrip) {
     VkCommandBuffer cmd = pool_.beginSingleTimeCommands();
     ASSERT_NE(cmd, VK_NULL_HANDLE);
-    pool_.endSingleTimeCommands(cmd);
+    EXPECT_TRUE(pool_.endSingleTimeCommands(cmd));
 }
 
 // A null handle (what beginSingleTimeCommands() returns when allocation fails) must be accepted.
 TEST_F(VulkanCommandPoolTest, EndSingleTimeCommandsIgnoresNullHandle) {
-    pool_.endSingleTimeCommands(VK_NULL_HANDLE);
+    EXPECT_FALSE(pool_.endSingleTimeCommands(VK_NULL_HANDLE));
     VkCommandBuffer cmd = pool_.beginSingleTimeCommands();
     EXPECT_NE(cmd, VK_NULL_HANDLE);
-    pool_.endSingleTimeCommands(cmd);
+    EXPECT_TRUE(pool_.endSingleTimeCommands(cmd));
+}
+
+TEST(VulkanCommandPoolFailureTest, UninitializedPoolRejectsCommands) {
+    Phantom::VKG::VulkanCommandPool pool;
+    EXPECT_EQ(pool.beginSingleTimeCommands(), VK_NULL_HANDLE);
+    EXPECT_FALSE(pool.endSingleTimeCommands(VK_NULL_HANDLE));
 }

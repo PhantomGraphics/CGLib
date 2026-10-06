@@ -308,8 +308,8 @@ bool VkAppBase::drawFrame() {
     vkCmdEndRenderPass(cmd);
 
     // Screenshot / pixel readback: copy the just-rendered swapchain image to the readback buffers.
-    const FrameReadback::Plan readbackPlan = readback_.beginFrame(frameCount_);
-    readback_.record(readbackPlan, context_, cmd, swapChain_.getImages()[imageIndex], swapChain_.getExtent());
+    const FrameReadback::Plan readbackPlan = readback_.record(readback_.beginFrame(frameCount_),
+        context_, cmd, swapChain_.getImages()[imageIndex], swapChain_.getExtent(), swapChain_.getImageFormat());
 
     vkEndCommandBuffer(cmd);
 
@@ -365,8 +365,8 @@ bool VkAppBase::drawFrame() {
     }
 
     if (readbackPlan.screenshot || readbackPlan.pixel) {
-        vkDeviceWaitIdle(context_.getDevice());
-        readback_.finish(readbackPlan, swapChain_.getImageFormat(), swapChain_.getExtent());
+        if (vkDeviceWaitIdle(context_.getDevice()) != VK_SUCCESS) return false;
+        readback_.finish(readbackPlan);
     }
 
     currentFrame_ = (currentFrame_ + 1) % MAX_FRAMES_IN_FLIGHT;

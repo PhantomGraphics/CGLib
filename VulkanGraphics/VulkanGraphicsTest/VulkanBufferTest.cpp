@@ -7,6 +7,15 @@ using Phantom::VKG::VulkanBuffer;
 
 using VulkanBufferTest = VulkanTestFixture;
 
+TEST_F(VulkanBufferTest, UploadWithUninitializedPoolLeavesBufferInvalid) {
+    Phantom::VKG::VulkanCommandPool invalidPool;
+    const uint32_t data = 1;
+    VulkanBuffer buffer;
+    EXPECT_FALSE(buffer.create(ctx_, invalidPool, sizeof(data), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, &data));
+    EXPECT_FALSE(buffer.isValid());
+    EXPECT_EQ(buffer.getSize(), 0u);
+}
+
 TEST_F(VulkanBufferTest, CreateDeviceLocalWithInitialData) {
     std::array<float, 4> data{1.f, 2.f, 3.f, 4.f};
 

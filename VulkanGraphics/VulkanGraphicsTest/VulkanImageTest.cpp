@@ -5,6 +5,29 @@ using Phantom::VKG::VulkanImage;
 
 using VulkanImageTest = VulkanTestFixture;
 
+TEST_F(VulkanImageTest, UploadWithUninitializedPoolLeavesOutputsNull) {
+    Phantom::VKG::VulkanCommandPool invalidPool;
+    const uint8_t pixels[24] = {};
+    VkImage image = VK_NULL_HANDLE;
+    VkDeviceMemory memory = VK_NULL_HANDLE;
+    VkImageView view = VK_NULL_HANDLE;
+    EXPECT_FALSE(VulkanImage::createFromPixelsRGBA8(ctx_, invalidPool, pixels, 1, 1,
+        false, image, memory, view));
+    EXPECT_EQ(image, VK_NULL_HANDLE);
+    EXPECT_EQ(memory, VK_NULL_HANDLE);
+    EXPECT_EQ(view, VK_NULL_HANDLE);
+    EXPECT_FALSE(VulkanImage::createCubeFromFacesRGBA8(ctx_, invalidPool, pixels, 1,
+        image, memory, view));
+    EXPECT_EQ(image, VK_NULL_HANDLE);
+    EXPECT_EQ(memory, VK_NULL_HANDLE);
+    EXPECT_EQ(view, VK_NULL_HANDLE);
+    EXPECT_FALSE(VulkanImage::createZeroArrayTexture(ctx_, invalidPool, VK_FORMAT_R32_SFLOAT,
+        image, memory, view));
+    EXPECT_EQ(image, VK_NULL_HANDLE);
+    EXPECT_EQ(memory, VK_NULL_HANDLE);
+    EXPECT_EQ(view, VK_NULL_HANDLE);
+}
+
 TEST_F(VulkanImageTest, CreateAndCreateView) {
     VkImage image = VK_NULL_HANDLE;
     VkDeviceMemory memory = VK_NULL_HANDLE;

@@ -56,14 +56,21 @@ bool VulkanBuffer::create(const VulkanContext& ctx, const VulkanCommandPool& poo
             return false;
         }
 
-        void* data;
-        vmaMapMemory(allocator_, stagingAlloc, &data);
+        void* data = nullptr;
+        if (vmaMapMemory(allocator_, stagingAlloc, &data) != VK_SUCCESS) {
+            vmaDestroyBuffer(allocator_, stagingBuf, stagingAlloc);
+            destroy();
+            return false;
+        }
         memcpy(data, initialData, static_cast<size_t>(size));
         vmaUnmapMemory(allocator_, stagingAlloc);
 
-        copyBuffer(ctx, pool, stagingBuf, buffer_, size);
-
+        const bool copied = copyBuffer(ctx, pool, stagingBuf, buffer_, size);
         vmaDestroyBuffer(allocator_, stagingBuf, stagingAlloc);
+        if (!copied) {
+            destroy();
+            return false;
+        }
     }
     return true;
 }
@@ -114,15 +121,17 @@ bool VulkanBuffer::upload(const VulkanContext& ctx, const VulkanCommandPool& poo
     VKG_CHECK(vmaCreateBuffer(allocator_, &bi, &allocCI, &stagingBuf, &stagingAlloc, nullptr),
               "Failed to create staging buffer for upload", false);
 
-    void* mapped;
-    vmaMapMemory(allocator_, stagingAlloc, &mapped);
+    void* mapped = nullptr;
+    if (vmaMapMemory(allocator_, stagingAlloc, &mapped) != VK_SUCCESS) {
+        vmaDestroyBuffer(allocator_, stagingBuf, stagingAlloc);
+        return false;
+    }
     memcpy(mapped, data, static_cast<size_t>(size));
     vmaUnmapMemory(allocator_, stagingAlloc);
 
-    copyBuffer(ctx, pool, stagingBuf, buffer_, size);
-
+    const bool copied = copyBuffer(ctx, pool, stagingBuf, buffer_, size);
     vmaDestroyBuffer(allocator_, stagingBuf, stagingAlloc);
-    return true;
+    return copied;
 }
 
 void VulkanBuffer::write(const void* data, VkDeviceSize size) {
@@ -144,13 +153,14 @@ void VulkanBuffer::destroy(VkDevice /*device*/) {
 //  髱咏噪繝ｦ繝ｼ繝・ぅ繝ｪ繝・ぅ
 // ============================================================
 
-void VulkanBuffer::copyBuffer(const VulkanContext& ctx, const VulkanCommandPool& pool,
+bool VulkanBuffer::copyBuffer(const VulkanContext& ctx, const VulkanCommandPool& pool,
                                VkBuffer src, VkBuffer dst, VkDeviceSize size)
 {
     auto cmd = pool.beginSingleTimeCommands();
+    if (!cmd) return false;
     VkBufferCopy region{0, 0, size};
     vkCmdCopyBuffer(cmd, src, dst, 1, &region);
-    pool.endSingleTimeCommands(cmd);
+    return pool.endSingleTimeCommands(cmd);
 }
 
 } // namespace VKG

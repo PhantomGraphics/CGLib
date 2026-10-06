@@ -30,7 +30,7 @@ namespace Phantom::Gltf {
     public:
         // `base` carries shaders, vertex layout, descriptor layouts and push constants; its
         // cullMode/blendEnable/depthWrite are overridden per variant.
-        void create(Phantom::VKG::VulkanContext& ctx, VkRenderPass renderPass,
+        bool create(Phantom::VKG::VulkanContext& ctx, VkRenderPass renderPass,
                     Phantom::VKG::PipelineConfig base, VkCullModeFlags defaultCull);
         void destroy(VkDevice device);
 
