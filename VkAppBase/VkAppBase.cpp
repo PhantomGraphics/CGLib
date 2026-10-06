@@ -3,6 +3,7 @@
 #include "imgui/backends/imgui_impl_glfw.h"
 #include "imgui/backends/imgui_impl_vulkan.h"
 
+#include "FrameRecording.h"
 #include "ScreenshotCapture.h"
 
 #include <algorithm>
@@ -294,33 +295,8 @@ bool VkAppBase::drawFrame() {
     // Record derived-class pre-render (offscreen) commands before the main render pass.
     onPreRender(cmd, currentFrame_);
 
-    VkRenderPassBeginInfo rp{};
-    rp.sType       = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    rp.renderPass  = renderPass_.get();
-    rp.framebuffer = swapChain_.getFramebuffers()[imageIndex];
-    rp.renderArea.offset = {0, 0};
-    rp.renderArea.extent = swapChain_.getExtent();
-
-    std::array<VkClearValue, 2> clearValues{};
-    clearValues[0].color        = {{0.05f, 0.05f, 0.05f, 1.f}};
-    clearValues[1].depthStencil = {1.f, 0};
-    rp.clearValueCount = (uint32_t)clearValues.size();
-    rp.pClearValues    = clearValues.data();
-
-    vkCmdBeginRenderPass(cmd, &rp, VK_SUBPASS_CONTENTS_INLINE);
-
-    // Set viewport and scissor as dynamic state.
-    VkViewport vp{};
-    vp.x        = 0.f;
-    vp.y        = 0.f;
-    vp.width    = (float)swapChain_.getExtent().width;
-    vp.height   = (float)swapChain_.getExtent().height;
-    vp.minDepth = 0.f;
-    vp.maxDepth = 1.f;
-    vkCmdSetViewport(cmd, 0, 1, &vp);
-
-    VkRect2D scissor{{0, 0}, swapChain_.getExtent()};
-    vkCmdSetScissor(cmd, 0, 1, &scissor);
+    beginSwapchainRenderPass(cmd, renderPass_.get(), swapChain_.getFramebuffers()[imageIndex],
+                             swapChain_.getExtent());
 
     // Record derived-class render commands.
     onRender(cmd, currentFrame_, imageIndex);
