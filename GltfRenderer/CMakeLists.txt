@@ -58,6 +58,7 @@ if(PHANTOM_GTEST_FOUND)
             ${GLTFR_ROOT}/GltfRendererTest/GltfAnimationEvaluatorTest.cpp
             ${GLTFR_ROOT}/GltfRendererTest/GltfObjectAnimationTest.cpp
             ${GLTFR_ROOT}/GltfRendererTest/GltfGlobalDescriptorsTest.cpp
+            ${GLTFR_ROOT}/GltfRendererTest/GltfIblPrecomputerTest.cpp
             ${GLTFR_ROOT}/GltfRendererTest/SkeletonGltfConverterTest.cpp
             ${GLTFR_ROOT}/GltfRendererTest/MmdToGltfConverterTest.cpp
             ${GLTFR_ROOT}/GltfRendererTest/GLTFFileReaderMorphTargetTest.cpp
