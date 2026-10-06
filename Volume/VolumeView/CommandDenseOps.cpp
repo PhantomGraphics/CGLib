@@ -1,5 +1,6 @@
 ﻿#include "CommandDispatcher.h"
 #include "CommandParse.h"
+#include "McMesh.h"
 
 #include "VolumeScene.h"
 
@@ -141,28 +142,8 @@ std::string CommandDispatcher::cmdDenseMarchingCubes(float isoLevel) {
     builder.build(*src->getVolume(), isoLevel);
     const auto& tris = builder.getTriangles();
 
-    PolygonMesh mesh;
-    mesh.name = "DMC_" + src->getName();
-    mesh.positions.reserve(tris.size() * 9);
-    mesh.colors.reserve(tris.size() * 12);
-
-    uint32_t idx = 0;
-    for (const auto& tri : tris) {
-        const auto& verts = tri.getVertices();
-        for (int vi = 0; vi < 3; ++vi) {
-            mesh.positions.push_back(static_cast<float>(verts[vi].x));
-            mesh.positions.push_back(static_cast<float>(verts[vi].y));
-            mesh.positions.push_back(static_cast<float>(verts[vi].z));
-            mesh.colors.push_back(0.7f);
-            mesh.colors.push_back(0.9f);
-            mesh.colors.push_back(0.8f);
-            mesh.colors.push_back(0.85f);
-            mesh.indices.push_back(idx++);
-        }
-    }
-
     world_->clearPolygons();
-    world_->addPolygon(std::move(mesh));
+    world_->addPolygon(trianglesToPolygonMesh("DMC_" + src->getName(), tris, {0.7f, 0.9f, 0.8f, 0.85f}));
     if (onRebuild_) onRebuild_();
     return "OK:" + std::to_string(tris.size()) + "tri";
 }
