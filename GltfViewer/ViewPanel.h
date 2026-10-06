@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../../CGLib/VkAppBase/IVkSubRenderer.h"
+#include <functional>
 #include <glm/glm.hpp>
 #include <string>
 
@@ -15,6 +16,15 @@ public:
     // Non-owning; only needed for the "Load HDRI..."/"Clear HDRI" buttons (real-HDRI loading
     // lives on the app, alongside envCubemap_ -- see App::loadEnvironmentHDR()'s comment).
     void setApp(App* app) { app_ = app; }
+    // Edits are issued as commands (CommandDispatcher::submitUi) so the panel, the Command
+    // window and scenarios share one path; the shown values are read back every frame.
+    void setCommandSink(std::function<void(const std::string&)> f) { sink_ = std::move(f); }
+    // Light state lives here (the renderer only keeps the combined color*intensity);
+    // the SetLight command goes through App::setLight() to this.
+    void setLight(const glm::vec3& pos, const glm::vec3& color, float intensity);
+    glm::vec3 lightPos() const { return lightPos_; }
+    glm::vec3 lightColor() const { return lightColor_; }
+    float lightIntensity() const { return lightIntensity_; }
     void setVisible(bool visible) { visible_ = visible; }
     bool isVisible() const { return visible_; }
     void onImGui() override;
@@ -22,6 +32,8 @@ public:
 private:
     GltfSceneRenderer* renderer_ = nullptr;
     App* app_ = nullptr;
+    std::function<void(const std::string&)> sink_;
+    void emit(const std::string& cmd) const { if (sink_) sink_(cmd); }
     bool visible_ = true;
     glm::vec3 lightPos_ = { 1.f, 2.f, 1.f };
     glm::vec3 lightColor_ = { 1.f, 1.f, 1.f };

@@ -159,9 +159,12 @@ App::App(const std::filesystem::path& gltfPath)
     sceneGraphPanel_.setSelectedNode(&selectedNode_);
     viewPanel_.setRenderer(&renderer_);
     viewPanel_.setApp(this);
+    viewPanel_.setCommandSink([this](const std::string& cmd) { dispatcher_.submitUi(cmd); });
     panel_.setVrmState(&vrm_);
     panel_.setOnVrmExpressionChanged([this](int index, float weight) {
-        setVrmExpressionWeight(index, weight);
+        char w[40];
+        std::snprintf(w, sizeof(w), "%.9g", weight);
+        dispatcher_.submitUi("SetVrmExpressionWeight:" + std::to_string(index) + ":" + w);
     });
     // Standard screen: render area + menu + Command + Outliner. The existing
     // panels keep drawing themselves; the shell owns their visibility (hidden by

@@ -1,0 +1,15 @@
+{
+  "name": "view_panel_commands",
+  "steps": [
+    { "label": "Every catalog entry is routed",   "command": "CheckCommandCatalog",              "expect": "OK" },
+    { "label": "Set camera distance",             "command": "SetCamDist:12",                    "expect": "OK" },
+    { "label": "Change: camera distance",         "command": "GetCamDist",                       "expect_prefix": "Val:12" },
+    { "label": "Set camera target",               "command": "SetCamTarget:1:2:3",               "expect": "OK" },
+    { "label": "Negative: camera target arity",   "command": "SetCamTarget:1:2",                 "expect_prefix": "Error:" },
+    { "label": "Set light",                       "command": "SetLight:4:5:6:1:0.5:0.25:7",      "expect": "OK" },
+    { "label": "Change: light read back",         "command": "GetLight",                         "expect": "4:5:6:7" },
+    { "label": "Negative: light arity",           "command": "SetLight:1:2:3",                   "expect_prefix": "Error:" },
+    { "label": "Negative: light intensity",       "command": "SetLight:1:2:3:1:1:1:-2",          "expect_prefix": "Error:" },
+    { "label": "Invariant: app alive",            "command": "GetStatus",                        "expect": "OK" }
+  ]
+}

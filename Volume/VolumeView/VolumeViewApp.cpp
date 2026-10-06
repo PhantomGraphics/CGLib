@@ -61,6 +61,7 @@ VolumeViewApp::VolumeViewApp()
         else                    activeSceneId_      = static_cast<int>(id);
     });
     menuPanel_.setShell(&shell_);
+    menuPanel_.setCommandSink([this](const std::string& c) { dispatcher_.submitUi(c); });
     // The control window and the Scenario Browser draw through the shell in onImGui().
 }
 

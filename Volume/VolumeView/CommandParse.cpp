@@ -69,6 +69,8 @@ const std::vector<ScalarCommandSpec>& pbvrScalarCommands() {
         {"SetPBVRShadowEnabled",        ScalarArg::Flag},
         {"SetPBVRExtinction",           ScalarArg::Float},
         {"SetPBVRShadowLayers",         ScalarArg::Int},
+        {"SetPBVRRepeatCount",          ScalarArg::Int},
+        {"SetPBVRMaxParticlesPerVoxel", ScalarArg::Int},
     };
     return kCommands;
 }

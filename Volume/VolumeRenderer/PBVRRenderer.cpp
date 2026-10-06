@@ -87,6 +87,7 @@ void PBVRRenderer::setShadowMapSize(const uint32_t size) {
 void PBVRRenderer::setTransferFunctionPreset(const int preset) {
     // Presets replace the whole curve. Merging left e.g. the rainbow preset's
     // green point at 0.5 inside the OpenVDB preset (green mid-density voxels).
+    tfPreset_ = preset;
     tf_.clearPoints();
     if (preset == 1) {
         // Cloud preset: dense white-ish core, fading to transparent at the SDF band edge.

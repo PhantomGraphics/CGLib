@@ -156,6 +156,7 @@ public:
     void setShadowLayers(int n);
     void setShadowMapSize(uint32_t size);
     void setTransferFunctionPreset(int preset);
+    int  getTransferFunctionPreset() const { return tfPreset_; }
 
     float    getLightAzimuth()    const { return lightAzimuth_; }
     float    getLightElevation()  const { return lightElevation_; }
@@ -311,6 +312,7 @@ private:
     ::VKG::VulkanPipeline depositPipeline_;
 
     TransferFunction tf_;
+    int tfPreset_ = 0;
     ParticleSet particleSet_;
 
     Shaders shaders_;

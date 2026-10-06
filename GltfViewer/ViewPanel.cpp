@@ -1,10 +1,27 @@
 #include "ViewPanel.h"
+#include <cstdio>
 #include "../GltfRenderer/Renderer/GltfSceneRenderer.h"
 #include "App.h"
 #include "imgui.h"
 #include "../../CGLib/ThirdParty/tinyfiledialogs/tinyfiledialogs.h"
 
 using namespace Phantom::Gltf;
+
+namespace {
+std::string fnum(float v) {
+    char buf[40];
+    std::snprintf(buf, sizeof(buf), "%.9g", v);
+    return buf;
+}
+}
+
+void ViewPanel::setLight(const glm::vec3& pos, const glm::vec3& color, float intensity) {
+    lightPos_ = pos;
+    lightColor_ = color;
+    lightIntensity_ = intensity;
+    if (renderer_)
+        renderer_->setLight(glm::vec4(lightPos_, 0.f), glm::vec4(lightColor_ * lightIntensity_, 1.f));
+}
 
 void ViewPanel::onImGui() {
     if (!visible_) return;
@@ -15,13 +32,16 @@ void ViewPanel::onImGui() {
 
     if (renderer_) {
         if (ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen)) {
-            ImGui::SliderFloat("Distance", renderer_->camDistPtr(), 0.1f, 100.f);
-            ImGui::SliderFloat3("Target", &renderer_->camTargetPtr()->x, -10.f, 10.f);
+            float dist = *renderer_->camDistPtr();
+            if (ImGui::SliderFloat("Distance", &dist, 0.1f, 100.f)) emit("SetCamDist:" + fnum(dist));
+            glm::vec3 target = *renderer_->camTargetPtr();
+            if (ImGui::SliderFloat3("Target", &target.x, -10.f, 10.f))
+                emit("SetCamTarget:" + fnum(target.x) + ":" + fnum(target.y) + ":" + fnum(target.z));
             if (app_) {
                 if (app_->hasAssetCamera()) {
                     bool useAssetCamera = app_->useAssetCamera();
                     if (ImGui::Checkbox("Use Asset Camera", &useAssetCamera))
-                        app_->setUseAssetCamera(useAssetCamera);
+                        emit(std::string("SetUseAssetCamera:") + (useAssetCamera ? "1" : "0"));
                 } else {
                     ImGui::TextDisabled("Use Asset Camera (no camera in this asset)");
                 }
@@ -33,13 +53,16 @@ void ViewPanel::onImGui() {
             changed |= ImGui::ColorEdit3("Color", &lightColor_.x);
             changed |= ImGui::DragFloat("Intensity", &lightIntensity_, 0.1f, 0.f, 20.f);
             if (changed)
-                renderer_->setLight(glm::vec4(lightPos_, 0.f),
-                                    glm::vec4(lightColor_ * lightIntensity_, 1.f));
+                emit("SetLight:" + fnum(lightPos_.x) + ":" + fnum(lightPos_.y) + ":" + fnum(lightPos_.z) + ":" +
+                     fnum(lightColor_.x) + ":" + fnum(lightColor_.y) + ":" + fnum(lightColor_.z) + ":" +
+                     fnum(lightIntensity_));
         }
         if (ImGui::CollapsingHeader("Environment", ImGuiTreeNodeFlags_DefaultOpen)) {
-            if (ImGui::Checkbox("Use IBL", &useIBL_)) renderer_->setUseIBL(useIBL_);
+            useIBL_ = renderer_->getUseIBL() != 0;      // renderer is the single source of truth
+            useSkybox_ = renderer_->getUseSkybox();
+            if (ImGui::Checkbox("Use IBL", &useIBL_)) emit(std::string("SetUseIBL:") + (useIBL_ ? "1" : "0"));
             if (renderer_->hasSkyboxPipeline()) {
-                if (ImGui::Checkbox("Show Skybox", &useSkybox_)) renderer_->setUseSkybox(useSkybox_);
+                if (ImGui::Checkbox("Show Skybox", &useSkybox_)) emit(std::string("SetUseSkybox:") + (useSkybox_ ? "1" : "0"));
             } else {
                 ImGui::TextDisabled("Show Skybox (no skybox shaders loaded)");
             }
@@ -49,11 +72,11 @@ void ViewPanel::onImGui() {
                     const char* filters[] = { "*.hdr" };
                     const char* path = tinyfd_openFileDialog(
                         "Load Environment HDRI", "", 1, filters, "Radiance HDR files (*.hdr)", 0);
-                    if (path) app_->loadEnvironmentHDR(path);
+                    if (path) emit(std::string("LoadEnvironmentHDR:") + path);
                 }
                 if (app_->hasEnvironmentHDR()) {
                     ImGui::SameLine();
-                    if (ImGui::Button("Clear HDRI")) app_->clearEnvironmentHDR();
+                    if (ImGui::Button("Clear HDRI")) emit("ClearEnvironmentHDR");
                 }
             }
         }
@@ -61,7 +84,7 @@ void ViewPanel::onImGui() {
             const int materialCount = renderer_->document() ? static_cast<int>(renderer_->document()->materials.size()) : 0;
             const int maxIndex = materialCount > 0 ? materialCount - 1 : 0;
             ImGui::SliderInt("Material Index", &materialIndex_, 0, maxIndex);
-            if (ImGui::Button("Show Shader Graph")) app_->showShaderGraph(materialIndex_);
+            if (ImGui::Button("Show Shader Graph")) emit("ShowShaderGraph:" + std::to_string(materialIndex_));
             if (materialCount == 0) ImGui::TextDisabled("(document has no materials -- index 0 is the implicit default)");
 
             const bool hasOverride = app_->hasPhmatOverride(materialIndex_);
@@ -79,7 +102,7 @@ void ViewPanel::onImGui() {
             }
             if (hasOverride) {
                 ImGui::SameLine();
-                if (ImGui::Button("Clear .phmat")) { app_->clearPhmatMaterial(materialIndex_); lastPhmatError_.clear(); }
+                if (ImGui::Button("Clear .phmat")) { emit("ClearPhmat:" + std::to_string(materialIndex_)); lastPhmatError_.clear(); }
             }
             if (!lastPhmatError_.empty())
                 ImGui::TextColored(ImVec4(1.f, 0.4f, 0.4f, 1.f), "Error: %s", lastPhmatError_.c_str());
@@ -88,7 +111,7 @@ void ViewPanel::onImGui() {
             // pooling stat, for visibility into "shader variant"/"pipeline cache" reuse.
             bool hotReload = app_->phmatHotReloadEnabled();
             if (ImGui::Checkbox("Watch .phmat/.phshader for changes", &hotReload))
-                app_->setPhmatHotReloadEnabled(hotReload);
+                emit(std::string("SetPhmatHotReload:") + (hotReload ? "1" : "0"));
             ImGui::TextDisabled("Pipeline variants in use: %d", app_->phmatPipelineVariantCount());
         }
     }
