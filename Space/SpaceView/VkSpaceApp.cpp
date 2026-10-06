@@ -23,8 +23,28 @@ VkSpaceApp::VkSpaceApp(int w, int h, const std::string& title)
 
     add(&renderer_);
     menuPanel_.init(&world_, &renderer_);
-    add(&menuPanel_);
-    add(&scenarioBrowser_);
+
+    // Standard screen: render area + menu + Command + Outliner; the rest is
+    // opened from the View menu / outliner.
+    shell_.setDispatcher(&dispatcher_);
+    shell_.registerPanel("Control", {0.70f, 0.00f, 0.30f, 0.66f});
+    shell_.registerPanel("Scenario Browser", {0.30f, 0.05f, 0.40f, 0.55f});
+    shell_.setOutlinerProvider([this] {
+        const auto& r = world_.getResult();
+        std::vector<ViewShell::OutlinerItem> items;
+        items.push_back({1, std::string("Algorithm: ") + menuPanel_.activeName(), "Control"});
+        items.push_back({2, "Result: " + std::to_string(r.lineIndices.size() / 2) + " lines, " +
+                            std::to_string(r.pointSizes.size()) + " points", ""});
+        return items;
+    });
+    menuPanel_.setShell(&shell_);
+    menuPanel_.setSubmit([this](const std::string& c) { dispatcher_.submitUi(c); });
+    // Control and Scenario Browser are drawn through the shell in onImGui().
+}
+
+void VkSpaceApp::onImGuiReady() {
+    // Context exists, imgui.ini is not read until the first frame.
+    shell_.installSettings();
 }
 
 bool VkSpaceApp::loadScenario(const std::string& jsonPath) {
@@ -57,9 +77,15 @@ void VkSpaceApp::onSwapChainCreated() {
 void VkSpaceApp::onUpdate(uint32_t frameIndex) {
     dispatcher_.processQueue();
 
+    // Single place that collects responses: first the ones for commands typed
+    // into the Command window, the rest belong to the running scenario.
+    auto responses = dispatcher_.collectResponses();
+    shell_.consumeResponses(responses);
+    shell_.setScenarioActive(runner_.isActive());
+    menuPanel_.setLocked(runner_.isActive());
+
     if (runner_.isActive()) {
-        auto responses = dispatcher_.collectResponses();
-        if (runner_.tick(dispatcher_, responses)) {
+        if (runner_.tick(shell_.scenarioDispatcher(), responses)) {
             if (runner_.hasFailed()) {
                 fprintf(stderr, "[Scenario] FAILED: %s\n", runner_.failMessage().c_str());
                 exitCode_ = 1;
@@ -80,7 +106,15 @@ void VkSpaceApp::onImGui() {
 
     if (ImGui::BeginMainMenuBar()) {
         menuPanel_.onImGuiMenuBar();
+        shell_.drawViewMenu();
         ImGui::EndMainMenuBar();
+    }
+    shell_.drawWindows();
+    menuPanel_.onImGui();
+    scenarioBrowser_.pumpQueue();
+    if (shell_.beginPanel("Scenario Browser")) {
+        scenarioBrowser_.drawEmbedded();
+        shell_.endPanel();
     }
 }
 
@@ -94,13 +128,18 @@ void VkSpaceApp::onCleanup() {
 
 void VkSpaceApp::setupWindowCallbacks() {
     auto& win = getWindow();
+    // Camera input is ignored while ImGui owns the mouse and while a scenario
+    // runs; a release is always forwarded so a drag can end.
     win.onMouseButton = [this](int button, int action, int) {
-        if (button == 0) renderer_.handleMouseButton(action == 1);
+        if (button != 0) return;
+        if (action == 1 && (ImGui::GetIO().WantCaptureMouse || runner_.isActive())) return;
+        renderer_.handleMouseButton(action == 1);
     };
     win.onCursorPos = [this](double x, double y) {
         renderer_.handleMouseMove(x, y);
     };
     win.onScroll = [this](double, double dy) {
+        if (ImGui::GetIO().WantCaptureMouse || runner_.isActive()) return;
         renderer_.handleScroll(dy);
     };
 }

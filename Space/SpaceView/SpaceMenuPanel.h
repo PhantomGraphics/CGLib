@@ -7,6 +7,11 @@
 #include "OctreePanel.h"
 #include "SignedDistancePanel.h"
 
+#include <functional>
+#include <string>
+
+class ViewShell;
+
 namespace VKSpace {
 
 class World;
@@ -15,6 +20,13 @@ class Renderer;
 class SpaceMenuPanel : public ::VKG::IVkUIPanel {
 public:
     void init(World* world, Renderer* renderer);
+
+    // The Control window is a shell panel (hidden until opened). GUI actions are
+    // sent as commands through `submit` so they take the same path as typed ones.
+    void setShell(ViewShell* s) { shell_ = s; }
+    void setSubmit(std::function<void(const std::string&)> f) { submit_ = std::move(f); }
+    void setLocked(bool v) { locked_ = v; }
+    const char* activeName() const { return algoName(activeType_); }
 
     void onImGuiMenuBar();
     void onImGui() override;
@@ -32,6 +44,9 @@ private:
         SignedDistance,
     };
 
+    ViewShell* shell_ = nullptr;
+    std::function<void(const std::string&)> submit_;
+    bool locked_ = false;
     World* world_ = nullptr;
     Renderer* renderer_ = nullptr;
 

@@ -30,6 +30,37 @@ std::vector<std::string> CommandDispatcher::collectResponses() {
     return out;
 }
 
+std::vector<CommandInfo> CommandDispatcher::commandCatalog() const {
+    return {
+        {"SetAlgorithm", "SpaceHash|CompactSpaceHash|KDTree|Octree|SignedDistance", "Select the active algorithm"},
+        {"Run", "", "Run the active algorithm"},
+        {"SetParam", "name:value", "Set a parameter of the active algorithm"},
+        {"GetLineCount", "", ""},
+        {"GetPointCount", "", ""},
+        {"GetPointPositionMin", "", ""},
+        {"GetPointPositionMax", "", ""},
+        {"GetDirty", "", ""},
+        {"ResetCamera", "", ""},
+        {"GetCameraDistance", "", ""},
+        {"Scroll", "dy", "Zoom as a mouse-wheel scroll"},
+    };
+}
+
+std::string CommandDispatcher::cmdCheckCommandCatalog() {
+    // Run/SetParam write into the world, so probe against a scratch one.
+    World scratch;
+    World* const saved = world_;
+    world_ = &scratch;
+    std::string missing;
+    for (const auto& c : commandCatalog()) {
+        const std::string probe = c.args.empty() ? c.name : c.name + ":x";
+        if (route(probe).rfind("Error:unknown command", 0) == 0)
+            missing += (missing.empty() ? "" : ",") + c.name;
+    }
+    world_ = saved;
+    return missing.empty() ? "OK" : "Error:unrouted catalog entries: " + missing;
+}
+
 void CommandDispatcher::processQueue() {
     std::queue<std::string> local;
     {
@@ -40,7 +71,9 @@ void CommandDispatcher::processQueue() {
     while (!local.empty()) {
         std::string cmd = std::move(local.front());
         local.pop();
+        const bool fromUi = takeUiMark(cmd);
         std::string resp = route(cmd);
+        if (fromUi) continue;
         {
             std::lock_guard<std::mutex> lock(mutex_);
             outputQueue_.push(std::move(resp));
@@ -49,6 +82,8 @@ void CommandDispatcher::processQueue() {
 }
 
 std::string CommandDispatcher::route(const std::string& cmd) {
+    if (cmd == "CheckCommandCatalog") return cmdCheckCommandCatalog();
+
     if (cmd.rfind("SetAlgorithm:", 0) == 0) {
         if (!menuPanel_) return "Error:no panel";
         menuPanel_->setActiveByName(cmd.substr(13));

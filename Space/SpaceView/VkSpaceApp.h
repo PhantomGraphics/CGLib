@@ -4,6 +4,7 @@
 #include "../../CGLib/VkAppBase/ScenarioRunner/ScenarioRunner.h"
 #include "../../CGLib/VkAppBase/ScenarioRunner/IScenarioHost.h"
 #include "../../CGLib/VkAppBase/ScenarioRunner/ScenarioBrowserPanel.h"
+#include "../../CGLib/VkAppBase/ScenarioRunner/ViewShell.h"
 #include "../../../CGLib/VulkanGraphics/VulkanSPVResolver.h"
 #include "Renderer.h"
 #include "CommandDispatcher.h"
@@ -36,12 +37,14 @@ protected:
     void onSwapChainCreated() override;
     void onUpdate(uint32_t frameIndex) override;
     void onImGui()            override;
+    void onImGuiReady()       override;
     void onCleanup()          override;
 
 private:
     World                    world_;
     Renderer          renderer_;
     SpaceMenuPanel           menuPanel_;
+    ViewShell                shell_;   // Command / Outliner windows
     CommandDispatcher dispatcher_;
     ScenarioRunner           runner_;
     ScenarioBrowserPanel     scenarioBrowser_;

@@ -72,7 +72,7 @@ void ViewShell::setPanelVisible(const std::string& id, bool v) {
     }
 }
 
-void ViewShell::applyPlacement(const PanelState& p) {
+ViewShell::Placement ViewShell::placementOf(const PanelState& p) const {
     const ImVec2 d = ImGui::GetIO().DisplaySize;
     const float menuH = ImGui::GetFrameHeight();
     const float areaH = std::max(1.f, d.y - menuH);
@@ -82,10 +82,46 @@ void ViewShell::applyPlacement(const PanelState& p) {
     const float h = std::min(std::max(p.rect.h * areaH, 120.f), areaH);
     const float x = std::min(p.rect.x * d.x, std::max(0.f, d.x - w));
     const float y = menuH + std::min(p.rect.y * areaH, std::max(0.f, areaH - h));
+    return {{x, y}, {w, h}};
+}
+
+void ViewShell::applyPlacement(const PanelState& p) {
+    const Placement pl = placementOf(p);
     // FirstUseEver: a position/size already in imgui.ini wins; a layout reset forces ours.
     const ImGuiCond cond = layoutResetPending_ ? ImGuiCond_Always : ImGuiCond_FirstUseEver;
-    ImGui::SetNextWindowPos(ImVec2(x, y), cond);
-    ImGui::SetNextWindowSize(ImVec2(w, h), cond);
+    ImGui::SetNextWindowPos(ImVec2(pl.pos.x, pl.pos.y), cond);
+    ImGui::SetNextWindowSize(ImVec2(pl.size.x, pl.size.y), cond);
+}
+
+void ViewShell::bindPanel(const std::string& id, Rect r, std::function<bool()> getVisible,
+                          std::function<void(bool)> setVisible) {
+    PanelState st{id, r, false, false, std::move(getVisible), std::move(setVisible), false};
+    st.extSeen = st.getExt ? st.getExt() : false;
+    if (auto* p = find(id)) { *p = std::move(st); return; }
+    panels_.push_back(std::move(st));
+}
+
+void ViewShell::syncBoundPanels() {
+    for (auto& p : panels_) {
+        if (!p.getExt) continue;
+        const bool ext = p.getExt();
+        if (ext != p.extSeen) {            // the panel changed itself (close button, app code)
+            if (p.visible != ext) { p.visible = ext; ImGui::MarkIniSettingsDirty(); }
+        } else if (p.visible != ext && p.setExt) {
+            p.setExt(p.visible);           // menu / imgui.ini / reset changed it
+        }
+        p.extSeen = p.getExt();
+    }
+}
+
+void ViewShell::placeBoundPanels() {
+    const ImGuiCond cond = layoutResetPending_ ? ImGuiCond_Always : ImGuiCond_FirstUseEver;
+    for (const auto& p : panels_) {
+        if (!p.getExt || !p.visible) continue;
+        const Placement pl = placementOf(p);
+        ImGui::SetWindowPos(p.id.c_str(), ImVec2(pl.pos.x, pl.pos.y), cond);
+        ImGui::SetWindowSize(p.id.c_str(), ImVec2(pl.size.x, pl.size.y), cond);
+    }
 }
 
 bool ViewShell::beginPanel(const std::string& id) {
@@ -105,7 +141,7 @@ void ViewShell::endPanel() {
 
 void ViewShell::resetLayout() {
     for (auto& p : panels_) p.visible = p.defaultVisible;
-    layoutResetPending_ = true;
+    resetRequested_ = true;
     ImGui::MarkIniSettingsDirty();
 }
 
@@ -126,10 +162,10 @@ void ViewShell::drawViewMenu() {
 
 // ---- Command window -------------------------------------------------------
 
-void ViewShell::submitLine(const std::string& text) {
+void ViewShell::submitLine(const std::string& text, bool fromScenario) {
     std::string cmd;
     const auto catalog = dispatcher_ ? dispatcher_->commandCatalog() : std::vector<CommandInfo>{};
-    if (model_.submit(text, catalog, cmd) == CommandConsoleModel::SubmitResult::Dispatch && dispatcher_)
+    if (model_.submit(text, catalog, cmd, fromScenario) == CommandConsoleModel::SubmitResult::Dispatch && dispatcher_)
         dispatcher_->dispatch(cmd);
 }
 
@@ -242,7 +278,10 @@ void ViewShell::drawOutliner() {
 }
 
 void ViewShell::drawWindows() {
+    // A reset requested (e.g. from the menu) is applied during exactly one frame.
+    layoutResetPending_ = resetRequested_;
+    resetRequested_     = false;
+    syncBoundPanels();
     drawOutliner();
     drawCommand();
-    layoutResetPending_ = false;
 }

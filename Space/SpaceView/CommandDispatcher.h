@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include "../../../CGLib/VkAppBase/ScenarioRunner/IScenarioDispatcher.h"
+#include "../../../CGLib/VkAppBase/ScenarioRunner/UiCommand.h"
 #include "SpaceMenuPanel.h"
 #include "Renderer.h"
 #include "World.h"
@@ -22,9 +23,15 @@ public:
 
     void dispatch(const std::string& command) override;
     std::vector<std::string> collectResponses() override;
+    std::vector<CommandInfo> commandCatalog() const override;
+
+    // GUI operations take the same queue and handlers as typed commands; the
+    // response is discarded (see UiCommand.h).
+    void submitUi(const std::string& cmd) { dispatch(markUiCommand(cmd)); }
 
 private:
     std::string route(const std::string& cmd);
+    std::string cmdCheckCommandCatalog();
 
     World*           world_     = nullptr;
     SpaceMenuPanel*  menuPanel_ = nullptr;

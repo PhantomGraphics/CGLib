@@ -3,6 +3,7 @@
 #include "../../CGLib/VkAppBase/ScenarioRunner/ScenarioRunner.h"
 #include "../../CGLib/VkAppBase/ScenarioRunner/IScenarioHost.h"
 #include "../../CGLib/VkAppBase/ScenarioRunner/ScenarioBrowserPanel.h"
+#include "../../CGLib/VkAppBase/ScenarioRunner/ViewShell.h"
 #include "../GltfRenderer/Gltf/GltfDocument.h"
 #include "../GltfRenderer/Gltf/GltfLightsCameras.h"
 #include "../GltfRenderer/Renderer/GltfSceneRenderer.h"
@@ -42,6 +43,7 @@ namespace Phantom::Gltf {
         void onSwapChainCreated()          override;
         void onCleanup()                   override;
         void onImGui()                      override;
+        void onImGuiReady()                 override;
 
     public:
         // VRM-specific metadata for the currently loaded document. Kept separate from `doc_` --
@@ -118,6 +120,7 @@ namespace Phantom::Gltf {
         SceneGraphPanel       sceneGraphPanel_;
         ShaderGraphPanel      shaderGraphPanel_;
         ViewPanel             viewPanel_;
+        ViewShell            shell_;   // Command / Outliner windows + panel visibility
         CommandDispatcher    dispatcher_;
         ScenarioRunner           runner_;
         //ScenarioConsole          console_;

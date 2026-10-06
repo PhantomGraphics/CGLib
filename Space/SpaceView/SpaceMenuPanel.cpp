@@ -5,6 +5,8 @@
 
 #include "imgui.h"
 
+#include "../../../CGLib/VkAppBase/ScenarioRunner/ViewShell.h"
+
 namespace VKSpace {
 
 void SpaceMenuPanel::init(World* world, Renderer* renderer) {
@@ -16,27 +18,28 @@ void SpaceMenuPanel::init(World* world, Renderer* renderer) {
 void SpaceMenuPanel::onImGuiMenuBar() {
     if (!ImGui::BeginMenu("Space")) return;
 
-    if (ImGui::MenuItem("SpaceHash"))        setActive(AlgoType::SpaceHash);
-    if (ImGui::MenuItem("CompactSpaceHash")) setActive(AlgoType::CompactSpaceHash);
-    if (ImGui::MenuItem("KDTree"))           setActive(AlgoType::KDTree);
-    if (ImGui::MenuItem("Octree"))           setActive(AlgoType::Octree);
-    if (ImGui::MenuItem("SignedDistance"))   setActive(AlgoType::SignedDistance);
+    for (AlgoType t : { AlgoType::SpaceHash, AlgoType::CompactSpaceHash,
+                        AlgoType::KDTree, AlgoType::Octree, AlgoType::SignedDistance }) {
+        if (ImGui::MenuItem(algoName(t), nullptr, t == activeType_, !locked_)) {
+            if (submit_) submit_(std::string("SetAlgorithm:") + algoName(t));
+            if (shell_) shell_->setPanelVisible("Control", true);
+        }
+    }
 
     ImGui::EndMenu();
 }
 
 void SpaceMenuPanel::onImGui() {
-    ImGui::SetNextWindowPos(ImVec2(10.f, 35.f), ImGuiCond_Once);
-    ImGui::SetNextWindowSize(ImVec2(430.f, 520.f), ImGuiCond_Once);
-    if (!ImGui::Begin("Control")) { ImGui::End(); return; }
+    if (!shell_ || !shell_->beginPanel("Control")) return;
+    ImGui::BeginDisabled(locked_);
 
     const char* current = algoName(activeType_);
     if (ImGui::BeginCombo("Algorithm", current)) {
         for (AlgoType t : { AlgoType::SpaceHash, AlgoType::CompactSpaceHash,
                             AlgoType::KDTree, AlgoType::Octree, AlgoType::SignedDistance }) {
             const bool selected = (t == activeType_);
-            if (ImGui::Selectable(algoName(t), selected))
-                setActive(t);
+            if (ImGui::Selectable(algoName(t), selected) && submit_)
+                submit_(std::string("SetAlgorithm:") + algoName(t));
             if (selected) ImGui::SetItemDefaultFocus();
         }
         ImGui::EndCombo();
@@ -49,11 +52,12 @@ void SpaceMenuPanel::onImGui() {
 
     ImGui::Separator();
     if (renderer_) {
-        if (ImGui::Button("Reset Camera"))
-            renderer_->resetCamera();
+        if (ImGui::Button("Reset Camera") && submit_)
+            submit_("ResetCamera");
     }
 
-    ImGui::End();
+    ImGui::EndDisabled();
+    shell_->endPanel();
 }
 
 const char* SpaceMenuPanel::algoName(AlgoType t) {

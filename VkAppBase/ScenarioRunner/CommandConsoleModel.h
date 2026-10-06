@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <deque>
 #include <string>
 #include <vector>
 
@@ -22,43 +23,52 @@ public:
     // app's dispatcher (the line is trimmed, otherwise passed through as-is, so
     // a scenario "command" string works unchanged). Local: help/clear, already
     // answered. Ignored: blank.
+    //
+    // `fromScenario`: the line comes from a running scenario. It takes exactly the
+    // same path (echo, history, pending bookkeeping), except that the console-local
+    // commands (help/clear) are not interpreted -- everything reaches the
+    // dispatcher -- and its response is handed on to the scenario runner.
     SubmitResult submit(const std::string& text, const std::vector<CommandInfo>& catalog,
-                        std::string& outCommand) {
+                        std::string& outCommand, bool fromScenario = false) {
         const std::string cmd = trim(text);
         if (cmd.empty()) return SubmitResult::Ignored;
         if (history_.empty() || history_.back() != cmd) history_.push_back(cmd);
         historyPos_ = history_.size();
-        lines_.push_back({Line::Kind::Input, "> " + cmd});
+        push({Line::Kind::Input, "> " + cmd});
 
-        if (cmd == "clear") {
+        if (!fromScenario && cmd == "clear") {
             lines_.clear();
             return SubmitResult::Local;
         }
-        if (cmd == "help" || cmd.rfind("help ", 0) == 0) {
+        if (!fromScenario && (cmd == "help" || cmd.rfind("help ", 0) == 0)) {
             addHelp(trim(cmd.substr(4)), catalog);
             return SubmitResult::Local;
         }
         outCommand = cmd;
-        ++pending_;
+        pending_.push_back(fromScenario);
         return SubmitResult::Dispatch;
     }
 
-    // Takes the responses that belong to commands sent from this console (the
-    // oldest `pending()` ones, since the dispatcher answers in order) out of
-    // `responses`; whatever is left belongs to the scenario runner.
+    // Takes the responses of the commands sent through this console (the oldest
+    // `pending()` ones, since the dispatcher answers in order), logs them, and
+    // leaves in `responses` only what belongs to the scenario runner: the
+    // answers to scenario-issued commands (in order), then any unclaimed rest.
     void consumeResponses(std::vector<std::string>& responses) {
-        const size_t n = std::min(pending_, responses.size());
+        const size_t n = std::min(pending_.size(), responses.size());
+        std::vector<std::string> forScenario;
         for (size_t i = 0; i < n; ++i) {
             const bool err = responses[i].rfind("Error", 0) == 0;
-            lines_.push_back({err ? Line::Kind::Error : Line::Kind::Output, responses[i]});
+            push({err ? Line::Kind::Error : Line::Kind::Output, responses[i]});
+            if (pending_[i]) forScenario.push_back(std::move(responses[i]));
         }
         responses.erase(responses.begin(), responses.begin() + static_cast<std::ptrdiff_t>(n));
-        pending_ -= n;
+        pending_.erase(pending_.begin(), pending_.begin() + static_cast<std::ptrdiff_t>(n));
+        responses.insert(responses.begin(), forScenario.begin(), forScenario.end());
     }
 
-    size_t pending() const { return pending_; }
+    size_t pending() const { return pending_.size(); }
     const std::vector<Line>& lines() const { return lines_; }
-    void addInfo(const std::string& s) { lines_.push_back({Line::Kind::Info, s}); }
+    void addInfo(const std::string& s) { push({Line::Kind::Info, s}); }
 
     // Up/Down arrow history. Returns the text for the input box.
     std::string historyPrev() {
@@ -106,6 +116,14 @@ public:
     }
 
 private:
+    // Scenarios can issue thousands of commands; keep the log bounded.
+    void push(Line l) {
+        lines_.push_back(std::move(l));
+        constexpr size_t kMaxLines = 2000;
+        if (lines_.size() > kMaxLines)
+            lines_.erase(lines_.begin(), lines_.begin() + static_cast<std::ptrdiff_t>(lines_.size() - kMaxLines));
+    }
+
     void addHelp(const std::string& topic, const std::vector<CommandInfo>& catalog) {
         if (topic.empty()) {
             addInfo("Type a command exactly as in a scenario's \"command\" field, e.g. GetStatus or SetRenderMode:GaussianPoint.");
@@ -128,11 +146,11 @@ private:
             if (!c.help.empty()) addInfo("  " + c.help);
             return;
         }
-        lines_.push_back({Line::Kind::Error, "Error:no help for unknown command " + topic});
+        push({Line::Kind::Error, "Error:no help for unknown command " + topic});
     }
 
     std::vector<Line>        lines_;
     std::vector<std::string> history_;
     size_t                   historyPos_ = 0;
-    size_t                   pending_    = 0;
+    std::deque<bool>         pending_;   // per in-flight command: issued by a scenario?
 };

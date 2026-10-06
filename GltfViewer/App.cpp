@@ -163,6 +163,37 @@ App::App(const std::filesystem::path& gltfPath)
     panel_.setOnVrmExpressionChanged([this](int index, float weight) {
         setVrmExpressionWeight(index, weight);
     });
+    // Standard screen: render area + menu + Command + Outliner. The existing
+    // panels keep drawing themselves; the shell owns their visibility (hidden by
+    // default, View menu, imgui.ini) and first-use placement.
+    shell_.setDispatcher(&dispatcher_);
+    shell_.bindPanel("Control", {0.70f, 0.00f, 0.30f, 0.66f},
+                     [this] { return panel_.isVisible(); }, [this](bool v) { panel_.setVisible(v); });
+    shell_.bindPanel("View", {0.70f, 0.00f, 0.30f, 0.50f},
+                     [this] { return viewPanel_.isVisible(); }, [this](bool v) { viewPanel_.setVisible(v); });
+    shell_.bindPanel("Scene Graph", {0.30f, 0.05f, 0.35f, 0.55f},
+                     [this] { return sceneGraphPanel_.isVisible(); }, [this](bool v) { sceneGraphPanel_.setVisible(v); });
+    shell_.bindPanel("Shader Graph", {0.20f, 0.05f, 0.60f, 0.65f},
+                     [this] { return shaderGraphPanel_.isVisible(); }, [this](bool v) { shaderGraphPanel_.setVisible(v); });
+    shell_.bindPanel("Scenario Browser", {0.30f, 0.05f, 0.40f, 0.55f},
+                     [this] { return scenarioBrowser_.isVisible(); }, [this](bool v) { scenarioBrowser_.setVisible(v); });
+    shell_.setOutlinerProvider([this] {
+        std::vector<ViewShell::OutlinerItem> items;
+        const int n = static_cast<int>(doc_.nodes.size());
+        const int shown = std::min(n, 1000);   // keep the list responsive on huge scenes
+        for (int i = 0; i < shown; ++i) {
+            const std::string& name = doc_.nodes[i].name;
+            items.push_back({static_cast<uint64_t>(i) + 1,
+                             name.empty() ? "Node " + std::to_string(i) : name,
+                             "Control", i == selectedNode_ ? 1 : 0});
+        }
+        if (n > shown) items.push_back({0xFFFFFFFFull, "... " + std::to_string(n - shown) + " more nodes (Scene Graph)", "Scene Graph", 0});
+        return items;
+    });
+    shell_.setSelectionHandler([this](uint64_t id) {
+        if (id != 0xFFFFFFFFull) selectedNode_ = static_cast<int>(id) - 1;
+    });
+
     add(&renderer_);
     add(&panel_);
     add(&sceneGraphPanel_);
@@ -341,6 +372,14 @@ void App::onUpdate(uint32_t frameIndex) {
     dispatcher_.processQueue();
     checkPhmatHotReload();
 
+    // Single place that collects responses: first the ones for commands typed
+    // into the Command window, the rest belong to the running scenario. (A
+    // deferred answer -- LoadFile / SaveScreenshot -- arrives in a later frame
+    // and is matched by order, so type one command at a time around those.)
+    auto responses = dispatcher_.collectResponses();
+    shell_.consumeResponses(responses);
+    shell_.setScenarioActive(runner_.isActive());
+
     if (auto p = dispatcher_.takePendingLoad()) {
         bool ok = loadFile(*p);
         dispatcher_.signalLoaded(ok, ok ? "" : "load failed");
@@ -358,8 +397,7 @@ void App::onUpdate(uint32_t frameIndex) {
     }
 
     if (runner_.isActive()) {
-        auto responses = dispatcher_.collectResponses();
-        if (runner_.tick(dispatcher_, responses)) {
+        if (runner_.tick(shell_.scenarioDispatcher(), responses)) {
             if (runner_.hasFailed()) {
                 fprintf(stderr, "[Scenario] FAILED: %s\n", runner_.failMessage().c_str());
                 exitCode_ = 1;
@@ -531,9 +569,16 @@ void App::onCleanup() {
     envCubemap_.destroy(getDevice());
 }
 
+void App::onImGuiReady() {
+    // Context exists, imgui.ini is not read until the first frame.
+    shell_.installSettings();
+}
+
 void App::onImGui() {
-    ::VKG::VkAppBase::onImGui();
-    drawMainMenuBar();
+    drawMainMenuBar();           // may toggle panels / reset the layout this frame
+    shell_.drawWindows();        // Command + Outliner, and syncs bound panel visibility
+    ::VKG::VkAppBase::onImGui(); // the panels draw themselves
+    shell_.placeBoundPanels();
 }
 
 void App::drawMainMenuBar() {
@@ -572,33 +617,19 @@ void App::drawMainMenuBar() {
         if (ImGui::MenuItem("Reset Camera")) frameCameraToDocument();
 
         bool useIBL = renderer_.getUseIBL() != 0;
-        if (ImGui::MenuItem("Use IBL", nullptr, useIBL)) renderer_.setUseIBL(!useIBL);
+        if (ImGui::MenuItem("Use IBL", nullptr, useIBL, !runner_.isActive()))
+            dispatcher_.submitUi(std::string("SetUseIBL:") + (useIBL ? "0" : "1"));
 
-        if (ImGui::MenuItem("Use Asset Camera", nullptr, useAssetCamera_, hasAssetCamera_))
-            setUseAssetCamera(!useAssetCamera_);
+        if (ImGui::MenuItem("Use Asset Camera", nullptr, useAssetCamera_, hasAssetCamera_ && !runner_.isActive()))
+            dispatcher_.submitUi(std::string("SetUseAssetCamera:") + (useAssetCamera_ ? "0" : "1"));
 
         ImGui::EndMenu();
     }
 
     if (ImGui::BeginMenu("Window")) {
-        bool controlVisible = panel_.isVisible();
-        if (ImGui::MenuItem("Control", nullptr, controlVisible))
-            panel_.setVisible(!controlVisible);
-
-        bool viewVisible = viewPanel_.isVisible();
-        if (ImGui::MenuItem("View", nullptr, viewVisible))
-            viewPanel_.setVisible(!viewVisible);
-
-        bool sceneGraphVisible = sceneGraphPanel_.isVisible();
-        if (ImGui::MenuItem("Scene Graph", nullptr, sceneGraphVisible))
-            sceneGraphPanel_.setVisible(!sceneGraphVisible);
-
-        bool scenarioVisible = scenarioBrowser_.isVisible();
-        bool shaderGraphVisible = shaderGraphPanel_.isVisible();
-        if (ImGui::MenuItem("Shader Graph", nullptr, shaderGraphVisible))
-            shaderGraphPanel_.setVisible(!shaderGraphVisible);
-        if (ImGui::MenuItem("Scenario Browser", nullptr, scenarioVisible))
-            scenarioBrowser_.setVisible(!scenarioVisible);
+        shell_.drawViewMenuItems();
+        ImGui::Separator();
+        if (ImGui::MenuItem("Reset Layout")) shell_.resetLayout();
         ImGui::EndMenu();
     }
 
@@ -607,13 +638,18 @@ void App::drawMainMenuBar() {
 
 void App::setupCallbacks() {
     auto& win = getWindow();
+    // Camera input is ignored while ImGui owns the mouse and while a scenario
+    // runs; a release is always forwarded so a drag can end.
     win.onMouseButton = [this](int btn, int action, int) {
-        if (btn == 0) renderer_.handleMouseButton(action == 1);
+        if (btn != 0) return;
+        if (action == 1 && (ImGui::GetIO().WantCaptureMouse || runner_.isActive())) return;
+        renderer_.handleMouseButton(action == 1);
     };
     win.onCursorPos = [this](double x, double y) {
         renderer_.handleMouseMove(x, y);
     };
     win.onScroll = [this](double, double dy) {
+        if (ImGui::GetIO().WantCaptureMouse || runner_.isActive()) return;
         renderer_.handleScroll(dy);
     };
 }
