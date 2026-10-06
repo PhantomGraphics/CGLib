@@ -521,7 +521,7 @@ void GltfSceneRenderer::clearDocumentResources()
     // by the next buildDocumentResources() -- an override left in place could silently apply to
     // an unrelated material. Only the (non-owning) mapping is dropped -- the pooled VkPipeline
     // objects themselves survive for potential reuse by the next document (see
-    // materialPipelineVariantPool_'s comment) and are only destroyed at onCleanup().
+    // materialPipelineVariants_'s comment) and are only destroyed at onCleanup().
     materialPipelineOverrides_.clear();
 
     descriptors_.destroyMaterialPool(device);
@@ -717,21 +717,6 @@ void GltfSceneRenderer::onUpdate(uint32_t frameIndex) {
 //  Per-material shader graph override (Phase 4C, ".phmat")
 // ============================================================
 
-namespace {
-
-uint64_t fnv1a64(const uint32_t* words, size_t wordCount)
-{
-    const unsigned char* p = reinterpret_cast<const unsigned char*>(words);
-    uint64_t h = 14695981039346656037ull;
-    for (size_t i = 0; i < wordCount * sizeof(uint32_t); ++i) {
-        h ^= p[i];
-        h *= 1099511628211ull;
-    }
-    return h;
-}
-
-} // namespace
-
 bool GltfSceneRenderer::setMaterialShaderOverride(int materialIndex, const std::vector<uint32_t>& fragSpv, std::string* outError)
 {
     if (!ctx_ || renderPass_ == VK_NULL_HANDLE) {
@@ -751,19 +736,16 @@ bool GltfSceneRenderer::setMaterialShaderOverride(int materialIndex, const std::
 
     // Mirrors which of the 4 shared pipeline variants this material would otherwise have drawn
     // through -- a .phmat graph replaces the fragment math, not the alpha-mode/culling policy.
-    MaterialPipelineVariantKey key;
-    key.fragSpvHash = fnv1a64(fragSpv.data(), fragSpv.size());
+    GltfPipelineVariantPool::Key key;
+    key.fragSpvHash = GltfPipelineVariantPool::hashSpirv(fragSpv);
     key.cullMode    = mat.doubleSided() ? VK_CULL_MODE_NONE : cullMode_;
     key.blendEnable = mat.isBlend();
     key.depthWrite  = !mat.isBlend();
 
-    Phantom::VKG::VulkanPipeline* variant = nullptr;
-    auto foundVariant = materialPipelineVariantIndex_.find(key);
-    if (foundVariant != materialPipelineVariantIndex_.end()) {
-        // Phase 4C item 5 ("shader variant"): identical compiled SPIR-V + fixed-function state
-        // already has a pipeline -- reuse it instead of building a redundant one.
-        variant = foundVariant->second;
-    } else {
+    // Phase 4C item 5 ("shader variant"): identical compiled SPIR-V + fixed-function state
+    // already has a pipeline -- reuse it instead of building a redundant one.
+    Phantom::VKG::VulkanPipeline* variant = materialPipelineVariants_.find(key);
+    if (!variant) {
         Phantom::VKG::PipelineConfig cfg;
         cfg.vertSpv = shaders_.vertSpv; // gltf.vert is unchanged -- only the fragment stage differs
         cfg.fragSpv = fragSpv;
@@ -797,9 +779,7 @@ bool GltfSceneRenderer::setMaterialShaderOverride(int materialIndex, const std::
             VK_OBJECT_TYPE_PIPELINE, reinterpret_cast<uint64_t>(newPipeline->getPipeline()),
             (std::string("phmat:") + hashHex).c_str());
 
-        variant = newPipeline.get();
-        materialPipelineVariantPool_.push_back(std::move(newPipeline));
-        materialPipelineVariantIndex_.emplace(key, variant);
+        variant = materialPipelineVariants_.add(key, std::move(newPipeline), ctx_->getDevice());
     }
 
     materialPipelineOverrides_[materialIndex] = variant; // non-owning; overwrites any previous entry
@@ -809,7 +789,7 @@ bool GltfSceneRenderer::setMaterialShaderOverride(int materialIndex, const std::
 void GltfSceneRenderer::clearMaterialShaderOverride(int materialIndex)
 {
     // Only drops materialIndex's mapping -- the pooled VkPipeline itself may still be referenced
-    // by another material/document (see materialPipelineVariantPool_'s comment) and is never
+    // by another material/document (see materialPipelineVariants_'s comment) and is never
     // destroyed here.
     materialPipelineOverrides_.erase(materialIndex);
 }
@@ -979,9 +959,7 @@ void GltfSceneRenderer::onCleanup(VkDevice device) {
     materials_.clear();
 
     materialPipelineOverrides_.clear();
-    for (auto& pipeline : materialPipelineVariantPool_) pipeline->destroy(device);
-    materialPipelineVariantPool_.clear();
-    materialPipelineVariantIndex_.clear();
+    materialPipelineVariants_.destroyAll(device);
     materialPipelineCache_.destroy(device); // persists to disk first if materialPipelineCacheDir_ is set
 
     // Descriptor pools (material = document-dependent, global = not) and set layouts
