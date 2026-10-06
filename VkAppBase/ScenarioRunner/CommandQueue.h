@@ -8,7 +8,8 @@
 //
 //   dispatch(cmd):          queue_.submit(cmd)
 //   collectResponses():     return queue_.collectResponses()
-//   processQueue():         auto local = queue_.takeAll();      // or takeOne(cmd)
+//   processQueue():         auto local = queue_.takeAll();      // or takeOne(cmd); requeue()/requeueFront()
+//                                                               // put unprocessed commands back
 //                           for each cmd: queue_.respond(route(cmd))
 #include <mutex>
 #include <queue>
@@ -48,6 +49,17 @@ public:
             input_.push(std::move(rest.front()));
             rest.pop();
         }
+    }
+
+    // Puts commands back at the FRONT of the input queue, ahead of anything submitted since
+    // takeAll(): `rest` runs first, in its own order, then the newer commands. Drains `rest`.
+    void requeueFront(std::queue<std::string>& rest) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        while (!input_.empty()) {
+            rest.push(std::move(input_.front()));
+            input_.pop();
+        }
+        std::swap(rest, input_);
     }
 
     void respond(std::string response) {
