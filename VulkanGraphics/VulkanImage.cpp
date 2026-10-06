@@ -136,7 +136,16 @@ bool VulkanImage::createFromPixels(const VulkanContext& ctx, const VulkanCommand
         return false;
     }
 
+    auto releaseImage = [&]() {
+        staging.destroy();
+        if (image) vkDestroyImage(ctx.getDevice(), image, nullptr);
+        if (memory) vkFreeMemory(ctx.getDevice(), memory, nullptr);
+        image = VK_NULL_HANDLE;
+        memory = VK_NULL_HANDLE;
+        return false;
+    };
     VkCommandBuffer cmd = pool.beginSingleTimeCommands();
+    if (!cmd) return releaseImage();
     VkImageMemoryBarrier barrier{};
     barrier.sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
     barrier.oldLayout           = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -193,7 +202,7 @@ bool VulkanImage::createFromPixels(const VulkanContext& ctx, const VulkanCommand
     barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
     vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
                          0, 0, nullptr, 0, nullptr, 1, &barrier);
-    pool.endSingleTimeCommands(cmd);
+    if (!pool.endSingleTimeCommands(cmd)) return releaseImage();
     staging.destroy();
 
     view = createView(ctx.getDevice(), image, format, VK_IMAGE_ASPECT_COLOR_BIT, mipLevels);
@@ -278,7 +287,16 @@ bool VulkanImage::createCubeFromFaces(const VulkanContext& ctx, const VulkanComm
         return fail();
     }
 
+    auto releaseImage = [&]() {
+        staging.destroy();
+        if (image) vkDestroyImage(ctx.getDevice(), image, nullptr);
+        if (memory) vkFreeMemory(ctx.getDevice(), memory, nullptr);
+        image = VK_NULL_HANDLE;
+        memory = VK_NULL_HANDLE;
+        return false;
+    };
     VkCommandBuffer cmd = pool.beginSingleTimeCommands();
+    if (!cmd) return releaseImage();
     VkImageMemoryBarrier barrier{};
     barrier.sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
     barrier.oldLayout           = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -307,7 +325,7 @@ bool VulkanImage::createCubeFromFaces(const VulkanContext& ctx, const VulkanComm
     barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
     vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
                          0, 0, nullptr, 0, nullptr, 1, &barrier);
-    pool.endSingleTimeCommands(cmd);
+    if (!pool.endSingleTimeCommands(cmd)) return releaseImage();
     staging.destroy();
 
     VkImageViewCreateInfo vci{};
@@ -336,7 +354,15 @@ bool VulkanImage::createZeroArrayTexture(const VulkanContext& ctx, const VulkanC
                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, image, memory))
         return false;
 
+    auto releaseImage = [&]() {
+        if (image) vkDestroyImage(ctx.getDevice(), image, nullptr);
+        if (memory) vkFreeMemory(ctx.getDevice(), memory, nullptr);
+        image = VK_NULL_HANDLE;
+        memory = VK_NULL_HANDLE;
+        return false;
+    };
     VkCommandBuffer cmd = pool.beginSingleTimeCommands();
+    if (!cmd) return releaseImage();
     VkImageMemoryBarrier barrier{};
     barrier.sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
     barrier.oldLayout           = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -357,7 +383,7 @@ bool VulkanImage::createZeroArrayTexture(const VulkanContext& ctx, const VulkanC
     barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
     vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
                          0, 0, nullptr, 0, nullptr, 1, &barrier);
-    pool.endSingleTimeCommands(cmd);
+    if (!pool.endSingleTimeCommands(cmd)) return releaseImage();
 
     VkImageViewCreateInfo vi{};
     vi.sType            = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;

@@ -55,6 +55,7 @@ void VulkanCommandPool::freeCommandBuffers(std::vector<VkCommandBuffer>& bufs) c
 }
 
 VkCommandBuffer VulkanCommandPool::beginSingleTimeCommands() const {
+    if (!ctx_ || !pool_ || !ctx_->getDevice()) return VK_NULL_HANDLE;
     VkCommandBufferAllocateInfo ai{};
     ai.sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     ai.commandPool        = pool_;
@@ -70,22 +71,37 @@ VkCommandBuffer VulkanCommandPool::beginSingleTimeCommands() const {
     VkCommandBufferBeginInfo bi{};
     bi.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     bi.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-    vkBeginCommandBuffer(cmd, &bi);
+    if (vkBeginCommandBuffer(cmd, &bi) != VK_SUCCESS) {
+        std::fprintf(stderr, "[VKG] Failed to begin single-time command buffer\n");
+        vkFreeCommandBuffers(ctx_->getDevice(), pool_, 1, &cmd);
+        return VK_NULL_HANDLE;
+    }
     return cmd;
 }
 
-void VulkanCommandPool::endSingleTimeCommands(VkCommandBuffer cmd) const {
-    if (cmd == VK_NULL_HANDLE) return; // beginSingleTimeCommands() failed
-    vkEndCommandBuffer(cmd);
+bool VulkanCommandPool::endSingleTimeCommands(VkCommandBuffer cmd) const {
+    if (cmd == VK_NULL_HANDLE) return false;
+    if (vkEndCommandBuffer(cmd) != VK_SUCCESS) {
+        std::fprintf(stderr, "[VKG] Failed to end single-time command buffer\n");
+        vkFreeCommandBuffers(ctx_->getDevice(), pool_, 1, &cmd);
+        return false;
+    }
 
     VkSubmitInfo si{};
     si.sType              = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     si.commandBufferCount = 1;
     si.pCommandBuffers    = &cmd;
 
-    vkQueueSubmit(ctx_->getGraphicsQueue(), 1, &si, VK_NULL_HANDLE);
-    vkQueueWaitIdle(ctx_->getGraphicsQueue());
+    if (vkQueueSubmit(ctx_->getGraphicsQueue(), 1, &si, VK_NULL_HANDLE) != VK_SUCCESS) {
+        std::fprintf(stderr, "[VKG] Failed to submit single-time command buffer\n");
+        vkFreeCommandBuffers(ctx_->getDevice(), pool_, 1, &cmd);
+        return false;
+    }
+    const VkResult result = vkQueueWaitIdle(ctx_->getGraphicsQueue());
+    if (result != VK_SUCCESS)
+        std::fprintf(stderr, "[VKG] Failed to wait for single-time commands\n");
     vkFreeCommandBuffers(ctx_->getDevice(), pool_, 1, &cmd);
+    return result == VK_SUCCESS;
 }
 
 } // namespace VKG

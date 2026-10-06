@@ -293,7 +293,11 @@ void GltfSceneRenderer::onInit(Phantom::VKG::VulkanContext& ctx, const Phantom::
     cfg.pushConstantRanges  = { VkPushConstantRange{ VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4) } };
     // 4 variants (blend x double-sided); cull/blend/depthWrite are set per variant -- see
     // gltfFixedFunctionState(). cullMode_ is the single-sided default.
-    mainPipelines_.create(ctx, renderPass, cfg, cullMode_);
+    if (!mainPipelines_.create(ctx, renderPass, cfg, cullMode_)) {
+        std::fprintf(stderr, "[GltfSceneRenderer] main pipeline setup failed\n");
+        onCleanup(device);
+        return;
+    }
 
     // Skybox (see setUseSkybox()): only if the caller populated both shaders.
     if (!shaders_.skyboxVertSpv.empty() && !shaders_.skyboxFragSpv.empty()) {

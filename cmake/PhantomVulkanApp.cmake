@@ -251,6 +251,13 @@ function(phantom_add_vkappbase_core)
                     ${CGLIB_ROOT}/VkAppBase/VkAppBaseTest/FrameRecordingTest.cpp
                     ${CGLIB_ROOT}/VkAppBase/VkAppBaseTest/CommandQueueTest.cpp
             LINK VkAppBaseCore ${PHANTOM_VULKAN_LIBRARY} ${PHANTOM_GLFW_LIBRARY})
+        add_executable(VkAppBaseReadbackGpuTest
+            ${CGLIB_ROOT}/VkAppBase/VkAppBaseTest/FrameReadbackGpuTest.cpp
+            ${CGLIB_ROOT}/VulkanGraphics/VulkanGraphicsTest/VulkanTestFixture.cpp)
+        target_link_libraries(VkAppBaseReadbackGpuTest PRIVATE VkAppBaseCore
+            GTest::gtest_main ${PHANTOM_VULKAN_LIBRARY} ${PHANTOM_GLFW_LIBRARY})
+        add_test(NAME VkAppBaseReadbackGpuTest COMMAND VkAppBaseReadbackGpuTest)
+        set_tests_properties(VkAppBaseReadbackGpuTest PROPERTIES LABELS gpu)
     endif()
 endfunction()
 

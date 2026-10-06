@@ -128,7 +128,7 @@ public:
     /// @param src  Source buffer.
     /// @param dst  Destination buffer.
     /// @param size Number of bytes to copy.
-    static void copyBuffer(const VulkanContext& ctx, const VulkanCommandPool& pool,
+    static bool copyBuffer(const VulkanContext& ctx, const VulkanCommandPool& pool,
                            VkBuffer src, VkBuffer dst, VkDeviceSize size);
 
 private:

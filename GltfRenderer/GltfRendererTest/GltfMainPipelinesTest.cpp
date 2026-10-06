@@ -1,8 +1,21 @@
 #include "gtest/gtest.h"
 
 #include "../Renderer/GltfMainPipelines.h"
+#include "../../VulkanGraphics/VulkanContext.h"
 
 using namespace Phantom::Gltf;
+
+TEST(GltfMainPipelinesTest, MissingShadersFailWithoutCreatingPartialPipelines)
+{
+    Phantom::VKG::VulkanContext ctx;
+    GltfMainPipelines pipelines;
+    Phantom::VKG::PipelineConfig config;
+    EXPECT_FALSE(pipelines.create(ctx, VK_NULL_HANDLE, config, VK_CULL_MODE_BACK_BIT));
+    EXPECT_EQ(pipelines.layout(), VK_NULL_HANDLE);
+    for (bool blend : {false, true})
+        for (bool doubleSided : {false, true})
+            EXPECT_EQ(pipelines.select(blend, doubleSided).getPipeline(), VK_NULL_HANDLE);
+}
 
 TEST(GltfMainPipelinesTest, OpaqueStateWritesDepthWithoutBlend)
 {

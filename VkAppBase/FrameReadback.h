@@ -28,15 +28,20 @@ public:
     // True once per completed readback; copies RGBA into out[4].
     bool pollPixel(uint8_t out[4]);
 
-    struct Plan { bool screenshot = false; bool pixel = false; };
+    struct Plan {
+        bool screenshot = false;
+        bool pixel = false;
+        VkExtent2D extent{};
+        VkFormat format = VK_FORMAT_UNDEFINED;
+    };
     Plan beginFrame(int frameCount) const;
 
     // Records the copies selected by `plan` after the render pass ended (buffers are created lazily).
-    void record(const Plan& plan, Phantom::VKG::VulkanContext& ctx, VkCommandBuffer cmd,
-                VkImage swapChainImage, VkExtent2D extent);
+    Plan record(Plan plan, Phantom::VKG::VulkanContext& ctx, VkCommandBuffer cmd,
+                VkImage swapChainImage, VkExtent2D extent, VkFormat format);
 
     // Reads the buffers back. Only call after the GPU finished the recorded command buffer.
-    void finish(const Plan& plan, VkFormat format, VkExtent2D extent);
+    void finish(const Plan& plan);
 
     void destroy(VkDevice device);
 

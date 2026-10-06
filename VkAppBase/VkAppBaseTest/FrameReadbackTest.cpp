@@ -1,8 +1,26 @@
 #include <gtest/gtest.h>
 
 #include "FrameReadback.h"
+#include "../../VulkanGraphics/VulkanContext.h"
 
 using VKG::FrameReadback;
+
+TEST(FrameReadbackTest, InvalidCaptureDoesNotCompleteRequests) {
+    FrameReadback r;
+    Phantom::VKG::VulkanContext ctx;
+    r.setScreenshot("unused.png", 3);
+    r.requestPixel(0, 0);
+    const auto plan = r.record(r.beginFrame(3), ctx, VK_NULL_HANDLE, VK_NULL_HANDLE,
+        {64, 32}, VK_FORMAT_B8G8R8A8_UNORM);
+    EXPECT_FALSE(plan.screenshot);
+    EXPECT_FALSE(plan.pixel);
+    EXPECT_EQ(plan.extent.width, 64u);
+    EXPECT_EQ(plan.format, VK_FORMAT_B8G8R8A8_UNORM);
+    r.finish(plan);
+    EXPECT_FALSE(r.screenshotDone());
+    uint8_t out[4]{};
+    EXPECT_FALSE(r.pollPixel(out));
+}
 
 TEST(FrameReadbackTest, ScreenshotOnlyOnConfiguredFrameAndOnce) {
     FrameReadback r;
