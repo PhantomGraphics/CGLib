@@ -1,6 +1,7 @@
 ﻿#include "GltfSceneRenderer.h"
 #include "GltfMaterial.h"
 #include "../Gltf/GltfAnimationEvaluator.h"
+#include "GltfMainPipelines.h"
 #include "GltfPrimitiveData.h"
 #include "../Gltf/GltfNodeTransform.h"
 
@@ -290,24 +291,9 @@ void GltfSceneRenderer::onInit(Phantom::VKG::VulkanContext& ctx, const Phantom::
     // GlobalUBO::model instead (Vulkan does not require a shader to consume every declared push
     // constant range) -- see renderInstances()'s header comment for which callers actually need it.
     cfg.pushConstantRanges  = { VkPushConstantRange{ VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4) } };
-    cfg.blendEnable          = false;
-    cfg.depthWrite           = true;
-    cfg.cullMode             = cullMode_;
-    pipeline_.create(ctx, renderPass, cfg);
-
-    cfg.cullMode = VK_CULL_MODE_NONE;
-    pipelineDoubleSided_.create(ctx, renderPass, cfg);
-
-    // Alpha BLEND variants: standard src-alpha/one-minus-src-alpha blend, depth test on but depth
-    // write off (so overlapping BLEND surfaces don't occlude each other by depth alone -- draw
-    // order does that instead, see onRender()'s back-to-front sort).
-    cfg.blendEnable = true;
-    cfg.depthWrite  = false;
-    cfg.cullMode    = cullMode_;
-    pipelineBlend_.create(ctx, renderPass, cfg);
-
-    cfg.cullMode = VK_CULL_MODE_NONE;
-    pipelineBlendDoubleSided_.create(ctx, renderPass, cfg);
+    // 4 variants (blend x double-sided); cull/blend/depthWrite are set per variant -- see
+    // gltfFixedFunctionState(). cullMode_ is the single-sided default.
+    mainPipelines_.create(ctx, renderPass, cfg, cullMode_);
 
     // Skybox (see setUseSkybox()): only if the caller populated both shaders.
     if (!shaders_.skyboxVertSpv.empty() && !shaders_.skyboxFragSpv.empty()) {
@@ -708,9 +694,10 @@ bool GltfSceneRenderer::setMaterialShaderOverride(int materialIndex, const std::
     // through -- a .phmat graph replaces the fragment math, not the alpha-mode/culling policy.
     GltfPipelineVariantPool::Key key;
     key.fragSpvHash = GltfPipelineVariantPool::hashSpirv(fragSpv);
-    key.cullMode    = mat.doubleSided() ? VK_CULL_MODE_NONE : cullMode_;
-    key.blendEnable = mat.isBlend();
-    key.depthWrite  = !mat.isBlend();
+    const GltfFixedFunctionState ff = gltfFixedFunctionState(mat.isBlend(), mat.doubleSided(), cullMode_);
+    key.cullMode    = ff.cullMode;
+    key.blendEnable = ff.blendEnable;
+    key.depthWrite  = ff.depthWrite;
 
     // Phase 4C item 5 ("shader variant"): identical compiled SPIR-V + fixed-function state
     // already has a pipeline -- reuse it instead of building a redundant one.
@@ -725,9 +712,9 @@ bool GltfSceneRenderer::setMaterialShaderOverride(int materialIndex, const std::
             cfg.attrDescs    = GltfGpuMesh::Vertex::getAttributeDescriptions();
         }
         cfg.descriptorSetLayouts = { descriptors_.globalLayout(), descriptors_.materialLayout() };
-        // Must match pipeline_/pipelineDoubleSided_/pipelineBlend_/pipelineBlendDoubleSided_'s
-        // range exactly (see onInit()'s comment) -- onRender()/renderInstances() push the model
-        // matrix once via pipeline_.getLayout() and rely on every pipeline they might bind
+        // Must match the push constant
+        // range of mainPipelines_' 4 variants exactly (see onInit()'s comment) -- onRender()/renderInstances() push the model
+        // matrix once via mainPipelines_.layout() and rely on every pipeline they might bind
         // afterward (this override included) declaring a compatible range at the same offset.
         cfg.pushConstantRanges = { VkPushConstantRange{ VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4) } };
         cfg.cullMode        = key.cullMode;
@@ -784,10 +771,10 @@ void GltfSceneRenderer::onRender(VkCommandBuffer cmd, uint32_t frameIndex) {
 
     // Bind global descriptor set (set=0) once for all primitives. All 4 pipeline variants (and
     // any .phmat override pipeline) share the same descriptor set layouts + push constant range
-    // (see onInit()), so pipeline_'s layout works here regardless of which pipeline ends up bound
+    // (see onInit()), so mainPipelines_.layout() works here regardless of which pipeline ends up bound
     // first in renderPrimitivesWithModel()'s draw loop.
     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                            pipeline_.getLayout(), 0, 1, descriptors_.globalSet(frameIndex), 0, nullptr);
+                            mainPipelines_.layout(), 0, 1, descriptors_.globalSet(frameIndex), 0, nullptr);
     renderPrimitivesWithModel(cmd, frameIndex, modelMatrix_);
 
     // Skybox last: VkSkyBoxRenderer's pipeline writes depth=1.0 (max) with depthWrite off and a
@@ -802,7 +789,7 @@ void GltfSceneRenderer::renderInstances(VkCommandBuffer cmd, uint32_t frameIndex
     if (!ready_ || !visible_ || primitives_.empty() || modelMatrices.empty()) return;
 
     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                            pipeline_.getLayout(), 0, 1, descriptors_.globalSet(frameIndex), 0, nullptr);
+                            mainPipelines_.layout(), 0, 1, descriptors_.globalSet(frameIndex), 0, nullptr);
     for (const glm::mat4& model : modelMatrices)
         renderPrimitivesWithModel(cmd, frameIndex, model);
 
@@ -817,7 +804,7 @@ void GltfSceneRenderer::renderPrimitivesWithModel(VkCommandBuffer cmd, uint32_t 
     // without one instance's transform silently winning over another's the way writing
     // GlobalUBO::model twice before a single submit would (renderShadowCasters() already relies
     // on this same property for lightVP/model below).
-    vkCmdPushConstants(cmd, pipeline_.getLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &model);
+    vkCmdPushConstants(cmd, mainPipelines_.layout(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &model);
 
     VkPipeline boundPipeline = VK_NULL_HANDLE; // force the first draw to bind explicitly
 
@@ -879,7 +866,7 @@ void GltfSceneRenderer::renderPrimitivesWithModel(VkCommandBuffer cmd, uint32_t 
         if (Phantom::VKG::VulkanPipeline* ov = overridePipelineFor(matIdx))
             draw(entry, mat, *ov, true);
         else
-            draw(entry, mat, mat->doubleSided() ? pipelineDoubleSided_ : pipeline_, false);
+            draw(entry, mat, mainPipelines_.select(false, mat->doubleSided()), false);
     }
 
     // Pass 2: alpha BLEND, depth write off, back-to-front (painter's algorithm) so overlapping
@@ -896,7 +883,7 @@ void GltfSceneRenderer::renderPrimitivesWithModel(VkCommandBuffer cmd, uint32_t 
             if (Phantom::VKG::VulkanPipeline* ov = overridePipelineFor(matIdx))
                 draw(entry, mat, *ov, true);
             else
-                draw(entry, mat, mat->doubleSided() ? pipelineBlendDoubleSided_ : pipelineBlend_, false);
+                draw(entry, mat, mainPipelines_.select(true, mat->doubleSided()), false);
         }
     }
 }
@@ -909,10 +896,7 @@ void GltfSceneRenderer::onCleanup(VkDevice device) {
     if (!ctx_) return;
     ready_ = false;
 
-    pipeline_.destroy(device);
-    pipelineDoubleSided_.destroy(device);
-    pipelineBlend_.destroy(device);
-    pipelineBlendDoubleSided_.destroy(device);
+    mainPipelines_.destroy(device);
     shadowPipeline_.destroy(device);
     if (skybox_) { skybox_->destroy(device); skybox_.reset(); }
 

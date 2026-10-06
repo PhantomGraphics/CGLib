@@ -10,6 +10,7 @@
 #include "LightManager.h"
 #include "GltfObjectAnimation.h"
 #include "GltfGlobalDescriptors.h"
+#include "GltfMainPipelines.h"
 #include "GltfPipelineVariantPool.h"
 #include "../Gltf/GltfDocument.h"
 #include "../IBL/GltfIBLPrecomputer.h"
@@ -429,10 +430,7 @@ namespace Phantom::Gltf
         //            src-alpha/one-minus-src-alpha blend) -- see GltfGpuMaterial::isBlend().
         // alpha MASK draws through the opaque pair (the fragment shader discards below cutoff
         // instead, since a MASK'd surface is still either fully opaque or invisible per-fragment).
-        Phantom::VKG::VulkanPipeline pipeline_;
-        Phantom::VKG::VulkanPipeline pipelineDoubleSided_;
-        Phantom::VKG::VulkanPipeline pipelineBlend_;
-        Phantom::VKG::VulkanPipeline pipelineBlendDoubleSided_;
+        GltfMainPipelines mainPipelines_;
         // True if any material in the current document has alphaMode=Blend -- lets onRender()
         // skip the blend-sorting pass entirely (the common case) instead of allocating/sorting an
         // always-empty list. Set in buildDocumentResources(), cleared in clearDocumentResources().
