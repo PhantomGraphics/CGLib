@@ -224,6 +224,7 @@ function(phantom_add_vkappbase_core)
         ${CGLIB_ROOT}/VkAppBase/VulkanWindow.cpp
         ${CGLIB_ROOT}/VkAppBase/ScenarioRunner/ScenarioRunner.cpp
         ${CGLIB_ROOT}/VkAppBase/ScenarioRunner/ScenarioBrowserPanel.cpp
+        ${CGLIB_ROOT}/VkAppBase/ScenarioRunner/ViewShell.cpp
     )
     target_include_directories(VkAppBaseCore PUBLIC
         ${REPO_ROOT}
