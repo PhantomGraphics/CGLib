@@ -80,106 +80,12 @@ void GltfSceneRenderer::destroyFallbackCube(VkDevice device) {
 }
 
 // ============================================================
-//  Descriptor layouts
-//
-//  set=0 (global):
-//    binding 0: GlobalUBO         (vert + frag)
-//    binding 1: irradianceCube    (frag) — fallback cube when useIBL=0
-//    binding 2: prefilteredCube   (frag) — fallback cube when useIBL=0
-//    binding 3: brdfLUT sampler2D (frag) — fallback 2D when useIBL=0
-//    binding 4: shadowMap sampler2D (frag) — fallback white 2D (always "far") when no shadow map is set
-//    binding 5: BoneUBO           (vert) — GPU skinning joint matrices, see updateSkinMatrices()
-//    binding 6: LightBufferGpu    (frag)
-//    binding 7: volume shadow sampler2DArray (frag) — zero-density fallback, see setVolumeShadowMap()
-//
-//  set=1 (per-material):
-//    binding 0: MaterialUBO       (frag)
-//    binding 1-5: 5 textures      (frag)
+//  Global descriptor sets: layouts/pools live in GltfGlobalDescriptors; this resolves which
+//  image goes into each slot (real IBL / shadow vs fallback) for every frame in flight.
 // ============================================================
 
-void GltfSceneRenderer::createGlobalSetLayout(VkDevice device) {
-    std::vector<VkDescriptorSetLayoutBinding> bindings;
-
-    auto addBinding = [&](uint32_t binding, VkDescriptorType type, VkShaderStageFlags stages) {
-        VkDescriptorSetLayoutBinding b{};
-        b.binding         = binding;
-        b.descriptorType  = type;
-        b.descriptorCount = 1;
-        b.stageFlags      = stages;
-        bindings.push_back(b);
-    };
-
-    addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
-    addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
-    addBinding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
-    addBinding(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
-    addBinding(4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
-    addBinding(5, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         VK_SHADER_STAGE_VERTEX_BIT);
-    addBinding(6, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         VK_SHADER_STAGE_FRAGMENT_BIT); // LightManager::LightBufferGpu
-    addBinding(7, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT); // volume shadow
-
-    globalSetLayout_.create(device, bindings);
-}
-
-void GltfSceneRenderer::createMaterialSetLayout(VkDevice device) {
-    std::vector<VkDescriptorSetLayoutBinding> bindings;
-
-    auto addBinding = [&](uint32_t binding, VkDescriptorType type, VkShaderStageFlags stages) {
-        VkDescriptorSetLayoutBinding b{};
-        b.binding         = binding;
-        b.descriptorType  = type;
-        b.descriptorCount = 1;
-        b.stageFlags      = stages;
-        bindings.push_back(b);
-    };
-
-    addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         VK_SHADER_STAGE_FRAGMENT_BIT);
-    addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
-    addBinding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
-    addBinding(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
-    addBinding(4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
-    addBinding(5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
-
-    materialSetLayout_.create(device, bindings);
-}
-
-bool GltfSceneRenderer::createGlobalDescPool(VkDevice device) {
-    // MAX_FRAMES sets: 3 UBOs (GlobalUBO + BoneUBO + LightBufferGpu) + 5 combined_image_samplers
-    // each (irradiance/prefiltered/brdfLUT/shadowMap/volumeShadow)
-    std::vector<VkDescriptorPoolSize> sizes = {
-        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         static_cast<uint32_t>(MAX_FRAMES * 3)},
-        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, static_cast<uint32_t>(MAX_FRAMES * 5)},
-    };
-
-    VkDescriptorPoolCreateInfo ci{};
-    ci.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    ci.poolSizeCount = static_cast<uint32_t>(sizes.size());
-    ci.pPoolSizes    = sizes.data();
-    ci.maxSets       = static_cast<uint32_t>(MAX_FRAMES);
-
-    if (vkCreateDescriptorPool(device, &ci, nullptr, &globalDescPool_) != VK_SUCCESS) {
-        fprintf(stderr, "[GltfSceneRenderer] failed to create global descriptor pool\n");
-        return false;
-    }
-    return true;
-}
-
-bool GltfSceneRenderer::createGlobalDescriptorSets(VkDevice device) {
-    std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES, globalSetLayout_.get());
-    VkDescriptorSetAllocateInfo ai{};
-    ai.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    ai.descriptorPool     = globalDescPool_;
-    ai.descriptorSetCount = MAX_FRAMES;
-    ai.pSetLayouts        = layouts.data();
-    globalDescSets_.resize(MAX_FRAMES);
-    if (vkAllocateDescriptorSets(device, &ai, globalDescSets_.data()) != VK_SUCCESS) {
-        fprintf(stderr, "[GltfSceneRenderer] failed to allocate global descriptor sets\n");
-        return false;
-    }
-    return true;
-}
-
 void GltfSceneRenderer::updateGlobalDescriptorSets(VkDevice device) {
+    if (descriptors_.frameCount() == 0) return; // descriptor setup failed (logged in onInit)
     // Resolve which cube/2D view to bind for IBL slots. Real IBL (iblResult_, see recomputeIBL())
     // wins when available; otherwise fall back to sampling the raw environment cubemap directly
     // for both irradiance and prefiltered (a flat approximation -- no convolution/prefiltering)
@@ -194,146 +100,32 @@ void GltfSceneRenderer::updateGlobalDescriptorSets(VkDevice device) {
     VkImageView lutView  = hasIBL ? iblResult_.brdfLUTView       : fallbackView_;
     VkSampler   lutSamp  = hasIBL ? iblResult_.brdfLUTSampler    : fallbackSampler_.get();
 
+    // binding 4: shadowMap (fallback white 2D -- samples as depth=1.0 "far", i.e. never occluded).
+    // The real shadow depth view sits in DEPTH_STENCIL_READ_ONLY_OPTIMAL (see VulkanOffscreen's
+    // depth attachment finalLayout); the color fallback sits in the usual SHADER_READ_ONLY_OPTIMAL
+    // -- the two views need different declared layouts.
+    const bool hasRealShadow = (shadowView_ != VK_NULL_HANDLE);
+
+    // binding 7: volume shadow (opacity shadow map array, or the zero-density fallback)
+    const bool hasVolumeShadow = volumeShadowView_ != VK_NULL_HANDLE;
+
     for (int f = 0; f < MAX_FRAMES; ++f) {
-        std::vector<VkWriteDescriptorSet> writes;
-
-        // binding 0: GlobalUBO
-        VkDescriptorBufferInfo uboBufInfo{};
-        uboBufInfo.buffer = globalUbos_[f].get();
-        uboBufInfo.offset = 0;
-        uboBufInfo.range  = sizeof(GlobalUBO);
-        VkWriteDescriptorSet uboWrite{};
-        uboWrite.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        uboWrite.dstSet          = globalDescSets_[f];
-        uboWrite.dstBinding      = 0;
-        uboWrite.descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        uboWrite.descriptorCount = 1;
-        uboWrite.pBufferInfo     = &uboBufInfo;
-        writes.push_back(uboWrite);
-
-        // binding 1: irradianceCube
-        VkDescriptorImageInfo irrInfo{ irrSamp, irrView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL };
-        VkWriteDescriptorSet irrWrite{};
-        irrWrite.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        irrWrite.dstSet          = globalDescSets_[f];
-        irrWrite.dstBinding      = 1;
-        irrWrite.descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        irrWrite.descriptorCount = 1;
-        irrWrite.pImageInfo      = &irrInfo;
-        writes.push_back(irrWrite);
-
-        // binding 2: prefilteredEnvCube
-        VkDescriptorImageInfo preInfo{ preSamp, preView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL };
-        VkWriteDescriptorSet preWrite{};
-        preWrite.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        preWrite.dstSet          = globalDescSets_[f];
-        preWrite.dstBinding      = 2;
-        preWrite.descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        preWrite.descriptorCount = 1;
-        preWrite.pImageInfo      = &preInfo;
-        writes.push_back(preWrite);
-
-        // binding 3: brdfLUT (real BRDF LUT if computed, else fallback 2D white)
-        VkDescriptorImageInfo lutInfo{ lutSamp, lutView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL };
-        VkWriteDescriptorSet lutWrite{};
-        lutWrite.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        lutWrite.dstSet          = globalDescSets_[f];
-        lutWrite.dstBinding      = 3;
-        lutWrite.descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        lutWrite.descriptorCount = 1;
-        lutWrite.pImageInfo      = &lutInfo;
-        writes.push_back(lutWrite);
-
-        // binding 4: shadowMap (fallback white 2D -- samples as depth=1.0 "far", i.e. never occluded).
-        // The real shadow depth view sits in DEPTH_STENCIL_READ_ONLY_OPTIMAL (see
-        // VulkanOffscreen's depth attachment finalLayout); the color fallback sits in the
-        // usual SHADER_READ_ONLY_OPTIMAL -- the two views need different declared layouts.
-        bool hasRealShadow = (shadowView_ != VK_NULL_HANDLE);
-        VkImageView   shadowV = hasRealShadow ? shadowView_ : fallbackView_;
-        VkSampler     shadowS = hasRealShadow ? shadowSampler_ : fallbackSampler_.get();
-        VkImageLayout shadowL = hasRealShadow ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL
-                                               : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        VkDescriptorImageInfo shadowInfo{ shadowS, shadowV, shadowL };
-        VkWriteDescriptorSet shadowWrite{};
-        shadowWrite.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        shadowWrite.dstSet          = globalDescSets_[f];
-        shadowWrite.dstBinding      = 4;
-        shadowWrite.descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        shadowWrite.descriptorCount = 1;
-        shadowWrite.pImageInfo      = &shadowInfo;
-        writes.push_back(shadowWrite);
-
-        // binding 7: volume shadow (opacity shadow map array, or the zero-density fallback)
-        const bool hasVolumeShadow = volumeShadowView_ != VK_NULL_HANDLE;
-        VkDescriptorImageInfo volumeInfo{ hasVolumeShadow ? volumeShadowSampler_ : fallbackSampler_.get(),
-                                          hasVolumeShadow ? volumeShadowView_ : zeroArrayView_,
-                                          VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL };
-        VkWriteDescriptorSet volumeWrite{};
-        volumeWrite.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        volumeWrite.dstSet          = globalDescSets_[f];
-        volumeWrite.dstBinding      = 7;
-        volumeWrite.descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        volumeWrite.descriptorCount = 1;
-        volumeWrite.pImageInfo      = &volumeInfo;
-        if (volumeInfo.imageView != VK_NULL_HANDLE)
-            writes.push_back(volumeWrite);
-
-        // binding 5: BoneUBO
-        VkDescriptorBufferInfo boneBufInfo{};
-        boneBufInfo.buffer = boneUbos_[f].get();
-        boneBufInfo.offset = 0;
-        boneBufInfo.range  = sizeof(BoneUBO);
-        VkWriteDescriptorSet boneWrite{};
-        boneWrite.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        boneWrite.dstSet          = globalDescSets_[f];
-        boneWrite.dstBinding      = 5;
-        boneWrite.descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        boneWrite.descriptorCount = 1;
-        boneWrite.pBufferInfo     = &boneBufInfo;
-        writes.push_back(boneWrite);
-
-        // binding 6: LightBufferGpu (multi-light; see setPunctualLights())
-        VkDescriptorBufferInfo lightBufInfo{};
-        lightBufInfo.buffer = lightUbos_[f].get();
-        lightBufInfo.offset = 0;
-        lightBufInfo.range  = sizeof(LightManager::LightBufferGpu);
-        VkWriteDescriptorSet lightWrite{};
-        lightWrite.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        lightWrite.dstSet          = globalDescSets_[f];
-        lightWrite.dstBinding      = 6;
-        lightWrite.descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        lightWrite.descriptorCount = 1;
-        lightWrite.pBufferInfo     = &lightBufInfo;
-        writes.push_back(lightWrite);
-
-        vkUpdateDescriptorSets(device,
-            static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
+        GltfGlobalDescriptors::FrameInputs in;
+        in.globalUbo   = { globalUbos_[f].get(), sizeof(GlobalUBO) };
+        in.boneUbo     = { boneUbos_[f].get(),   sizeof(BoneUBO) };
+        in.lightUbo    = { lightUbos_[f].get(),  sizeof(LightManager::LightBufferGpu) };
+        in.irradiance  = { irrSamp, irrView,   VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL };
+        in.prefiltered = { preSamp, preView,   VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL };
+        in.brdfLut     = { lutSamp, lutView,   VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL };
+        in.shadow      = { hasRealShadow ? shadowSampler_ : fallbackSampler_.get(),
+                           hasRealShadow ? shadowView_    : fallbackView_,
+                           hasRealShadow ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL
+                                         : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL };
+        in.volumeShadow = { hasVolumeShadow ? volumeShadowSampler_ : fallbackSampler_.get(),
+                            hasVolumeShadow ? volumeShadowView_    : zeroArrayView_,
+                            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL };
+        descriptors_.updateFrame(device, static_cast<uint32_t>(f), in);
     }
-}
-
-// ============================================================
-//  Material pool (per document)
-// ============================================================
-
-bool GltfSceneRenderer::createDescriptorPool(VkDevice device, uint32_t materialCount) {
-    uint32_t totalSets = materialCount * static_cast<uint32_t>(MAX_FRAMES);
-
-    std::vector<VkDescriptorPoolSize> sizes = {
-        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         1 * totalSets},  // MaterialUBO
-        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 5 * totalSets},  // 5 textures
-    };
-
-    VkDescriptorPoolCreateInfo ci{};
-    ci.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    ci.poolSizeCount = static_cast<uint32_t>(sizes.size());
-    ci.pPoolSizes    = sizes.data();
-    ci.maxSets       = totalSets;
-
-    if (vkCreateDescriptorPool(device, &ci, nullptr, &descriptorPool_) != VK_SUCCESS) {
-        fprintf(stderr, "[GltfSceneRenderer] failed to create descriptor pool\n");
-        return false;
-    }
-    return true;
 }
 
 // ============================================================
@@ -490,9 +282,6 @@ void GltfSceneRenderer::onInit(Phantom::VKG::VulkanContext& ctx, const Phantom::
         lightManager_.uploadUBO(lightUbos_[f]); // seed with the empty buffer (count=0) before the first onUpdate()
     }
 
-    // Descriptor layouts
-    createGlobalSetLayout(device);
-    createMaterialSetLayout(device);
 
     // Shared fallback resources
     GltfGpuMaterial::createFallback(ctx, pool, fallbackImage_, fallbackMemory_, fallbackView_);
@@ -501,8 +290,8 @@ void GltfSceneRenderer::onInit(Phantom::VKG::VulkanContext& ctx, const Phantom::
     Phantom::VKG::VulkanImage::createZeroArrayTexture(ctx, pool, VK_FORMAT_R32_SFLOAT,
                                                       zeroArrayImage_, zeroArrayMemory_, zeroArrayView_);
 
-    // Global descriptor pool + sets (write fallback IBL textures)
-    if (!(createGlobalDescPool(device) && createGlobalDescriptorSets(device)))
+    // Descriptor layouts + global pool + sets (the fallback IBL textures are written just below)
+    if (!descriptors_.create(device, static_cast<uint32_t>(MAX_FRAMES)))
         fprintf(stderr, "[GltfSceneRenderer] global descriptor setup failed; rendering may be incomplete\n");
 
     // Real IBL, if setEnvironment() was already called (the common pattern -- see its comment):
@@ -520,7 +309,7 @@ void GltfSceneRenderer::onInit(Phantom::VKG::VulkanContext& ctx, const Phantom::
         cfg.bindingDescs = {bd};
         cfg.attrDescs    = GltfGpuMesh::Vertex::getAttributeDescriptions();
     }
-    cfg.descriptorSetLayouts = { globalSetLayout_.get(), materialSetLayout_.get() };
+    cfg.descriptorSetLayouts = { descriptors_.globalLayout(), descriptors_.materialLayout() };
     // Phase 2 item 5 後半 ("共有GPU asset化"): a vertex-stage push constant carrying the
     // per-draw model matrix, on every main-pass pipeline variant below AND setMaterialShaderOverride()'s
     // pipelines (identical range everywhere -- Vulkan keeps pushed values live across a
@@ -679,14 +468,14 @@ void GltfSceneRenderer::buildDocumentResources()
     VkDevice device = ctx_->getDevice();
 
     uint32_t matCount = doc_->materials.empty() ? 1u : static_cast<uint32_t>(doc_->materials.size());
-    if (!createDescriptorPool(device, matCount))
+    if (!descriptors_.createMaterialPool(device, matCount))
         fprintf(stderr, "[GltfSceneRenderer] material descriptor pool creation failed; materials may not render\n");
 
     if (doc_->materials.empty()) {
         GltfMaterial gltfMat;
         auto mat = std::make_unique<GltfGpuMaterial>();
         if (!mat->build(*ctx_, *pool_, *doc_, gltfMat,
-                   materialSetLayout_.get(), descriptorPool_,
+                   descriptors_.materialLayout(), descriptors_.materialPool(),
                    fallbackView_, fallbackSampler_.get()))
             fprintf(stderr, "[GltfSceneRenderer] failed to build default material\n");
         materials_.push_back(std::move(mat));
@@ -694,7 +483,7 @@ void GltfSceneRenderer::buildDocumentResources()
         for (const auto& gltfMat : doc_->materials) {
             auto mat = std::make_unique<GltfGpuMaterial>();
             if (!mat->build(*ctx_, *pool_, *doc_, gltfMat,
-                       materialSetLayout_.get(), descriptorPool_,
+                       descriptors_.materialLayout(), descriptors_.materialPool(),
                        fallbackView_, fallbackSampler_.get()))
                 fprintf(stderr, "[GltfSceneRenderer] failed to build material '%s'\n", gltfMat.name.c_str());
             materials_.push_back(std::move(mat));
@@ -734,10 +523,7 @@ void GltfSceneRenderer::clearDocumentResources()
     // materialPipelineVariantPool_'s comment) and are only destroyed at onCleanup().
     materialPipelineOverrides_.clear();
 
-    if (descriptorPool_ != VK_NULL_HANDLE) {
-        vkDestroyDescriptorPool(device, descriptorPool_, nullptr);
-        descriptorPool_ = VK_NULL_HANDLE;
-    }
+    descriptors_.destroyMaterialPool(device);
     hasBlendMaterials_ = false;
     ready_ = false;
 }
@@ -1037,7 +823,7 @@ bool GltfSceneRenderer::setMaterialShaderOverride(int materialIndex, const std::
             cfg.bindingDescs = { bd };
             cfg.attrDescs    = GltfGpuMesh::Vertex::getAttributeDescriptions();
         }
-        cfg.descriptorSetLayouts = { globalSetLayout_.get(), materialSetLayout_.get() };
+        cfg.descriptorSetLayouts = { descriptors_.globalLayout(), descriptors_.materialLayout() };
         // Must match pipeline_/pipelineDoubleSided_/pipelineBlend_/pipelineBlendDoubleSided_'s
         // range exactly (see onInit()'s comment) -- onRender()/renderInstances() push the model
         // matrix once via pipeline_.getLayout() and rely on every pipeline they might bind
@@ -1102,7 +888,7 @@ void GltfSceneRenderer::onRender(VkCommandBuffer cmd, uint32_t frameIndex) {
     // (see onInit()), so pipeline_'s layout works here regardless of which pipeline ends up bound
     // first in renderPrimitivesWithModel()'s draw loop.
     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                            pipeline_.getLayout(), 0, 1, &globalDescSets_[frameIndex], 0, nullptr);
+                            pipeline_.getLayout(), 0, 1, descriptors_.globalSet(frameIndex), 0, nullptr);
     renderPrimitivesWithModel(cmd, frameIndex, modelMatrix_);
 
     // Skybox last: VkSkyBoxRenderer's pipeline writes depth=1.0 (max) with depthWrite off and a
@@ -1117,7 +903,7 @@ void GltfSceneRenderer::renderInstances(VkCommandBuffer cmd, uint32_t frameIndex
     if (!ready_ || !visible_ || primitives_.empty() || modelMatrices.empty()) return;
 
     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                            pipeline_.getLayout(), 0, 1, &globalDescSets_[frameIndex], 0, nullptr);
+                            pipeline_.getLayout(), 0, 1, descriptors_.globalSet(frameIndex), 0, nullptr);
     for (const glm::mat4& model : modelMatrices)
         renderPrimitivesWithModel(cmd, frameIndex, model);
 
@@ -1249,21 +1035,8 @@ void GltfSceneRenderer::onCleanup(VkDevice device) {
     materialPipelineVariantIndex_.clear();
     destroyMaterialPipelineCache(device);
 
-    // Material descriptor pool (document-dependent)
-    if (descriptorPool_ != VK_NULL_HANDLE) {
-        vkDestroyDescriptorPool(device, descriptorPool_, nullptr);
-        descriptorPool_ = VK_NULL_HANDLE;
-    }
-
-    // Global descriptor pool (document-independent)
-    if (globalDescPool_ != VK_NULL_HANDLE) {
-        vkDestroyDescriptorPool(device, globalDescPool_, nullptr);
-        globalDescPool_ = VK_NULL_HANDLE;
-    }
-    globalDescSets_.clear();
-
-    globalSetLayout_.destroy(device);
-    materialSetLayout_.destroy(device);
+    // Descriptor pools (material = document-dependent, global = not) and set layouts
+    descriptors_.destroy(device);
 
     // Real IBL (if any was computed)
     if (iblResult_.isValid()) iblPrecomputer_.destroy(device, iblResult_);

@@ -9,6 +9,7 @@
 #include "CameraUBO.h"
 #include "LightManager.h"
 #include "GltfObjectAnimation.h"
+#include "GltfGlobalDescriptors.h"
 #include "../Gltf/GltfDocument.h"
 #include "../IBL/GltfIBLPrecomputer.h"
 #include "../../../CGLib/VulkanGraphics/VulkanBuffer.h"
@@ -374,13 +375,10 @@ namespace Phantom::Gltf
         std::array<Phantom::VKG::VulkanBuffer, MAX_FRAMES> globalUbos_;
         std::array<Phantom::VKG::VulkanBuffer, MAX_FRAMES> boneUbos_;
         std::array<Phantom::VKG::VulkanBuffer, MAX_FRAMES> lightUbos_; // binding 6, see setPunctualLights()
-        Phantom::VKG::VulkanDescriptorSetLayout globalSetLayout_;
-        VkDescriptorPool               globalDescPool_ = VK_NULL_HANDLE;
-        std::vector<VkDescriptorSet>   globalDescSets_;
+        // Layouts + global sets (set=0) + per-document material pool (set=1); see GltfGlobalDescriptors.
+        GltfGlobalDescriptors descriptors_;
 
         // --- set=1: Per-material resources (document-dependent) ---
-        Phantom::VKG::VulkanDescriptorSetLayout materialSetLayout_;
-        VkDescriptorPool               descriptorPool_ = VK_NULL_HANDLE;
 
         // Light state written to GlobalUBO each frame
         glm::vec4 lightPos_ = { 1.f, 1.f, 1.f, 0.f };  // w=0: directional
@@ -565,14 +563,7 @@ namespace Phantom::Gltf
         void renderShadowCastersWithModel(VkCommandBuffer cmd, const glm::mat4& lightVP, const glm::mat4& model);
 
         // Descriptor layout helpers (document-independent, called once in onInit)
-        void createGlobalSetLayout(VkDevice device);
-        void createMaterialSetLayout(VkDevice device);
-        bool createGlobalDescPool(VkDevice device);
-        bool createGlobalDescriptorSets(VkDevice device);
         void updateGlobalDescriptorSets(VkDevice device);
-
-        // Material pool (document-dependent, called in buildDocumentResources)
-        bool createDescriptorPool(VkDevice device, uint32_t materialCount);
 
         // Fallback resource helpers
         void createFallbackCube(const Phantom::VKG::VulkanContext& ctx, const Phantom::VKG::VulkanCommandPool& pool);
