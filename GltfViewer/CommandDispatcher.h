@@ -2,6 +2,7 @@
 
 #include "../../CGLib/VkAppBase/ScenarioRunner/IScenarioDispatcher.h"
 #include "../../CGLib/VkAppBase/ScenarioRunner/UiCommand.h"
+#include "../../CGLib/VkAppBase/ScenarioRunner/CommandQueue.h"
 #include "../../CGLib/GltfRenderer/Gltf/GltfDocument.h"
 #include "../GltfRenderer/Renderer/GltfSceneRenderer.h"
 
@@ -53,9 +54,7 @@ namespace Phantom::Gltf {
         std::optional<std::filesystem::path> pendingLoad_;
         std::optional<std::filesystem::path> pendingScreenshot_;
 
-        std::mutex              mutex_;
-        std::queue<std::string> inputQueue_;
-        std::queue<std::string> outputQueue_;
+        CommandQueue queue_;
     };
 
 }

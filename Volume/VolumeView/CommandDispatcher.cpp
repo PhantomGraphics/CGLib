@@ -117,18 +117,11 @@ const std::unordered_map<std::string, PbvrApply> kPbvrScalarSetters = {
 // ============================================================
 
 void CommandDispatcher::dispatch(const std::string& command) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    inputQueue_.push(command);
+    queue_.submit(command);
 }
 
 std::vector<std::string> CommandDispatcher::collectResponses() {
-    std::lock_guard<std::mutex> lock(mutex_);
-    std::vector<std::string> out;
-    while (!outputQueue_.empty()) {
-        out.push_back(std::move(outputQueue_.front()));
-        outputQueue_.pop();
-    }
-    return out;
+    return queue_.collectResponses();
 }
 
 std::vector<CommandInfo> CommandDispatcher::commandCatalog() const {
@@ -254,19 +247,14 @@ void CommandDispatcher::processQueue() {
                     static_cast<unsigned>(data[0]), static_cast<unsigned>(data[1]), static_cast<unsigned>(data[2]));
                 resp = buf;
             }
-            std::lock_guard<std::mutex> lock(mutex_);
-            outputQueue_.push(std::move(resp));
+            queue_.respond(std::move(resp));
             pixelReadPending_ = false;
             pixelBrightness_  = false;
         }
         return; // Don't consume new commands until the read completes.
     }
 
-    std::queue<std::string> local;
-    {
-        std::lock_guard<std::mutex> lock(mutex_);
-        std::swap(local, inputQueue_);
-    }
+    std::queue<std::string> local = queue_.takeAll();
     while (!local.empty()) {
         std::string cmd = std::move(local.front());
         local.pop();
@@ -278,18 +266,11 @@ void CommandDispatcher::processQueue() {
             // GetPixelColor/GetPixelBrightness was just dispatched; re-queue any remaining
             // commands so they are processed only after the pixel read resolves (see the
             // pixelReadPending_ branch above), keeping responses in 1:1 order with commands.
-            std::lock_guard<std::mutex> lock(mutex_);
-            while (!local.empty()) {
-                inputQueue_.push(std::move(local.front()));
-                local.pop();
-            }
+            queue_.requeue(local);
             break;
         }
 
-        {
-            std::lock_guard<std::mutex> lock(mutex_);
-            outputQueue_.push(std::move(resp));
-        }
+        queue_.respond(std::move(resp));
     }
 }
 

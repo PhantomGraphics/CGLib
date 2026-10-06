@@ -2,6 +2,7 @@
 
 #include "CGLib/VkAppBase/ScenarioRunner/IScenarioDispatcher.h"
 #include "CGLib/VkAppBase/ScenarioRunner/UiCommand.h"
+#include "CGLib/VkAppBase/ScenarioRunner/CommandQueue.h"
 #include "World.h"
 
 #include <mutex>
@@ -38,9 +39,7 @@ private:
     World* world_ = nullptr;
     AnimationViewApp* app_ = nullptr;
 
-    std::mutex              mutex_;
-    std::queue<std::string> inputQueue_;
-    std::queue<std::string> outputQueue_;
+    CommandQueue queue_;
 };
 
 } // namespace Phantom::Animation

@@ -2,6 +2,7 @@
 
 #include "../../../CGLib/VkAppBase/ScenarioRunner/IScenarioDispatcher.h"
 #include "../../../CGLib/VkAppBase/ScenarioRunner/UiCommand.h"
+#include "../../../CGLib/VkAppBase/ScenarioRunner/CommandQueue.h"
 #include "SpaceMenuPanel.h"
 #include "Renderer.h"
 #include "World.h"
@@ -37,9 +38,7 @@ private:
     SpaceMenuPanel*  menuPanel_ = nullptr;
     Renderer* renderer_  = nullptr;
 
-    std::mutex              mutex_;
-    std::queue<std::string> inputQueue_;
-    std::queue<std::string> outputQueue_;
+    CommandQueue queue_;
 };
 
 } // namespace VKSpace
