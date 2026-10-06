@@ -272,7 +272,7 @@ void GltfSceneRenderer::onInit(Phantom::VKG::VulkanContext& ctx, const Phantom::
     pool_ = &pool;
     renderPass_ = renderPass; // cached for setMaterialShaderOverride(), called after onInit()
     VkDevice device = ctx.getDevice();
-    createMaterialPipelineCache(device); // Phase 4C item 5 ("pipeline cache") -- see setMaterialShaderCacheDir()
+    materialPipelineCache_.create(*ctx_, materialPipelineCacheDir_); // non-fatal on failure. Phase 4C item 5 ("pipeline cache") -- see setMaterialShaderCacheDir()
 
     // Global UBOs (document-independent)
     for (int f = 0; f < MAX_FRAMES; ++f) {
@@ -712,76 +712,7 @@ uint64_t fnv1a64(const uint32_t* words, size_t wordCount)
     return h;
 }
 
-// Standard Vulkan pipeline-cache-header sanity check (see e.g. the Vulkan spec's
-// VkPipelineCacheHeaderVersionOne): a cache blob saved on a different GPU/driver is, per spec,
-// safe to feed back into vkCreatePipelineCache() regardless (the implementation is required to
-// discard incompatible entries), but checking the header ourselves first avoids even attempting
-// that with a blob vkGetPipelineCacheData() itself would never have produced for this device --
-// this codebase's convention (see PhmatCompiler.cpp's cache-hit/miss handling) is to treat a
-// mismatched/corrupt cache as a plain miss, not an error.
-bool pipelineCacheHeaderMatches(const std::vector<char>& data, const VkPhysicalDeviceProperties& props)
-{
-    if (data.size() < 32) return false;
-    uint32_t headerSize = 0, headerVersion = 0, vendorID = 0, deviceID = 0;
-    std::memcpy(&headerSize,    data.data() + 0,  sizeof(uint32_t));
-    std::memcpy(&headerVersion, data.data() + 4,  sizeof(uint32_t));
-    std::memcpy(&vendorID,      data.data() + 8,  sizeof(uint32_t));
-    std::memcpy(&deviceID,      data.data() + 12, sizeof(uint32_t));
-    if (headerVersion != VK_PIPELINE_CACHE_HEADER_VERSION_ONE) return false;
-    if (vendorID != props.vendorID || deviceID != props.deviceID) return false;
-    if (data.size() < headerSize) return false;
-    return std::memcmp(data.data() + 16, props.pipelineCacheUUID, VK_UUID_SIZE) == 0;
-}
-
 } // namespace
-
-void GltfSceneRenderer::createMaterialPipelineCache(VkDevice device)
-{
-    std::vector<char> initialData;
-    if (!materialPipelineCacheDir_.empty()) {
-        VkPhysicalDeviceProperties props{};
-        vkGetPhysicalDeviceProperties(ctx_->getPhysicalDevice(), &props);
-        const std::filesystem::path file = std::filesystem::path(materialPipelineCacheDir_) / "vulkan_pipeline_cache.bin";
-        std::ifstream in(file, std::ios::binary | std::ios::ate);
-        if (in) {
-            const std::streamsize size = in.tellg();
-            if (size > 0) {
-                initialData.resize(static_cast<size_t>(size));
-                in.seekg(0);
-                in.read(initialData.data(), size);
-                if (!pipelineCacheHeaderMatches(initialData, props)) initialData.clear(); // treat as a miss, not an error
-            }
-        }
-    }
-
-    VkPipelineCacheCreateInfo ci{};
-    ci.sType           = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
-    ci.initialDataSize = initialData.size();
-    ci.pInitialData    = initialData.empty() ? nullptr : initialData.data();
-    if (vkCreatePipelineCache(device, &ci, nullptr, &materialPipelineCache_) != VK_SUCCESS)
-        materialPipelineCache_ = VK_NULL_HANDLE; // non-fatal -- setMaterialShaderOverride() just won't get driver-side caching
-}
-
-void GltfSceneRenderer::destroyMaterialPipelineCache(VkDevice device)
-{
-    if (materialPipelineCache_ == VK_NULL_HANDLE) return;
-    if (!materialPipelineCacheDir_.empty()) {
-        size_t dataSize = 0;
-        vkGetPipelineCacheData(device, materialPipelineCache_, &dataSize, nullptr);
-        if (dataSize > 0) {
-            std::vector<char> data(dataSize);
-            if (vkGetPipelineCacheData(device, materialPipelineCache_, &dataSize, data.data()) == VK_SUCCESS) {
-                std::error_code ec;
-                std::filesystem::create_directories(materialPipelineCacheDir_, ec);
-                const std::filesystem::path file = std::filesystem::path(materialPipelineCacheDir_) / "vulkan_pipeline_cache.bin";
-                std::ofstream out(file, std::ios::binary | std::ios::trunc);
-                if (out) out.write(data.data(), static_cast<std::streamsize>(dataSize));
-            }
-        }
-    }
-    vkDestroyPipelineCache(device, materialPipelineCache_, nullptr);
-    materialPipelineCache_ = VK_NULL_HANDLE;
-}
 
 bool GltfSceneRenderer::setMaterialShaderOverride(int materialIndex, const std::vector<uint32_t>& fragSpv, std::string* outError)
 {
@@ -832,7 +763,7 @@ bool GltfSceneRenderer::setMaterialShaderOverride(int materialIndex, const std::
         cfg.cullMode        = key.cullMode;
         cfg.blendEnable     = key.blendEnable;
         cfg.depthWrite      = key.depthWrite;
-        cfg.pipelineCache   = materialPipelineCache_; // Phase 4C item 5 ("pipeline cache")
+        cfg.pipelineCache   = materialPipelineCache_.get(); // Phase 4C item 5 ("pipeline cache")
 
         auto newPipeline = std::make_unique<Phantom::VKG::VulkanPipeline>();
         if (!newPipeline->create(*ctx_, renderPass_, cfg)) {
@@ -1033,7 +964,7 @@ void GltfSceneRenderer::onCleanup(VkDevice device) {
     for (auto& pipeline : materialPipelineVariantPool_) pipeline->destroy(device);
     materialPipelineVariantPool_.clear();
     materialPipelineVariantIndex_.clear();
-    destroyMaterialPipelineCache(device);
+    materialPipelineCache_.destroy(device); // persists to disk first if materialPipelineCacheDir_ is set
 
     // Descriptor pools (material = document-dependent, global = not) and set layouts
     descriptors_.destroy(device);
