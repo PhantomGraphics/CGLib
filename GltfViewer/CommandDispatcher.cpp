@@ -21,6 +21,60 @@ std::vector<std::string> CommandDispatcher::collectResponses() {
     return out;
 }
 
+std::vector<CommandInfo> CommandDispatcher::commandCatalog() const {
+    return {
+        {"GetStatus", "", ""},
+        {"GetMeshCount", "", ""},
+        {"GetNodeCount", "", ""},
+        {"GetMaterialCount", "", ""},
+        {"GetTextureCount", "", ""},
+        {"GetSceneCount", "", ""},
+        {"GetSkinCount", "", ""},
+        {"GetPrimitiveCount", "", ""},
+        {"GetCamDist", "", ""},
+        {"SetCamDist", "float", "Orbit camera distance"},
+        {"ResetCamera", "", ""},
+        {"GetHasAssetCamera", "", ""},
+        {"GetUseAssetCamera", "", ""},
+        {"SetUseAssetCamera", "0|1", ""},
+        {"GetUseIBL", "", ""},
+        {"SetUseIBL", "0|1", ""},
+        {"GetUseSkybox", "", ""},
+        {"SetUseSkybox", "0|1", ""},
+        {"LoadEnvironmentHDR", "path", ""},
+        {"ClearEnvironmentHDR", "", ""},
+        {"GetHasEnvironmentHDR", "", ""},
+        {"LoadPhmat", "materialIndex,path", "Apply a .phmat shader override"},
+        {"ClearPhmat", "materialIndex", ""},
+        {"ShowShaderGraph", "materialIndex", "Open the Shader Graph panel"},
+        {"GetHasPhmatOverride", "materialIndex", ""},
+        {"GetPhmatPipelineVariantCount", "", ""},
+        {"SetPhmatHotReload", "0|1", ""},
+        {"GetPhmatHotReload", "", ""},
+        {"LoadFile", "path", "Load a glTF/GLB/VRM/OBJ/STL file (response arrives when loaded)"},
+        {"SaveScreenshot", "path", "Save a PNG (response arrives when written)"},
+        {"GetVrmSpecVersion", "", ""},
+        {"GetVrmHumanBoneCount", "", ""},
+        {"GetVrmExpressionCount", "", ""},
+        {"GetVrmMetaTitle", "", ""},
+        {"SetVrmExpressionWeight", "index:weight", ""},
+    };
+}
+
+std::string CommandDispatcher::cmdCheckCommandCatalog() {
+    // Probe with a junk argument: a routed name answers with its own validation
+    // error, only an unrouted one says "unknown command". LoadFile/SaveScreenshot
+    // are skipped (they queue work and answer later); scenarios cover them.
+    std::string missing;
+    for (const auto& c : commandCatalog()) {
+        if (c.name == "LoadFile" || c.name == "SaveScreenshot") continue;
+        const std::string probe = c.args.empty() ? c.name : c.name + ":x";
+        if (route(probe).rfind("Error:unknown command", 0) == 0)
+            missing += (missing.empty() ? "" : ",") + c.name;
+    }
+    return missing.empty() ? "OK" : "Error:unrouted catalog entries: " + missing;
+}
+
 void CommandDispatcher::processQueue() {
     std::queue<std::string> local;
     {
@@ -31,8 +85,9 @@ void CommandDispatcher::processQueue() {
     while (!local.empty()) {
         std::string cmd = std::move(local.front());
         local.pop();
+        const bool fromUi = takeUiMark(cmd);
         std::string resp = route(cmd);
-        if (!resp.empty()) {
+        if (!resp.empty() && !fromUi) {
             std::lock_guard<std::mutex> lock(mutex_);
             outputQueue_.push(std::move(resp));
         }
@@ -66,6 +121,7 @@ void CommandDispatcher::signalLoaded(bool ok, const std::string& msg) {
 }
 
 std::string CommandDispatcher::route(const std::string& cmd) {
+    if (cmd == "CheckCommandCatalog") return cmdCheckCommandCatalog();
     if (cmd == "GetStatus") {
         return "OK";
     }
@@ -115,7 +171,12 @@ std::string CommandDispatcher::route(const std::string& cmd) {
 
     if (cmd.rfind("SetCamDist:", 0) == 0) {
         if (!renderer_) return "Error:no renderer";
-        *renderer_->camDistPtr() = std::stof(cmd.substr(11));
+        const std::string value = cmd.substr(11);
+        float dist = 0.f;
+        const auto parsed = std::from_chars(value.data(), value.data() + value.size(), dist);
+        if (parsed.ec != std::errc{} || parsed.ptr != value.data() + value.size())
+            return "Error:invalid SetCamDist value";
+        *renderer_->camDistPtr() = dist;
         return "OK";
     }
 
