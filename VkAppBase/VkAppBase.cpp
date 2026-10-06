@@ -49,9 +49,8 @@ VkAppBase::~VkAppBase() {
 bool VkAppBase::run(int argc, char* argv[]) {
     const ScreenshotArgs shot = VKG::parseScreenshotArgs(argc, argv);
     if (!shot.path.empty()) {
-        screenshotPath_ = shot.path;
-        if (shot.frame) screenshotAtFrame_ = *shot.frame;
-        else if (screenshotAtFrame_ < 0) screenshotAtFrame_ = 5;
+        readback_.setScreenshot(shot.path, shot.frame ? *shot.frame : readback_.screenshotFrame());
+        readback_.setScreenshotDefaultFrame(5);
     }
     return run();
 }
@@ -332,30 +331,9 @@ bool VkAppBase::drawFrame() {
 
     vkCmdEndRenderPass(cmd);
 
-    // Screenshot: copy the just-rendered swapchain image to the readback buffer.
-    const bool doScreenshot = (!screenshotPath_.empty() &&
-                               frameCount_ == screenshotAtFrame_ &&
-                               !screenshotDone_);
-    if (doScreenshot) {
-        const VkExtent2D ext = swapChain_.getExtent();
-        const VkDeviceSize bufSize = static_cast<VkDeviceSize>(ext.width) * ext.height * 4;
-        if (!screenshotBuffer_.isValid())
-            screenshotBuffer_.createMapped(context_, bufSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
-        recordSwapchainCopyToBuffer(cmd, swapChain_.getImages()[imageIndex], screenshotBuffer_.get(),
-                                    {0, 0}, ext);
-    }
-
-    // Pixel readback: copy a single pixel from the rendered swapchain image.
-    const bool doPixelRead = (pixelReadRequested_ && !pixelReadDone_);
-    if (doPixelRead) {
-        const VkExtent2D ext = swapChain_.getExtent();
-        const uint32_t px = (ext.width  > 0) ? std::min(pixelReadX_, ext.width  - 1) : 0u;
-        const uint32_t py = (ext.height > 0) ? std::min(pixelReadY_, ext.height - 1) : 0u;
-        if (!pixelReadBuffer_.isValid())
-            pixelReadBuffer_.createMapped(context_, 4, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
-        recordSwapchainCopyToBuffer(cmd, swapChain_.getImages()[imageIndex], pixelReadBuffer_.get(),
-                                    {static_cast<int32_t>(px), static_cast<int32_t>(py)}, {1, 1});
-    }
+    // Screenshot / pixel readback: copy the just-rendered swapchain image to the readback buffers.
+    const FrameReadback::Plan readbackPlan = readback_.beginFrame(frameCount_);
+    readback_.record(readbackPlan, context_, cmd, swapChain_.getImages()[imageIndex], swapChain_.getExtent());
 
     vkEndCommandBuffer(cmd);
 
@@ -410,26 +388,9 @@ bool VkAppBase::drawFrame() {
         recreateSwapChain();
     }
 
-    if (doScreenshot || doPixelRead) {
+    if (readbackPlan.screenshot || readbackPlan.pixel) {
         vkDeviceWaitIdle(context_.getDevice());
-        if (doScreenshot) {
-            writeScreenshotFile(swapChain_.getImageFormat(), swapChain_.getExtent());
-            screenshotDone_ = true;
-        }
-        if (doPixelRead) {
-            auto* data = static_cast<uint8_t*>(pixelReadBuffer_.getMapped());
-            const VkFormat fmt = swapChain_.getImageFormat();
-            if (isBgraFormat(fmt)) {
-                pixelReadResult_[0] = data[2];
-                pixelReadResult_[1] = data[1];
-                pixelReadResult_[2] = data[0];
-                pixelReadResult_[3] = data[3];
-            } else {
-                std::memcpy(pixelReadResult_, data, 4);
-            }
-            pixelReadDone_      = true;
-            pixelReadRequested_ = false;
-        }
+        readback_.finish(readbackPlan, swapChain_.getImageFormat(), swapChain_.getExtent());
     }
 
     currentFrame_ = (currentFrame_ + 1) % MAX_FRAMES_IN_FLIGHT;
@@ -459,10 +420,7 @@ void VkAppBase::cleanup() {
     onCleanup();     // perform ImGui-dependent teardown (e.g. ImGuiTestEngine_Stop) before cleanupImGui
     cleanupImGui();
 
-    if (screenshotBuffer_.isValid())
-        screenshotBuffer_.destroy(context_.getDevice());
-    if (pixelReadBuffer_.isValid())
-        pixelReadBuffer_.destroy(context_.getDevice());
+    readback_.destroy(context_.getDevice());
 
     sync_.destroy(context_.getDevice());
 
@@ -486,34 +444,15 @@ void VkAppBase::cleanup() {
 // ============================================================
 
 void VkAppBase::requestScreenshot(const std::string& path) {
-    screenshotPath_    = path;
-    screenshotAtFrame_ = frameCount_;   // capture this frame's output
-    screenshotDone_    = false;
-}
-
-void VkAppBase::writeScreenshotFile(VkFormat format, VkExtent2D ext) {
-    auto* pixels = static_cast<uint8_t*>(screenshotBuffer_.getMapped());
-    if (isBgraFormat(format)) // most surface formats are BGRA on Windows
-        swapRedBlue(pixels, static_cast<size_t>(ext.width) * ext.height);
-
-    if (writePng(screenshotPath_, pixels, ext.width, ext.height))
-        std::printf("[Screenshot] Saved: %s\n", screenshotPath_.c_str());
-    else
-        std::fprintf(stderr, "[Screenshot] Failed to write: %s\n", screenshotPath_.c_str());
+    readback_.setScreenshot(path, frameCount_);   // capture this frame's output
 }
 
 void VkAppBase::requestPixelRead(uint32_t x, uint32_t y) {
-    pixelReadX_         = x;
-    pixelReadY_         = y;
-    pixelReadDone_      = false;
-    pixelReadRequested_ = true;
+    readback_.requestPixel(x, y);
 }
 
 bool VkAppBase::pollPixelRead(uint8_t out[4]) {
-    if (!pixelReadDone_) return false;
-    std::memcpy(out, pixelReadResult_, 4);
-    pixelReadDone_ = false;
-    return true;
+    return readback_.pollPixel(out);
 }
 
 } // namespace VKG

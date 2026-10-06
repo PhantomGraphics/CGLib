@@ -24,6 +24,7 @@
 #include "VulkanWindow.h"
 #include "IVkSubRenderer.h"
 #include "FrameSync.h"
+#include "FrameReadback.h"
 
 #include "../../CGLib/VulkanGraphics/VulkanContext.h"
 #include "../../CGLib/VulkanGraphics/VulkanSwapChain.h"
@@ -146,7 +147,7 @@ protected:
     // Use for post-present steps like ImGuiTestEngine_PostSwap().
     virtual void onPostSwap() {}
 
-    bool isScreenshotDone() const { return screenshotDone_; }
+    bool isScreenshotDone() const { return readback_.screenshotDone(); }
 
     // Accessors
     VulkanWindow&      getWindow()      { return window_; }
@@ -184,19 +185,7 @@ private:
     bool imguiInitialized_ = false;
     std::function<bool()> exitCondition_;
 
-    // Screenshot support
-    std::string  screenshotPath_;
-    int          screenshotAtFrame_ = -1;
-    VulkanBuffer screenshotBuffer_;
-    bool         screenshotDone_    = false;
-
-    // Pixel readback support
-    bool         pixelReadRequested_ = false;
-    uint32_t     pixelReadX_         = 0;
-    uint32_t     pixelReadY_         = 0;
-    bool         pixelReadDone_      = false;
-    uint8_t      pixelReadResult_[4] = {};
-    VulkanBuffer pixelReadBuffer_;
+    FrameReadback readback_;
 
     bool initVulkan();
     void initImGui();
@@ -205,8 +194,6 @@ private:
     bool drawFrame();
     void recreateSwapChain();
     void cleanup();
-
-    void writeScreenshotFile(VkFormat format, VkExtent2D ext);
 };
 
 } // namespace VKG
