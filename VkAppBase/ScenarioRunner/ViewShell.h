@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 // Standard screen of a test viewer: render area + main menu + Command window +
 // Outliner. Every other panel is hidden until opened from the View menu or by
 // selecting an outliner entry. Visibility is saved in imgui.ini next to the
@@ -20,6 +20,7 @@ public:
         uint64_t    id = 0;          // stable id; selection is tracked by it, not by row index
         std::string label;
         std::string panelId;         // panel opened on double-click / context menu ("" = none)
+        int         selected = -1;   // -1: shell tracks the selection; 0/1: app owns it (see setSelectionHandler)
     };
 
     // Default placement of a panel as a fraction of the display (x, y, w, h).
@@ -32,6 +33,14 @@ public:
     void installSettings();
 
     void setDispatcher(IScenarioDispatcher* d) { dispatcher_ = d; }
+
+    // Called with the item id when an outliner row is clicked. Apps that own
+    // the selection (e.g. an "active scene") set it here and report it back
+    // through OutlinerItem::selected.
+    void setSelectionHandler(std::function<void(uint64_t)> f) { onSelect_ = std::move(f); }
+    // Called instead of toggling a registered panel when an item's panelId is
+    // not a shell panel (e.g. a page of an app-specific tabbed window).
+    void setOpenHandler(std::function<void(const std::string&)> f) { onOpen_ = std::move(f); }
     void setOutlinerProvider(std::function<std::vector<OutlinerItem>()> f) { outliner_ = std::move(f); }
 
     // `id` is also the ImGui window title. "Command" and "Outliner" are
@@ -57,6 +66,9 @@ public:
 
     // "View" menu; call inside the app's BeginMainMenuBar().
     void drawViewMenu();
+    // Only the panel toggles (no menu of its own), for apps that merge them
+    // into an existing View menu.
+    void drawViewMenuItems();
     // Command + Outliner windows.
     void drawWindows();
 
@@ -76,9 +88,12 @@ private:
     void drawCommand();
     void drawOutliner();
     void submitLine(const std::string& text);
+    void openFromOutliner(const std::string& panelId);
 
     IScenarioDispatcher*    dispatcher_ = nullptr;
     std::function<std::vector<OutlinerItem>()> outliner_;
+    std::function<void(uint64_t)>              onSelect_;
+    std::function<void(const std::string&)>    onOpen_;
     std::vector<PanelState> panels_;
     CommandConsoleModel     model_;
     bool                    scenarioActive_     = false;

@@ -1,4 +1,4 @@
-#include "ViewShell.h"
+﻿#include "ViewShell.h"
 
 #include "imgui.h"
 #include "imgui_internal.h"
@@ -109,12 +109,16 @@ void ViewShell::resetLayout() {
     ImGui::MarkIniSettingsDirty();
 }
 
-void ViewShell::drawViewMenu() {
-    if (!ImGui::BeginMenu("View")) return;
+void ViewShell::drawViewMenuItems() {
     for (auto& p : panels_) {
         bool v = p.visible;
         if (ImGui::MenuItem(p.id.c_str(), nullptr, &v)) setPanelVisible(p.id, v);
     }
+}
+
+void ViewShell::drawViewMenu() {
+    if (!ImGui::BeginMenu("View")) return;
+    drawViewMenuItems();
     ImGui::Separator();
     if (ImGui::MenuItem("Reset Layout")) resetLayout();
     ImGui::EndMenu();
@@ -203,6 +207,12 @@ void ViewShell::drawCommand() {
 
 // ---- Outliner -------------------------------------------------------------
 
+void ViewShell::openFromOutliner(const std::string& panelId) {
+    if (panelId.empty()) return;
+    if (find(panelId)) setPanelVisible(panelId, true);
+    else if (onOpen_) onOpen_(panelId);
+}
+
 void ViewShell::drawOutliner() {
     if (!beginPanel("Outliner")) return;
 
@@ -215,14 +225,15 @@ void ViewShell::drawOutliner() {
     if (items.empty()) ImGui::TextDisabled("(nothing loaded)");
     for (const auto& it : items) {
         ImGui::PushID(static_cast<int>(it.id & 0x7fffffff));
-        const bool sel = hasSelection_ && selectedId_ == it.id;
+        const bool sel = it.selected >= 0 ? it.selected != 0 : (hasSelection_ && selectedId_ == it.id);
         if (ImGui::Selectable(it.label.c_str(), sel, ImGuiSelectableFlags_AllowDoubleClick)) {
             selectedId_   = it.id;
             hasSelection_ = true;
-            if (ImGui::IsMouseDoubleClicked(0) && !it.panelId.empty()) setPanelVisible(it.panelId, true);
+            if (onSelect_) onSelect_(it.id);
+            if (ImGui::IsMouseDoubleClicked(0)) openFromOutliner(it.panelId);
         }
         if (ImGui::BeginPopupContextItem()) {
-            if (!it.panelId.empty() && ImGui::MenuItem("Open properties")) setPanelVisible(it.panelId, true);
+            if (!it.panelId.empty() && ImGui::MenuItem("Open properties")) openFromOutliner(it.panelId);
             ImGui::EndPopup();
         }
         ImGui::PopID();
