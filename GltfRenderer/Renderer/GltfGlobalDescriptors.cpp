@@ -43,6 +43,7 @@ std::vector<VkDescriptorSetLayoutBinding> GltfGlobalDescriptors::globalBindings(
         binding(5, kUbo,     kVert),
         binding(6, kUbo,     kFrag), // LightManager::LightBufferGpu
         binding(7, kSampler, kFrag), // volume shadow
+        binding(8, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, kVert | kFrag), // optional per-sample scalar field
     };
 }
 
@@ -74,6 +75,7 @@ bool GltfGlobalDescriptors::create(VkDevice device, uint32_t frameCount)
     const std::vector<VkDescriptorPoolSize> sizes = {
         {kUbo,     frameCount * 3},
         {kSampler, frameCount * 5},
+        {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, frameCount},
     };
     if (!globalPool_.create(device, sizes, frameCount)) {
         destroy(device);
@@ -150,6 +152,14 @@ void GltfGlobalDescriptors::updateFrame(VkDevice device, uint32_t frame, const F
     addBuffer(6, bufInfo[2]);
 
     vkUpdateDescriptorSets(device, static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
+}
+
+void GltfGlobalDescriptors::updateScalarField(VkDevice device, uint32_t frame, BufferBinding buffer) const
+{
+    const VkDescriptorBufferInfo info{buffer.buffer, 0, buffer.range};
+    auto write = baseWrite(globalSets_[frame], 8, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+    write.pBufferInfo = &info;
+    vkUpdateDescriptorSets(device, 1, &write, 0, nullptr);
 }
 
 } // namespace Phantom::Gltf

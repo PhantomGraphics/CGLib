@@ -167,6 +167,10 @@ namespace Phantom::Gltf
         // (or the whole array, if never called) default to identity in onUpdate().
         void updateSkinMatrices(std::vector<glm::mat4> skinMatrices) { skinMatrices_ = std::move(skinMatrices); }
 
+        // Optional fragment-shader SSBO (set=0, binding=8). Uploads only the
+        // current, fence-completed frame slot; geometry and pipelines stay fixed.
+        void setScalarField(std::vector<glm::vec4> values) { scalarField_ = std::move(values); }
+
         // --- CPU morph target blending (Phase 7) ---
         // Rewrites the position attribute of the primitive at doc.meshes[meshIndex].primitives[primIndex]
         // and re-uploads its whole vertex buffer -- see GltfGpuMesh::updatePositions()'s comment for
@@ -375,6 +379,8 @@ namespace Phantom::Gltf
         // --- set=0: Global per-frame resources (document-independent) ---
         std::array<Phantom::VKG::VulkanBuffer, MAX_FRAMES> globalUbos_;
         std::array<Phantom::VKG::VulkanBuffer, MAX_FRAMES> boneUbos_;
+        std::array<Phantom::VKG::VulkanBuffer, MAX_FRAMES> scalarBuffers_;
+        std::vector<glm::vec4> scalarField_;
         std::array<Phantom::VKG::VulkanBuffer, MAX_FRAMES> lightUbos_; // binding 6, see setPunctualLights()
         // Layouts + global sets (set=0) + per-document material pool (set=1); see GltfGlobalDescriptors.
         GltfGlobalDescriptors descriptors_;
