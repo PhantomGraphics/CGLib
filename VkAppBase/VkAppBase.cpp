@@ -3,7 +3,7 @@
 #include "imgui/backends/imgui_impl_glfw.h"
 #include "imgui/backends/imgui_impl_vulkan.h"
 
-#include "../../CGLib/ThirdParty/stb/stb_image_write.h"
+#include "ScreenshotCapture.h"
 
 #include <algorithm>
 #include <array>
@@ -47,7 +47,12 @@ VkAppBase::~VkAppBase() {
 }
 
 bool VkAppBase::run(int argc, char* argv[]) {
-    parseScreenshotArgs(argc, argv);
+    const ScreenshotArgs shot = VKG::parseScreenshotArgs(argc, argv);
+    if (!shot.path.empty()) {
+        screenshotPath_ = shot.path;
+        if (shot.frame) screenshotAtFrame_ = *shot.frame;
+        else if (screenshotAtFrame_ < 0) screenshotAtFrame_ = 5;
+    }
     return run();
 }
 
@@ -390,7 +395,8 @@ bool VkAppBase::drawFrame() {
         const VkDeviceSize bufSize = static_cast<VkDeviceSize>(ext.width) * ext.height * 4;
         if (!screenshotBuffer_.isValid())
             screenshotBuffer_.createMapped(context_, bufSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
-        recordScreenshotCopy(cmd, swapChain_.getImages()[imageIndex], ext);
+        recordSwapchainCopyToBuffer(cmd, swapChain_.getImages()[imageIndex], screenshotBuffer_.get(),
+                                    {0, 0}, ext);
     }
 
     // Pixel readback: copy a single pixel from the rendered swapchain image.
@@ -401,7 +407,8 @@ bool VkAppBase::drawFrame() {
         const uint32_t py = (ext.height > 0) ? std::min(pixelReadY_, ext.height - 1) : 0u;
         if (!pixelReadBuffer_.isValid())
             pixelReadBuffer_.createMapped(context_, 4, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
-        recordPixelReadCopy(cmd, swapChain_.getImages()[imageIndex], px, py);
+        recordSwapchainCopyToBuffer(cmd, swapChain_.getImages()[imageIndex], pixelReadBuffer_.get(),
+                                    {static_cast<int32_t>(px), static_cast<int32_t>(py)}, {1, 1});
     }
 
     vkEndCommandBuffer(cmd);
@@ -466,10 +473,7 @@ bool VkAppBase::drawFrame() {
         if (doPixelRead) {
             auto* data = static_cast<uint8_t*>(pixelReadBuffer_.getMapped());
             const VkFormat fmt = swapChain_.getImageFormat();
-            const bool swapRB  = (fmt == VK_FORMAT_B8G8R8A8_SRGB  ||
-                                   fmt == VK_FORMAT_B8G8R8A8_UNORM ||
-                                   fmt == VK_FORMAT_B8G8R8A8_SNORM);
-            if (swapRB) {
+            if (isBgraFormat(fmt)) {
                 pixelReadResult_[0] = data[2];
                 pixelReadResult_[1] = data[1];
                 pixelReadResult_[2] = data[0];
@@ -542,99 +546,15 @@ void VkAppBase::requestScreenshot(const std::string& path) {
     screenshotDone_    = false;
 }
 
-void VkAppBase::parseScreenshotArgs(int argc, char* argv[]) {
-    for (int i = 1; i < argc; ++i) {
-        std::string_view arg = argv[i];
-        if (arg == "--screenshot" && i + 1 < argc) {
-            screenshotPath_ = argv[++i];
-            if (screenshotAtFrame_ < 0) screenshotAtFrame_ = 5;
-        } else if (arg == "--screenshot-frame" && i + 1 < argc) {
-            screenshotAtFrame_ = std::stoi(argv[++i]);
-            if (screenshotPath_.empty()) screenshotAtFrame_ = -1; // path required
-        } else if (arg.starts_with("--screenshot=")) {
-            screenshotPath_ = std::string(arg.substr(13));
-            if (screenshotAtFrame_ < 0) screenshotAtFrame_ = 5;
-        } else if (arg.starts_with("--screenshot-frame=")) {
-            int frame = std::stoi(std::string(arg.substr(19)));
-            if (!screenshotPath_.empty()) screenshotAtFrame_ = frame;
-        }
-    }
-    // Re-pass to pick up --screenshot-frame= that appeared before --screenshot=
-    if (!screenshotPath_.empty()) {
-        for (int i = 1; i < argc; ++i) {
-            std::string_view arg = argv[i];
-            if (arg == "--screenshot-frame" && i + 1 < argc)
-                screenshotAtFrame_ = std::stoi(argv[i + 1]);
-            else if (arg.starts_with("--screenshot-frame="))
-                screenshotAtFrame_ = std::stoi(std::string(arg.substr(19)));
-        }
-    }
-}
-
-void VkAppBase::recordScreenshotCopy(VkCommandBuffer cmd,
-                                      VkImage srcImage,
-                                      VkExtent2D ext)
-{
-    // Transition swapchain image: PRESENT_SRC_KHR -> TRANSFER_SRC_OPTIMAL
-    VkImageMemoryBarrier toSrc{};
-    toSrc.sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    toSrc.oldLayout           = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-    toSrc.newLayout           = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-    toSrc.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    toSrc.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    toSrc.image               = srcImage;
-    toSrc.subresourceRange    = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
-    toSrc.srcAccessMask       = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-    toSrc.dstAccessMask       = VK_ACCESS_TRANSFER_READ_BIT;
-    vkCmdPipelineBarrier(cmd,
-        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-        VK_PIPELINE_STAGE_TRANSFER_BIT,
-        0, 0, nullptr, 0, nullptr, 1, &toSrc);
-
-    VkBufferImageCopy region{};
-    region.bufferOffset      = 0;
-    region.bufferRowLength   = 0;
-    region.bufferImageHeight = 0;
-    region.imageSubresource  = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
-    region.imageOffset       = { 0, 0, 0 };
-    region.imageExtent       = { ext.width, ext.height, 1 };
-    vkCmdCopyImageToBuffer(cmd, srcImage,
-                           VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                           screenshotBuffer_.get(), 1, &region);
-
-    // Transition back: TRANSFER_SRC_OPTIMAL -> PRESENT_SRC_KHR
-    VkImageMemoryBarrier toPresent = toSrc;
-    toPresent.oldLayout     = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-    toPresent.newLayout     = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-    toPresent.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-    toPresent.dstAccessMask = 0;
-    vkCmdPipelineBarrier(cmd,
-        VK_PIPELINE_STAGE_TRANSFER_BIT,
-        VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
-        0, 0, nullptr, 0, nullptr, 1, &toPresent);
-}
-
 void VkAppBase::writeScreenshotFile(VkFormat format, VkExtent2D ext) {
     auto* pixels = static_cast<uint8_t*>(screenshotBuffer_.getMapped());
-    const uint32_t w = ext.width, h = ext.height;
+    if (isBgraFormat(format)) // most surface formats are BGRA on Windows
+        swapRedBlue(pixels, static_cast<size_t>(ext.width) * ext.height);
 
-    // BGRA -> RGBA channel swap (most surface formats are BGRA on Windows)
-    const bool swapRB = (format == VK_FORMAT_B8G8R8A8_SRGB  ||
-                         format == VK_FORMAT_B8G8R8A8_UNORM ||
-                         format == VK_FORMAT_B8G8R8A8_SNORM);
-    if (swapRB) {
-        for (uint32_t i = 0; i < w * h; ++i)
-            std::swap(pixels[i * 4 + 0], pixels[i * 4 + 2]);
-    }
-
-    namespace fs = std::filesystem;
-    fs::path p(screenshotPath_);
-    if (p.has_parent_path())
-        fs::create_directories(p.parent_path());
-
-    stbi_write_png(screenshotPath_.c_str(), (int)w, (int)h, 4,
-                   pixels, (int)(w * 4));
-    std::printf("[Screenshot] Saved: %s\n", screenshotPath_.c_str());
+    if (writePng(screenshotPath_, pixels, ext.width, ext.height))
+        std::printf("[Screenshot] Saved: %s\n", screenshotPath_.c_str());
+    else
+        std::fprintf(stderr, "[Screenshot] Failed to write: %s\n", screenshotPath_.c_str());
 }
 
 void VkAppBase::requestPixelRead(uint32_t x, uint32_t y) {
@@ -649,43 +569,6 @@ bool VkAppBase::pollPixelRead(uint8_t out[4]) {
     std::memcpy(out, pixelReadResult_, 4);
     pixelReadDone_ = false;
     return true;
-}
-
-void VkAppBase::recordPixelReadCopy(VkCommandBuffer cmd, VkImage srcImage,
-                                     uint32_t x, uint32_t y)
-{
-    VkImageMemoryBarrier toSrc{};
-    toSrc.sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    toSrc.oldLayout           = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-    toSrc.newLayout           = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-    toSrc.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    toSrc.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    toSrc.image               = srcImage;
-    toSrc.subresourceRange    = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
-    toSrc.srcAccessMask       = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-    toSrc.dstAccessMask       = VK_ACCESS_TRANSFER_READ_BIT;
-    vkCmdPipelineBarrier(cmd,
-        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-        VK_PIPELINE_STAGE_TRANSFER_BIT,
-        0, 0, nullptr, 0, nullptr, 1, &toSrc);
-
-    VkBufferImageCopy region{};
-    region.imageSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
-    region.imageOffset      = { static_cast<int32_t>(x), static_cast<int32_t>(y), 0 };
-    region.imageExtent      = { 1, 1, 1 };
-    vkCmdCopyImageToBuffer(cmd, srcImage,
-                           VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                           pixelReadBuffer_.get(), 1, &region);
-
-    VkImageMemoryBarrier toPresent = toSrc;
-    toPresent.oldLayout     = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-    toPresent.newLayout     = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-    toPresent.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-    toPresent.dstAccessMask = 0;
-    vkCmdPipelineBarrier(cmd,
-        VK_PIPELINE_STAGE_TRANSFER_BIT,
-        VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
-        0, 0, nullptr, 0, nullptr, 1, &toPresent);
 }
 
 } // namespace VKG
