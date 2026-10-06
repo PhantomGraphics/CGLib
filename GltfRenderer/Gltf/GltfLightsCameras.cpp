@@ -1,4 +1,5 @@
 #include "GltfLightsCameras.h"
+#include "GltfNodeTransform.h"
 
 #define GLM_FORCE_RADIANS
 #include <glm/gtc/matrix_transform.hpp>
@@ -8,25 +9,13 @@ namespace Phantom::Gltf {
 
 namespace {
 
-// Mirrors GltfSceneRenderer::nodeLocalTransform() / GltfBounds.cpp's copy of the same -- kept as
-// a separate copy rather than shared for the same reason GltfBounds.cpp gives: GltfSceneRenderer's
-// version is a private member function, and this file is Vulkan-free by design.
-glm::mat4 nodeLocalTransform(const GltfNode& node) {
-    if (node.hasMatrix) return node.matrix;
-    glm::mat4 T = glm::translate(glm::mat4(1.f), node.translation);
-    glm::quat q(node.rotation.w, node.rotation.x, node.rotation.y, node.rotation.z);
-    glm::mat4 R = glm::mat4_cast(q);
-    glm::mat4 S = glm::scale(glm::mat4(1.f), node.scale);
-    return T * R * S;
-}
-
 void traverseNode(const GltfDocument& doc, int nodeIndex, const glm::mat4& parentTransform,
                    GltfSceneLightsCameras& out)
 {
     if (nodeIndex < 0 || nodeIndex >= static_cast<int>(doc.nodes.size())) return;
 
     const auto&     node  = doc.nodes[nodeIndex];
-    const glm::mat4 world = parentTransform * nodeLocalTransform(node);
+    const glm::mat4 world = parentTransform * nodeLocalMatrix(node);
 
     if (node.lightIndex >= 0 && node.lightIndex < static_cast<int>(doc.lights.size()))
         out.lights.push_back({ node.lightIndex, world });

@@ -308,6 +308,7 @@ function(phantom_add_gltfrenderer_core)
         ${_gltfr_root}/Gltf/GltfReader.cpp
         ${_gltfr_root}/Gltf/GltfAccessorView.cpp
         ${_gltfr_root}/Gltf/GltfBounds.cpp
+        ${_gltfr_root}/Gltf/GltfNodeTransform.cpp
         ${_gltfr_root}/Gltf/GltfLightsCameras.cpp
         ${_gltfr_root}/Gltf/SkeletonGltfConverter.cpp
         ${_gltfr_root}/Gltf/MmdAnimationBaker.cpp
@@ -330,6 +331,7 @@ function(phantom_add_gltfrenderer_core)
         ${_gltfr_root}/Renderer/GltfObjectAnimation.cpp
         ${_gltfr_root}/Renderer/GltfGlobalDescriptors.cpp
         ${_gltfr_root}/Renderer/GltfPipelineVariantPool.cpp
+        ${_gltfr_root}/Renderer/GltfPrimitiveData.cpp
         ${_gltfr_root}/Phmat/PhmatGraph.cpp
         ${_gltfr_root}/Phmat/PhmatCompiler.cpp
         ${_gltfr_root}/Phmat/PhmatReflection.cpp

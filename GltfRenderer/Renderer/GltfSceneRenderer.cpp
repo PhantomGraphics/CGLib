@@ -1,7 +1,8 @@
 ﻿#include "GltfSceneRenderer.h"
 #include "GltfMaterial.h"
 #include "../Gltf/GltfAnimationEvaluator.h"
-#include "../Gltf/GltfAccessorView.h"
+#include "GltfPrimitiveData.h"
+#include "../Gltf/GltfNodeTransform.h"
 
 #include "../../../CGLib/VulkanGraphics/VulkanContext.h"
 #include "../../../CGLib/VulkanGraphics/VulkanCommandPool.h"
@@ -133,22 +134,13 @@ void GltfSceneRenderer::updateGlobalDescriptorSets(VkDevice device) {
 //  Node traversal
 // ============================================================
 
-glm::mat4 GltfSceneRenderer::nodeLocalTransform(const GltfNode& node) const {
-    if (node.hasMatrix) return node.matrix;
-    glm::mat4 T = glm::translate(glm::mat4(1.f), node.translation);
-    glm::quat q(node.rotation.w, node.rotation.x, node.rotation.y, node.rotation.z);
-    glm::mat4 R = glm::mat4_cast(q);
-    glm::mat4 S = glm::scale(glm::mat4(1.f), node.scale);
-    return T * R * S;
-}
-
 void GltfSceneRenderer::traverseNode(const GltfDocument& doc, int nodeIndex,
                                       const glm::mat4& parentTransform,
                                       const Phantom::VKG::VulkanContext& ctx,
                                       const Phantom::VKG::VulkanCommandPool& pool)
 {
     const auto& node  = doc.nodes[nodeIndex];
-    glm::mat4   world = parentTransform * nodeLocalTransform(node);
+    glm::mat4   world = parentTransform * nodeLocalMatrix(node);
 
     if (node.meshIndex >= 0 && node.meshIndex < (int)doc.meshes.size()) {
         const auto& mesh = doc.meshes[node.meshIndex];
@@ -174,35 +166,13 @@ void GltfSceneRenderer::traverseNode(const GltfDocument& doc, int nodeIndex,
             entry->restWorld     = bakeTransform;
             entry->mesh.setKeepCpuVertices(dynamic_ || objectAnimatable);
 
-            {
-                // AABB center in accessor space -- used only for alpha-BLEND back-to-front sort
-                // ordering (onRender()), cheap enough to compute for every primitive unconditionally
-                // rather than only when this document turns out to have a BLEND material.
-                GltfAccessorView centerView(doc, prim.positionAccessor);
-                glm::vec3 mn(std::numeric_limits<float>::max());
-                glm::vec3 mx(std::numeric_limits<float>::lowest());
-                for (size_t i = 0; i < centerView.count(); ++i) {
-                    const glm::vec3 p = centerView.get<glm::vec3>(i);
-                    mn = glm::min(mn, p);
-                    mx = glm::max(mx, p);
-                }
-                entry->localCenter = (mn + mx) * 0.5f;
-            }
+            // AABB center in accessor space -- used only for alpha-BLEND back-to-front sort
+            // ordering (onRender()), cheap enough to compute for every primitive unconditionally
+            // rather than only when this document turns out to have a BLEND material.
+            entry->localCenter = accessorAabbCenter(doc, prim.positionAccessor);
 
-            if (objectAnimatable) {
-                GltfAccessorView posView(doc, prim.positionAccessor);
-                entry->localPos.resize(posView.count());
-                for (size_t i = 0; i < entry->localPos.size(); ++i)
-                    entry->localPos[i] = posView.get<glm::vec3>(i);
-                if (prim.normalAccessor >= 0) {
-                    GltfAccessorView nView(doc, prim.normalAccessor);
-                    entry->localNrm.resize(nView.count());
-                    for (size_t i = 0; i < entry->localNrm.size(); ++i)
-                        entry->localNrm[i] = nView.get<glm::vec3>(i);
-                } else {
-                    entry->localNrm.assign(entry->localPos.size(), glm::vec3(0.f, 1.f, 0.f));
-                }
-            }
+            if (objectAnimatable)
+                readPrimitiveGeometry(doc, prim, entry->localPos, entry->localNrm);
 
             if (entry->mesh.build(ctx, pool, doc, prim, bakeTransform))
                 primitives_.push_back(std::move(entry));
@@ -919,13 +889,7 @@ void GltfSceneRenderer::renderPrimitivesWithModel(VkCommandBuffer cmd, uint32_t 
     // BLEND primitive (rare in practice; re-sorting every frame from live transforms would need
     // per-primitive current-world tracking that object animation/skinning don't expose today).
     if (!blendEntries.empty()) {
-        const glm::vec3 eye = currentEyePosition();
-        std::sort(blendEntries.begin(), blendEntries.end(), [&](PrimitiveEntry* a, PrimitiveEntry* b) {
-            const glm::vec3 wa = glm::vec3(model * a->restWorld * glm::vec4(a->localCenter, 1.f));
-            const glm::vec3 wb = glm::vec3(model * b->restWorld * glm::vec4(b->localCenter, 1.f));
-            const glm::vec3 da = wa - eye, db = wb - eye;
-            return glm::dot(da, da) > glm::dot(db, db); // farthest first
-        });
+        sortFarthestFirst(blendEntries, model, currentEyePosition());
         for (PrimitiveEntry* entry : blendEntries) {
             int matIdx = materialIndexFor(entry);
             GltfGpuMaterial* mat = materials_[matIdx].get();

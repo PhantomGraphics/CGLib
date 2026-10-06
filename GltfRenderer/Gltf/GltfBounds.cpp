@@ -1,5 +1,6 @@
 #include "GltfBounds.h"
 #include "GltfAccessorView.h"
+#include "GltfNodeTransform.h"
 
 #define GLM_FORCE_RADIANS
 #include <glm/gtc/matrix_transform.hpp>
@@ -8,19 +9,6 @@
 namespace Phantom::Gltf {
 
 namespace {
-
-// Mirrors GltfSceneRenderer::nodeLocalTransform() exactly (kept as a separate copy rather than
-// shared: GltfSceneRenderer's version is a private member function, and this file is Vulkan-
-// free by design so it can run in contexts with no VulkanContext, e.g. a scenario dispatcher
-// command).
-glm::mat4 nodeLocalTransform(const GltfNode& node) {
-    if (node.hasMatrix) return node.matrix;
-    glm::mat4 T = glm::translate(glm::mat4(1.f), node.translation);
-    glm::quat q(node.rotation.w, node.rotation.x, node.rotation.y, node.rotation.z);
-    glm::mat4 R = glm::mat4_cast(q);
-    glm::mat4 S = glm::scale(glm::mat4(1.f), node.scale);
-    return T * R * S;
-}
 
 void expandByPrimitive(const GltfDocument& doc, const GltfPrimitive& prim,
                         const glm::mat4& world, GltfAabb& out)
@@ -46,7 +34,7 @@ void traverseNode(const GltfDocument& doc, int nodeIndex, const glm::mat4& paren
     if (nodeIndex < 0 || nodeIndex >= static_cast<int>(doc.nodes.size())) return;
 
     const auto&     node  = doc.nodes[nodeIndex];
-    const glm::mat4 world = parentTransform * nodeLocalTransform(node);
+    const glm::mat4 world = parentTransform * nodeLocalMatrix(node);
 
     if (node.meshIndex >= 0 && node.meshIndex < static_cast<int>(doc.meshes.size())) {
         const auto& mesh = doc.meshes[node.meshIndex];

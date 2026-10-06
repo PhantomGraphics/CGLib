@@ -535,7 +535,6 @@ namespace Phantom::Gltf
             const Phantom::VKG::VulkanContext& ctx,
             const Phantom::VKG::VulkanCommandPool& pool);
 
-        glm::mat4 nodeLocalTransform(const GltfNode& node) const;
 
         // Shared body of onRender()/renderInstances(): binds set=0 once (caller's job -- both
         // public entry points do it before their first call here), pushes `model` as the vertex
