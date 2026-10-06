@@ -125,6 +125,111 @@ std::vector<std::string> CommandDispatcher::collectResponses() {
     return out;
 }
 
+std::vector<CommandInfo> CommandDispatcher::commandCatalog() const {
+    return {
+        {"GetSceneCount", "", ""},
+        {"GetDenseSceneCount", "", ""},
+        {"GetTotalVoxelCount", "", ""},
+        {"GetVoxelCount", "", "Active sparse scene"},
+        {"GetSceneName", "", ""},
+        {"ClearWorld", "", ""},
+        {"GetPolygonCount", "", ""},
+        {"ResetCamera", "", ""},
+        {"GetCameraDistance", "", ""},
+        {"SetActiveScene", "index", "Select the active sparse scene (by list index)"},
+        {"SetActiveDenseScene", "index", "Select the active dense scene (by list index)"},
+        {"CreateSphere", "cx:cy:cz:radius:cell", "Sparse SDF sphere"},
+        {"CreateBox", "minX:minY:minZ:maxX:maxY:maxZ:cell", "Sparse SDF box"},
+        {"CSGCombine", "op:idxA:idxB", "op = Union|Intersection|Difference"},
+        {"Resample", "cell", ""},
+        {"MarchingCubes", "isoLevel", ""},
+        {"CreateDenseBox", "minX:minY:minZ:maxX:maxY:maxZ:resX:resY:resZ", ""},
+        {"DenseFromSparse", "voxelSize", ""},
+        {"DenseMarchingCubes", "isoLevel", ""},
+        {"DeleteDense", "id", ""},
+        {"SetShowVolumeGrid", "0|1", ""},
+        {"SetShowVectorField", "0|1", ""},
+        {"Screenshot", "path", "Save a PNG"},
+        {"GetPixelColor", "x,y", "Deferred answer (next frame)"},
+        {"GetPixelBrightness", "x,y", "Deferred answer (next frame)"},
+        {"DumpPBVRParticleRadiance", "path", ""},
+        {"SetPBVRRenderMode", "0|1|2", "Points|PBVR|Both"},
+        {"SetPBVRUseGPU", "0|1", ""},
+        {"SetPBVRParticleSize", "float", ""},
+        {"SetPBVRDensityScale", "float", ""},
+        {"SetPBVRCameraDistance", "float", ""},
+        {"SetPBVRCameraTarget", "x:y:z", ""},
+        {"SetPBVRCameraFov", "float", ""},
+        {"SetPBVRCameraAngles", "azimuth:elevation", ""},
+        {"SetPBVRMultipleScattering", "0|1", ""},
+        {"SetPBVRScatteringOrders", "int", ""},
+        {"SetPBVRProbeCount", "int", ""},
+        {"SetPBVRProbeRadius", "float", ""},
+        {"SetPBVRPhaseG", "float", ""},
+        {"SetPBVRScatteringAlbedo", "float", ""},
+        {"SetPBVRProbeSourceBudget", "int", ""},
+        {"SetPBVRScatteringSHDegree", "int", ""},
+        {"SetPBVRScatteringExposure", "float", ""},
+        {"SetPBVRTFPreset", "int", ""},
+        {"SetPBVRShadowEnabled", "0|1", ""},
+        {"GetPBVRShadowEnabled", "", ""},
+        {"SetPBVRLightDir", "azimuth:elevation", ""},
+        {"SetPBVRExtinction", "float", ""},
+        {"SetPBVRShadowLayers", "int", ""},
+        {"SetPBVRShadowMapSize", "int", ""},
+        {"GetPBVRMeanScatteredRadiance", "", ""},
+        {"GetPBVRMeanIndirectRadiance", "", ""},
+        {"GetPBVRMeanSunTransmittance", "", ""},
+        {"GetPBVRScatteringSolveMs", "", ""},
+    };
+}
+
+std::string CommandDispatcher::cmdCheckCommandCatalog() {
+    // Probe with junk arguments of the right arity ("name:x:x..."): a routed name
+    // answers with its own validation error, only an unrouted one says "unknown
+    // command". Every collaborator is detached (and the world swapped for a scratch
+    // one), so a probe cannot touch real state. Screenshot / Dump are skipped:
+    // they write files.
+    World scratch;
+    World* const sWorld = world_;
+    int* const sActive = pActiveSceneId_;
+    int* const sDense = pActiveDenseSceneId_;
+    auto sRebuild = std::move(onRebuild_);
+    auto sCameraReset = std::move(onCameraReset_);
+    SparseVolumeRenderer* const sPoint = pointRenderer_;
+    DenseVolumeRenderer* const sDenseR = denseRenderer_;
+    VectorFieldRenderer* const sLine = lineRenderer_;
+    MenuPanel* const sMenu = menuPanel_;
+    Phantom::Volume::PBVRRenderer* const sPbvr = pbvrRenderer_;
+    ::VKG::VkAppBase* const sApp = app_;
+    world_ = &scratch; pActiveSceneId_ = nullptr; pActiveDenseSceneId_ = nullptr;
+    onRebuild_ = nullptr; onCameraReset_ = nullptr;
+    pointRenderer_ = nullptr; denseRenderer_ = nullptr; lineRenderer_ = nullptr;
+    menuPanel_ = nullptr; pbvrRenderer_ = nullptr; app_ = nullptr;
+
+    std::string missing;
+    for (const auto& c : commandCatalog()) {
+        if (c.name == "Screenshot" || c.name == "DumpPBVRParticleRadiance") continue;
+        std::string probe = c.name;
+        if (!c.args.empty()) {
+            const bool comma = c.args.find(',') != std::string::npos && c.args.find(':') == std::string::npos;
+            size_t tokens = 1;
+            for (char ch : c.args) if (ch == ':') ++tokens;
+            probe += ":";
+            for (size_t i = 0; i < tokens; ++i) probe += (i ? (comma ? "," : ":") : "") + std::string("x");
+            if (comma) probe = c.name + ":x,x";
+        }
+        if (route(probe).rfind("Error:unknown command", 0) == 0)
+            missing += (missing.empty() ? "" : ",") + c.name;
+    }
+
+    world_ = sWorld; pActiveSceneId_ = sActive; pActiveDenseSceneId_ = sDense;
+    onRebuild_ = std::move(sRebuild); onCameraReset_ = std::move(sCameraReset);
+    pointRenderer_ = sPoint; denseRenderer_ = sDenseR; lineRenderer_ = sLine;
+    menuPanel_ = sMenu; pbvrRenderer_ = sPbvr; app_ = sApp;
+    return missing.empty() ? "OK" : "Error:unrouted catalog entries: " + missing;
+}
+
 void CommandDispatcher::processQueue() {
     // If a pixel read is pending, check whether the result is available before processing
     // any new commands from the input queue.
@@ -159,7 +264,9 @@ void CommandDispatcher::processQueue() {
     while (!local.empty()) {
         std::string cmd = std::move(local.front());
         local.pop();
+        const bool fromUi = takeUiMark(cmd);
         std::string resp = route(cmd);
+        if (fromUi) continue;
 
         if (pixelReadPending_) {
             // GetPixelColor/GetPixelBrightness was just dispatched; re-queue any remaining
@@ -185,6 +292,8 @@ void CommandDispatcher::processQueue() {
 // ============================================================
 
 std::string CommandDispatcher::route(const std::string& cmd) {
+    if (cmd == "CheckCommandCatalog") return cmdCheckCommandCatalog();
+
     // --- Simple query / action commands ---
 
     if (cmd == "GetSceneCount") {

@@ -24,6 +24,54 @@ std::vector<std::string> CommandDispatcher::collectResponses()
     return out;
 }
 
+std::vector<CommandInfo> CommandDispatcher::commandCatalog() const
+{
+    return {
+        {"Play", "", ""},
+        {"Stop", "", ""},
+        {"Reset", "", "Back to time 0, stopped"},
+        {"GetTime", "", ""},
+        {"SetTime", "seconds", ""},
+        {"SetSpeed", "float", "Playback speed multiplier"},
+        {"SetLoop", "0|1", ""},
+        {"SetVisible", "Bones|Mesh:0|1", ""},
+        {"WaitFrames", "n", ""},
+        {"LoadPMX", "path", "Load a PMX model"},
+        {"LoadVMD", "path", "Load a VMD motion"},
+        {"SetIKEnabled", "0|1", "No live effect (IK is baked at load time)"},
+        {"GetIKCount", "", ""},
+        {"GetMorphCount", "", ""},
+        {"GetBoneCount", "", ""},
+        {"GetVertCount", "", ""},
+        {"GetSubMeshCount", "", ""},
+        {"SetUseIBL", "0|1", ""},
+        {"GetUseIBL", "", ""},
+        {"LoadEnvironmentHDR", "path", ""},
+        {"ClearEnvironmentHDR", "", ""},
+        {"GetHasEnvironmentHDR", "", ""},
+    };
+}
+
+std::string CommandDispatcher::cmdCheckCommandCatalog()
+{
+    // Probe against a scratch world and without the app, so Play/LoadPMX/... cannot
+    // touch the real state; only an unrouted name answers "UnknownCommand".
+    World scratch;
+    World* const savedWorld = world_;
+    AnimationViewApp* const savedApp = app_;
+    world_ = &scratch;
+    app_ = nullptr;
+    std::string missing;
+    for (const auto& c : commandCatalog()) {
+        const std::string probe = c.args.empty() ? c.name : c.name + ":x";
+        if (route(probe).rfind("ERROR:UnknownCommand", 0) == 0)
+            missing += (missing.empty() ? "" : ",") + c.name;
+    }
+    world_ = savedWorld;
+    app_ = savedApp;
+    return missing.empty() ? "OK" : "ERROR:unrouted catalog entries: " + missing;
+}
+
 void CommandDispatcher::processQueue()
 {
     std::string cmd;
@@ -33,7 +81,9 @@ void CommandDispatcher::processQueue()
         cmd = inputQueue_.front();
         inputQueue_.pop();
     }
+    const bool fromUi = takeUiMark(cmd);
     const std::string response = route(cmd);
+    if (fromUi) return;
     {
         std::lock_guard<std::mutex> lock(mutex_);
         outputQueue_.push(response);
@@ -45,6 +95,14 @@ std::string CommandDispatcher::route(const std::string& cmd)
     if (!world_) return "ERROR:NoWorld";
 
     const std::string_view sv(cmd);
+
+    if (sv == "CheckCommandCatalog") return cmdCheckCommandCatalog();
+    if (sv.starts_with("SetLoop:")) {
+        const auto val = sv.substr(8);
+        if (val != "0" && val != "1") return "ERROR:BadValue";
+        world_->loop = (val == "1");
+        return "OK:SetLoop";
+    }
 
     if (sv == "Play") {
         world_->playing = true;

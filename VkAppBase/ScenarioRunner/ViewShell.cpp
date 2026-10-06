@@ -4,6 +4,7 @@
 #include "imgui_internal.h"
 
 #include <algorithm>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 
@@ -162,6 +163,11 @@ void ViewShell::drawViewMenu() {
 
 // ---- Command window -------------------------------------------------------
 
+void ViewShell::showScenarioInput(const std::string& cmd) {
+    std::snprintf(input_, sizeof(input_), "%s", cmd.c_str());
+    scenarioEcho_ = true;
+}
+
 void ViewShell::submitLine(const std::string& text, bool fromScenario) {
     std::string cmd;
     const auto catalog = dispatcher_ ? dispatcher_->commandCatalog() : std::vector<CommandInfo>{};
@@ -224,20 +230,24 @@ void ViewShell::drawCommand() {
     }
     ImGui::EndChild();
 
-    if (scenarioActive_) ImGui::TextDisabled("Scenario running - manual input disabled");
-    ImGui::BeginDisabled(scenarioActive_);
+    if (scenarioActive_) ImGui::TextDisabled("Scenario running - commands are entered below by the scenario");
+    // A scenario types its commands into this very input line (read-only for the
+    // user meanwhile, not greyed out), so what you see is what is executed.
+    if (scenarioEcho_) ImGui::ClearActiveID();   // let the externally set text show
     InputCtx ctx{&model_, dispatcher_ ? dispatcher_->commandCatalog() : std::vector<CommandInfo>{}};
     ImGui::SetNextItemWidth(-1.f);
-    if (focusInput_) { ImGui::SetKeyboardFocusHere(); focusInput_ = false; }
-    constexpr ImGuiInputTextFlags flags = ImGuiInputTextFlags_EnterReturnsTrue |
+    if (focusInput_ && !scenarioActive_) { ImGui::SetKeyboardFocusHere(); focusInput_ = false; }
+    ImGuiInputTextFlags flags = ImGuiInputTextFlags_EnterReturnsTrue |
         ImGuiInputTextFlags_CallbackHistory | ImGuiInputTextFlags_CallbackCompletion;
+    if (scenarioActive_) flags |= ImGuiInputTextFlags_ReadOnly;
     if (ImGui::InputTextWithHint("##cmd", "command (help, Tab = complete)", input_, sizeof(input_),
-                                 flags, inputCallback, &ctx)) {
+                                 flags, inputCallback, &ctx) && !scenarioActive_) {
         submitLine(input_);
         input_[0] = '\0';
         focusInput_ = true;
     }
-    ImGui::EndDisabled();
+    // The line stays until the command's response came back, then it is "sent" (empty again).
+    if (scenarioEcho_ && model_.pending() == 0) { input_[0] = '\0'; scenarioEcho_ = false; }
     endPanel();
 }
 

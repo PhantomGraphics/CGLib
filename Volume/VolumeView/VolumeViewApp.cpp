@@ -2,6 +2,10 @@
 
 namespace VolumeView {
 
+namespace {
+constexpr uint64_t kDenseIdBase = 0x100000000ull;  // outliner id space: sparse = scene id, dense = base + id
+}
+
 VolumeViewApp::VolumeViewApp()
     : ::VKG::VkAppBase(1280, 720, "VolumeView")
 {
@@ -32,7 +36,37 @@ VolumeViewApp::VolumeViewApp()
     add(&pbvrRenderer_);
     add(&meshRenderer_);
     add(&menuPanel_);
-    add(&scenarioBrowser_);
+
+    // Standard screen: render area + menu + Command + Outliner; the rest is
+    // opened from the View menu / outliner.
+    shell_.setDispatcher(&dispatcher_);
+    shell_.registerPanel("VolumeView Control", {0.70f, 0.00f, 0.30f, 0.66f});
+    shell_.registerPanel("Scenario Browser", {0.30f, 0.05f, 0.40f, 0.55f});
+    shell_.setOutlinerProvider([this] {
+        std::vector<ViewShell::OutlinerItem> items;
+        for (const auto& s : world_.getScenes()) {
+            const int voxels = s->getShape() ? static_cast<int>(s->getShape()->getActiveVoxelCount()) : 0;
+            items.push_back({static_cast<uint64_t>(s->getId()),
+                             "Sparse: " + s->getName() + " (" + std::to_string(voxels) + " voxels)",
+                             "VolumeView Control", s->getId() == activeSceneId_ ? 1 : 0});
+        }
+        for (const auto& s : world_.getDenseScenes())
+            items.push_back({kDenseIdBase + static_cast<uint64_t>(s->getId()),
+                             "Dense: " + s->getName(), "VolumeView Control",
+                             s->getId() == activeDenseSceneId_ ? 1 : 0});
+        return items;
+    });
+    shell_.setSelectionHandler([this](uint64_t id) {
+        if (id >= kDenseIdBase) activeDenseSceneId_ = static_cast<int>(id - kDenseIdBase);
+        else                    activeSceneId_      = static_cast<int>(id);
+    });
+    menuPanel_.setShell(&shell_);
+    // The control window and the Scenario Browser draw through the shell in onImGui().
+}
+
+void VolumeViewApp::onImGuiReady() {
+    // Context exists, imgui.ini is not read until the first frame.
+    shell_.installSettings();
 }
 
 bool VolumeViewApp::loadScenario(const std::string& jsonPath) {
@@ -129,9 +163,16 @@ void VolumeViewApp::onSwapChainCreated() {
 void VolumeViewApp::onUpdate(uint32_t frameIndex) {
     dispatcher_.processQueue();
 
+    // Single place that collects responses: first the ones for commands typed
+    // into the Command window (scenario commands included -- they run through
+    // it too), the rest go to the running scenario.
+    auto responses = dispatcher_.collectResponses();
+    shell_.consumeResponses(responses);
+    shell_.setScenarioActive(runner_.isActive());
+    menuPanel_.setLocked(runner_.isActive());
+
     if (runner_.isActive()) {
-        auto responses = dispatcher_.collectResponses();
-        if (runner_.tick(dispatcher_, responses)) {
+        if (runner_.tick(shell_.scenarioDispatcher(), responses)) {
             if (runner_.hasFailed()) {
                 fprintf(stderr, "[Scenario] FAILED: %s\n", runner_.failMessage().c_str());
                 exitCode_ = 1;
@@ -160,9 +201,16 @@ void VolumeViewApp::onImGui() {
             ImGui::EndMenu();
         }
         menuPanel_.onImGuiMenuBar();
+        shell_.drawViewMenu();
         ImGui::EndMainMenuBar();
     }
+    shell_.drawWindows();
     ::VKG::VkAppBase::onImGui();
+    scenarioBrowser_.pumpQueue();
+    if (shell_.beginPanel("Scenario Browser")) {
+        scenarioBrowser_.drawEmbedded();
+        shell_.endPanel();
+    }
 }
 
 void VolumeViewApp::onCleanup() {
@@ -180,9 +228,12 @@ void VolumeViewApp::notifyAll() {
 void VolumeViewApp::setupCallbacks() {
     auto& win = getWindow();
 
+    // Camera input is ignored while ImGui owns the mouse and while a scenario
+    // runs; a release is always forwarded so a drag can end.
     win.onMouseButton = [this](int button, int action, int) {
-        if (button == 0)
-            pointRenderer_.handleMouseButton(action == 1);
+        if (button != 0) return;
+        if (action == 1 && (ImGui::GetIO().WantCaptureMouse || runner_.isActive())) return;
+        pointRenderer_.handleMouseButton(action == 1);
     };
 
     win.onCursorPos = [this](double x, double y) {
@@ -203,6 +254,7 @@ void VolumeViewApp::setupCallbacks() {
     };
 
     win.onScroll = [this](double, double yOffset) {
+        if (ImGui::GetIO().WantCaptureMouse || runner_.isActive()) return;
         pointRenderer_.handleScroll(yOffset);
         denseRenderer_.syncCamera(pointRenderer_.getCameraState());
         lineRenderer_.syncCamera(pointRenderer_.getCameraState());

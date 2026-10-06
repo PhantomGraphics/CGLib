@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include "../../VkAppBase/ScenarioRunner/IScenarioDispatcher.h"
+#include "../../VkAppBase/ScenarioRunner/UiCommand.h"
 #include "World.h"
 #include "SparseVolumeRenderer.h"
 #include "DenseVolumeRenderer.h"
@@ -37,9 +38,15 @@ public:
 
     void dispatch(const std::string& command) override;
     std::vector<std::string> collectResponses() override;
+    std::vector<CommandInfo> commandCatalog() const override;
+
+    // GUI operations take the same queue and handlers as typed commands; the
+    // response is discarded (see UiCommand.h).
+    void submitUi(const std::string& cmd) { dispatch(markUiCommand(cmd)); }
 
 private:
     std::string route(const std::string& cmd);
+    std::string cmdCheckCommandCatalog();
 
     std::string cmdCreateSphere(float cx, float cy, float cz, float radius, float cell);
     std::string cmdCreateBox(float minX, float minY, float minZ,

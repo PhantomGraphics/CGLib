@@ -8,6 +8,7 @@
 #include <memory>
 
 namespace Phantom::Volume { class PBVRRenderer; }
+class ViewShell;
 
 namespace VolumeView {
 
@@ -30,6 +31,10 @@ public:
               std::function<void()>   onCameraReset);
 
     void onImGuiMenuBar();
+
+    // "VolumeView Control" is a shell panel (hidden until opened from View / outliner).
+    void setShell(ViewShell* s) { shell_ = s; }
+    void setLocked(bool v) { locked_ = v; }   // scenario running: controls shown but disabled
     void onImGui() override;
 
     void setActiveProcessView(IVolumeProcessView* view);
@@ -47,6 +52,8 @@ public:
     int  getRenderMode() const   { return static_cast<int>(renderMode_); }
 
 private:
+    ViewShell* shell_ = nullptr;
+    bool locked_ = false;
     World* world_ = nullptr;
     int*         pId_   = nullptr;
     int*         pDenseId_ = nullptr;

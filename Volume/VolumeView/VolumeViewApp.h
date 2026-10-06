@@ -4,6 +4,7 @@
 #include "../../VkAppBase/ScenarioRunner/ScenarioRunner.h"
 #include "../../VkAppBase/ScenarioRunner/IScenarioHost.h"
 #include "../../VkAppBase/ScenarioRunner/ScenarioBrowserPanel.h"
+#include "../../VkAppBase/ScenarioRunner/ViewShell.h"
 #include "SparseVolumeRenderer.h"
 #include "DenseVolumeRenderer.h"
 #include "VectorFieldRenderer.h"
@@ -39,6 +40,7 @@ protected:
     void onUpdate(uint32_t frameIndex)   override;
     void onPreRender(VkCommandBuffer cmd, uint32_t frameIndex) override;
     void onImGui()                       override;
+    void onImGuiReady()                  override;
     void onCleanup()                     override;
 
 private:
@@ -53,6 +55,7 @@ private:
     MeshOverlayRenderer     meshRenderer_;
     SceneListPanel      sceneListPanel_;
     MenuPanel           menuPanel_;
+    ViewShell           shell_;   // Command / Outliner windows
     CommandDispatcher dispatcher_;
     ScenarioRunner            runner_;
     ScenarioBrowserPanel      scenarioBrowser_;

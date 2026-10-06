@@ -26,6 +26,14 @@ static std::filesystem::path u8ToPath(const std::string& utf8)
     return std::filesystem::path(std::u8string(utf8.begin(), utf8.end()));
 }
 
+// File name part of a UTF-8 path, without going through a narrow-string conversion
+// (path::string() can fail for non-ANSI names on Windows).
+static std::string baseName(const std::string& utf8)
+{
+    const auto pos = utf8.find_last_of("/\\");
+    return pos == std::string::npos ? utf8 : utf8.substr(pos + 1);
+}
+
 // ============================================================
 //  AnimationViewApp
 // ============================================================
@@ -40,8 +48,34 @@ AnimationViewApp::AnimationViewApp(int w, int h, const std::string& title)
 
     panel_.init(&world_);
     panel_.setApp(this);
-    add(&panel_);
-    add(&scenarioBrowser_);
+
+    // Standard screen: render area + menu + Command + Outliner; the rest is
+    // opened from the View menu / outliner.
+    shell_.setDispatcher(&dispatcher_);
+    shell_.registerPanel("Animation", {0.70f, 0.00f, 0.30f, 0.50f});
+    shell_.registerPanel("PMX Debug", {0.60f, 0.50f, 0.40f, 0.30f});
+    shell_.registerPanel("Scenario Browser", {0.30f, 0.05f, 0.40f, 0.55f});
+    shell_.setOutlinerProvider([this] {
+        std::vector<ViewShell::OutlinerItem> items;
+        if (!world_.loadedModelPath.empty())
+            items.push_back({1, "Model: " + baseName(world_.loadedModelPath) +
+                                " (" + std::to_string(world_.boneCount) + " bones, " +
+                                std::to_string(world_.vertCount) + " verts)", "Animation"});
+        if (!world_.loadedMotionPath.empty())
+            items.push_back({2, "Motion: " + baseName(world_.loadedMotionPath), "Animation"});
+        if (world_.loadDebug.attempted)
+            items.push_back({3, world_.loadDebug.success ? "Load: OK" : "Load: FAILED", "PMX Debug"});
+        return items;
+    });
+    panel_.setShell(&shell_);
+    panel_.setSubmit([this](const std::string& c) { dispatcher_.submitUi(c); });
+    // The panels and the Scenario Browser draw through the shell in onImGui().
+}
+
+void AnimationViewApp::onImGuiReady()
+{
+    // Context exists, imgui.ini is not read until the first frame.
+    shell_.installSettings();
 }
 
 bool AnimationViewApp::loadScenario(const std::string& jsonPath)
@@ -116,9 +150,16 @@ void AnimationViewApp::onUpdate(uint32_t frameIndex)
 {
     dispatcher_.processQueue();
 
+    // Single place that collects responses: first the ones for commands typed
+    // into the Command window (scenario commands included -- they run through
+    // it too), the rest go to the running scenario.
+    auto responses = dispatcher_.collectResponses();
+    shell_.consumeResponses(responses);
+    shell_.setScenarioActive(runner_.isActive());
+    panel_.setLocked(runner_.isActive());
+
     if (runner_.isActive()) {
-        auto responses = dispatcher_.collectResponses();
-        if (runner_.tick(dispatcher_, responses)) {
+        if (runner_.tick(shell_.scenarioDispatcher(), responses)) {
             if (runner_.hasFailed()) {
                 std::fprintf(stderr, "[Scenario] FAILED: %s\n", runner_.failMessage().c_str());
                 exitCode_ = 1;
@@ -143,7 +184,21 @@ void AnimationViewApp::onUpdate(uint32_t frameIndex)
 
 void AnimationViewApp::onImGui()
 {
+    if (ImGui::BeginMainMenuBar()) {
+        if (ImGui::BeginMenu("File")) {
+            if (ImGui::MenuItem("Quit")) getWindow().close();
+            ImGui::EndMenu();
+        }
+        shell_.drawViewMenu();
+        ImGui::EndMainMenuBar();
+    }
+    shell_.drawWindows();
     ::VKG::VkAppBase::onImGui();
+    scenarioBrowser_.pumpQueue();
+    if (shell_.beginPanel("Scenario Browser")) {
+        scenarioBrowser_.drawEmbedded();
+        shell_.endPanel();
+    }
 }
 
 void AnimationViewApp::onCleanup()
@@ -291,13 +346,18 @@ void AnimationViewApp::tryLoadModel()
 void AnimationViewApp::setupWindowCallbacks()
 {
     auto& win = getWindow();
+    // Camera input is ignored while ImGui owns the mouse and while a scenario
+    // runs; a release is always forwarded so a drag can end.
     win.onMouseButton = [this](int button, int action, int) {
-        if (button == 0) sceneRenderer_.handleMouseButton(action == 1);
+        if (button != 0) return;
+        if (action == 1 && (ImGui::GetIO().WantCaptureMouse || runner_.isActive())) return;
+        sceneRenderer_.handleMouseButton(action == 1);
     };
     win.onCursorPos = [this](double x, double y) {
         sceneRenderer_.handleMouseMove(x, y);
     };
     win.onScroll = [this](double, double dy) {
+        if (ImGui::GetIO().WantCaptureMouse || runner_.isActive()) return;
         sceneRenderer_.handleScroll(dy);
     };
 }
