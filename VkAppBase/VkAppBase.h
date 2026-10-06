@@ -210,10 +210,7 @@ private:
     void recreateSwapChain();
     void cleanup();
 
-    void parseScreenshotArgs(int argc, char* argv[]);
-    void recordScreenshotCopy(VkCommandBuffer cmd, VkImage srcImage, VkExtent2D ext);
     void writeScreenshotFile(VkFormat format, VkExtent2D ext);
-    void recordPixelReadCopy(VkCommandBuffer cmd, VkImage srcImage, uint32_t x, uint32_t y);
 };
 
 } // namespace VKG

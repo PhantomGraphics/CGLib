@@ -222,6 +222,7 @@ function(phantom_add_vkappbase_core)
         ${CGLIB_ROOT}/VkAppBase/VkAppBase.cpp
         ${CGLIB_ROOT}/VkAppBase/VkRendererBase.cpp
         ${CGLIB_ROOT}/VkAppBase/VulkanWindow.cpp
+        ${CGLIB_ROOT}/VkAppBase/ScreenshotCapture.cpp
         ${CGLIB_ROOT}/VkAppBase/ScenarioRunner/ScenarioRunner.cpp
         ${CGLIB_ROOT}/VkAppBase/ScenarioRunner/ScenarioBrowserPanel.cpp
         ${CGLIB_ROOT}/VkAppBase/ScenarioRunner/ViewShell.cpp
@@ -239,6 +240,11 @@ function(phantom_add_vkappbase_core)
     target_link_libraries(VkAppBaseCore PUBLIC VulkanGraphicsCore UIWidgetsCore)
     target_compile_options(VkAppBaseCore PRIVATE ${PHANTOM_WARN_FLAGS})
     target_compile_features(VkAppBaseCore PUBLIC cxx_std_20)
+    if(PHANTOM_GTEST_FOUND)
+        cglib_add_test(VkAppBaseTest
+            SOURCES ${CGLIB_ROOT}/VkAppBase/VkAppBaseTest/ScreenshotCaptureTest.cpp
+            LINK VkAppBaseCore ${PHANTOM_VULKAN_LIBRARY} ${PHANTOM_GLFW_LIBRARY})
+    endif()
 endfunction()
 
 # ---------------------------------------------------------------------------
