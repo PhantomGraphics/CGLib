@@ -148,7 +148,6 @@ target_link_libraries(VolumeView PRIVATE
     VolumeRenderer
     FileCore
     NumericsCore
-    SceneCore
     VkAppBaseCore
     VkRendererCore
     ${PHANTOM_VULKAN_LIBRARY}
