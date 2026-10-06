@@ -23,6 +23,7 @@
 
 #include "VulkanWindow.h"
 #include "IVkSubRenderer.h"
+#include "FrameSync.h"
 
 #include "../../CGLib/VulkanGraphics/VulkanContext.h"
 #include "../../CGLib/VulkanGraphics/VulkanSwapChain.h"
@@ -176,10 +177,7 @@ private:
     VulkanRenderPass  renderPass_;
 
     std::vector<VkCommandBuffer> commandBuffers_;
-    std::vector<VkSemaphore>     imageAvailableSemaphores_;
-    std::vector<VkSemaphore>     renderFinishedSemaphores_;
-    std::vector<VkFence>         inFlightFences_;
-    std::vector<VkFence>         imagesInFlightFences_;
+    FrameSync                    sync_;
     uint32_t currentFrame_ = 0;
     int      frameCount_   = 0;
 
@@ -203,8 +201,6 @@ private:
     bool initVulkan();
     void initImGui();
     void cleanupImGui();
-    bool createSyncObjects();
-    void destroySyncObjects();
     bool mainLoop();
     bool drawFrame();
     void recreateSwapChain();

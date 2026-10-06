@@ -145,7 +145,7 @@ bool VkAppBase::initVulkan() {
     if (!swapChain_.createDepthAndFramebuffers(renderPass_.get())) return false;
 
     commandBuffers_ = commandPool_.allocateCommandBuffers(MAX_FRAMES_IN_FLIGHT);
-    return createSyncObjects();
+    return sync_.create(context_.getDevice(), MAX_FRAMES_IN_FLIGHT, swapChain_.getImageCount());
 }
 
 // ============================================================
@@ -204,57 +204,6 @@ void VkAppBase::cleanupImGui() {
     imguiInitialized_ = false;
 }
 
-bool VkAppBase::createSyncObjects() {
-    imageAvailableSemaphores_.resize(MAX_FRAMES_IN_FLIGHT);
-    renderFinishedSemaphores_.resize(swapChain_.getImageCount());
-    inFlightFences_.resize(MAX_FRAMES_IN_FLIGHT);
-    imagesInFlightFences_.assign(swapChain_.getImageCount(), VK_NULL_HANDLE);
-
-    VkSemaphoreCreateInfo si{};
-    si.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-
-    VkFenceCreateInfo fi{};
-    fi.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-    fi.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-
-    for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
-        if (vkCreateSemaphore(context_.getDevice(), &si, nullptr, &imageAvailableSemaphores_[i]) != VK_SUCCESS ||
-            vkCreateFence(context_.getDevice(), &fi, nullptr, &inFlightFences_[i]) != VK_SUCCESS)
-        {
-            std::fprintf(stderr, "[VKG] Failed to create synchronization objects\n");
-            return false;
-        }
-    }
-
-    for (size_t i = 0; i < renderFinishedSemaphores_.size(); ++i) {
-        if (vkCreateSemaphore(context_.getDevice(), &si, nullptr, &renderFinishedSemaphores_[i]) != VK_SUCCESS) {
-            std::fprintf(stderr, "[VKG] Failed to create render-finished semaphores\n");
-            return false;
-        }
-    }
-    return true;
-}
-
-void VkAppBase::destroySyncObjects() {
-    VkDevice device = context_.getDevice();
-    if (!device) return;
-
-    for (auto sem : imageAvailableSemaphores_) {
-        if (sem) vkDestroySemaphore(device, sem, nullptr);
-    }
-    for (auto sem : renderFinishedSemaphores_) {
-        if (sem) vkDestroySemaphore(device, sem, nullptr);
-    }
-    for (auto fence : inFlightFences_) {
-        if (fence) vkDestroyFence(device, fence, nullptr);
-    }
-
-    imageAvailableSemaphores_.clear();
-    renderFinishedSemaphores_.clear();
-    inFlightFences_.clear();
-    imagesInFlightFences_.clear();
-}
-
 // ============================================================
 //  Main loop
 // ============================================================
@@ -294,13 +243,14 @@ bool VkAppBase::drawFrame() {
         return value && std::strcmp(value, "1") == 0;
     }();
     VkDevice device = context_.getDevice();
+    VkFence  frameFence = sync_.inFlight(currentFrame_);
 
-    vkWaitForFences(device, 1, &inFlightFences_[currentFrame_], VK_TRUE, UINT64_MAX);
+    vkWaitForFences(device, 1, &frameFence, VK_TRUE, UINT64_MAX);
 
     uint32_t imageIndex;
     VkResult result = vkAcquireNextImageKHR(device, swapChain_.getSwapChain(),
                                              UINT64_MAX,
-                                             imageAvailableSemaphores_[currentFrame_],
+                                             sync_.imageAvailable(currentFrame_),
                                              VK_NULL_HANDLE, &imageIndex);
 
     if (result == VK_ERROR_OUT_OF_DATE_KHR) {
@@ -311,14 +261,10 @@ bool VkAppBase::drawFrame() {
         return false;
     }
 
-    if (imageIndex < imagesInFlightFences_.size() && imagesInFlightFences_[imageIndex] != VK_NULL_HANDLE) {
-        vkWaitForFences(device, 1, &imagesInFlightFences_[imageIndex], VK_TRUE, UINT64_MAX);
-    }
-    if (imageIndex < imagesInFlightFences_.size()) {
-        imagesInFlightFences_[imageIndex] = inFlightFences_[currentFrame_];
-    }
+    if (VkFence prev = sync_.claimImage(imageIndex, frameFence))
+        vkWaitForFences(device, 1, &prev, VK_TRUE, UINT64_MAX);
 
-    vkResetFences(device, 1, &inFlightFences_[currentFrame_]);
+    vkResetFences(device, 1, &frameFence);
 
     // --- ImGui frame start (before command recording) ---
     if (imguiInitialized_ && !benchmarkNoGui) {
@@ -414,8 +360,8 @@ bool VkAppBase::drawFrame() {
     vkEndCommandBuffer(cmd);
 
     // Submit
-    VkSemaphore          waitSems[]   = { imageAvailableSemaphores_[currentFrame_] };
-    VkSemaphore          signalSems[] = { renderFinishedSemaphores_[imageIndex] };
+    VkSemaphore          waitSems[]   = { sync_.imageAvailable(currentFrame_) };
+    VkSemaphore          signalSems[] = { sync_.renderFinished(imageIndex) };
     VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
 
     VkSubmitInfo si{};
@@ -428,13 +374,13 @@ bool VkAppBase::drawFrame() {
     si.signalSemaphoreCount = 1;
     si.pSignalSemaphores    = signalSems;
 
-    if (vkQueueSubmit(context_.getGraphicsQueue(), 1, &si, inFlightFences_[currentFrame_]) != VK_SUCCESS) {
+    if (vkQueueSubmit(context_.getGraphicsQueue(), 1, &si, frameFence) != VK_SUCCESS) {
         std::fprintf(stderr, "[VKG] Failed to submit draw command buffer\n");
         return false;
     }
 
     if (syncRenderTiming) {
-        if (vkWaitForFences(device, 1, &inFlightFences_[currentFrame_], VK_TRUE, UINT64_MAX) != VK_SUCCESS) {
+        if (vkWaitForFences(device, 1, &frameFence, VK_TRUE, UINT64_MAX) != VK_SUCCESS) {
             std::fprintf(stderr, "[VKG] Failed to wait for benchmark render completion\n");
             return false;
         }
@@ -495,8 +441,7 @@ void VkAppBase::recreateSwapChain() {
     onSwapChainDestroying();
     swapChain_.recreate(renderPass_.get(),
         [this]() { window_.waitEvents(); });
-    destroySyncObjects();
-    createSyncObjects();
+    sync_.create(context_.getDevice(), MAX_FRAMES_IN_FLIGHT, swapChain_.getImageCount());
     if (imguiInitialized_)
         ImGui_ImplVulkan_SetMinImageCount(MAX_FRAMES_IN_FLIGHT);
     onSwapChainCreated();
@@ -519,7 +464,7 @@ void VkAppBase::cleanup() {
     if (pixelReadBuffer_.isValid())
         pixelReadBuffer_.destroy(context_.getDevice());
 
-    destroySyncObjects();
+    sync_.destroy(context_.getDevice());
 
     commandPool_.freeCommandBuffers(commandBuffers_);
     swapChain_.destroy();
