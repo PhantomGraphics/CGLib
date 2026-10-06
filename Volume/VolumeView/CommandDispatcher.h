@@ -11,6 +11,7 @@
 
 #include <functional>
 #include <mutex>
+#include <optional>
 #include <queue>
 #include <string>
 #include <vector>
@@ -47,6 +48,8 @@ public:
 
 private:
     std::string route(const std::string& cmd);
+    // PBVR renderer commands (CommandPbvr.cpp); nullopt = not one of them.
+    std::optional<std::string> routePbvr(const std::string& cmd, const std::vector<std::string>& parts);
     std::string cmdCheckCommandCatalog();
 
     std::string cmdCreateSphere(float cx, float cy, float cz, float radius, float cell);

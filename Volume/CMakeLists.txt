@@ -118,6 +118,9 @@ add_executable(VolumeView
     ${VOLUME_ROOT}/VolumeView/DVFromSparseView.cpp
     ${VOLUME_ROOT}/VolumeView/DVMarchingCubesView.cpp
     ${VOLUME_ROOT}/VolumeView/CommandDispatcher.cpp
+    ${VOLUME_ROOT}/VolumeView/CommandDenseOps.cpp
+    ${VOLUME_ROOT}/VolumeView/CommandPbvr.cpp
+    ${VOLUME_ROOT}/VolumeView/CommandSparseOps.cpp
     ${VOLUME_ROOT}/VolumeView/CommandParse.cpp
     ${VOLUME_ROOT}/VolumeView/MCMeshView.cpp
     ${VOLUME_ROOT}/VolumeView/SVBoxView.cpp
