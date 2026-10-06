@@ -8,6 +8,7 @@
 #include "GltfMaterial.h"
 #include "CameraUBO.h"
 #include "LightManager.h"
+#include "GltfObjectAnimation.h"
 #include "../Gltf/GltfDocument.h"
 #include "../IBL/GltfIBLPrecomputer.h"
 #include "../../../CGLib/VulkanGraphics/VulkanBuffer.h"
@@ -108,7 +109,7 @@ namespace Phantom::Gltf
         void renderInstances(VkCommandBuffer cmd, uint32_t frameIndex, const std::vector<glm::mat4>& modelMatrices);
 
         // --- Document / extent setup (call before onInit) ---
-        void setDocument(const GltfDocument& doc) { doc_ = &doc; }
+        void setDocument(const GltfDocument& doc) { doc_ = &doc; objAnim_.reset(&doc); }
         void setExtent(VkExtent2D ext) { extent_ = ext; }
         VkExtent2D getExtent() const { return extent_; }
 
@@ -127,7 +128,7 @@ namespace Phantom::Gltf
         void  setAnimationTime(float seconds);
         int   animationCount() const;
         float animationDuration(int clipIndex) const;
-        int   activeAnimationClip() const { return animClip_; }
+        int   activeAnimationClip() const { return objAnim_.clip(); }
 
         // --- External camera override ---
         void setCamera(const glm::mat4& view, const glm::mat4& proj, const glm::vec3& eye);
@@ -471,12 +472,8 @@ namespace Phantom::Gltf
         int nodeFilter_ = -1;
 
         // Object animation state (see setAnimationClip()).
-        int               animClip_  = -1;
-        float             animTime_  = 0.f;
-        bool              animDirty_ = false;   // clip/time changed since the last applyObjectAnimation()
-        std::vector<uint8_t> animatedNode_;     // per node: 1 if the active clip moves it (or an ancestor)
+        GltfObjectAnimation objAnim_;           // clip/time/dirty/animated-node mask (CPU only)
         void applyObjectAnimation();
-        void markSubtreeAnimated(int nodeIndex);
 
         // Materials
         std::vector<std::unique_ptr<GltfGpuMaterial>> materials_;

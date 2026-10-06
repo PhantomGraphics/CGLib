@@ -426,57 +426,30 @@ void GltfSceneRenderer::traverseNode(const GltfDocument& doc, int nodeIndex,
 
 void GltfSceneRenderer::setAnimationClip(int clipIndex)
 {
-    const int clamped = (doc_ && clipIndex >= 0 && clipIndex < (int)doc_->animations.size()) ? clipIndex : -1;
-    if (clamped == animClip_) return;
-    animClip_ = clamped;
-    animDirty_ = true; // force a re-bake next onUpdate() (to the clip's t=0, or back to rest)
-
-    // Which nodes does this clip *move*? A TRS channel target plus its whole subtree (a spinning
-    // pivot carries its children). Everything else stays at its build-time bake. A Weights
-    // channel doesn't move its node -- it drives morph targets, applied separately via
-    // updateMorphedGeometry() -- so it must not mark the node for a transform re-bake here (that
-    // would overwrite the morph with base geometry every frame).
-    animatedNode_.assign(doc_ ? doc_->nodes.size() : 0, 0);
-    if (animClip_ >= 0) {
-        for (const auto& ch : doc_->animations[animClip_].channels) {
-            if (ch.target.path == GltfAnimationPath::Weights) continue;
-            if (ch.target.node < 0 || ch.target.node >= (int)animatedNode_.size()) continue;
-            markSubtreeAnimated(ch.target.node);
-        }
-    }
-}
-
-void GltfSceneRenderer::markSubtreeAnimated(int nodeIndex)
-{
-    if (nodeIndex < 0 || nodeIndex >= (int)animatedNode_.size() || animatedNode_[nodeIndex]) return;
-    animatedNode_[nodeIndex] = 1;
-    for (int child : doc_->nodes[nodeIndex].children)
-        markSubtreeAnimated(child);
+    objAnim_.setClip(clipIndex);
 }
 
 void GltfSceneRenderer::setAnimationTime(float seconds)
 {
-    if (seconds != animTime_) { animTime_ = seconds; animDirty_ = true; }
+    objAnim_.setTime(seconds);
 }
 
 int GltfSceneRenderer::animationCount() const
 {
-    return doc_ ? static_cast<int>(doc_->animations.size()) : 0;
+    return objAnim_.clipCount();
 }
 
 float GltfSceneRenderer::animationDuration(int clipIndex) const
 {
-    if (!doc_ || clipIndex < 0 || clipIndex >= (int)doc_->animations.size()) return 0.f;
-    return GltfAnimationEvaluator::duration(doc_->animations[clipIndex], *doc_);
+    return objAnim_.duration(clipIndex);
 }
 
 void GltfSceneRenderer::applyObjectAnimation()
 {
-    if (!ready_ || !ctx_ || !pool_ || !doc_ || !animDirty_) return;
-    animDirty_ = false;
+    if (!ready_ || !ctx_ || !pool_ || !doc_ || !objAnim_.consumeDirty()) return;
 
     // Clip disabled: restore every animated primitive to its rest-pose bake once.
-    if (animClip_ < 0) {
+    if (objAnim_.clip() < 0) {
         for (auto& e : primitives_) {
             if (e->nodeIndex < 0 || e->localPos.empty()) continue;
             e->mesh.setBakeTransform(e->restWorld);
@@ -485,13 +458,12 @@ void GltfSceneRenderer::applyObjectAnimation()
         return;
     }
 
-    const std::vector<glm::mat4> globals =
-        GltfAnimationEvaluator::evaluateNodeGlobalTransforms(*doc_, animClip_, animTime_);
+    const std::vector<glm::mat4> globals = objAnim_.evaluateGlobals();
 
     for (auto& e : primitives_) {
         if (e->nodeIndex < 0 || e->localPos.empty()) continue;
-        if (e->nodeIndex >= (int)globals.size() || e->nodeIndex >= (int)animatedNode_.size()) continue;
-        if (!animatedNode_[e->nodeIndex]) continue; // static node -- leave its build-time bake
+        if (e->nodeIndex >= (int)globals.size()) continue;
+        if (!objAnim_.isNodeAnimated(e->nodeIndex)) continue; // static node -- leave its build-time bake
         e->mesh.setBakeTransform(globals[e->nodeIndex]);
         e->mesh.updatePositionsAndNormals(*ctx_, *pool_, e->localPos, e->localNrm);
     }
@@ -778,10 +750,7 @@ void GltfSceneRenderer::loadDocument(const GltfDocument& doc)
     }
     doc_ = &doc;
     // Node/clip indices from the previous document don't carry over.
-    animClip_ = -1;
-    animTime_ = 0.f;
-    animDirty_ = false;
-    animatedNode_.clear();
+    objAnim_.reset(doc_);
     if (ctx_) buildDocumentResources();
 }
 
