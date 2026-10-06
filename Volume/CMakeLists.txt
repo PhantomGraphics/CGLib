@@ -45,7 +45,9 @@ if(PHANTOM_GTEST_FOUND)
             ${VOLUME_ROOT}/VolumeTest/SurfaceVoxelizerTest.cpp
             ${VOLUME_ROOT}/VolumeTest/VolumeScatteringTest.cpp
             ${VOLUME_ROOT}/VolumeTest/VolumeTest.cpp
-        INCLUDES ${VOLUME_ROOT}/VolumeTest
+            ${VOLUME_ROOT}/VolumeTest/CommandParseTest.cpp
+            ${VOLUME_ROOT}/VolumeView/CommandParse.cpp
+        INCLUDES ${VOLUME_ROOT}/VolumeTest ${VOLUME_ROOT}/VolumeView
         LINK VolumeCore
     )
 else()
@@ -116,6 +118,7 @@ add_executable(VolumeView
     ${VOLUME_ROOT}/VolumeView/DVFromSparseView.cpp
     ${VOLUME_ROOT}/VolumeView/DVMarchingCubesView.cpp
     ${VOLUME_ROOT}/VolumeView/CommandDispatcher.cpp
+    ${VOLUME_ROOT}/VolumeView/CommandParse.cpp
     ${VOLUME_ROOT}/VolumeView/MCMeshView.cpp
     ${VOLUME_ROOT}/VolumeView/SVBoxView.cpp
     ${VOLUME_ROOT}/VolumeView/SVCombineView.cpp
