@@ -1,6 +1,8 @@
 # CI for CGLib's standalone CMake build (docs/standalone-repository-plan.md
 # Phase 5, milestone M1 scope: CPU-only configure/build/test on Windows and
-# Linux, plus a Linux Vulkan-enabled compile).
+# Linux, plus a Linux Vulkan-enabled compile), and the external-consumer check
+# (install -> move the prefix -> delete the build tree -> build a project that only uses
+# find_package(CGLib); docs/todo/PLAN_cglib_refactoring.md Phase 2/6).
 #
 # The build references nothing outside this repository. GoogleTest comes from
 # the system package on Linux and from the pinned FetchContent fallback on
@@ -45,7 +47,8 @@ jobs:
         working-directory: build/linux-cpu-debug
         run: |
           ctest -N
-          for t in MathTest GraphicsTest NumericsTest SpaceTest SceneTest FileTest AnimationTest VolumeTest; do
+          for t in MathTest GraphicsTest NumericsTest SpaceTest SceneTest FileTest AnimationTest VolumeTest \
+                   GeometryNodeTest AssetCoreTest SceneRuntimeTest; do
             find . \( -name "$t" -o -name "$t.exe" \) -type f | grep -q . \
               || { echo "::error::expected test executable '$t' was not built (implicit skip)"; exit 1; }
           done
@@ -77,7 +80,8 @@ jobs:
         shell: bash
         run: |
           ctest -N
-          for t in MathTest GraphicsTest NumericsTest SpaceTest SceneTest FileTest AnimationTest VolumeTest; do
+          for t in MathTest GraphicsTest NumericsTest SpaceTest SceneTest FileTest AnimationTest VolumeTest \
+                   GeometryNodeTest AssetCoreTest SceneRuntimeTest; do
             find . \( -name "$t" -o -name "$t.exe" \) -type f | grep -q . \
               || { echo "::error::expected test executable '$t' was not built (implicit skip)"; exit 1; }
           done
@@ -111,3 +115,32 @@ jobs:
       # Vulkan targets; the GPU integration tests are a manual release gate.
       - name: Test (non-GPU)
         run: ctest --preset linux-debug -LE gpu
+
+  # Install the CPU components, relocate the prefix, drop the build tree, then build and run
+  # an external consumer (also compiles every installed public header on its own).
+  install-consumer-linux:
+    name: External consumer / Linux
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build libomp-dev
+
+      - name: Install, relocate, build and run the consumer
+        run: bash tests/run_install_consumer.sh --config Debug
+
+  install-consumer-windows:
+    name: External consumer / Windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Ninja
+        run: choco install ninja -y
+
+      - name: Install, relocate, build and run the consumer
+        run: ./tests/run_install_consumer.ps1 -Configuration Debug
+        shell: pwsh

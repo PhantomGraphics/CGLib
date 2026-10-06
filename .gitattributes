@@ -1,0 +1,2 @@
+# The Linux CI runs this script directly; never let a checkout turn it into CRLF.
+*.sh text eol=lf
