@@ -299,6 +299,22 @@ void GltfSceneRenderer::onInit(Phantom::VKG::VulkanContext& ctx, const Phantom::
         return;
     }
 
+    if (!shaders_.sampledLightFragSpv.empty()) {
+        const std::vector<VkDescriptorSetLayoutBinding> bindings{
+            {0,VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,1,VK_SHADER_STAGE_FRAGMENT_BIT,nullptr},
+            {1,VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,1,VK_SHADER_STAGE_FRAGMENT_BIT,nullptr}};
+        sampledLightLayout_.create(device,bindings);
+        cfg.fragSpv=shaders_.sampledLightFragSpv;
+        cfg.descriptorSetLayouts.push_back(sampledLightLayout_.get());
+        cfg.pushConstantRanges.push_back({VK_SHADER_STAGE_FRAGMENT_BIT,sizeof(glm::mat4),sizeof(GltfSampledLight)});
+        sampledLightReady_=sampledLightPipelines_.create(ctx,renderPass,cfg,cullMode_);
+        if (!sampledLightReady_) {
+            std::fprintf(stderr,"[GltfSceneRenderer] sampled light pipeline setup failed\n");
+            onCleanup(device);
+            return;
+        }
+    }
+
     // Skybox (see setUseSkybox()): only if the caller populated both shaders.
     if (!shaders_.skyboxVertSpv.empty() && !shaders_.skyboxFragSpv.empty()) {
         Phantom::VKG::VkSkyBoxRenderer::Config skyCfg;
@@ -800,7 +816,20 @@ void GltfSceneRenderer::renderInstances(VkCommandBuffer cmd, uint32_t frameIndex
     if (useSkybox_ && skybox_ && skybox_->isValid()) skybox_->render(cmd, frameIndex); // once, not per instance
 }
 
-void GltfSceneRenderer::renderPrimitivesWithModel(VkCommandBuffer cmd, uint32_t frameIndex, const glm::mat4& model) {
+void GltfSceneRenderer::renderSampledLight(VkCommandBuffer cmd, uint32_t frameIndex,
+                                         VkDescriptorSet shadowSet, const GltfSampledLight& light) {
+    if (!ready_ || !visible_ || primitives_.empty()) return;
+    if (!sampledLightReady_ || shadowSet==VK_NULL_HANDLE) { onRender(cmd,frameIndex); return; }
+    const auto layout=sampledLightPipelines_.layout();
+    vkCmdBindDescriptorSets(cmd,VK_PIPELINE_BIND_POINT_GRAPHICS,layout,0,1,descriptors_.globalSet(frameIndex),0,nullptr);
+    vkCmdBindDescriptorSets(cmd,VK_PIPELINE_BIND_POINT_GRAPHICS,layout,2,1,&shadowSet,0,nullptr);
+    vkCmdPushConstants(cmd,layout,VK_SHADER_STAGE_FRAGMENT_BIT,sizeof(glm::mat4),sizeof(light),&light);
+    renderPrimitivesWithModel(cmd,frameIndex,modelMatrix_,true);
+}
+
+void GltfSceneRenderer::renderPrimitivesWithModel(VkCommandBuffer cmd, uint32_t frameIndex, const glm::mat4& model,
+                                                bool sampledLight) {
+    auto& pipelines=sampledLight?sampledLightPipelines_:mainPipelines_;
     // Recorded into the command buffer verbatim (unlike GlobalUBO::model, a single host-visible
     // value every draw recorded against this frame's descriptor set reads at *execution* time --
     // see setModelMatrix()'s comment) -- vkCmdPushConstants is what lets renderInstances() draw
@@ -808,7 +837,7 @@ void GltfSceneRenderer::renderPrimitivesWithModel(VkCommandBuffer cmd, uint32_t 
     // without one instance's transform silently winning over another's the way writing
     // GlobalUBO::model twice before a single submit would (renderShadowCasters() already relies
     // on this same property for lightVP/model below).
-    vkCmdPushConstants(cmd, mainPipelines_.layout(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &model);
+    vkCmdPushConstants(cmd, pipelines.layout(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &model);
 
     VkPipeline boundPipeline = VK_NULL_HANDLE; // force the first draw to bind explicitly
 
@@ -819,6 +848,7 @@ void GltfSceneRenderer::renderPrimitivesWithModel(VkCommandBuffer cmd, uint32_t 
     // A material with a successful setMaterialShaderOverride() draws through its own pipeline
     // instead of one of the 4 shared variants below (see that method's comment).
     auto overridePipelineFor = [&](int matIdx) -> Phantom::VKG::VulkanPipeline* {
+        if (sampledLight) return nullptr; // the sampled variant uses the standard glTF material
         auto it = materialPipelineOverrides_.find(matIdx);
         return it != materialPipelineOverrides_.end() ? it->second : nullptr;
     };
@@ -870,7 +900,7 @@ void GltfSceneRenderer::renderPrimitivesWithModel(VkCommandBuffer cmd, uint32_t 
         if (Phantom::VKG::VulkanPipeline* ov = overridePipelineFor(matIdx))
             draw(entry, mat, *ov, true);
         else
-            draw(entry, mat, mainPipelines_.select(false, mat->doubleSided()), false);
+            draw(entry, mat, pipelines.select(false, mat->doubleSided()), false);
     }
 
     // Pass 2: alpha BLEND, depth write off, back-to-front (painter's algorithm) so overlapping
@@ -879,7 +909,7 @@ void GltfSceneRenderer::renderPrimitivesWithModel(VkCommandBuffer cmd, uint32_t 
     // matrix -- exact for static geometry, an approximation for an object-animated or skinned
     // BLEND primitive (rare in practice; re-sorting every frame from live transforms would need
     // per-primitive current-world tracking that object animation/skinning don't expose today).
-    if (!blendEntries.empty()) {
+    if (!sampledLight && !blendEntries.empty()) {
         sortFarthestFirst(blendEntries, model, currentEyePosition());
         for (PrimitiveEntry* entry : blendEntries) {
             int matIdx = materialIndexFor(entry);
@@ -901,6 +931,9 @@ void GltfSceneRenderer::onCleanup(VkDevice device) {
     ready_ = false;
 
     mainPipelines_.destroy(device);
+    sampledLightPipelines_.destroy(device);
+    sampledLightLayout_.destroy(device);
+    sampledLightReady_=false;
     shadowPipeline_.destroy(device);
     if (skybox_) { skybox_->destroy(device); skybox_.reset(); }
 
