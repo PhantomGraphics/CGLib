@@ -16,8 +16,12 @@ Math/Graphics/VulkanGraphics/UIWidgets のビルド・規約のみを扱う）�
 
 CMake が唯一のビルド手段。**この `CGLib/` ディレクトリ自身がビルドのルート**であり、親
 ディレクトリのファイルは一切参照しない（`docs/standalone-repository-plan.md` M1、2026-09-03）。
-共通ビルドロジックは `cmake/`（`CGLibCommon.cmake` / `PhantomGTest.cmake` /
-`PhantomCoreLibs.cmake` / `PhantomVulkanApp.cmake`）に集約。
+共通ビルドロジックは `cmake/`（`CGLibCommon.cmake` / `PhantomGTest.cmake` / `PhantomPch.cmake` /
+`PhantomCoreLibs.cmake` / `PhantomVulkanApp.cmake` / `CGLibInstall.cmake`）に集約。
+**これらの定義の正は `CGLib/cmake/` の 1 か所**。Phantom 側の `Phantom/cmake/Phantom*.cmake` は
+Physics/PointCloud/RayTracer の単独 configure 用の転送（`include` するだけ）で、定義を持たない
+（`PhantomVulkanApp.cmake` のみ Physics/PointCloud/RayTracer 用の `phantom_add_runtime_shaders` を追加で持つ）。
+CGLib 側の関数・ターゲットを変えるときに Phantom 側へ同じ変更を入れる必要はない。
 
 ```powershell
 # CGLib ルートから、全モジュールを構成・ビルド・テスト
@@ -39,8 +43,10 @@ cmake -S Space -B build/Space -DCMAKE_BUILD_TYPE=Debug && cmake --build build/Sp
 `CGLIB_BUILD_TESTING=OFF` ではどのモジュールも GoogleTest を取得せずテストターゲットを作らない
 （モジュール単独 configure で未定義の場合のみ従来どおり ON）。各 `*Core` の C++20 要件は PUBLIC。
 CPU コンポーネントは `cmake --install` 可能で `find_package(CGLib CONFIG)` から `CGLib::<Component>` を使える
-（`cmake/CGLibInstall.cmake`）。移動済み prefix からの外部 consumer 検証は
-`tests\run_install_consumer.ps1`。Vulkan コンポーネントは未対応。
+（`cmake/CGLibInstall.cmake`）。`VulkanGraphics` は別 export（`CGLib::VulkanGraphics`、利用側に Vulkan ヘッダーが必要）。
+上位の Vulkan コンポーネント（UIWidgets/VkAppBase/VkRenderer/GltfRenderer 等）は未対応。
+移動済み prefix からの外部 consumer 検証は `tests\run_install_consumer.ps1`（Windows、`-Vulkan` で VulkanGraphics も）／
+`tests/run_install_consumer.sh`（Linux）。CI（`.github/workflows/ci.yml`）が両 OS で実行する。
 GoogleTest は FetchContent で `v1.15.2` を固定取得してビルドする（system/NuGet 探索なし）。
 MSVC ランタイムは Debug `/MDd`、その他 `/MD`。オフラインでは
 `FETCHCONTENT_SOURCE_DIR_GOOGLETEST` に同バージョンのソースを指定する。
@@ -59,8 +65,8 @@ project-relative asset id/URI/manifest、Vulkan/Math 非依存）は `docs/spec/
 Vulkan/ImGui 非依存、AssetCore の `AssetId` をノード ID として再利用）は
 `docs/spec/phantom_scene_runtime.md` を参照。
 
-> 私有の Phantom スーパープロジェクト側（`../CMakeLists.txt` が `CGLib/Numerics` 等を個別に
-> `add_subdirectory` する構成）は、この変更に追随した調整が別途必要。
+> Phantom スーパープロジェクト（`../CMakeLists.txt`）は `add_subdirectory(CGLib)` で CGLib を丸ごと取り込み、
+> `Phantom/cmake` の転送経由で Physics/PointCloud/RayTracer も同じ定義を使う（`CGLib/cmake/` が正）。
 
 ## Tests
 
@@ -149,3 +155,11 @@ Viewport/scissor は dynamic state なので `PipelineConfig` に含めない。
 - Math の `Vector3df`/`Vector3dd`/`Matrix4df` 等のエイリアスを使い、`glm::vec3` 等のプリミティブを直接コードに書かない。
 - エラーは `bool` 戻り値で表現する（`VK_SUCCESS` チェック後）。失敗時は `stderr` にログを出し、ハンドルは未設定（`VK_NULL_HANDLE` 等の既定値）のまま返す。呼び出し元は戻り値または `isValid()` で確認する。「見つからなかった」系（`findMemoryType`/`findDepthFormat` 等）は `std::optional<T>` を返す — `.value()` は使わず、`.value_or(default)` か `if (opt)` で取り出すこと（`std::bad_optional_access` の送出を避けるため）。例外は使わない。
 - SPIR-V は `std::vector<uint32_t>` で受け渡し。`VulkanSPVLoader.h` の `loadSPV()` で読み込む。
+
+## リファクタリング関連ドキュメント
+
+計画: ルートの `docs/todo/PLAN_cglib_refactoring.md`（実施記録つき）。成果物は `docs/` 配下:
+`baseline-2026-10-05.md`（テスト・ターゲット基準）、`header-usage-2026-10-05.md`（公開ヘッダー利用表）、
+`third-party.md`（依存の分類・ライセンス）、`vulkan-ownership.md`（VulkanGraphics の所有権表）、
+`scene-usage-2026-10-06.md`（Scene/SceneRuntime 利用表）、`ui-widgets-ownership.md`（UIWidgets の非所有規約）、
+`compat-layers.md`（互換層・残置物の利用残数と削除条件）。

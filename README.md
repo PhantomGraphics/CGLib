@@ -17,7 +17,10 @@ glTF/VRM/MMD rendering, animation, particles, and Eigen adapters.
 | `Numerics` | `Phantom::Numerics` | Eigenvalue decomposition and SVD | No |
 | `File` | `Phantom::File` | OBJ, glTF, PLY, and STL I/O | No |
 | `Space` | `Phantom::Space` | Spatial indexing and geometric queries | No |
-| `Scene` | `Phantom::Scene` | Scene graph and Presenter pattern | No |
+| `Scene` | `Phantom::Scene` | Scene graph and Presenter pattern (legacy) | No |
+| `GeometryNode` | `Phantom::GeometryNode` | Node-graph geometry evaluation | No |
+| `AssetCore` | `Phantom::Asset` | Asset ids, URIs and manifests | No |
+| `SceneRuntime` | `Phantom::SceneRuntime` | UUID node hierarchy, components, play sessions | No |
 | `Volume` | `Phantom::Volume` | Sparse volumes and Marching Cubes | No |
 | `VulkanGraphics` | `VKG` | Vulkan object abstractions | Yes |
 | `UIWidgets` | `Phantom::UI` | ImGui UI framework | Yes |
@@ -53,6 +56,10 @@ cmake --build --preset windows-debug
 ctest --preset windows-debug
 ```
 
+The CPU components can be installed (`cmake --install`) and used through
+`find_package(CGLib CONFIG)` as `CGLib::<Component>`; `tests/run_install_consumer.ps1` /
+`tests/run_install_consumer.sh` verify this from a relocated prefix, and CI runs them.
+
 Use `-DCGLIB_ENABLE_VULKAN=OFF` for an explicit CPU-only build. Missing Vulkan
 dependencies cause Vulkan targets to be skipped; CPU-only modules remain
 buildable. CGLib can also be consumed as the `CGLib/` submodule of Phantom.
@@ -74,6 +81,11 @@ under `build/windows-debug/CGLib/`. Viewer applications include
 
 - [Module reference](docs/module-reference.md)
 - [Standalone-repository plan](docs/standalone-repository-plan.md)
+- [Third-party dependencies](docs/third-party.md)
+- [Vulkan object ownership](docs/vulkan-ownership.md) and
+  [UIWidgets ownership](docs/ui-widgets-ownership.md)
+- [Scene / SceneRuntime usage](docs/scene-usage-2026-10-06.md)
+- [Compatibility layers and removal conditions](docs/compat-layers.md)
 - Module README files under `Math/`, `Graphics/`, `Numerics/`, and `Space/`
 
 CGLib is distributed under the [MIT License](LICENSE). Bundled dependencies
