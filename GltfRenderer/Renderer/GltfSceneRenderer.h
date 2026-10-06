@@ -15,6 +15,7 @@
 #include "../../../CGLib/VulkanGraphics/VulkanBuffer.h"
 #include "../../../CGLib/VulkanGraphics/VulkanDescriptorPool.h"
 #include "../../../CGLib/VulkanGraphics/VulkanPipeline.h"
+#include "../../../CGLib/VulkanGraphics/VulkanPipelineCache.h"
 #include "../../../CGLib/VulkanGraphics/VulkanSampler.h"
 #include "../../../CGLib/VkAppBase/IVkSubRenderer.h"
 #include "../../../CGLib/Renderer/VkRenderer/VkSkyBoxRenderer.h"
@@ -527,10 +528,8 @@ namespace Phantom::Gltf
         // disk cache: that one skips invoking glslc at all on a hit, this one only helps the
         // driver's own SPIR-V -> native-ISA compile step, which still runs once per distinct
         // shader/state combination even on a glslc cache hit.
-        VkPipelineCache materialPipelineCache_ = VK_NULL_HANDLE;
+        Phantom::VKG::VulkanPipelineCache materialPipelineCache_; // persists on destroy() when a dir was given
         std::string      materialPipelineCacheDir_; // see setMaterialShaderCacheDir()
-        void createMaterialPipelineCache(VkDevice device);
-        void destroyMaterialPipelineCache(VkDevice device); // persists to disk first if materialPipelineCacheDir_ is set
 
         // Shared fallback 2D texture (1x1 white) — also used as brdfLUT fallback
         VkImage        fallbackImage_ = VK_NULL_HANDLE;
