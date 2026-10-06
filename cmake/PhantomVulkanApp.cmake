@@ -332,6 +332,7 @@ function(phantom_add_gltfrenderer_core)
         ${_gltfr_root}/Renderer/GltfGlobalDescriptors.cpp
         ${_gltfr_root}/Renderer/GltfPipelineVariantPool.cpp
         ${_gltfr_root}/Renderer/GltfPrimitiveData.cpp
+        ${_gltfr_root}/Renderer/GltfMainPipelines.cpp
         ${_gltfr_root}/Phmat/PhmatGraph.cpp
         ${_gltfr_root}/Phmat/PhmatCompiler.cpp
         ${_gltfr_root}/Phmat/PhmatReflection.cpp
