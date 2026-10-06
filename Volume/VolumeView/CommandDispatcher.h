@@ -10,6 +10,7 @@
 #include "MenuPanel.h"
 
 #include <functional>
+#include <cstdint>
 #include <mutex>
 #include <optional>
 #include <queue>
@@ -48,6 +49,10 @@ public:
 
 private:
     std::string route(const std::string& cmd);
+    // Menu setters share one body (CommandRoutes.cpp); `apply` returns false for a rejected value.
+    using MenuApply = bool (*)(MenuPanel&, float, const std::string& rawText);
+    std::string setMenuValue(const std::vector<std::string>& parts, MenuApply apply);
+    static const char* parsePixelXY(const std::string& text, uint32_t& x, uint32_t& y);
     // PBVR renderer commands (CommandPbvr.cpp); nullopt = not one of them.
     std::optional<std::string> routePbvr(const std::string& cmd, const std::vector<std::string>& parts);
     std::string cmdCheckCommandCatalog();
