@@ -223,6 +223,7 @@ function(phantom_add_vkappbase_core)
         ${CGLIB_ROOT}/VkAppBase/VkRendererBase.cpp
         ${CGLIB_ROOT}/VkAppBase/VulkanWindow.cpp
         ${CGLIB_ROOT}/VkAppBase/ScreenshotCapture.cpp
+        ${CGLIB_ROOT}/VkAppBase/FrameSync.cpp
         ${CGLIB_ROOT}/VkAppBase/ScenarioRunner/ScenarioRunner.cpp
         ${CGLIB_ROOT}/VkAppBase/ScenarioRunner/ScenarioBrowserPanel.cpp
         ${CGLIB_ROOT}/VkAppBase/ScenarioRunner/ViewShell.cpp
@@ -243,6 +244,7 @@ function(phantom_add_vkappbase_core)
     if(PHANTOM_GTEST_FOUND)
         cglib_add_test(VkAppBaseTest
             SOURCES ${CGLIB_ROOT}/VkAppBase/VkAppBaseTest/ScreenshotCaptureTest.cpp
+                    ${CGLIB_ROOT}/VkAppBase/VkAppBaseTest/FrameSyncTest.cpp
             LINK VkAppBaseCore ${PHANTOM_VULKAN_LIBRARY} ${PHANTOM_GLFW_LIBRARY})
     endif()
 endfunction()
