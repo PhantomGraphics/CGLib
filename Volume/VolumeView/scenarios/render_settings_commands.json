@@ -1,0 +1,19 @@
+{
+  "name": "render_settings_commands",
+  "steps": [
+    { "label": "Panel commands are routed",        "command": "CheckCommandCatalog",            "expect": "OK" },
+    { "label": "Initial voxel point size",         "command": "GetVoxelPointSize",              "expect": "PointSize:4" },
+    { "label": "Set voxel point size",             "command": "SetVoxelPointSize:9",            "expect": "OK" },
+    { "label": "Voxel point size changed",         "command": "GetVoxelPointSize",              "expect": "PointSize:9" },
+    { "label": "Set dense point size",             "command": "SetDensePointSize:7",            "expect": "OK" },
+    { "label": "Dense point size changed",         "command": "GetDensePointSize",              "expect": "PointSize:7" },
+    { "label": "Dense points on",                  "command": "SetDensePoints:1",               "expect": "OK" },
+    { "label": "Dense color map viridis",          "command": "SetDenseColorMap:1",             "expect": "OK" },
+    { "label": "Bad color map rejected",           "command": "SetDenseColorMap:5",             "expect_prefix": "Error:" },
+    { "label": "Bad point size rejected",          "command": "SetVoxelPointSize:abc",          "expect_prefix": "Error:" },
+    { "label": "Initial repeat count",             "command": "GetPBVRRepeatCount",             "expect": "RepeatCount:1" },
+    { "label": "Set repeat count",                 "command": "SetPBVRRepeatCount:3",           "expect": "OK" },
+    { "label": "Repeat count changed",             "command": "GetPBVRRepeatCount",             "expect": "RepeatCount:3" },
+    { "label": "Set max particles per voxel",      "command": "SetPBVRMaxParticlesPerVoxel:8",  "expect": "OK" }
+  ]
+}

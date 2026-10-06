@@ -6,6 +6,7 @@
 
 #include <functional>
 #include <memory>
+#include <string>
 
 namespace Phantom::Volume { class PBVRRenderer; }
 class ViewShell;
@@ -34,6 +35,10 @@ public:
 
     // "VolumeView Control" is a shell panel (hidden until opened from View / outliner).
     void setShell(ViewShell* s) { shell_ = s; }
+    // GUI edits are issued as commands through this sink (CommandDispatcher::submitUi), so the
+    // panel and typed/scenario commands share one path. PBVR values shown are read back from the
+    // renderer each frame, so command-driven changes are visible.
+    void setCommandSink(std::function<void(const std::string&)> f) { submit_ = std::move(f); }
     void setLocked(bool v) { locked_ = v; }   // scenario running: controls shown but disabled
     void onImGui() override;
 
@@ -51,8 +56,16 @@ public:
     void setRenderMode(int mode);
     int  getRenderMode() const   { return static_cast<int>(renderMode_); }
 
+    void setVoxelPointSize(float s);
+    void setShowDensePoints(bool v) { showDensePoints_ = v; }
+    void setDensePointSize(float s);
+    void setDenseColorMap(int m);
+
 private:
     ViewShell* shell_ = nullptr;
+    std::function<void(const std::string&)> submit_;
+    void emit(const std::string& cmd) const { if (submit_) submit_(cmd); }
+    void pullRendererState();
     bool locked_ = false;
     World* world_ = nullptr;
     int*         pId_   = nullptr;

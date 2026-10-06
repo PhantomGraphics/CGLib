@@ -108,6 +108,8 @@ const std::unordered_map<std::string, PbvrApply> kPbvrScalarSetters = {
     {"SetPBVRShadowEnabled",      [](auto& r, const ScalarValue& v) { r.setShadowEnabled(v.flag); }},
     {"SetPBVRExtinction",         [](auto& r, const ScalarValue& v) { r.setExtinction(v.f); }},
     {"SetPBVRShadowLayers",       [](auto& r, const ScalarValue& v) { r.setShadowLayers(v.i); }},
+    {"SetPBVRRepeatCount",        [](auto& r, const ScalarValue& v) { r.setRepeatCount(v.i); }},
+    {"SetPBVRMaxParticlesPerVoxel", [](auto& r, const ScalarValue& v) { r.setMaxParticlesPerVoxel(v.i); }},
 };
 
 } // anonymous namespace
@@ -176,6 +178,15 @@ std::vector<CommandInfo> CommandDispatcher::commandCatalog() const {
         {"SetPBVRExtinction", "float", ""},
         {"SetPBVRShadowLayers", "int", ""},
         {"SetPBVRShadowMapSize", "int", ""},
+        {"SetPBVRRepeatCount", "int", ""},
+        {"SetPBVRMaxParticlesPerVoxel", "int", "GPU generation cap"},
+        {"GetPBVRRepeatCount", "", ""},
+        {"GetVoxelPointSize", "", ""},
+        {"GetDensePointSize", "", ""},
+        {"SetVoxelPointSize", "float", "Voxel point size"},
+        {"SetDensePoints", "0|1", "Show dense volume points"},
+        {"SetDensePointSize", "float", ""},
+        {"SetDenseColorMap", "0|1|2", "Jet|Viridis|Grayscale"},
         {"GetPBVRMeanScatteredRadiance", "", ""},
         {"GetPBVRMeanIndirectRadiance", "", ""},
         {"GetPBVRMeanSunTransmittance", "", ""},
@@ -338,6 +349,18 @@ std::string CommandDispatcher::route(const std::string& cmd) {
         if (!pointRenderer_) return "Error:no renderer";
         char buf[32];
         std::snprintf(buf, sizeof(buf), "%f", pointRenderer_->getCameraState().distance);
+        return buf;
+    }
+
+    if (cmd == "GetPBVRRepeatCount") {
+        if (!pbvrRenderer_) return "Error:no pbvr renderer";
+        return "RepeatCount:" + std::to_string(pbvrRenderer_->getRepeatCount());
+    }
+    if (cmd == "GetVoxelPointSize" || cmd == "GetDensePointSize") {
+        const bool dense = cmd == "GetDensePointSize";
+        if (dense ? !denseRenderer_ : !pointRenderer_) return "Error:no renderer";
+        char buf[32];
+        std::snprintf(buf, sizeof(buf), "PointSize:%g", dense ? denseRenderer_->getPointSize() : pointRenderer_->getPointSize());
         return buf;
     }
 
@@ -543,6 +566,22 @@ std::string CommandDispatcher::route(const std::string& cmd) {
         float a[2];
         if (!parseFloats(parts, 1, 2, a)) return "Error:bad SetPBVRLightDir params";
         pbvrRenderer_->setLightDir(a[0], a[1]);
+        return "OK";
+    }
+
+    if (parts[0] == "SetVoxelPointSize" || parts[0] == "SetDensePointSize" || parts[0] == "SetDensePoints"
+        || parts[0] == "SetDenseColorMap") {
+        if (parts.size() != 2) return "Error:bad " + parts[0] + " value";
+        if (!menuPanel_) return "Error:no menu panel";
+        float f = 0.0f;
+        if (!parseFloat(parts[1], f)) return "Error:bad " + parts[0] + " value";
+        if (parts[0] == "SetVoxelPointSize") menuPanel_->setVoxelPointSize(f);
+        else if (parts[0] == "SetDensePointSize") menuPanel_->setDensePointSize(f);
+        else if (parts[0] == "SetDensePoints") menuPanel_->setShowDensePoints(parts[1] != "0");
+        else {
+            if (f < 0.0f || f > 2.0f) return "Error:bad SetDenseColorMap value";
+            menuPanel_->setDenseColorMap(static_cast<int>(f));
+        }
         return "OK";
     }
 

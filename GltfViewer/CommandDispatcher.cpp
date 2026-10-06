@@ -1,4 +1,6 @@
 #include "CommandDispatcher.h"
+#include <cstdio>
+#include <cmath>
 #include "App.h"
 
 #include <charconv>
@@ -14,6 +16,21 @@ std::vector<std::string> CommandDispatcher::collectResponses() {
     return queue_.collectResponses();
 }
 
+namespace {
+// "a:b:c" -> exactly `n` finite floats.
+bool parseColonFloats(const std::string& text, float* out, int n) {
+    size_t pos = 0;
+    for (int i = 0; i < n; ++i) {
+        const size_t end = (i == n - 1) ? text.size() : text.find(':', pos);
+        if (end == std::string::npos || end < pos) return false;
+        const auto r = std::from_chars(text.data() + pos, text.data() + end, out[i]);
+        if (r.ec != std::errc{} || r.ptr != text.data() + end || !std::isfinite(out[i])) return false;
+        pos = end + 1;
+    }
+    return true;
+}
+} // namespace
+
 std::vector<CommandInfo> CommandDispatcher::commandCatalog() const {
     return {
         {"GetStatus", "", ""},
@@ -26,6 +43,9 @@ std::vector<CommandInfo> CommandDispatcher::commandCatalog() const {
         {"GetPrimitiveCount", "", ""},
         {"GetCamDist", "", ""},
         {"SetCamDist", "float", "Orbit camera distance"},
+        {"SetCamTarget", "x:y:z", "Orbit camera target"},
+        {"SetLight", "x:y:z:r:g:b:intensity", "Directional light position, color and intensity"},
+        {"GetLight", "", "x:y:z:intensity"},
         {"ResetCamera", "", ""},
         {"GetHasAssetCamera", "", ""},
         {"GetUseAssetCamera", "", ""},
@@ -151,6 +171,31 @@ std::string CommandDispatcher::route(const std::string& cmd) {
     if (cmd == "GetCamDist") {
         if (!renderer_) return "Val:0";
         return "Val:" + std::to_string(static_cast<int>(*renderer_->camDistPtr()));
+    }
+
+    if (cmd.rfind("SetCamTarget:", 0) == 0) {
+        if (!renderer_) return "Error:no renderer";
+        float v[3];
+        if (!parseColonFloats(cmd.substr(13), v, 3)) return "Error:expected SetCamTarget:x:y:z";
+        *renderer_->camTargetPtr() = { v[0], v[1], v[2] };
+        return "OK";
+    }
+
+    if (cmd.rfind("SetLight:", 0) == 0) {
+        if (!app_) return "Error:no app";
+        float v[7];
+        if (!parseColonFloats(cmd.substr(9), v, 7)) return "Error:expected SetLight:x:y:z:r:g:b:intensity";
+        if (v[6] < 0.f) return "Error:intensity must be >= 0";
+        app_->setLight({ v[0], v[1], v[2] }, { v[3], v[4], v[5] }, v[6]);
+        return "OK";
+    }
+
+    if (cmd == "GetLight") {
+        if (!app_) return "Error:no app";
+        const auto& vp = app_->viewPanel();
+        char buf[128];
+        std::snprintf(buf, sizeof(buf), "%g:%g:%g:%g", vp.lightPos().x, vp.lightPos().y, vp.lightPos().z, vp.lightIntensity());
+        return buf;
     }
 
     if (cmd.rfind("SetCamDist:", 0) == 0) {

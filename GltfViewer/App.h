@@ -104,6 +104,9 @@ namespace Phantom::Gltf {
         // inspection tool shouldn't yank the camera out from under a user who just wants to
         // freely orbit a newly loaded asset. Only the first camera instance found (depth-first
         // scene traversal, same policy as Universe/RayTracer) is used.
+        // Directional light edited by the View panel / SetLight command.
+        void setLight(const glm::vec3& pos, const glm::vec3& color, float intensity) { viewPanel_.setLight(pos, color, intensity); }
+        const ViewPanel& viewPanel() const { return viewPanel_; }
         bool hasAssetCamera() const { return hasAssetCamera_; }
         bool useAssetCamera() const { return useAssetCamera_; }
         // No-op if hasAssetCamera() is false. `true` (re-)computes the projection from the
