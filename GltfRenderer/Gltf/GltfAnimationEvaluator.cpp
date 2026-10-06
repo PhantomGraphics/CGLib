@@ -1,4 +1,5 @@
 #include "GltfAnimationEvaluator.h"
+#include "GltfNodeTransform.h"
 #include "GltfAccessorView.h"
 
 #define GLM_FORCE_RADIANS
@@ -175,14 +176,6 @@ std::vector<float> evaluateWeightsSampler(const GltfDocument& doc, const GltfAni
     return result;
 }
 
-glm::mat4 staticLocalTransform(const GltfNode& node) {
-    if (node.hasMatrix) return node.matrix;
-    glm::mat4 T = glm::translate(glm::mat4(1.f), node.translation);
-    glm::quat q(node.rotation.w, node.rotation.x, node.rotation.y, node.rotation.z);
-    glm::mat4 R = glm::mat4_cast(q);
-    glm::mat4 S = glm::scale(glm::mat4(1.f), node.scale);
-    return T * R * S;
-}
 
 void traverseGlobal(const GltfDocument& doc, int nodeIndex, const glm::mat4& parentTransform,
                      const std::unordered_map<int, NodeChannels>& nodeChannels,

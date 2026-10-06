@@ -60,6 +60,8 @@ if(PHANTOM_GTEST_FOUND)
             ${GLTFR_ROOT}/GltfRendererTest/GltfGlobalDescriptorsTest.cpp
             ${GLTFR_ROOT}/GltfRendererTest/GltfIblPrecomputerTest.cpp
             ${GLTFR_ROOT}/GltfRendererTest/GltfPipelineVariantPoolTest.cpp
+            ${GLTFR_ROOT}/GltfRendererTest/GltfPrimitiveDataTest.cpp
+            ${GLTFR_ROOT}/GltfRendererTest/GltfNodeTransformTest.cpp
             ${GLTFR_ROOT}/GltfRendererTest/SkeletonGltfConverterTest.cpp
             ${GLTFR_ROOT}/GltfRendererTest/MmdToGltfConverterTest.cpp
             ${GLTFR_ROOT}/GltfRendererTest/GLTFFileReaderMorphTargetTest.cpp
