@@ -1,4 +1,5 @@
 ﻿#include "CommandDispatcher.h"
+#include "CommandParse.h"
 
 #include "VolumeScene.h"
 
@@ -23,17 +24,14 @@
 #include <cstdlib>
 #include <memory>
 #include <string>
+#include <functional>
 #include <string_view>
+#include <unordered_map>
 #include <vector>
 
 namespace VolumeView {
 
 namespace {
-
-bool parseFloat(const std::string& s, float& out) {
-    auto [ptr, ec] = std::from_chars(s.data(), s.data() + s.size(), out);
-    return ec == std::errc{};
-}
 
 Phantom::Volume::Volumef sparseToVolumeWithVoxelSize(
     const Phantom::Volume::SparseVolumef& sparse,
@@ -88,21 +86,29 @@ Phantom::Volume::Volumef sparseToVolumeWithVoxelSize(
     return dense;
 }
 
-bool parseInt(const std::string& s, int& out) {
-    auto [ptr, ec] = std::from_chars(s.data(), s.data() + s.size(), out);
-    return ec == std::errc{};
-}
 
-std::vector<std::string> splitBy(const std::string& s, char delim) {
-    std::vector<std::string> parts;
-    std::string part;
-    for (char c : s) {
-        if (c == delim) { parts.push_back(std::move(part)); part.clear(); }
-        else             { part += c; }
-    }
-    parts.push_back(std::move(part));
-    return parts;
-}
+// Renderer-side half of the PBVR single-value commands; names/kinds are in pbvrScalarCommands().
+using PbvrApply = std::function<void(Phantom::Volume::PBVRRenderer&, const ScalarValue&)>;
+const std::unordered_map<std::string, PbvrApply> kPbvrScalarSetters = {
+    {"SetPBVRUseGPU",             [](auto& r, const ScalarValue& v) { r.setUseGPU(v.flag); }},
+    {"SetPBVRParticleSize",       [](auto& r, const ScalarValue& v) { r.setParticleSize(v.f); }},
+    {"SetPBVRDensityScale",       [](auto& r, const ScalarValue& v) { r.setDensityScale(v.f); }},
+    {"SetPBVRCameraDistance",     [](auto& r, const ScalarValue& v) { r.setCameraDistance(v.f); }},
+    {"SetPBVRMultipleScattering", [](auto& r, const ScalarValue& v) { r.setMultipleScatteringEnabled(v.flag); }},
+    {"SetPBVRScatteringOrders",   [](auto& r, const ScalarValue& v) { r.setScatteringOrders(v.i); }},
+    {"SetPBVRProbeCount",         [](auto& r, const ScalarValue& v) { r.setProbeCount(v.i); }},
+    {"SetPBVRProbeRadius",        [](auto& r, const ScalarValue& v) { r.setProbeRadius(v.f); }},
+    {"SetPBVRPhaseG",             [](auto& r, const ScalarValue& v) { r.setPhaseG(v.f); }},
+    {"SetPBVRScatteringAlbedo",   [](auto& r, const ScalarValue& v) { r.setScatteringAlbedo(v.f); }},
+    {"SetPBVRCameraFov",          [](auto& r, const ScalarValue& v) { r.setCameraFovY(v.f); }},
+    {"SetPBVRProbeSourceBudget",  [](auto& r, const ScalarValue& v) { r.setProbeSourceBudget(v.i); }},
+    {"SetPBVRScatteringSHDegree", [](auto& r, const ScalarValue& v) { r.setScatteringSHDegree(v.i); }},
+    {"SetPBVRScatteringExposure", [](auto& r, const ScalarValue& v) { r.setScatteringExposure(v.f); }},
+    {"SetPBVRTFPreset",           [](auto& r, const ScalarValue& v) { r.setTransferFunctionPreset(v.i); }},
+    {"SetPBVRShadowEnabled",      [](auto& r, const ScalarValue& v) { r.setShadowEnabled(v.flag); }},
+    {"SetPBVRExtinction",         [](auto& r, const ScalarValue& v) { r.setExtinction(v.f); }},
+    {"SetPBVRShadowLayers",       [](auto& r, const ScalarValue& v) { r.setShadowLayers(v.i); }},
+};
 
 } // anonymous namespace
 
@@ -435,22 +441,15 @@ std::string CommandDispatcher::route(const std::string& cmd) {
     }
 
     if (parts[0] == "CreateSphere" && parts.size() == 6) {
-        float cx, cy, cz, radius, cell;
-        if (!parseFloat(parts[1], cx)     || !parseFloat(parts[2], cy) ||
-            !parseFloat(parts[3], cz)     || !parseFloat(parts[4], radius) ||
-            !parseFloat(parts[5], cell))
-            return "Error:bad CreateSphere params";
-        return cmdCreateSphere(cx, cy, cz, radius, cell);
+        float f[5];
+        if (!parseFloats(parts, 1, 5, f)) return "Error:bad CreateSphere params";
+        return cmdCreateSphere(f[0], f[1], f[2], f[3], f[4]);
     }
 
     if (parts[0] == "CreateBox" && parts.size() == 8) {
-        float minX, minY, minZ, maxX, maxY, maxZ, cell;
-        if (!parseFloat(parts[1], minX) || !parseFloat(parts[2], minY) ||
-            !parseFloat(parts[3], minZ) || !parseFloat(parts[4], maxX) ||
-            !parseFloat(parts[5], maxY) || !parseFloat(parts[6], maxZ) ||
-            !parseFloat(parts[7], cell))
-            return "Error:bad CreateBox params";
-        return cmdCreateBox(minX, minY, minZ, maxX, maxY, maxZ, cell);
+        float f[7];
+        if (!parseFloats(parts, 1, 7, f)) return "Error:bad CreateBox params";
+        return cmdCreateBox(f[0], f[1], f[2], f[3], f[4], f[5], f[6]);
     }
 
     if (parts[0] == "CSGCombine" && parts.size() == 4) {
@@ -473,14 +472,11 @@ std::string CommandDispatcher::route(const std::string& cmd) {
     }
 
     if (parts[0] == "CreateDenseBox" && parts.size() == 10) {
-        float minX, minY, minZ, maxX, maxY, maxZ;
-        int resX, resY, resZ;
-        if (!parseFloat(parts[1], minX) || !parseFloat(parts[2], minY) ||
-            !parseFloat(parts[3], minZ) || !parseFloat(parts[4], maxX) ||
-            !parseFloat(parts[5], maxY) || !parseFloat(parts[6], maxZ) ||
-            !parseInt(parts[7], resX) || !parseInt(parts[8], resY) || !parseInt(parts[9], resZ))
+        float f[6];
+        int   n[3];
+        if (!parseFloats(parts, 1, 6, f) || !parseInts(parts, 7, 3, n))
             return "Error:bad CreateDenseBox params";
-        return cmdCreateDenseBox(minX, minY, minZ, maxX, maxY, maxZ, resX, resY, resZ);
+        return cmdCreateDenseBox(f[0], f[1], f[2], f[3], f[4], f[5], n[0], n[1], n[2]);
     }
 
     if (parts[0] == "DenseFromSparse" && parts.size() == 2) {
@@ -503,87 +499,25 @@ std::string CommandDispatcher::route(const std::string& cmd) {
 
     // --- PBVR self-shadow (experimental, see internal design notes) ---
 
+    // --- PBVR single-value setters: name/arity/value kind live in CommandParse (testable without a
+    //     GPU); only the call into the renderer is here ---
+
+    if (const ScalarCommandSpec* spec = findScalarCommand(parts)) {
+        if (!pbvrRenderer_) return "Error:no pbvr renderer";
+        ScalarValue v;
+        if (!parseScalarValue(*spec, parts[1], v))
+            return std::string("Error:bad ") + spec->name + " value";
+        const auto it = kPbvrScalarSetters.find(spec->name);
+        if (it == kPbvrScalarSetters.end()) return "Error:unknown command '" + cmd + "'";
+        it->second(*pbvrRenderer_, v);
+        return "OK";
+    }
+
     if (parts[0] == "SetPBVRRenderMode" && parts.size() == 2) {
         if (!menuPanel_) return "Error:no menu panel";
         int mode = 0;
         if (!parseInt(parts[1], mode) || mode < 0 || mode > 2) return "Error:bad SetPBVRRenderMode value";
         menuPanel_->setRenderMode(mode);
-        return "OK";
-    }
-
-    if (parts[0] == "SetPBVRUseGPU" && parts.size() == 2) {
-        if (!pbvrRenderer_) return "Error:no pbvr renderer";
-        pbvrRenderer_->setUseGPU(parts[1] != "0");
-        return "OK";
-    }
-
-    if (parts[0] == "SetPBVRParticleSize" && parts.size() == 2) {
-        if (!pbvrRenderer_) return "Error:no pbvr renderer";
-        float size;
-        if (!parseFloat(parts[1], size)) return "Error:bad SetPBVRParticleSize value";
-        pbvrRenderer_->setParticleSize(size);
-        return "OK";
-    }
-
-    if (parts[0] == "SetPBVRDensityScale" && parts.size() == 2) {
-        if (!pbvrRenderer_) return "Error:no pbvr renderer";
-        float scale;
-        if (!parseFloat(parts[1], scale)) return "Error:bad SetPBVRDensityScale value";
-        pbvrRenderer_->setDensityScale(scale);
-        return "OK";
-    }
-
-    if (parts[0] == "SetPBVRCameraDistance" && parts.size() == 2) {
-        if (!pbvrRenderer_) return "Error:no pbvr renderer";
-        float distance;
-        if (!parseFloat(parts[1], distance)) return "Error:bad SetPBVRCameraDistance value";
-        pbvrRenderer_->setCameraDistance(distance);
-        return "OK";
-    }
-
-    if (parts[0] == "SetPBVRMultipleScattering" && parts.size() == 2) {
-        if (!pbvrRenderer_) return "Error:no pbvr renderer";
-        pbvrRenderer_->setMultipleScatteringEnabled(parts[1] != "0");
-        return "OK";
-    }
-
-    if (parts[0] == "SetPBVRScatteringOrders" && parts.size() == 2) {
-        if (!pbvrRenderer_) return "Error:no pbvr renderer";
-        int orders;
-        if (!parseInt(parts[1], orders)) return "Error:bad SetPBVRScatteringOrders value";
-        pbvrRenderer_->setScatteringOrders(orders);
-        return "OK";
-    }
-
-    if (parts[0] == "SetPBVRProbeCount" && parts.size() == 2) {
-        if (!pbvrRenderer_) return "Error:no pbvr renderer";
-        int count;
-        if (!parseInt(parts[1], count)) return "Error:bad SetPBVRProbeCount value";
-        pbvrRenderer_->setProbeCount(count);
-        return "OK";
-    }
-
-    if (parts[0] == "SetPBVRProbeRadius" && parts.size() == 2) {
-        if (!pbvrRenderer_) return "Error:no pbvr renderer";
-        float radius;
-        if (!parseFloat(parts[1], radius)) return "Error:bad SetPBVRProbeRadius value";
-        pbvrRenderer_->setProbeRadius(radius);
-        return "OK";
-    }
-
-    if (parts[0] == "SetPBVRPhaseG" && parts.size() == 2) {
-        if (!pbvrRenderer_) return "Error:no pbvr renderer";
-        float g;
-        if (!parseFloat(parts[1], g)) return "Error:bad SetPBVRPhaseG value";
-        pbvrRenderer_->setPhaseG(g);
-        return "OK";
-    }
-
-    if (parts[0] == "SetPBVRScatteringAlbedo" && parts.size() == 2) {
-        if (!pbvrRenderer_) return "Error:no pbvr renderer";
-        float albedo;
-        if (!parseFloat(parts[1], albedo)) return "Error:bad SetPBVRScatteringAlbedo value";
-        pbvrRenderer_->setScatteringAlbedo(albedo);
         return "OK";
     }
 
@@ -611,14 +545,6 @@ std::string CommandDispatcher::route(const std::string& cmd) {
         return "OK";
     }
 
-    if (parts[0] == "SetPBVRCameraFov" && parts.size() == 2) {
-        if (!pbvrRenderer_) return "Error:no pbvr renderer";
-        float fov;
-        if (!parseFloat(parts[1], fov)) return "Error:bad SetPBVRCameraFov value";
-        pbvrRenderer_->setCameraFovY(fov);
-        return "OK";
-    }
-
     if (parts[0] == "SetPBVRCameraAngles" && parts.size() == 3) {
         if (!pbvrRenderer_) return "Error:no pbvr renderer";
         float azimuth, elevation;
@@ -628,47 +554,9 @@ std::string CommandDispatcher::route(const std::string& cmd) {
         return "OK";
     }
 
-    if (parts[0] == "SetPBVRProbeSourceBudget" && parts.size() == 2) {
-        if (!pbvrRenderer_) return "Error:no pbvr renderer";
-        int budget;
-        if (!parseInt(parts[1], budget)) return "Error:bad SetPBVRProbeSourceBudget value";
-        pbvrRenderer_->setProbeSourceBudget(budget);
-        return "OK";
-    }
-
-    if (parts[0] == "SetPBVRScatteringSHDegree" && parts.size() == 2) {
-        if (!pbvrRenderer_) return "Error:no pbvr renderer";
-        int degree;
-        if (!parseInt(parts[1], degree)) return "Error:bad SetPBVRScatteringSHDegree value";
-        pbvrRenderer_->setScatteringSHDegree(degree);
-        return "OK";
-    }
-
     if (parts[0] == "GetPBVRScatteringSolveMs") {
         if (!pbvrRenderer_) return "Error:no pbvr renderer";
         return std::to_string(pbvrRenderer_->getLastScatteringSolveMs());
-    }
-
-    if (parts[0] == "SetPBVRScatteringExposure" && parts.size() == 2) {
-        if (!pbvrRenderer_) return "Error:no pbvr renderer";
-        float exposure;
-        if (!parseFloat(parts[1], exposure)) return "Error:bad SetPBVRScatteringExposure value";
-        pbvrRenderer_->setScatteringExposure(exposure);
-        return "OK";
-    }
-
-    if (parts[0] == "SetPBVRTFPreset" && parts.size() == 2) {
-        if (!pbvrRenderer_) return "Error:no pbvr renderer";
-        int preset = 0;
-        if (!parseInt(parts[1], preset)) return "Error:bad SetPBVRTFPreset value";
-        pbvrRenderer_->setTransferFunctionPreset(preset);
-        return "OK";
-    }
-
-    if (parts[0] == "SetPBVRShadowEnabled" && parts.size() == 2) {
-        if (!pbvrRenderer_) return "Error:no pbvr renderer";
-        pbvrRenderer_->setShadowEnabled(parts[1] != "0");
-        return "OK";
     }
 
     if (parts[0] == "SetPBVRLightDir" && parts.size() == 3) {
@@ -676,22 +564,6 @@ std::string CommandDispatcher::route(const std::string& cmd) {
         float az, el;
         if (!parseFloat(parts[1], az) || !parseFloat(parts[2], el)) return "Error:bad SetPBVRLightDir params";
         pbvrRenderer_->setLightDir(az, el);
-        return "OK";
-    }
-
-    if (parts[0] == "SetPBVRExtinction" && parts.size() == 2) {
-        if (!pbvrRenderer_) return "Error:no pbvr renderer";
-        float sigma;
-        if (!parseFloat(parts[1], sigma)) return "Error:bad SetPBVRExtinction value";
-        pbvrRenderer_->setExtinction(sigma);
-        return "OK";
-    }
-
-    if (parts[0] == "SetPBVRShadowLayers" && parts.size() == 2) {
-        if (!pbvrRenderer_) return "Error:no pbvr renderer";
-        int n;
-        if (!parseInt(parts[1], n)) return "Error:bad SetPBVRShadowLayers value";
-        pbvrRenderer_->setShadowLayers(n);
         return "OK";
     }
 
