@@ -49,6 +49,23 @@ TEST(CommandQueueTest, RequeuePutsCommandsBehindNewerOnes)
     EXPECT_EQ(again.front(), "two");
 }
 
+TEST(CommandQueueTest, RequeueFrontPutsCommandsAheadOfNewerOnes)
+{
+    CommandQueue q;
+    q.submit("one");
+    q.submit("two");
+    auto local = q.takeAll();
+    local.pop();                 // "one" was processed; "two" must run first next frame
+    q.submit("late");
+    q.requeueFront(local);
+    EXPECT_TRUE(local.empty());
+    auto again = q.takeAll();
+    ASSERT_EQ(again.size(), 2u);
+    EXPECT_EQ(again.front(), "two");
+    again.pop();
+    EXPECT_EQ(again.front(), "late");
+}
+
 TEST(CommandQueueTest, ResponsesAreCollectedOnceInOrder)
 {
     CommandQueue q;

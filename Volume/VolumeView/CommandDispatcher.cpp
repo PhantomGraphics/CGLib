@@ -519,19 +519,17 @@ std::string CommandDispatcher::route(const std::string& cmd) {
 
     if (parts[0] == "SetPBVRCameraTarget" && parts.size() == 4) {
         if (!pbvrRenderer_) return "Error:no pbvr renderer";
-        float x, y, z;
-        if (!parseFloat(parts[1], x) || !parseFloat(parts[2], y) || !parseFloat(parts[3], z))
-            return "Error:bad SetPBVRCameraTarget value";
-        pbvrRenderer_->setCameraTarget(glm::vec3(x, y, z));
+        float v[3];
+        if (!parseFloats(parts, 1, 3, v)) return "Error:bad SetPBVRCameraTarget value";
+        pbvrRenderer_->setCameraTarget(glm::vec3(v[0], v[1], v[2]));
         return "OK";
     }
 
     if (parts[0] == "SetPBVRCameraAngles" && parts.size() == 3) {
         if (!pbvrRenderer_) return "Error:no pbvr renderer";
-        float azimuth, elevation;
-        if (!parseFloat(parts[1], azimuth) || !parseFloat(parts[2], elevation))
-            return "Error:bad SetPBVRCameraAngles value";
-        pbvrRenderer_->setCameraAngles(azimuth, elevation);
+        float a[2];
+        if (!parseFloats(parts, 1, 2, a)) return "Error:bad SetPBVRCameraAngles value";
+        pbvrRenderer_->setCameraAngles(a[0], a[1]);
         return "OK";
     }
 
@@ -542,9 +540,9 @@ std::string CommandDispatcher::route(const std::string& cmd) {
 
     if (parts[0] == "SetPBVRLightDir" && parts.size() == 3) {
         if (!pbvrRenderer_) return "Error:no pbvr renderer";
-        float az, el;
-        if (!parseFloat(parts[1], az) || !parseFloat(parts[2], el)) return "Error:bad SetPBVRLightDir params";
-        pbvrRenderer_->setLightDir(az, el);
+        float a[2];
+        if (!parseFloats(parts, 1, 2, a)) return "Error:bad SetPBVRLightDir params";
+        pbvrRenderer_->setLightDir(a[0], a[1]);
         return "OK";
     }
 
