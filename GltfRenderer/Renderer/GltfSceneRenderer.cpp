@@ -18,6 +18,7 @@
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
+#include <vk_mem_alloc.h>
 #include <fstream>
 #include <limits>
 
@@ -693,6 +694,23 @@ void GltfSceneRenderer::onUpdate(uint32_t frameIndex) {
     boneUbos_[frameIndex].write(&bones, sizeof(BoneUBO));
 
     lightManager_.uploadUBO(lightUbos_[frameIndex]);
+
+    if (!scalarField_.empty()) {
+        auto& buffer = scalarBuffers_[frameIndex];
+        const VkDeviceSize bytes = scalarField_.size() * sizeof(glm::vec4);
+        if (!buffer.isValid() || buffer.getSize() < bytes) {
+            // VkAppBase has waited for this frame slot's fence before onUpdate.
+            buffer.destroy(ctx_->getDevice());
+            if (!buffer.createMapped(*ctx_, bytes, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)) {
+                fprintf(stderr, "[GltfSceneRenderer] Scalar field allocation failed\n");
+                ready_ = false;
+                return;
+            }
+            descriptors_.updateScalarField(ctx_->getDevice(), frameIndex, {buffer.get(), bytes});
+        }
+        buffer.write(scalarField_.data(), bytes);
+        vmaFlushAllocation(ctx_->getAllocator(), buffer.getVmaAllocation(), 0, bytes);
+    }
 }
 
 // ============================================================
@@ -991,6 +1009,7 @@ void GltfSceneRenderer::onCleanup(VkDevice device) {
     for (int f = 0; f < MAX_FRAMES; ++f) {
         globalUbos_[f].destroy(device);
         boneUbos_[f].destroy(device);
+        scalarBuffers_[f].destroy(device);
         lightUbos_[f].destroy(device);
     }
 

@@ -15,6 +15,7 @@ namespace Phantom::Gltf {
     //  set=0 (global, one set per frame in flight, document-independent):
     //    0 GlobalUBO (vert+frag)   1 irradiance cube   2 prefiltered cube   3 BRDF LUT
     //    4 shadow map              5 BoneUBO (vert)    6 LightBufferGpu     7 volume shadow array
+    //    8 optional scalar-field SSBO (vert+frag)
     //  set=1 (per material, document-dependent pool):
     //    0 MaterialUBO             1-5 five textures
     //
@@ -50,6 +51,7 @@ namespace Phantom::Gltf {
         void destroyMaterialPool(VkDevice device);
 
         void updateFrame(VkDevice device, uint32_t frame, const FrameInputs& in) const;
+        void updateScalarField(VkDevice device, uint32_t frame, BufferBinding buffer) const;
 
         VkDescriptorSetLayout  globalLayout() const   { return globalLayout_.get(); }
         VkDescriptorSetLayout  materialLayout() const { return materialLayout_.get(); }

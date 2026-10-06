@@ -20,7 +20,7 @@ const VkDescriptorSetLayoutBinding* find(const std::vector<VkDescriptorSetLayout
 TEST(GltfGlobalDescriptorsTest, GlobalBindingTable)
 {
     const auto b = GltfGlobalDescriptors::globalBindings();
-    ASSERT_EQ(8u, b.size());
+    ASSERT_EQ(9u, b.size());
     for (uint32_t i = 0; i < b.size(); ++i) {
         ASSERT_NE(nullptr, find(b, i)) << "missing binding " << i;
         EXPECT_EQ(1u, find(b, i)->descriptorCount);
@@ -34,6 +34,8 @@ TEST(GltfGlobalDescriptorsTest, GlobalBindingTable)
     EXPECT_EQ(VkShaderStageFlags(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT), find(b, 0)->stageFlags);
     EXPECT_EQ(VkShaderStageFlags(VK_SHADER_STAGE_VERTEX_BIT), find(b, 5)->stageFlags); // BoneUBO
     EXPECT_EQ(VkShaderStageFlags(VK_SHADER_STAGE_FRAGMENT_BIT), find(b, 6)->stageFlags);
+    EXPECT_EQ(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, find(b, 8)->descriptorType);
+    EXPECT_EQ(VkShaderStageFlags(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT), find(b, 8)->stageFlags);
 }
 
 TEST(GltfGlobalDescriptorsTest, MaterialBindingTable)
