@@ -249,6 +249,7 @@ function(phantom_add_vkappbase_core)
                     ${CGLIB_ROOT}/VkAppBase/VkAppBaseTest/FrameSyncTest.cpp
                     ${CGLIB_ROOT}/VkAppBase/VkAppBaseTest/FrameReadbackTest.cpp
                     ${CGLIB_ROOT}/VkAppBase/VkAppBaseTest/FrameRecordingTest.cpp
+                    ${CGLIB_ROOT}/VkAppBase/VkAppBaseTest/CommandQueueTest.cpp
             LINK VkAppBaseCore ${PHANTOM_VULKAN_LIBRARY} ${PHANTOM_GLFW_LIBRARY})
     endif()
 endfunction()

@@ -2,6 +2,7 @@
 
 #include "../../VkAppBase/ScenarioRunner/IScenarioDispatcher.h"
 #include "../../VkAppBase/ScenarioRunner/UiCommand.h"
+#include "../../VkAppBase/ScenarioRunner/CommandQueue.h"
 #include "World.h"
 #include "SparseVolumeRenderer.h"
 #include "DenseVolumeRenderer.h"
@@ -82,9 +83,7 @@ private:
     bool pixelReadPending_ = false;
     bool pixelBrightness_  = false;
 
-    std::mutex              mutex_;
-    std::queue<std::string> inputQueue_;
-    std::queue<std::string> outputQueue_;
+    CommandQueue queue_;
 };
 
 } // namespace VolumeView

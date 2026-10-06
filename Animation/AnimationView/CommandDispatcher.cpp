@@ -9,19 +9,12 @@ namespace Phantom::Animation {
 
 void CommandDispatcher::dispatch(const std::string& command)
 {
-    std::lock_guard<std::mutex> lock(mutex_);
-    inputQueue_.push(command);
+    queue_.submit(command);
 }
 
 std::vector<std::string> CommandDispatcher::collectResponses()
 {
-    std::lock_guard<std::mutex> lock(mutex_);
-    std::vector<std::string> out;
-    while (!outputQueue_.empty()) {
-        out.push_back(outputQueue_.front());
-        outputQueue_.pop();
-    }
-    return out;
+    return queue_.collectResponses();
 }
 
 std::vector<CommandInfo> CommandDispatcher::commandCatalog() const
@@ -75,19 +68,11 @@ std::string CommandDispatcher::cmdCheckCommandCatalog()
 void CommandDispatcher::processQueue()
 {
     std::string cmd;
-    {
-        std::lock_guard<std::mutex> lock(mutex_);
-        if (inputQueue_.empty()) return;
-        cmd = inputQueue_.front();
-        inputQueue_.pop();
-    }
+    if (!queue_.takeOne(cmd)) return;
     const bool fromUi = takeUiMark(cmd);
-    const std::string response = route(cmd);
+    std::string response = route(cmd);
     if (fromUi) return;
-    {
-        std::lock_guard<std::mutex> lock(mutex_);
-        outputQueue_.push(response);
-    }
+    queue_.respond(std::move(response));
 }
 
 std::string CommandDispatcher::route(const std::string& cmd)

@@ -7,18 +7,11 @@
 using namespace Phantom::Gltf;
 
 void CommandDispatcher::dispatch(const std::string& command) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    inputQueue_.push(command);
+    queue_.submit(command);
 }
 
 std::vector<std::string> CommandDispatcher::collectResponses() {
-    std::lock_guard<std::mutex> lock(mutex_);
-    std::vector<std::string> out;
-    while (!outputQueue_.empty()) {
-        out.push_back(std::move(outputQueue_.front()));
-        outputQueue_.pop();
-    }
-    return out;
+    return queue_.collectResponses();
 }
 
 std::vector<CommandInfo> CommandDispatcher::commandCatalog() const {
@@ -76,21 +69,14 @@ std::string CommandDispatcher::cmdCheckCommandCatalog() {
 }
 
 void CommandDispatcher::processQueue() {
-    std::queue<std::string> local;
-    {
-        std::lock_guard<std::mutex> lock(mutex_);
-        std::swap(local, inputQueue_);
-    }
+    std::queue<std::string> local = queue_.takeAll();
 
     while (!local.empty()) {
         std::string cmd = std::move(local.front());
         local.pop();
         const bool fromUi = takeUiMark(cmd);
         std::string resp = route(cmd);
-        if (!resp.empty() && !fromUi) {
-            std::lock_guard<std::mutex> lock(mutex_);
-            outputQueue_.push(std::move(resp));
-        }
+        if (!resp.empty() && !fromUi) queue_.respond(std::move(resp));
     }
 }
 
@@ -107,16 +93,14 @@ std::optional<std::filesystem::path> CommandDispatcher::takePendingScreenshot() 
 }
 
 void CommandDispatcher::signalScreenshotDone(bool ok, const std::string& path) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    outputQueue_.push(ok ? "OK:saved " + path : "Error:screenshot failed");
+    queue_.respond(ok ? "OK:saved " + path : "Error:screenshot failed");
 }
 
 void CommandDispatcher::signalLoaded(bool ok, const std::string& msg) {
-    std::lock_guard<std::mutex> lock(mutex_);
     if (ok) {
-        outputQueue_.push("OK:" + (msg.empty() ? std::string("loaded") : msg));
+        queue_.respond("OK:" + (msg.empty() ? std::string("loaded") : msg));
     } else {
-        outputQueue_.push("Error:" + msg);
+        queue_.respond("Error:" + msg);
     }
 }
 
