@@ -11,6 +11,7 @@
 #include "GltfObjectAnimation.h"
 #include "GltfGlobalDescriptors.h"
 #include "GltfMainPipelines.h"
+#include "GltfSampledLight.h"
 #include "GltfPipelineVariantPool.h"
 #include "../Gltf/GltfDocument.h"
 #include "../IBL/GltfIBLPrecomputer.h"
@@ -56,6 +57,7 @@ namespace Phantom::Gltf
             GltfIBLPrecomputer::Shaders ibl;           // Phase 3: IBL (empty = skip)
             std::vector<uint32_t> shadowVertSpv;       // Phase C: depth-only shadow-caster pass
             std::vector<uint32_t> shadowFragSpv;       // (either empty = shadow casting disabled)
+            std::vector<uint32_t> sampledLightFragSpv; // optional ensemble surface-light variant
         };
 
         GltfSceneRenderer() = default;
@@ -87,6 +89,15 @@ namespace Phantom::Gltf
             VkRenderPass rp, uint32_t framesInFlight) override;
         void onUpdate(uint32_t frameIndex) override;
         void onRender(VkCommandBuffer cmd, uint32_t frameIndex) override;
+        // Draw opaque/MASK surfaces with normal shading plus a sampled light.
+        // shadowSet has two fragment combined-image-samplers at bindings 0/1:
+        // dual-paraboloid front/back nearest radial distances, nearest filtering.
+        // Push constants keep each ensemble independent even within one submit.
+        // Uses standard glTF shading, including for primitives with custom
+        // shader overrides. Alpha-BLEND surfaces stay in the ordinary scene pass.
+        // Falls back to ordinary shading when the variant is not available.
+        void renderSampledLight(VkCommandBuffer cmd, uint32_t frameIndex,
+                                VkDescriptorSet shadowSet, const GltfSampledLight& light);
         void onCleanup(VkDevice device) override;
 
         // --- Multi-instance draw (Phase 2 item 5 後半 of PLAN_blender_universe_authoring_loop.md:
@@ -431,6 +442,9 @@ namespace Phantom::Gltf
         // alpha MASK draws through the opaque pair (the fragment shader discards below cutoff
         // instead, since a MASK'd surface is still either fully opaque or invisible per-fragment).
         GltfMainPipelines mainPipelines_;
+        GltfMainPipelines sampledLightPipelines_;
+        Phantom::VKG::VulkanDescriptorSetLayout sampledLightLayout_;
+        bool sampledLightReady_ = false;
         // True if any material in the current document has alphaMode=Blend -- lets onRender()
         // skip the blend-sorting pass entirely (the common case) instead of allocating/sorting an
         // always-empty list. Set in buildDocumentResources(), cleared in clearDocumentResources().
@@ -538,7 +552,8 @@ namespace Phantom::Gltf
         // public entry points do it before their first call here), pushes `model` as the vertex
         // push constant, then draws every primitive through it exactly like onRender() always
         // has. Does NOT touch the skybox -- callers draw it themselves, once, after their own loop.
-        void renderPrimitivesWithModel(VkCommandBuffer cmd, uint32_t frameIndex, const glm::mat4& model);
+        void renderPrimitivesWithModel(VkCommandBuffer cmd, uint32_t frameIndex, const glm::mat4& model,
+                                       bool sampledLight = false);
 
         // Shared body of renderShadowCasters()/renderShadowCasterInstances(): pushes {lightVP,
         // model} and draws every primitive's position-only geometry through shadowPipeline_.
