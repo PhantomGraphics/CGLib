@@ -111,12 +111,18 @@ private:
     void drawCommand();
     void drawOutliner();
     void submitLine(const std::string& text, bool fromScenario = false);
+    // A scenario command appears in the Command window's input line (as if typed and
+    // sent): the text is shown for the frame in which it was issued.
+    void showScenarioInput(const std::string& cmd);
     void openFromOutliner(const std::string& panelId);
 
     class ScenarioProxy : public IScenarioDispatcher {
     public:
         explicit ScenarioProxy(ViewShell& s) : shell_(s) {}
-        void dispatch(const std::string& command) override { shell_.submitLine(command, true); }
+        void dispatch(const std::string& command) override {
+            shell_.showScenarioInput(command);
+            shell_.submitLine(command, true);
+        }
         std::vector<std::string> collectResponses() override {
             return shell_.dispatcher_ ? shell_.dispatcher_->collectResponses() : std::vector<std::string>{};
         }
@@ -140,6 +146,7 @@ private:
 
     char     input_[512]   = {};
     bool     focusInput_   = false;
+    bool     scenarioEcho_ = false;   // input_ currently holds a scenario command
     size_t   shownLines_   = 0;
     uint64_t selectedId_   = 0;
     bool     hasSelection_ = false;

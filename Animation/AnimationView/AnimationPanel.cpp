@@ -2,60 +2,74 @@
 #include "AnimationViewApp.h"
 
 #include "imgui.h"
+#include "CGLib/VkAppBase/ScenarioRunner/ViewShell.h"
 #include "../../ThirdParty/tinyfiledialogs/tinyfiledialogs.h"
 #include <cinttypes>
+#include <cstdio>
 
 namespace Phantom::Animation {
+
+namespace {
+std::string fmtArg(float v)
+{
+    char buf[32];
+    std::snprintf(buf, sizeof(buf), "%.9g", v);
+    return buf;
+}
+} // namespace
 
 void AnimationPanel::onImGui()
 {
     if (!world_) return;
+    drawMain();
+    drawDebug();
+}
 
-    ImGui::SetNextWindowPos(ImVec2(10, 10), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(320, 180), ImGuiCond_FirstUseEver);
-
-    ImGui::Begin("Animation");
+void AnimationPanel::drawMain()
+{
+    if (!shell_ || !shell_->beginPanel("Animation")) return;
+    ImGui::BeginDisabled(locked_);
 
     const float duration = world_->duration;
 
-    if (ImGui::Button(world_->playing ? "Stop" : "Play")) {
-        world_->playing = !world_->playing;
-    }
+    if (ImGui::Button(world_->playing ? "Stop" : "Play"))
+        send(world_->playing ? "Stop" : "Play");
     ImGui::SameLine();
-    if (ImGui::Button("Reset")) {
-        world_->currentTime = 0.f;
-        world_->playing     = false;
-        world_->dirty       = true;
-    }
+    if (ImGui::Button("Reset"))
+        send("Reset");
     ImGui::SameLine();
-    ImGui::Checkbox("Loop", &world_->loop);
+    bool loop = world_->loop;
+    if (ImGui::Checkbox("Loop", &loop))
+        send(loop ? "SetLoop:1" : "SetLoop:0");
 
     char label[64];
     std::snprintf(label, sizeof(label), "%.2f / %.2f s", world_->currentTime, duration);
     float t = (duration > 0.f) ? world_->currentTime / duration : 0.f;
-    if (ImGui::SliderFloat("Time", &t, 0.f, 1.f, label)) {
-        world_->currentTime = t * duration;
-        world_->dirty       = true;
-    }
+    if (ImGui::SliderFloat("Time", &t, 0.f, 1.f, label))
+        send("SetTime:" + fmtArg(t * duration));
 
-    ImGui::SliderFloat("Speed", &world_->speed, 0.1f, 3.0f, "%.1fx");
+    float speed = world_->speed;
+    if (ImGui::SliderFloat("Speed", &speed, 0.1f, 3.0f, "%.1fx"))
+        send("SetSpeed:" + fmtArg(speed));
 
     ImGui::Separator();
-    ImGui::Checkbox("Show Mesh", &world_->showMesh);
+    bool showMesh = world_->showMesh;
+    if (ImGui::Checkbox("Show Mesh", &showMesh))
+        send(showMesh ? "SetVisible:Mesh:1" : "SetVisible:Mesh:0");
 
     if (app_ && ImGui::CollapsingHeader("Environment")) {
         bool useIBL = app_->getUseIBL();
-        if (ImGui::Checkbox("Use IBL", &useIBL)) app_->setUseIBL(useIBL);
+        if (ImGui::Checkbox("Use IBL", &useIBL)) send(useIBL ? "SetUseIBL:1" : "SetUseIBL:0");
         ImGui::Text("%s", app_->hasEnvironmentHDR() ? "Env: real HDRI" : "Env: placeholder");
         if (ImGui::Button("Load HDRI...")) {
             const char* filters[] = { "*.hdr" };
             const char* path = tinyfd_openFileDialog(
                 "Load Environment HDRI", "", 1, filters, "Radiance HDR files (*.hdr)", 0);
-            if (path) app_->loadEnvironmentHDR(path);
+            if (path) send(std::string("LoadEnvironmentHDR:") + path);
         }
         if (app_->hasEnvironmentHDR()) {
             ImGui::SameLine();
-            if (ImGui::Button("Clear HDRI")) app_->clearEnvironmentHDR();
+            if (ImGui::Button("Clear HDRI")) send("ClearEnvironmentHDR");
         }
     }
 
@@ -66,7 +80,8 @@ void AnimationPanel::onImGui()
     // IK -- informational only post-migration (see AnimationWorld.h: baked at load time).
     if (world_->ikCount > 0) {
         ImGui::Separator();
-        ImGui::Checkbox("IK Enabled", &world_->ikEnabled);
+        bool ik = world_->ikEnabled;
+        if (ImGui::Checkbox("IK Enabled", &ik)) send(ik ? "SetIKEnabled:1" : "SetIKEnabled:0");
         ImGui::TextDisabled("(baked into the loaded animation; toggling has no live effect)");
     }
 
@@ -88,32 +103,31 @@ void AnimationPanel::onImGui()
     ImGui::SetNextItemWidth(200.f);
     ImGui::InputText("##model", modelBuf, sizeof(modelBuf));
     ImGui::SameLine();
-    if (ImGui::Button("Load PMX")) {
-        world_->loadedModelPath = modelBuf;
-    }
+    if (ImGui::Button("Load PMX"))
+        send(std::string("LoadPMX:") + modelBuf);
 
     ImGui::SetNextItemWidth(200.f);
     ImGui::InputText("##motion", motionBuf, sizeof(motionBuf));
     ImGui::SameLine();
-    if (ImGui::Button("Load VMD")) {
-        world_->loadedMotionPath = motionBuf;
-    }
+    if (ImGui::Button("Load VMD"))
+        send(std::string("LoadVMD:") + motionBuf);
 
     if (!world_->loadedModelPath.empty())
         ImGui::TextUnformatted(("Model: " + world_->loadedModelPath).c_str());
     if (!world_->loadedMotionPath.empty())
         ImGui::TextUnformatted(("Motion: " + world_->loadedMotionPath).c_str());
 
-    ImGui::End();
+    ImGui::EndDisabled();
+    shell_->endPanel();
+}
 
+void AnimationPanel::drawDebug()
+{
     // -----------------------------------------------------------------------
-    //  PMX Debug window  (always visible when a load was attempted)
+    //  PMX Debug window  (only offered once a load was attempted)
     // -----------------------------------------------------------------------
     const auto& dbg = world_->loadDebug;
-    if (dbg.attempted) {
-        ImGui::SetNextWindowPos(ImVec2(10, 450), ImGuiCond_FirstUseEver);
-        ImGui::SetNextWindowSize(ImVec2(480, 200), ImGuiCond_FirstUseEver);
-        ImGui::Begin("PMX Debug");
+    if (dbg.attempted && shell_ && shell_->beginPanel("PMX Debug")) {
 
         if (dbg.success) {
             ImGui::TextColored({0.2f,1.f,0.2f,1.f}, "STATUS: OK");
@@ -149,7 +163,7 @@ void AnimationPanel::onImGui()
             ImGui::EndTable();
         }
 
-        ImGui::End();
+        shell_->endPanel();
     }
 }
 

@@ -5,6 +5,7 @@
 #include "CommandInfo.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cstddef>
 #include <deque>
 #include <string>
@@ -57,7 +58,7 @@ public:
         const size_t n = std::min(pending_.size(), responses.size());
         std::vector<std::string> forScenario;
         for (size_t i = 0; i < n; ++i) {
-            const bool err = responses[i].rfind("Error", 0) == 0;
+            const bool err = isError(responses[i]);
             push({err ? Line::Kind::Error : Line::Kind::Output, responses[i]});
             if (pending_[i]) forScenario.push_back(std::move(responses[i]));
         }
@@ -106,6 +107,14 @@ public:
             p.resize(i);
         }
         return p;
+    }
+
+    // "Error:..." (most apps) or "ERROR:..." (AnimationView).
+    static bool isError(const std::string& r) {
+        if (r.size() < 5) return false;
+        for (size_t i = 0; i < 5; ++i)
+            if (std::tolower(static_cast<unsigned char>(r[i])) != "error"[i]) return false;
+        return true;
     }
 
     static std::string trim(const std::string& s) {

@@ -16,6 +16,7 @@
 #include "../VolumeRenderer/PBVRRenderer.h"
 
 #include "imgui.h"
+#include "../../VkAppBase/ScenarioRunner/ViewShell.h"
 
 #include <memory>
 #include <utility>
@@ -126,9 +127,8 @@ void MenuPanel::onImGuiMenuBar() {
 void MenuPanel::onImGui() {
     syncRendererStates();
 
-    ImGui::SetNextWindowPos(ImVec2(10.f, 35.f), ImGuiCond_Once);
-    ImGui::SetNextWindowSize(ImVec2(400.f, 620.f), ImGuiCond_Once);
-    if (!ImGui::Begin("VolumeView Control")) { ImGui::End(); return; }
+    if (!shell_ || !shell_->beginPanel("VolumeView Control")) return;
+    ImGui::BeginDisabled(locked_);
 
     if (world_) {
         int totalVoxels = 0;
@@ -150,7 +150,8 @@ void MenuPanel::onImGui() {
 
     drawProcessView();
 
-    ImGui::End();
+    ImGui::EndDisabled();
+    shell_->endPanel();
 }
 
 // ============================================================
