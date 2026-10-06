@@ -19,7 +19,6 @@ is compiled into the static library and its code is not exposed to consumers.
 | Dear ImGui | 1.92.7 | MIT | `ThirdParty/imgui` | Vulkan/UI layer only (`UIWidgetsCore`) | not in the CPU package |
 | VulkanMemoryAllocator | recent (2017-2026 AMD) | MIT | `ThirdParty/VulkanMemoryAllocator` | Vulkan layer only | not in the CPU package |
 | GLFW | 3.3.8 | zlib/libpng | `ThirdParty/glfw-3.3.8` | Headers for the Vulkan/viewer layer; loader is found on the system | not in the CPU package |
-| GLEW | 2.2.0 | Modified BSD / MIT | `ThirdParty/glew-2.2.0` | Vendored legacy; not referenced by any CMake target | not shipped |
 | tinyfiledialogs | 3.x (2014-2021) | zlib-style | `ThirdParty/tinyfiledialogs` | UI layer only | not in the CPU package |
 | GoogleTest | v1.15.2 | BSD-3-Clause | fetched (FetchContent) | tests only | never |
 
