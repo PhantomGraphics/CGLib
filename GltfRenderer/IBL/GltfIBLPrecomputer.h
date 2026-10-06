@@ -156,6 +156,15 @@ private:
     static const uint32_t kPrefilterSize  = 128;
     static const uint32_t kPrefilterMips  = 5;
     static const uint32_t kBRDFLUTSize    = 512;
+
+public:
+    /// Roughness rendered into prefilter mip `mip` of `mips`: linear 0 (mirror) .. 1 (fully rough).
+    /// A single-mip chain renders roughness 0.
+    static float prefilterRoughness(uint32_t mip, uint32_t mips)
+    {
+        return mips > 1 ? static_cast<float>(mip) / static_cast<float>(mips - 1) : 0.0f;
+    }
+private:
 };
 
 }

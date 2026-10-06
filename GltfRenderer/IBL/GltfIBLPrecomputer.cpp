@@ -640,36 +640,8 @@ bool GltfIBLPrecomputer::computePrefilter(const Phantom::VKG::VulkanContext& ctx
     VkDevice dev = ctx.getDevice();
     constexpr VkFormat fmt = VK_FORMAT_R16G16B16A16_SFLOAT;
 
-    {
-        VkImageCreateInfo ci{};
-        ci.sType         = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-        ci.flags         = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
-        ci.imageType     = VK_IMAGE_TYPE_2D;
-        ci.format        = fmt;
-        ci.extent        = { kPrefilterSize, kPrefilterSize, 1 };
-        ci.mipLevels     = kPrefilterMips;
-        ci.arrayLayers   = 6;
-        ci.samples       = VK_SAMPLE_COUNT_1_BIT;
-        ci.tiling        = VK_IMAGE_TILING_OPTIMAL;
-        ci.usage         = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-        ci.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        GLTF_IBL_CHECK(vkCreateImage(dev, &ci, nullptr, &res.prefilterImage), "failed to create prefilter image", false);
-
-        VkMemoryRequirements mr;
-        vkGetImageMemoryRequirements(dev, res.prefilterImage, &mr);
-        VkMemoryAllocateInfo ai{};
-        auto memType = ctx.findMemoryType(mr.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-        if (!memType) {
-            std::fprintf(stderr, "[GltfIBLPrecomputer] no suitable memory type\n");
-            return false;
-        }
-
-        ai.sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-        ai.allocationSize  = mr.size;
-        ai.memoryTypeIndex = *memType;
-        GLTF_IBL_CHECK(vkAllocateMemory(dev, &ai, nullptr, &res.prefilterMem), "failed to allocate prefilter image memory", false);
-        GLTF_IBL_CHECK(vkBindImageMemory(dev, res.prefilterImage, res.prefilterMem, 0), "failed to bind prefilter image memory", false);
-    }
+    if (!createCubeImage(ctx, kPrefilterSize, kPrefilterMips, fmt, res.prefilterImage, res.prefilterMem))
+        return false;
 
     auto pass = createCubeFacePass(ctx, fmt,
                                    prefilterVertSpv_,
@@ -691,7 +663,7 @@ bool GltfIBLPrecomputer::computePrefilter(const Phantom::VKG::VulkanContext& ctx
     vkUpdateDescriptorSets(dev, 1, &w, 0, nullptr);
 
     for (uint32_t mip = 0; mip < kPrefilterMips; ++mip) {
-        float roughness = static_cast<float>(mip) / static_cast<float>(kPrefilterMips - 1);
+        const float roughness = prefilterRoughness(mip, kPrefilterMips);
         renderCubeFaces(ctx, pool, pass, res.prefilterImage, kPrefilterSize, mip, roughness);
     }
 
