@@ -59,7 +59,7 @@ endfunction()
 set(_cglib_install_components
     Math=MathCore Graphics=GraphicsCore Numerics=NumericsCore Space=SpaceCore
     Scene=SceneCore Volume=VolumeCore File=FileCore Animation=AnimationCore
-    GeometryNode=GeometryNodeCore Asset=AssetCore SceneRuntime=SceneRuntimeCore)
+    GeometryNode=GeometryNodeCore ShaderGraph=ShaderGraphCore Asset=AssetCore SceneRuntime=SceneRuntimeCore)
 
 set(_cglib_install_targets "")
 set(_cglib_install_component_names "")
@@ -111,7 +111,7 @@ foreach(_dir Math Graphics Util)
         FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp" PATTERN "*.inl" PATTERN "*.hxx"
         PATTERN "pch.h" EXCLUDE)
 endforeach()
-foreach(_dir Numerics Space Scene File Animation Volume GeometryNode AssetCore SceneRuntime)
+foreach(_dir Numerics Space Scene File Animation Volume GeometryNode ShaderGraph AssetCore SceneRuntime)
     # Scene/Scene presenters pull Renderer (Vulkan) headers and are not in SceneCore.
     install(DIRECTORY ${CGLIB_ROOT}/${_dir}/${_dir}/ DESTINATION ${_hdr_dest}/${_dir}/${_dir}
         FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp" PATTERN "*.inl" PATTERN "*.hxx"
