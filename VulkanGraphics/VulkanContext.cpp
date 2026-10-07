@@ -191,8 +191,8 @@ bool VulkanContext::createLogicalDevice() {
                               (atomic64Query.shaderBufferInt64Atomics == VK_TRUE);
 
     VkPhysicalDeviceFeatures features{};
-    features.largePoints       = VK_TRUE; // required for gl_PointSize
-    features.fillModeNonSolid  = VK_TRUE; // required for VK_POLYGON_MODE_LINE (wireframe)
+    features.largePoints       = surface_ ? VK_TRUE : features2Query.features.largePoints;
+    features.fillModeNonSolid  = surface_ ? VK_TRUE : features2Query.features.fillModeNonSolid;
     if (wantAtomic64) features.shaderInt64 = VK_TRUE;
 
     VkPhysicalDeviceShaderAtomicInt64Features atomic64Enable{};
@@ -205,8 +205,8 @@ bool VulkanContext::createLogicalDevice() {
     ci.queueCreateInfoCount    = (uint32_t)queueCIs.size();
     ci.pQueueCreateInfos       = queueCIs.data();
     ci.pEnabledFeatures        = &features;
-    ci.enabledExtensionCount   = (uint32_t)DEVICE_EXTENSIONS.size();
-    ci.ppEnabledExtensionNames = DEVICE_EXTENSIONS.data();
+    ci.enabledExtensionCount   = surface_ ? (uint32_t)DEVICE_EXTENSIONS.size() : 0;
+    ci.ppEnabledExtensionNames = surface_ ? DEVICE_EXTENSIONS.data() : nullptr;
     // Device Layers are deprecated since Vulkan 1.0; only Instance Layers
     // (see createInstance()) are used for validation.
 
@@ -287,9 +287,14 @@ QueueFamilyIndices VulkanContext::findQueueFamilies(
         if (families[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)
             indices.graphicsFamily = i;
 
-        VkBool32 present = VK_FALSE;
-        vkGetPhysicalDeviceSurfaceSupportKHR(dev, i, surface, &present);
-        if (present) indices.presentFamily = i;
+        if (surface == VK_NULL_HANDLE) {
+            // Offscreen work needs no WSI extension or presentation support.
+            if (indices.graphicsFamily) indices.presentFamily = indices.graphicsFamily;
+        } else {
+            VkBool32 present = VK_FALSE;
+            vkGetPhysicalDeviceSurfaceSupportKHR(dev, i, surface, &present);
+            if (present) indices.presentFamily = i;
+        }
 
         if (indices.isComplete()) break;
     }
@@ -300,6 +305,7 @@ SwapChainSupportDetails VulkanContext::querySwapChainSupport(
     VkPhysicalDevice dev, VkSurfaceKHR surface) const
 {
     SwapChainSupportDetails d;
+    if (surface == VK_NULL_HANDLE) return d;
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR(dev, surface, &d.capabilities);
 
     uint32_t fmtCount = 0;
@@ -337,12 +343,14 @@ std::optional<uint32_t> VulkanContext::findMemoryType(uint32_t typeFilter, VkMem
 
 bool VulkanContext::isDeviceSuitable(VkPhysicalDevice dev) const {
     if (!findQueueFamilies(dev, surface_).isComplete()) return false;
-    if (!checkDeviceExtensionSupport(dev)) return false;
-    auto sup = querySwapChainSupport(dev, surface_);
-    if (sup.formats.empty() || sup.presentModes.empty()) return false;
+    if (surface_ != VK_NULL_HANDLE) {
+        if (!checkDeviceExtensionSupport(dev)) return false;
+        auto sup = querySwapChainSupport(dev, surface_);
+        if (sup.formats.empty() || sup.presentModes.empty()) return false;
+    }
     VkPhysicalDeviceFeatures features;
     vkGetPhysicalDeviceFeatures(dev, &features);
-    return features.largePoints == VK_TRUE;
+    return surface_ == VK_NULL_HANDLE || features.largePoints == VK_TRUE;
 }
 
 bool VulkanContext::checkDeviceExtensionSupport(VkPhysicalDevice dev) const {
