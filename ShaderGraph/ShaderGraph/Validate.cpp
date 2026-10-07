@@ -154,6 +154,15 @@ std::vector<Diagnostic> validateGraph(const Graph& g) {
     }
     if (textures > kMaxTextures)
         add(out, Severity::Error, 0, "limit.textures", "texture count exceeds " + std::to_string(kMaxTextures));
+    // Exposed parameters never block compilation; a stale one is reported so the asset author can fix it.
+    std::set<std::string> names;
+    for (const ExposedInfo& e : describeExposed(g)) {
+        if (!names.insert(e.name).second)
+            add(out, Severity::Warning, e.node, "expose.duplicate", "exposed name '" + e.name + "' is used more than once");
+        if (!e.valid)
+            add(out, Severity::Warning, e.node, "expose.invalid",
+                "exposed parameter '" + e.name + "' no longer refers to an unlinked value of node " + std::to_string(e.node));
+    }
     return out;
 }
 

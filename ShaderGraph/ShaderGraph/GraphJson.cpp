@@ -25,6 +25,11 @@ json graphToJson(const Graph& g) {
         links.push_back({{"from", {{"node", l.fromNode}, {"socket", l.fromSocket}}},
                          {"to", {{"node", l.toNode}, {"socket", l.toSocket}}}});
     j["links"] = links;
+    if (!g.exposed.empty()) {
+        json ex = json::array();
+        for (const ExposedParam& e : g.exposed) ex.push_back({{"name", e.name}, {"node", e.node}, {"param", e.param}});
+        j["exposed"] = ex;
+    }
     json ln = json::object();
     for (const auto& [id, l] : g.layout) ln[std::to_string(id)] = {{"x", l.x}, {"y", l.y}};
     j["layout"] = {{"nodes", ln}};
@@ -58,7 +63,8 @@ ParseResult graphFromJson(const json& j, Graph& out) {
         if (g.schema < 1) return fail("invalid schema");
     }
     for (auto it = j.begin(); it != j.end(); ++it)
-        if (it.key() != "schema" && it.key() != "nodes" && it.key() != "links" && it.key() != "layout")
+        if (it.key() != "schema" && it.key() != "nodes" && it.key() != "links" && it.key() != "layout" &&
+            it.key() != "exposed")
             g.extra[it.key()] = it.value();
 
     if (j.contains("nodes")) {
@@ -92,6 +98,15 @@ ParseResult graphFromJson(const json& j, Graph& out) {
                 !endpoint(lj["from"], l.fromNode, l.fromSocket) || !endpoint(lj["to"], l.toNode, l.toSocket))
                 return fail("each link needs from/to with integer 'node' and string 'socket'");
             g.links.push_back(std::move(l));
+        }
+    }
+    if (j.contains("exposed")) {
+        if (!j["exposed"].is_array()) return fail("exposed must be an array");
+        for (const json& ej : j["exposed"]) {
+            if (!ej.is_object() || !ej.contains("name") || !ej["name"].is_string() || !ej.contains("node") ||
+                !ej["node"].is_number_integer() || !ej.contains("param") || !ej["param"].is_string())
+                return fail("each exposed entry needs string 'name', integer 'node' and string 'param'");
+            g.exposed.push_back({ej["name"].get<std::string>(), ej["node"].get<int>(), ej["param"].get<std::string>()});
         }
     }
     if (j.contains("layout") && j["layout"].is_object() && j["layout"].contains("nodes") &&
