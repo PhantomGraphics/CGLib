@@ -210,6 +210,29 @@ function(phantom_add_geometrynode_core)
     target_compile_features(GeometryNodeCore PUBLIC cxx_std_20)
 endfunction()
 
+function(phantom_add_shadergraph_core)
+    if(TARGET ShaderGraphCore)
+        return()
+    endif()
+    # Shader graph foundation (Phantom::ShaderGraph -- CPU-only graph model, validation,
+    # GLSL generation and JSON, docs/todo/PLAN_phantomstudio_shader_graph.md Phase 1).
+    # No Math/Vulkan/Studio dependency; JSON uses the vendored header-only nlohmann/json
+    # (reached by a relative include from ShaderGraph.h).
+    add_library(ShaderGraphCore STATIC
+        ${CGLIB_ROOT}/ShaderGraph/ShaderGraph/NodeRegistry.cpp
+        ${CGLIB_ROOT}/ShaderGraph/ShaderGraph/Validate.cpp
+        ${CGLIB_ROOT}/ShaderGraph/ShaderGraph/GlslGen.cpp
+        ${CGLIB_ROOT}/ShaderGraph/ShaderGraph/GraphJson.cpp
+        ${CGLIB_ROOT}/ShaderGraph/ShaderGraph/RuntimeCompiler.cpp
+        ${CGLIB_ROOT}/ShaderGraph/ShaderGraph/SurfaceFragment.cpp
+    )
+    # RuntimeCompiler loads shaderc_shared at run time (no link-time dependency); only dlopen on POSIX.
+    target_link_libraries(ShaderGraphCore PUBLIC ${CMAKE_DL_LIBS})
+    target_include_directories(ShaderGraphCore PUBLIC ${REPO_ROOT})
+    target_compile_options(ShaderGraphCore PRIVATE ${PHANTOM_WARN_FLAGS})
+    target_compile_features(ShaderGraphCore PUBLIC cxx_std_20)
+endfunction()
+
 function(phantom_add_assetcore)
     if(TARGET AssetCore)
         return()

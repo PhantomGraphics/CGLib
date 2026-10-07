@@ -109,6 +109,7 @@ add_subdirectory(Animation)
 add_subdirectory(Volume)
 add_subdirectory(Space)
 add_subdirectory(GeometryNode)
+add_subdirectory(ShaderGraph)
 add_subdirectory(AssetCore)
 add_subdirectory(SceneRuntime)
 
@@ -197,7 +198,7 @@ phantom_use_pch_headers(SceneRuntimeCore ${PHANTOM_PCH_STL} "${CGLIB_ROOT}/Third
 set(CGLIB_ALIAS_MAP
     Math=MathCore  Graphics=GraphicsCore  Numerics=NumericsCore  Space=SpaceCore
     Scene=SceneCore  Volume=VolumeCore  File=FileCore  Animation=AnimationCore
-    GeometryNode=GeometryNodeCore  Asset=AssetCore  SceneRuntime=SceneRuntimeCore
+    GeometryNode=GeometryNodeCore  ShaderGraph=ShaderGraphCore  Asset=AssetCore  SceneRuntime=SceneRuntimeCore
     Pugixml=PugixmlCore
     VulkanGraphics=VulkanGraphicsCore  UI=UIWidgetsCore  VkAppBase=VkAppBaseCore
     VkRenderer=VkRendererCore  GltfRenderer=GltfRendererCore  VolumeRenderer=VolumeRenderer
