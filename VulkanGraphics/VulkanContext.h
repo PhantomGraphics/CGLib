@@ -61,7 +61,9 @@ public:
 
     /// @brief Phase 2 - selects a physical device and creates the logical device.
     ///
-    /// @param surface A valid VkSurfaceKHR used to select a present-capable queue family.
+    /// @param surface A valid VkSurfaceKHR used to select a present-capable queue family,
+    ///                or VK_NULL_HANDLE for offscreen operation without WSI extensions.
+    ///                Offscreen presentQueue aliases the graphics queue.
     ///                Ownership stays with the caller; the context only keeps a non-owning reference.
     /// @return false if no suitable GPU is found or device creation fails.
     bool initDevice(VkSurfaceKHR surface);
