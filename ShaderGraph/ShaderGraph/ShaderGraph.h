@@ -58,10 +58,20 @@ struct Link {
 
 struct NodeLayout { double x = 0, y = 0; };
 
+// A node parameter the graph publishes under a name, so a consumer using the graph as a shared asset can set it per use
+// (see "assets" below). `param` is the key in Node::params: an unlinked input socket with a default, a value-node
+// payload (Float.Value, Color.Color, Vector.Vector) or an ImageTexture's Path.
+struct ExposedParam {
+    std::string name;
+    NodeId node = 0;
+    std::string param;
+};
+
 struct Graph {
     int schema = kSchemaVersion;
     std::vector<Node> nodes;
     std::vector<Link> links;
+    std::vector<ExposedParam> exposed;
     std::map<NodeId, NodeLayout> layout;  // editor only: never affects compilation
     nlohmann::json extra = nlohmann::json::object();
 
@@ -143,6 +153,33 @@ CompileResult compileGraph(const Graph& g);
 std::vector<float> packParameters(const Graph& g, const CompileResult& r);
 // Maps a GLSL compiler error line back to a node (0 when outside any node).
 NodeId nodeForGlslLine(const CompileResult& r, int line);
+
+// ---- assets (docs/todo/PLAN_phantomstudio_shader_graph.md section 6) -------------
+//
+// A graph can expose some parameters; a consumer shares the asset graph and sets those names per use (overrides)
+// without touching its structure. The effective graph is the asset graph with the overrides written into the matching
+// node parameters, so compilation, caching and JSON need no special case. Value overrides keep the cacheKey (UBO only);
+// a Path override may change the texture bindings and then the structure follows from the compile as usual.
+
+struct ExposedInfo {
+    std::string name;
+    NodeId node = 0;
+    std::string param;
+    SocketType type = SocketType::Float;  // meaningful unless isPath
+    bool isPath = false;                  // an ImageTexture Path (a string)
+    nlohmann::json value;                 // what the asset graph holds now (parameter, else the default)
+    bool valid = false;                   // node and parameter still exist and the input is not linked
+};
+
+// Describes every exposed parameter (invalid ones are reported with valid == false, never dropped).
+std::vector<ExposedInfo> describeExposed(const Graph& graph);
+// Exposes `param` of `node` as `name` (letters, digits, '_' and '-'; unique). On failure the graph is untouched.
+bool addExposed(Graph& graph, const std::string& name, NodeId node, const std::string& param, std::string* error = nullptr);
+bool removeExposed(Graph& graph, const std::string& name);
+// asset + overrides -> effective graph. Each override must name a valid exposed parameter and carry a value of its type;
+// otherwise false (with `error`) and `out` is untouched.
+bool applyOverrides(const Graph& asset, const std::map<std::string, nlohmann::json>& overrides, Graph& out,
+                    std::string* error = nullptr);
 
 // ---- JSON ------------------------------------------------------------------
 

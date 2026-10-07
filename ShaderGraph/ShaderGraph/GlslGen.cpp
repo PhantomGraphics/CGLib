@@ -22,6 +22,7 @@ struct Gen {
     std::map<std::pair<std::string, bool>, int> textureOf;
     std::set<NodeId> visited;
     std::vector<NodeId> order;
+    std::set<std::string> helpers;  // GLSL helper functions needed by the emitted nodes
     std::map<NodeId, NodeSignature> sig;
 
     void visit(NodeId id) {
@@ -115,6 +116,21 @@ struct Gen {
             L.push_back("vec3 " + wv + " = tbn * " + tv + ";");
             L.push_back("float " + wv + "l = length(" + wv + ");");
             L.push_back("vec3 " + v("Normal") + " = " + wv + "l > 1e-6 ? " + wv + " / " + wv + "l : tbn[2];");
+        } else if (t == "Checker") {
+            const std::string cv = "n" + std::to_string(n.id) + "_c";
+            L.push_back("vec2 " + cv + " = floor(" + in(0) + " * " + in(3) + ");");
+            L.push_back("float " + v("Fac") + " = mod(" + cv + ".x + " + cv + ".y, 2.0);");
+            L.push_back("vec3 " + v("Color") + " = mix(" + in(1) + ", " + in(2) + ", " + v("Fac") + ");");
+        } else if (t == "Noise") {
+            helpers.insert("noise");
+            L.push_back("float " + v("Fac") + " = sg_fbm(" + in(0) + " * " + in(1) + ", " + in(2) + ");");
+            L.push_back("vec3 " + v("Color") + " = vec3(" + v("Fac") + ");");
+        } else if (t == "Fresnel") {
+            const std::string f0 = "n" + std::to_string(n.id) + "_f0";
+            const std::string nv = "n" + std::to_string(n.id) + "_nv";
+            L.push_back("float " + f0 + " = pow((" + in(0) + " - 1.0) / (" + in(0) + " + 1.0), 2.0);");
+            L.push_back("float " + nv + " = clamp(dot(normalize(" + in(1) + "), normalize(cam.camPos - fragPos)), 0.0, 1.0);");
+            L.push_back("float " + v("Fac") + " = " + f0 + " + (1.0 - " + f0 + ") * pow(1.0 - " + nv + ", 5.0);");
         } else if (t == "SurfaceOutput") {
             L.push_back("s.baseColor = " + in(0) + ";");
             L.push_back("s.metallic = clamp(" + in(1) + ", 0.0, 1.0);");
@@ -164,6 +180,20 @@ CompileResult compileGraph(const Graph& g) {
     for (const TextureBinding& t : r.textures)
         head.push_back("layout(set = 1, binding = " + std::to_string(t.index + 1) + ") uniform sampler2D sg_tex" +
                        std::to_string(t.index) + ";");
+    if (gen.helpers.count("noise")) {
+        head.push_back("float sg_hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }");
+        head.push_back("float sg_noise(vec2 p) {");
+        head.push_back("    vec2 i = floor(p), f = fract(p);");
+        head.push_back("    f = f * f * (3.0 - 2.0 * f);");
+        head.push_back("    return mix(mix(sg_hash(i), sg_hash(i + vec2(1.0, 0.0)), f.x),");
+        head.push_back("               mix(sg_hash(i + vec2(0.0, 1.0)), sg_hash(i + vec2(1.0, 1.0)), f.x), f.y);");
+        head.push_back("}");
+        head.push_back("float sg_fbm(vec2 p, float gain) {");
+        head.push_back("    float sum = 0.0, amp = 1.0, norm = 0.0;");
+        head.push_back("    for (int i = 0; i < 4; ++i) { sum += amp * sg_noise(p); norm += amp; amp *= clamp(gain, 0.0, 1.0); p *= 2.0; }");
+        head.push_back("    return sum / max(norm, 1e-6);");
+        head.push_back("}");
+    }
     head.push_back("void sg_evaluate(vec2 uv, mat3 tbn, out SGSurface s) {");
 
     const int firstBody = static_cast<int>(head.size()) + 1;  // 1-based line of body[0]

@@ -82,7 +82,7 @@ SocketDef D(const char* name, SocketType t, Vec4f def) {
 
 const std::vector<std::string> kTypes = {
     "Float", "Color", "Vector", "UV", "ImageTexture", "Add", "Multiply", "Mix", "Clamp",
-    "Split", "Combine", "ToColor", "ToVector", "NormalMap", "SurfaceOutput"};
+    "Split", "Combine", "ToColor", "ToVector", "NormalMap", "Checker", "Noise", "Fresnel", "SurfaceOutput"};
 
 // Data type of the generic math nodes (Add / Multiply / Mix).
 bool mathType(const Node& n, SocketType& t, std::string& err) {
@@ -157,6 +157,21 @@ bool resolveSignature(const Node& n, NodeSignature& o, std::string& err) {
         o.inputs = {D("Color", SocketType::Color, {0.5f, 0.5f, 1.0f, 0}),
                     D("Strength", SocketType::Float, {1, 0, 0, 0})};
         o.outputs = {S("Normal", SocketType::Normal)};
+    } else if (t == "Checker") {
+        o.inputs = {S("UV", SocketType::Vec2),  // unconnected -> mesh uv
+                    D("Color1", SocketType::Color, {0.8f, 0.8f, 0.8f, 0}),
+                    D("Color2", SocketType::Color, {0.2f, 0.2f, 0.2f, 0}),
+                    D("Scale", SocketType::Float, {5, 0, 0, 0})};
+        o.outputs = {S("Color", SocketType::Color), S("Fac", SocketType::Float)};
+    } else if (t == "Noise") {
+        o.inputs = {S("UV", SocketType::Vec2),  // unconnected -> mesh uv
+                    D("Scale", SocketType::Float, {5, 0, 0, 0}),
+                    D("Roughness", SocketType::Float, {0.5f, 0, 0, 0})};
+        o.outputs = {S("Fac", SocketType::Float), S("Color", SocketType::Color)};
+    } else if (t == "Fresnel") {
+        o.inputs = {D("IOR", SocketType::Float, {1.45f, 0, 0, 0}),
+                    S("Normal", SocketType::Normal)};  // unconnected -> geometric normal
+        o.outputs = {S("Fac", SocketType::Float)};
     } else if (t == "SurfaceOutput") {
         o.inputs = {D("BaseColor", SocketType::Color, {0.8f, 0.8f, 0.8f, 0}),
                     D("Metallic", SocketType::Float, {0, 0, 0, 0}),

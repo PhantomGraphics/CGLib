@@ -123,6 +123,39 @@ TEST(ShaderGraphCompile, LineMapPointsBackToNodes) {
     EXPECT_EQ(nodeForGlslLine(r, 1), 0);
 }
 
+TEST(ShaderGraphCompile, ProceduralNodesEmitOnlyWhatTheyNeed) {
+    Graph g;
+    g.nodes = {mk(1, "Checker", {{"Scale", 8.0}}), mk(2, "SurfaceOutput")};
+    g.links = {lk(1, "Color", 2, "BaseColor")};
+    CompileResult r = compileGraph(g);
+    ASSERT_TRUE(r.ok);
+    EXPECT_EQ(r.glsl.find("sg_fbm"), std::string::npos) << "noise helpers only when a Noise node is reachable";
+    EXPECT_NE(r.glsl.find("n1_Fac = mod("), std::string::npos) << r.glsl;
+    EXPECT_NE(r.glsl.find("floor(uv * sg_p["), std::string::npos) << "unconnected UV falls back to the mesh uv";
+
+    g.nodes.push_back(mk(3, "Noise"));
+    g.nodes.push_back(mk(4, "Fresnel"));
+    g.links = {lk(1, "Color", 2, "BaseColor"), lk(3, "Fac", 2, "Roughness"), lk(4, "Fac", 2, "Metallic")};
+    r = compileGraph(g);
+    ASSERT_TRUE(r.ok);
+    EXPECT_NE(r.glsl.find("float sg_fbm("), std::string::npos);
+    EXPECT_NE(r.glsl.find("cam.camPos - fragPos"), std::string::npos) << "Fresnel uses the view vector";
+    EXPECT_NE(r.glsl.find("tbn[2]"), std::string::npos) << "unconnected Normal is the geometric normal";
+
+    // Values are UBO slots: editing them keeps the pipeline.
+    const uint64_t key = r.cacheKey;
+    g.findNode(3)->params["Scale"] = 20.0;
+    g.findNode(4)->params["IOR"] = 2.0;
+    EXPECT_EQ(compileGraph(g).cacheKey, key);
+}
+
+TEST(ShaderGraphValidate, ProceduralNodeTypeChecks) {
+    Graph g;
+    g.nodes = {mk(1, "Checker"), mk(2, "Noise"), mk(3, "SurfaceOutput")};
+    g.links = {lk(1, "Fac", 3, "BaseColor")};  // Float -> Color is never implicit
+    EXPECT_TRUE(hasCode(validateGraph(g), "link.type"));
+}
+
 TEST(ShaderGraphValidate, Cycle) {
     Graph g;
     g.nodes = {mk(1, "Add"), mk(2, "Add"), mk(3, "SurfaceOutput")};
@@ -198,6 +231,142 @@ TEST(ShaderGraphValidate, TextureLimit) {
     EXPECT_TRUE(hasCode(validateGraph(g), "limit.textures"));
 }
 
+TEST(ShaderGraphAsset, ExposeOnlyUnlinkedValues) {
+    Graph g = exampleGraph();  // 2 = ImageTexture(checker.png), 3 = Multiply(Color), 4 = SurfaceOutput
+    std::string err;
+    EXPECT_TRUE(addExposed(g, "tint", 3, "B", &err)) << err;
+    EXPECT_TRUE(addExposed(g, "roughness", 4, "Roughness", &err)) << err;
+    EXPECT_TRUE(addExposed(g, "albedo-map", 2, "Path", &err)) << err;
+
+    EXPECT_FALSE(addExposed(g, "tint", 4, "Metallic", &err)) << "names are unique";
+    EXPECT_FALSE(addExposed(g, "bad name", 4, "Metallic", &err)) << "names use letters, digits, _ and -";
+    EXPECT_FALSE(addExposed(g, "a", 3, "A", &err)) << "a linked input holds no value of its own";
+    EXPECT_FALSE(addExposed(g, "b", 3, "Type", &err)) << "Type is structural, not a value";
+    EXPECT_FALSE(addExposed(g, "c", 2, "UV", &err)) << "an input with a builtin source has no value";
+    EXPECT_FALSE(addExposed(g, "d", 4, "Normal", &err));
+    EXPECT_FALSE(addExposed(g, "e", 99, "Value", &err)) << "unknown node";
+    EXPECT_EQ(g.exposed.size(), 3u) << "a refused exposure leaves the graph untouched";
+
+    const auto info = describeExposed(g);
+    ASSERT_EQ(info.size(), 3u);
+    EXPECT_TRUE(info[0].valid);
+    EXPECT_EQ(info[0].type, SocketType::Color);
+    EXPECT_EQ(info[0].value, nlohmann::json::array({1.0, 0.5, 0.25}));
+    EXPECT_NEAR(info[1].value.get<double>(), 0.3, 1e-6);  // the parameter, not the default
+    EXPECT_TRUE(info[2].isPath);
+    EXPECT_EQ(info[2].value, "checker.png");
+
+    EXPECT_TRUE(removeExposed(g, "tint"));
+    EXPECT_FALSE(removeExposed(g, "tint"));
+    EXPECT_EQ(g.exposed.size(), 2u);
+}
+
+TEST(ShaderGraphAsset, DefaultValueIsReportedWhenNoParameterIsSet) {
+    Graph g = exampleGraph();
+    ASSERT_TRUE(addExposed(g, "metal", 4, "Metallic"));  // not set on the node: the socket default
+    EXPECT_FALSE(addExposed(g, "base", 4, "BaseColor")) << "BaseColor is linked in the example";
+    const auto info = describeExposed(g);
+    ASSERT_EQ(info.size(), 1u);
+    EXPECT_EQ(info[0].value.get<double>(), 0.0);
+}
+
+TEST(ShaderGraphAsset, OverridesKeepTheStructureAndTheCacheKey) {
+    Graph asset = exampleGraph();
+    ASSERT_TRUE(addExposed(asset, "tint", 3, "B"));
+    ASSERT_TRUE(addExposed(asset, "roughness", 4, "Roughness"));
+    const CompileResult base = compileGraph(asset);
+    ASSERT_TRUE(base.ok);
+
+    Graph effective;
+    std::string err;
+    ASSERT_TRUE(applyOverrides(asset, {{"tint", {0.1, 0.2, 0.3}}, {"roughness", 0.9}}, effective, &err)) << err;
+    const CompileResult c = compileGraph(effective);
+    ASSERT_TRUE(c.ok);
+    EXPECT_EQ(c.cacheKey, base.cacheKey) << "value overrides never change the generated code";
+    const std::vector<float> packed = packParameters(effective, c);
+    bool sawTint = false, sawRoughness = false;
+    for (const ParamSlot& p : c.params) {
+        if (p.node == 3 && p.name == "B") { sawTint = true; EXPECT_FLOAT_EQ(packed[p.slot * 4 + 1], 0.2f); }
+        if (p.node == 4 && p.name == "Roughness") { sawRoughness = true; EXPECT_FLOAT_EQ(packed[p.slot * 4], 0.9f); }
+    }
+    EXPECT_TRUE(sawTint && sawRoughness);
+    EXPECT_EQ(asset.findNode(4)->params["Roughness"], 0.3) << "the asset itself is never modified";
+    EXPECT_EQ(effective.exposed.size(), 2u) << "the effective graph still describes its exposed parameters";
+}
+
+TEST(ShaderGraphAsset, PathOverrideSwapsTheTexture) {
+    Graph asset = exampleGraph();
+    ASSERT_TRUE(addExposed(asset, "map", 2, "Path"));
+    Graph effective;
+    ASSERT_TRUE(applyOverrides(asset, {{"map", "bricks.png"}}, effective));
+    const CompileResult c = compileGraph(effective);
+    ASSERT_TRUE(c.ok);
+    ASSERT_EQ(c.textures.size(), 1u);
+    EXPECT_EQ(c.textures[0].path, "bricks.png");
+    EXPECT_EQ(c.cacheKey, compileGraph(asset).cacheKey) << "same bindings, so the same pipeline";
+}
+
+TEST(ShaderGraphAsset, BadOverridesAreRefusedAndLeaveTheOutputAlone) {
+    Graph asset = exampleGraph();
+    ASSERT_TRUE(addExposed(asset, "tint", 3, "B"));
+    ASSERT_TRUE(addExposed(asset, "roughness", 4, "Roughness"));
+    ASSERT_TRUE(addExposed(asset, "map", 2, "Path"));
+    Graph out = exampleGraph();
+    out.extra["marker"] = 1;
+    std::string err;
+    EXPECT_FALSE(applyOverrides(asset, {{"nope", 1.0}}, out, &err));
+    EXPECT_NE(err.find("nope"), std::string::npos);
+    EXPECT_FALSE(applyOverrides(asset, {{"roughness", "rough"}}, out, &err)) << "a string for a Float";
+    EXPECT_FALSE(applyOverrides(asset, {{"tint", 0.5}}, out, &err)) << "a scalar for a Color";
+    EXPECT_FALSE(applyOverrides(asset, {{"tint", {1, 2}}}, out, &err)) << "too few components";
+    EXPECT_FALSE(applyOverrides(asset, {{"map", 3}}, out, &err)) << "a number for a path";
+    EXPECT_FALSE(applyOverrides(asset, {{"roughness", 0.5}, {"nope", 1}}, out, &err)) << "all or nothing";
+    EXPECT_EQ(out.extra.value("marker", 0), 1);
+
+    // A parameter that stopped qualifying (its input got linked) cannot be overridden.
+    Graph stale = asset;
+    stale.nodes.push_back(mk(9, "Float"));
+    stale.links.push_back(lk(9, "Value", 4, "Roughness"));
+    EXPECT_FALSE(applyOverrides(stale, {{"roughness", 0.5}}, out, &err));
+}
+
+TEST(ShaderGraphAsset, StaleExposureIsAWarningNotAnError) {
+    Graph g = exampleGraph();
+    ASSERT_TRUE(addExposed(g, "roughness", 4, "Roughness"));
+    g.nodes.push_back(mk(9, "Float"));
+    g.links.push_back(lk(9, "Value", 4, "Roughness"));  // the exposed input is now driven by a node
+    auto d = validateGraph(g);
+    EXPECT_TRUE(hasCode(d, "expose.invalid"));
+    EXPECT_FALSE(hasErrors(d));
+    EXPECT_TRUE(compileGraph(g).ok);
+    EXPECT_FALSE(describeExposed(g)[0].valid);
+
+    g.exposed.push_back({"roughness", 4, "Metallic"});
+    EXPECT_TRUE(hasCode(validateGraph(g), "expose.duplicate"));
+}
+
+TEST(ShaderGraphJson, ExposedParametersRoundTrip) {
+    Graph g = exampleGraph();
+    ASSERT_TRUE(addExposed(g, "tint", 3, "B"));
+    ASSERT_TRUE(addExposed(g, "map", 2, "Path"));
+    g.extra["note"] = "keep";
+    Graph back;
+    const ParseResult r = parseGraph(serializeGraph(g), back);
+    ASSERT_TRUE(r.ok) << r.error;
+    ASSERT_EQ(back.exposed.size(), 2u);
+    EXPECT_EQ(back.exposed[0].name, "tint");
+    EXPECT_EQ(back.exposed[0].node, 3);
+    EXPECT_EQ(back.exposed[0].param, "B");
+    EXPECT_EQ(back.exposed[1].param, "Path");
+    EXPECT_EQ(back.extra["note"], "keep");
+    EXPECT_EQ(graphToJson(back), graphToJson(g));
+    EXPECT_FALSE(graphToJson(exampleGraph()).contains("exposed")) << "graphs without exposure write nothing new";
+
+    EXPECT_FALSE(parseGraph(R"({"exposed":[{"name":"x","node":1}]})", back).ok);
+    EXPECT_FALSE(parseGraph(R"({"exposed":{"name":"x"}})", back).ok);
+    EXPECT_EQ(back.exposed.size(), 2u) << "a rejected parse leaves the output untouched";
+}
+
 TEST(ShaderGraphJson, RoundTripPreservesEverything) {
     Graph g = exampleGraph();
     g.layout[2] = {10.5, -3};
@@ -257,13 +426,14 @@ TEST(ShaderGraphRuntime, EveryNodeTypeCompiles) {
                mk(6, "Split"), mk(7, "Clamp"), mk(8, "Combine"), mk(9, "ToColor"), mk(10, "Mix", {{"Type", "Vec2"}}),
                mk(11, "SurfaceOutput"), mk(12, "Vector", {{"Vector", {1, 2, 3}}}), mk(13, "Float", {{"Value", 0.7}}),
                mk(14, "Add", {{"Type", "Float"}}), mk(15, "Color"), mk(16, "ToVector"), mk(17, "Add", {{"Type", "Vec2"}}),
-               mk(18, "Split")};
+               mk(18, "Split"), mk(19, "Checker"), mk(20, "Noise"), mk(21, "Fresnel")};
     g.links = {lk(1, "UV", 2, "UV"), lk(2, "Color", 3, "A"), lk(3, "Result", 11, "BaseColor"),
                lk(4, "Color", 5, "Color"), lk(5, "Normal", 11, "Normal"), lk(12, "Vector", 6, "Vector"),
                lk(6, "X", 7, "Value"), lk(7, "Result", 14, "A"), lk(13, "Value", 14, "B"),
                lk(14, "Result", 11, "Roughness"), lk(6, "Y", 8, "X"), lk(8, "Vector", 9, "Vector"),
                lk(9, "Color", 3, "B"), lk(15, "Color", 16, "Color"), lk(16, "Vector", 18, "Vector"),
-               lk(18, "Z", 11, "Metallic"), lk(1, "UV", 17, "A"), lk(17, "Result", 10, "A"), lk(10, "Result", 2, "UV")};
+               lk(18, "Z", 11, "Metallic"), lk(1, "UV", 17, "A"), lk(17, "Result", 10, "A"), lk(10, "Result", 2, "UV"),
+               lk(19, "Fac", 7, "Min"), lk(20, "Fac", 8, "Z"), lk(21, "Fac", 7, "Max")};
     // 10/17 feed the first texture's UV -> exercise Vec2 paths; (1,UV)->(2,UV) was replaced below
     g.links.erase(g.links.begin());
     const CompileResult r = compileGraph(g);
