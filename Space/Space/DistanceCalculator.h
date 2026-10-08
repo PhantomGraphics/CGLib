@@ -22,6 +22,14 @@ namespace Phantom {
 	}
 	namespace Space {
 
+		template<typename T>
+		struct SegmentDistanceResult {
+			T firstFraction = T(0);
+			T secondFraction = T(0);
+			T distance = T(0);
+			Math::Vector3d<T> normal = Math::Vector3d<T>(T(1), T(0), T(0));
+		};
+
 		/**
 		 * @brief Computes distances from rays or points to 3D geometric primitives.
 		 *
@@ -35,6 +43,12 @@ namespace Phantom {
 		class DistanceCalculator
 		{
 		public:
+			// Closed segments, including zero-length segments. The normal points
+			// from the second segment to the first; coincident points use a
+			// deterministic perpendicular so capsule contacts remain resolvable.
+			static SegmentDistanceResult<T> closestSegments(const Math::Vector3d<T>& firstStart,
+				const Math::Vector3d<T>& firstEnd, const Math::Vector3d<T>& secondStart,
+				const Math::Vector3d<T>& secondEnd);
 			/**
 			 * @brief Computes the closest distance from a point to a triangle.
 			 * @param triangle The triangle in 3D space.
