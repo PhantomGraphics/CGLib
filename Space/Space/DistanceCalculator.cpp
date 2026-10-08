@@ -1,4 +1,6 @@
 ﻿#include "DistanceCalculator.h"
+#include <algorithm>
+#include <cmath>
 
 #include "CGLib/Math/Ray3d.h"
 #include "CGLib/Math/Sphere3d.h"
@@ -8,7 +10,47 @@
 using namespace Phantom::Math;
 using namespace Phantom::Space;
 
-// 点と三角形の距離（最近接点を求めるアルゴリズム：Ericson）
+// Closest points on two closed segments (Ericson).
+template<typename T>
+SegmentDistanceResult<T> DistanceCalculator<T>::closestSegments(const Vector3d<T>& p,
+    const Vector3d<T>& q, const Vector3d<T>& secondStart, const Vector3d<T>& secondEnd) {
+    const auto d1 = q-p;
+    const auto d2 = secondEnd-secondStart;
+    const auto r = p-secondStart;
+    const T a = glm::dot(d1, d1), e = glm::dot(d2, d2);
+    const T b = glm::dot(d1, d2), f = glm::dot(d2, r);
+    T s = T(0.), t = T(0.);
+    if (a <= T(1.e-12)) {
+        if (e > T(1.e-12)) t = std::clamp(f/e, T(0.), T(1.));
+    } else {
+        const T cr = glm::dot(d1, r);
+        if (e <= T(1.e-12)) s = std::clamp(-cr/a, T(0.), T(1.));
+        else {
+            const T denominator = a*e-b*b;
+            if (denominator > T(1.e-6)*a*e) s = std::clamp((b*f-cr*e)/denominator, T(0.), T(1.));
+            t = (b*s+f)/e;
+            if (t < T(0.)) { t = T(0.); s = std::clamp(-cr/a, T(0.), T(1.)); }
+            else if (t > T(1.)) { t = T(1.); s = std::clamp((b-cr)/a, T(0.), T(1.)); }
+        }
+    }
+    const auto diff = p+s*d1 - (secondStart+t*d2);
+    const T distance = glm::length(diff);
+    SegmentDistanceResult<T> out;
+    out.firstFraction = s; out.secondFraction = t;
+    out.distance = distance;
+    if (distance > T(1.e-7)) out.normal = diff/distance;
+    else {
+        // A deterministic perpendicular also resolves a particle at a sphere centre.
+        const auto axis = e > T(1.e-12) ? d2 : d1;
+        if (glm::length(axis) > T(1.e-7)) {
+            const auto unit = glm::normalize(axis);
+            const Math::Vector3d<T> basis = std::abs(unit.x) < T(0.8) ? Math::Vector3d<T>(T(1.),T(0.),T(0.)) : Math::Vector3d<T>(T(0.),T(0.),T(1.));
+            out.normal = glm::normalize(glm::cross(unit, basis));
+        }
+    }
+    return out;
+}
+
 template<typename T>
 T DistanceCalculator<T>::calculate(const Triangle3d<T>& triangle, const Vector3d<T>& point, const T tolerance)
 {
