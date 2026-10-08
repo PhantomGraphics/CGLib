@@ -225,7 +225,9 @@ std::optional<GizmoTransform> VkTransformGizmo::processInput(const GizmoMouseSta
     // Screen pixel → normalised world-space ray direction
     auto screenRay = [this](glm::vec2 sp) -> glm::vec3 {
         float ndcX =  2.f * sp.x / static_cast<float>(extent_.width)  - 1.f;
-        float ndcY = -(2.f * sp.y / static_cast<float>(extent_.height) - 1.f);
+        // proj_ carries the Vulkan Y flip (see computeGizmoScale), so the pixel row maps to ndc.y directly -- the same
+        // convention w2s() above uses. Negating it mirrored the ray vertically and inverted vertical drags.
+        float ndcY = 2.f * sp.y / static_cast<float>(extent_.height) - 1.f;
         glm::mat4 invVP = glm::inverse(proj_ * view_);
         glm::vec4 n4 = invVP * glm::vec4(ndcX, ndcY, 0.f, 1.f); // near (depth=0)
         glm::vec4 f4 = invVP * glm::vec4(ndcX, ndcY, 1.f, 1.f); // far  (depth=1)
