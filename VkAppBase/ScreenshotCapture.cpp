@@ -2,6 +2,8 @@
 
 #include "../../CGLib/ThirdParty/stb/stb_image_write.h"
 
+#include "../Graphics/FastPng.h"
+
 #include <charconv>
 #include <cstdio>
 #include <filesystem>
@@ -65,8 +67,8 @@ bool writePng(const std::string& path, const uint8_t* rgba, uint32_t width, uint
         std::error_code ec;
         fs::create_directories(p.parent_path(), ec);
     }
-    return stbi_write_png(path.c_str(), static_cast<int>(width), static_cast<int>(height), 4,
-                          rgba, static_cast<int>(width * 4)) != 0;
+    // stb's PNG encoder needs seconds for a window-sized capture in a Debug build; FastPng takes milliseconds.
+    return Phantom::Graphics::writePngFast(path, rgba, width, height, 4);
 }
 
 void recordSwapchainCopyToBuffer(VkCommandBuffer cmd, VkImage srcImage, VkBuffer dst,
