@@ -85,7 +85,8 @@ namespace Phantom {
 			 * Requires build() to have been called beforehand.
 			 *
 			 * @param query  The center of the search sphere.
-			 * @param radius The search radius.
+			 * @param radius The search radius. Negative radii return no points;
+			 *               zero includes points exactly at the query position.
 			 * @return Vector of indices (insertion order) of all points within the radius.
 			 */
 			std::vector<int> findWithinRadius(const Math::Vector3df& query, const float radius) const;
