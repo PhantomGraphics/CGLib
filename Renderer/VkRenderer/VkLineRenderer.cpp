@@ -66,7 +66,8 @@ void VkLineRenderer::create(const VulkanContext& ctx,
     pCfg.cullMode            = VK_CULL_MODE_NONE;
     pCfg.lineWidth           = config_.lineWidth;
     pCfg.depthTest           = true;
-    pCfg.depthWrite          = true;
+    pCfg.depthWrite          = !config_.alphaBlend;
+    pCfg.blendEnable         = config_.alphaBlend;
     pCfg.samples             = config_.samples;
 
     pipeline_.create(ctx, renderPass, pCfg);
