@@ -24,6 +24,17 @@ bool containsObjectId(const std::vector<BVHObject*>& objs, int id) {
 
 } // namespace
 
+TEST(BVHTest, EmptyTreeSupportsQueriesAndRefit)
+{
+    BVH bvh(std::vector<BVHObject*>{});
+    EXPECT_EQ(0, bvh.nodeCount());
+    bvh.refit();
+    bvh.refit();
+    EXPECT_TRUE(bvh.queryOverlaps(Box3df(Vector3df(-1.0f), Vector3df(1.0f))).empty());
+    EXPECT_TRUE(bvh.queryRay(Vector3df(0.0f), Vector3df(1.0f, 0.0f, 0.0f)).empty());
+    EXPECT_TRUE(bvh.findAllPairs().empty());
+}
+
 TEST(BVHTest, QueryOverlapsSimple)
 {
     std::vector<BVHObject*> objs;

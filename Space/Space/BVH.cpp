@@ -17,6 +17,7 @@ using namespace Phantom::Space;
 BVH::BVH(const std::vector<BVHObject*>& objects, int leafMax)
     : m_leafMax(std::max(1, leafMax)) {
     m_objects = objects;
+    if (m_objects.empty()) return;
     int n = (int)m_objects.size();
     m_indices.resize(n);
     for (int i = 0; i < n; ++i) m_indices[i] = i;

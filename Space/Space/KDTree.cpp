@@ -123,8 +123,9 @@ std::vector<int> KDTree::findKNearestIndices(const Math::Vector3df& query, const
 	const auto less = [](const Candidate& a, const Candidate& b) { return a.dist2 < b.dist2; };
 
 	std::vector<Candidate> heap;
-	heap.reserve(k);
-	kNearestRecursive(rootIndex, query, k, heap);
+	const size_t neighborCount = std::min(k, positions.size());
+	heap.reserve(neighborCount);
+	kNearestRecursive(rootIndex, query, neighborCount, heap);
 
 	// heap is a max-heap (w.r.t. dist2) of the k best candidates found so far;
 	// sort_heap turns it into an ascending-by-dist2 range, i.e. nearest first.
@@ -174,7 +175,7 @@ void KDTree::kNearestRecursive(int nodeIndex, const Math::Vector3df& query, size
 std::vector<int> KDTree::findWithinRadius(const Math::Vector3df& query, const float radius) const
 {
 	std::vector<int> result;
-	if (rootIndex < 0) return result;
+	if (rootIndex < 0 || radius < 0.0f) return result;
 	const float radius2 = radius * radius;
 	radiusRecursive(rootIndex, query, radius2, result);
 	return result;

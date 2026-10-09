@@ -2,9 +2,29 @@
 #include "../Space/KDTree.h"
 
 #include <algorithm>
+#include <limits>
 
 using namespace Phantom::Math;
 using namespace Phantom::Space;
+
+TEST(KDTreeTest, NegativeRadiusReturnsNoPoints)
+{
+	KDTree kd;
+	kd.build(Vector3dfVector{Vector3df(0.0f), Vector3df(1.0f, 0.0f, 0.0f)});
+	EXPECT_TRUE(kd.findWithinRadius(Vector3df(0.0f), -2.0f).empty());
+	EXPECT_EQ(kd.findWithinRadius(Vector3df(0.0f), 0.0f), std::vector<int>{0});
+	auto within = kd.findWithinRadius(Vector3df(0.0f), 1.0f);
+	std::sort(within.begin(), within.end());
+	EXPECT_EQ(within, (std::vector<int>{0, 1}));
+}
+
+TEST(KDTreeTest, MaximumKReturnsAllPointsInDistanceOrder)
+{
+	KDTree kd;
+	kd.build(Vector3dfVector{Vector3df(3.0f, 0.0f, 0.0f), Vector3df(1.0f, 0.0f, 0.0f)});
+	EXPECT_EQ(kd.findKNearestIndices(Vector3df(0.0f), std::numeric_limits<size_t>::max()),
+		(std::vector<int>{1, 0}));
+}
 
 TEST(KDTreeTest, EmptyTree)
 {
