@@ -28,6 +28,7 @@ public:
         std::vector<uint32_t> fragSpv;                          ///< SPIR-V for line.frag.
         float lineWidth = 1.0f;                                 ///< Line width (requires VkPhysicalDeviceFeatures.wideLines).
         VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT; ///< MSAA sample count (must match render pass).
+        bool alphaBlend = false; ///< Alpha blending without depth writes, for fading lines.
     };
 
     using Buffer = LineBufferData;
