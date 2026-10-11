@@ -20,10 +20,25 @@ namespace Phantom {
 		class ZOrderCurve3d
 		{
 		public:
+			/// Bits kept per axis: a code is 3 * 10 = 30 bits.
+			static constexpr unsigned int kAxisBits = 10;
+
+			/// Largest axis value that survives an encode()/decode() roundtrip.
+			static constexpr unsigned int kMaxAxisIndex = (1u << kAxisBits) - 1u;
+
+			/// True if every component fits in kAxisBits, i.e. encode() is lossless for `index`.
+			static constexpr bool isEncodable(const std::array<unsigned int, 3>& index)
+			{
+				return index[0] <= kMaxAxisIndex && index[1] <= kMaxAxisIndex && index[2] <= kMaxAxisIndex;
+			}
+
 			/**
 			 * @brief Encodes a 3D unsigned integer index to a Z-order (Morton) value.
 			 *
-			 * Each component's bits are spread apart and interleaved with the others.
+			 * Each component's bits are spread apart and interleaved with the others. Only
+			 * components up to kMaxAxisIndex (1023) are meaningful. Larger values are *not* an error: they
+			 * either spill past bit 29 (1024..2047) or alias a lower cell (2048 encodes like 0). Check
+			 * isEncodable() when the range is not known.
 			 *
 			 * @param index Array of three unsigned integers [x, y, z].
 			 * @return The Morton-encoded unsigned integer.

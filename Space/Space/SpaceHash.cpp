@@ -1,37 +1,51 @@
 #include "SpaceHash.h"
 
-#include <bitset>
 #include <algorithm>
+#include <cstdint>
 
 using namespace Phantom::Math;
 using namespace Phantom::Space;
 
 namespace {
-	constexpr long int p1 = 73856093;
-	constexpr long int p2 = 19349663;
-	constexpr long int p3 = 83492791;
+	// Unsigned 32-bit wraparound: the same bits the old `bitset<32>(index * p)` produced on MSVC (where
+	// `long` is 32-bit), but well defined and identical on platforms where `long` is 64-bit.
+	constexpr std::uint32_t p1 = 73856093u;
+	constexpr std::uint32_t p2 = 19349663u;
+	constexpr std::uint32_t p3 = 83492791u;
 }
 
 SpaceHash::SpaceHash(const double divideLength, const int tableSize) :
-	divideLength(divideLength),
-	table(tableSize)
+	table(static_cast<size_t>(tableSize < 1 ? 1 : tableSize)),
+	divideLength(divideLength)
 {
 }
 
-void SpaceHash::add(const Vector3df& position)
+bool SpaceHash::tryToIndex(const Vector3df& pos, std::array<int, 3>& index) const
 {
-	const auto& index = toIndex(position);
-	const auto hashIndex = toHash(index);
+	return Validation::isValidCellSize(divideLength) && Validation::tryToCellIndex(pos, divideLength, index);
+}
+
+bool SpaceHash::add(const Vector3df& position)
+{
 	const auto ix = static_cast<int>(positions.size());
-	table[hashIndex].push_back(ix);
 	positions.push_back(position);
+
+	std::array<int, 3> index;
+	if (!tryToIndex(position, index)) {
+		return false;
+	}
+	table[toHash(index)].push_back(ix);
+	return true;
 }
 
 std::list<int> SpaceHash::findNeighborIndices(const Vector3df& position)
 {
 	std::list<int> results;
 
-	const auto& index = toIndex(position);
+	std::array<int, 3> index;
+	if (!tryToIndex(position, index)) {
+		return results;
+	}
 	for (int i = index[0] - 1; i <= index[0] + 1; ++i) {
 		for (int j = index[1] - 1; j <= index[1] + 1; ++j) {
 			for (int k = index[2] - 1; k <= index[2] + 1; ++k) {
@@ -94,27 +108,10 @@ bool SpaceHash::isEmpty(const Vector3df& position) const
 }
 */
 
-std::array<int, 3> SpaceHash::toIndex(const Vector3df& pos) const
-{
-	const int ix = static_cast<int>((pos[0]) / divideLength);
-	const int iy = static_cast<int>((pos[1]) / divideLength);
-	const int iz = static_cast<int>((pos[2]) / divideLength);
-	return { ix, iy, iz };
-}
-
-int SpaceHash::toHash(const Vector3df& pos) const
-{
-	return toHash(toIndex(pos));
-}
-
 int SpaceHash::toHash(const std::array<int, 3>& index) const
 {
-	std::bitset<32> x = index[0] * p1;
-	std::bitset<32> y = index[1] * p2;
-	std::bitset<32> z = index[2] * p3;
-	//assert(x >= 0);
-	//assert(y >= 0);
-	//assert(z >= 0);
-	const auto value = (x ^ y ^ z).to_ulong();
-	return value % table.size();
+	const std::uint32_t value = (static_cast<std::uint32_t>(index[0]) * p1) ^
+		(static_cast<std::uint32_t>(index[1]) * p2) ^
+		(static_cast<std::uint32_t>(index[2]) * p3);
+	return static_cast<int>(value % table.size());
 }

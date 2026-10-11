@@ -2,6 +2,7 @@
 
 #include "CGLib/Math/Vector3d.h"
 #include <array>
+#include <cstdint>
 
 namespace Phantom {
 	namespace Space {
@@ -22,9 +23,18 @@ namespace Phantom {
 		class IndexedParticle
 		{
 		public:
+			/**
+			 * @brief Scalar grid cell identifier.
+			 *
+			 * 64-bit so that `iz * gridStrideZ + iy * gridStrideY + ix` cannot overflow for any cell
+			 * coordinate accepted by Validation::tryToCellIndex() (|coordinate| < 2^30). With the previous
+			 * 32-bit id, iz >= 2048 overflowed (signed overflow, undefined behavior).
+			 */
+			using GridId = std::int64_t;
+
 			IndexedParticle() :
-				position(0,0,0),
 				gridId(0),
+				position(0,0,0),
 				id(0)
 			{}
 
@@ -33,8 +43,8 @@ namespace Phantom {
 			 * @param position The world-space position of the particle.
 			 */
 			explicit IndexedParticle(const Math::Vector3df& position) :
-				position(position),
 				gridId(0),
+				position(position),
 				id(0)
 			{
 			}
@@ -62,9 +72,24 @@ namespace Phantom {
 			 * The grid ID encodes the 3D grid cell (ix, iy, iz) that contains this particle
 			 * into a single integer, suitable for sorting.
 			 *
-			 * @param effectLength The side length of one spatial cell (search radius).
+			 * @param effectLength The side length of one spatial cell (search radius). Must be finite and
+			 *                     positive and the position finite and within range -- use trySetGridId()
+			 *                     for input that is not already known to be valid.
 			 */
 			void setGridId(const float effectLength);
+
+			/**
+			 * @brief Validating version of setGridId().
+			 * @return false (gridId unchanged) if `effectLength` is not finite and positive, or the position
+			 *         is non-finite or maps to a cell coordinate outside +-2^30.
+			 */
+			bool trySetGridId(const float effectLength);
+
+			/**
+			 * @brief Validating version of toGridId().
+			 * @return false (`out` unchanged) on the same conditions as trySetGridId().
+			 */
+			static bool tryToGridId(const Math::Vector3df& pos, const float effectLength, GridId& out);
 
 			/**
 			 * @brief Returns the 3D world position of this particle.
@@ -78,13 +103,14 @@ namespace Phantom {
 			 * @param effectLength Cell side length.
 			 * @return Scalar grid ID for sorting.
 			 */
-			static int toGridId(const Math::Vector3df& pos, const float effectLength);
+			static GridId toGridId(const Math::Vector3df& pos, const float effectLength);
 
 			/**
 			 * @brief Converts a 3D position to a 3D integer grid index.
 			 * @param pos          World position.
 			 * @param effectLength Cell side length.
-			 * @return 3D grid index [ix, iy, iz].
+			 * @return 3D grid index [ix, iy, iz] (truncation toward zero). Undefined for non-finite or
+			 *         out-of-int-range input; see tryToGridId() / Validation::tryToCellIndex().
 			 */
 			static std::array<int, 3> toIndex(const Math::Vector3df& pos, const float effectLength);
 
@@ -92,7 +118,7 @@ namespace Phantom {
 			 * @brief Returns the precomputed scalar grid ID.
 			 * @return Grid ID value (set by setGridId()).
 			 */
-			int getGridId() const { return gridId; }
+			GridId getGridId() const { return gridId; }
 
 			/**
 			 * @brief Less-than comparison by grid ID, enabling std::sort on containers.
@@ -114,11 +140,12 @@ namespace Phantom {
 			int getId() const { return this->id; }
 
 		private:
-			static int toIdX(std::array<int, 3> index);
+			static GridId toIdX(const std::array<int, 3>& index);
 
 		private:
+			// Largest member first: GridId (8 bytes) + Vector3df (12) + id (4) packs into 24 bytes.
+			GridId gridId;
 			Math::Vector3df position;
-			int gridId;
 			int id;
 		};
 

@@ -1,4 +1,4 @@
-﻿#include <algorithm>
+#include <algorithm>
 #include <array>
 #include <cassert>
 #include <cstdint>
@@ -28,36 +28,28 @@ BVH::BVH(const std::vector<BVHObject*>& objects, int leafMax)
 
 std::vector<BVHObject*> BVH::queryOverlaps(const Box3df& query) const {
 	std::vector<BVHObject*> results;
-    if (m_nodes.empty()) return {};
-    std::stack<int> st;
-    st.push(0);
-    while (!st.empty()) {
-        int ni = st.top(); st.pop();
-        const BVHNode& node = m_nodes[ni];
-        if (!node.box.intersects(query)) continue;
+	queryOverlaps(query, results);
+	return results;
+}
 
-        if (node.isLeaf()) {
-            for (int i = 0; i < node.count; ++i) {
-                BVHObject* obj = m_objects[m_indices[node.first + i]];
-                if (obj->box.intersects(query)) {
-                    results.push_back(obj);
-                }
-            }
-        }
-        else {
-            st.push(node.left);
-            st.push(node.right);
-        }
-    }
-    return results;
+void BVH::queryOverlaps(const Box3df& query, std::vector<BVHObject*>& out) const {
+	out.clear();
+	forEachOverlap(query, [&out](BVHObject* obj) { out.push_back(obj); });
 }
 
 std::vector<std::pair<int, int>> BVH::findAllPairs() const {
     std::vector<std::pair<int, int>> pairs;
-    if (m_nodes.empty()) return pairs;
+    std::vector<std::pair<int, int>> stack;
+    findAllPairs(pairs, stack);
+    return pairs;
+}
+
+void BVH::findAllPairs(std::vector<std::pair<int, int>>& pairs, std::vector<std::pair<int, int>>& stack) const {
+    pairs.clear();
+    stack.clear();
+    if (m_nodes.empty()) return;
 
     // ・ｽm・ｽ[・ｽh・ｽy・ｽA・ｽﾌス・ｽ^・ｽb・ｽN・ｽﾅ木間の鯉ｿｽ・ｽ・ｽ・ｽ・ｽT・ｽ・ｽ
-    std::vector<std::pair<int, int>> stack;
     stack.emplace_back(0, 0);
 
     while (!stack.empty()) {
@@ -101,7 +93,6 @@ std::vector<std::pair<int, int>> BVH::findAllPairs() const {
             }
         }
     }
-    return pairs;
 }
 
 int BVH::buildRecursive(int begin, int end) {
@@ -158,44 +149,18 @@ std::vector<BVHObject*> BVH::queryRay(
     float tMin, float tMax) const
 {
     std::vector<BVHObject*> results;
-    if (m_nodes.empty()) return results;
-
-    auto intersectsRay = [&](const Box3df& box) -> bool {
-        float lo = tMin, hi = tMax;
-        const auto bmin = box.getMin();
-        const auto bmax = box.getMax();
-        for (int i = 0; i < 3; ++i) {
-            const float invD = 1.0f / dir[i];
-            float t0 = (bmin[i] - origin[i]) * invD;
-            float t1 = (bmax[i] - origin[i]) * invD;
-            if (invD < 0.0f) std::swap(t0, t1);
-            lo = std::max(lo, t0);
-            hi = std::min(hi, t1);
-            if (hi < lo) return false;
-        }
-        return true;
-    };
-
-    std::stack<int> st;
-    st.push(0);
-    while (!st.empty()) {
-        const int ni = st.top(); st.pop();
-        const BVHNode& node = m_nodes[ni];
-        if (!intersectsRay(node.box)) continue;
-
-        if (node.isLeaf()) {
-            for (int i = 0; i < node.count; ++i) {
-                BVHObject* obj = m_objects[m_indices[node.first + i]];
-                if (intersectsRay(obj->box)) {
-                    results.push_back(obj);
-                }
-            }
-        } else {
-            st.push(node.left);
-            st.push(node.right);
-        }
-    }
+    queryRay(origin, dir, results, tMin, tMax);
     return results;
+}
+
+void BVH::queryRay(
+    const Math::Vector3df& origin,
+    const Math::Vector3df& dir,
+    std::vector<BVHObject*>& out,
+    float tMin, float tMax) const
+{
+    out.clear();
+    forEachRayCandidate(origin, dir, tMin, tMax, [&out](BVHObject* obj) { out.push_back(obj); });
 }
 
 Box3df BVH::refitRecursive(int nodeIndex) {

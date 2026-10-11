@@ -29,6 +29,25 @@ namespace Phantom {
 		class KDTree : private UnCopyable
 		{
 		public:
+			/// A k-NN candidate: squared distance and point index. Public only so that KNearestScratch
+			/// can hold a heap of them.
+			struct Candidate
+			{
+				float dist2 = 0.0f;
+				int index = -1;
+			};
+
+			/**
+			 * @brief Reusable heap storage for findKNearestIndices(query, k, out, scratch).
+			 *
+			 * One scratch per thread: queries that run concurrently must not share one. Contents are
+			 * meaningless between calls; only the capacity is reused.
+			 */
+			struct KNearestScratch
+			{
+				std::vector<Candidate> heap;
+			};
+
 			KDTree() = default;
 			~KDTree() = default;
 
@@ -87,9 +106,33 @@ namespace Phantom {
 			 * @param query  The center of the search sphere.
 			 * @param radius The search radius. Negative radii return no points;
 			 *               zero includes points exactly at the query position.
-			 * @return Vector of indices (insertion order) of all points within the radius.
+			 * @return Vector of indices (insertion order) of all points within the radius. The order is the
+			 *         tree traversal order -- deterministic for a given tree, but not sorted.
 			 */
 			std::vector<int> findWithinRadius(const Math::Vector3df& query, const float radius) const;
+
+			/**
+			 * @brief findWithinRadius() into a caller-owned buffer.
+			 *
+			 * `out` is cleared and then filled with exactly the indices (and in exactly the order) the
+			 * returning overload would give; its capacity is reused, so calling this in a loop with one
+			 * buffer allocates only while the buffer is still growing.
+			 */
+			void findWithinRadius(const Math::Vector3df& query, const float radius, std::vector<int>& out) const;
+
+			/**
+			 * @brief Calls `visit(int index)` for every point within `radius` (inclusive), without
+			 * building a result container. Same points and same order as findWithinRadius().
+			 *
+			 * `visit` must not modify the tree (build()/addPoint()/clear()). Negative or NaN radius, or an
+			 * empty tree, visit nothing.
+			 */
+			template <typename Visitor>
+			void forEachWithinRadius(const Math::Vector3df& query, const float radius, Visitor&& visit) const
+			{
+				if (rootIndex < 0 || !(radius >= 0.0f)) return;
+				radiusVisit(rootIndex, query, radius * radius, visit);
+			}
 
 			/**
 			 * @brief Finds the indices of the k nearest points to the query position.
@@ -102,6 +145,14 @@ namespace Phantom {
 			 * @return Indices (insertion order) of the k nearest points, nearest first.
 			 */
 			std::vector<int> findKNearestIndices(const Math::Vector3df& query, const size_t k) const;
+
+			/**
+			 * @brief findKNearestIndices() into a caller-owned buffer, with caller-owned heap storage.
+			 *
+			 * `out` is cleared and filled with the same indices in the same order as the returning
+			 * overload. Reusing `out` and `scratch` across calls removes the per-query allocations.
+			 */
+			void findKNearestIndices(const Math::Vector3df& query, const size_t k, std::vector<int>& out, KNearestScratch& scratch) const;
 
 		private:
 			// Flat, index-based node storage (contiguous std::vector<Node>) instead of a tree of
@@ -119,15 +170,32 @@ namespace Phantom {
 				int right = -1;
 			};
 
-			struct Candidate
-			{
-				float dist2 = 0.0f;
-				int index = -1;
-			};
-
 			int buildRecursive(std::vector<int>& indices, int begin, int end, int depth);
 			void nearestRecursive(int nodeIndex, const Math::Vector3df& query, int& bestIndex, float& bestDist2) const;
-			void radiusRecursive(int nodeIndex, const Math::Vector3df& query, float radius2, std::vector<int>& result) const;
+
+			template <typename Visitor>
+			void radiusVisit(int nodeIndex, const Math::Vector3df& query, float radius2, Visitor& visit) const
+			{
+				if (nodeIndex < 0) return;
+				const Node& node = nodes[nodeIndex];
+
+				const Math::Vector3df& p = positions[node.index];
+				if (Math::getDistanceSquared(p, query) <= radius2) visit(node.index);
+
+				const int axis = node.axis;
+				const float diff = query[axis] - p[axis];
+				const float diff2 = diff * diff;
+
+				// Near side first; the far side only if the splitting plane is within the radius.
+				if (diff <= 0.0f) {
+					if (node.left >= 0) radiusVisit(node.left, query, radius2, visit);
+					if (node.right >= 0 && diff2 <= radius2) radiusVisit(node.right, query, radius2, visit);
+				}
+				else {
+					if (node.right >= 0) radiusVisit(node.right, query, radius2, visit);
+					if (node.left >= 0 && diff2 <= radius2) radiusVisit(node.left, query, radius2, visit);
+				}
+			}
 			void kNearestRecursive(int nodeIndex, const Math::Vector3df& query, size_t k, std::vector<Candidate>& heap) const;
 
 			Math::Vector3dfVector positions;

@@ -1,5 +1,8 @@
 #pragma once
 
+#include <algorithm>
+#include <array>
+#include <utility>
 #include <vector>
 #include "../../../CGLib/Math/Box3d.h"
 
@@ -85,6 +88,44 @@ namespace Phantom {
             std::vector<BVHObject*> queryOverlaps(const Math::Box3df& query) const;
 
 			/**
+			 * @brief queryOverlaps() into a caller-owned buffer (cleared first, capacity reused).
+			 *
+			 * Same objects in the same order as the returning overload. The traversal uses a fixed-size
+			 * stack, so a loop of queries over one buffer allocates only while the buffer still grows.
+			 */
+			void queryOverlaps(const Math::Box3df& query, std::vector<BVHObject*>& out) const;
+
+			/**
+			 * @brief Calls `visit(BVHObject*)` for every object whose box overlaps `query`, in the same
+			 * order as queryOverlaps(), without building a container. `visit` must not modify the BVH
+			 * structure; moving an object's box is fine as long as refit() is called before the next query.
+			 */
+			template <typename Visitor>
+			void forEachOverlap(const Math::Box3df& query, Visitor&& visit) const
+			{
+				if (m_nodes.empty()) return;
+				std::array<int, kMaxTraversalDepth> stack;
+				int top = 0;
+				stack[top++] = 0;
+				while (top > 0) {
+					const BVHNode& node = m_nodes[stack[--top]];
+					if (!node.box.intersects(query)) continue;
+					if (node.isLeaf()) {
+						for (int i = 0; i < node.count; ++i) {
+							BVHObject* obj = m_objects[m_indices[node.first + i]];
+							if (obj->box.intersects(query)) {
+								visit(obj);
+							}
+						}
+					}
+					else {
+						stack[top++] = node.left;
+						stack[top++] = node.right;
+					}
+				}
+			}
+
+			/**
 			 * @brief Returns all objects potentially intersected by a ray (slab test).
 			 * @param origin    Ray origin.
 			 * @param direction Ray direction (need not be normalized).
@@ -98,6 +139,45 @@ namespace Phantom {
                 float tMin = 1e-4f,
                 float tMax = 1e38f) const;
 
+			/// queryRay() into a caller-owned buffer (cleared first, capacity reused); same objects, same order.
+			void queryRay(
+				const Math::Vector3df& origin,
+				const Math::Vector3df& direction,
+				std::vector<BVHObject*>& out,
+				float tMin = 1e-4f,
+				float tMax = 1e38f) const;
+
+			/// Calls `visit(BVHObject*)` for every ray candidate, in the order queryRay() returns them.
+			template <typename Visitor>
+			void forEachRayCandidate(
+				const Math::Vector3df& origin,
+				const Math::Vector3df& direction,
+				float tMin,
+				float tMax,
+				Visitor&& visit) const
+			{
+				if (m_nodes.empty()) return;
+				std::array<int, kMaxTraversalDepth> stack;
+				int top = 0;
+				stack[top++] = 0;
+				while (top > 0) {
+					const BVHNode& node = m_nodes[stack[--top]];
+					if (!rayHitsBox(node.box, origin, direction, tMin, tMax)) continue;
+					if (node.isLeaf()) {
+						for (int i = 0; i < node.count; ++i) {
+							BVHObject* obj = m_objects[m_indices[node.first + i]];
+							if (rayHitsBox(obj->box, origin, direction, tMin, tMax)) {
+								visit(obj);
+							}
+						}
+					}
+					else {
+						stack[top++] = node.left;
+						stack[top++] = node.right;
+					}
+				}
+			}
+
 			/**
 			 * @brief Enumerates all pairs of objects whose AABBs overlap.
 			 *
@@ -106,6 +186,13 @@ namespace Phantom {
 			 * @return Vector of (idA, idB) pairs where idA < idB.
 			 */
             std::vector<std::pair<int, int>> findAllPairs() const;
+
+			/**
+			 * @brief findAllPairs() into caller-owned buffers: `out` is cleared and receives the pairs
+			 * (same pairs, same order); `stack` is the traversal work list, cleared on entry. Keep both
+			 * across calls (e.g. one pair per simulation step) and the steady state allocates nothing.
+			 */
+			void findAllPairs(std::vector<std::pair<int, int>>& out, std::vector<std::pair<int, int>>& stack) const;
 
 			/**
 			 * @brief Refits all node bounding boxes after objects have moved.
@@ -125,6 +212,28 @@ namespace Phantom {
             int nodeCount() const { return (int)m_nodes.size(); }
 
         private:
+			// The tree splits at the median, so its depth is at most ~log2(n) + 1 (< 33 for any int-sized
+			// n); a DFS that pushes both children holds at most depth + 1 entries. 64 leaves ample headroom.
+			static constexpr int kMaxTraversalDepth = 64;
+
+			// Slab test of a ray against a box over [tMin, tMax]; the one place both ray queries use.
+			static bool rayHitsBox(const Math::Box3df& box, const Math::Vector3df& origin, const Math::Vector3df& dir, float tMin, float tMax)
+			{
+				float lo = tMin, hi = tMax;
+				const auto bmin = box.getMin();
+				const auto bmax = box.getMax();
+				for (int i = 0; i < 3; ++i) {
+					const float invD = 1.0f / dir[i];
+					float t0 = (bmin[i] - origin[i]) * invD;
+					float t1 = (bmax[i] - origin[i]) * invD;
+					if (invD < 0.0f) std::swap(t0, t1);
+					lo = std::max(lo, t0);
+					hi = std::min(hi, t1);
+					if (hi < lo) return false;
+				}
+				return true;
+			}
+
             std::vector<BVHObject*> m_objects;
             std::vector<int> m_indices;
             std::vector<BVHNode> m_nodes;
