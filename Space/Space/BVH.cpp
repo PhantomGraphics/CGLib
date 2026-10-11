@@ -16,7 +16,33 @@ using namespace Phantom::Space;
 
 BVH::BVH(const std::vector<BVHObject*>& objects, int leafMax)
     : m_leafMax(std::max(1, leafMax)) {
-    m_objects = objects;
+    m_objects.reserve(objects.size());
+    for (BVHObject* object : objects) {
+        if (object == nullptr) {
+            ++m_nullObjects;
+        } else {
+            m_objects.push_back(object);
+        }
+    }
+    buildFromObjects();
+}
+
+void BVH::rebuild() {
+    buildFromObjects();
+}
+
+void BVH::buildFromObjects() {
+    m_indices.clear();
+    m_nodes.clear();
+    m_buildSurfaceArea = 0.0f;
+
+    // Ids are checked here (not per query): sort a copy and look for neighbors that are equal.
+    std::vector<int> ids;
+    ids.reserve(m_objects.size());
+    for (const BVHObject* object : m_objects) ids.push_back(object->id);
+    std::sort(ids.begin(), ids.end());
+    m_uniqueIds = std::adjacent_find(ids.begin(), ids.end()) == ids.end();
+
     if (m_objects.empty()) return;
     int n = (int)m_objects.size();
     m_indices.resize(n);
@@ -24,6 +50,18 @@ BVH::BVH(const std::vector<BVHObject*>& objects, int leafMax)
 
     m_nodes.reserve(std::max(1, 2 * n));
     buildRecursive(0, n);
+    m_buildSurfaceArea = totalSurfaceArea();
+}
+
+float BVH::totalSurfaceArea() const {
+    float total = 0.0f;
+    for (const BVHNode& node : m_nodes) total += BoxQueries::surfaceArea(node.box);
+    return total;
+}
+
+float BVH::refitDegradation() const {
+    if (m_nodes.empty() || !(m_buildSurfaceArea > 0.0f)) return 1.0f;
+    return totalSurfaceArea() / m_buildSurfaceArea;
 }
 
 std::vector<BVHObject*> BVH::queryOverlaps(const Box3df& query) const {

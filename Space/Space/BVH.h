@@ -1,5 +1,7 @@
 #pragma once
 
+#include "BoxQueries.h"
+
 #include <algorithm>
 #include <array>
 #include <utility>
@@ -68,8 +70,19 @@ namespace Phantom {
 		 * - **All-pairs overlap**: enumerate all overlapping object pairs (O(n log n)).
 		 * - **Refit**: update bounding boxes after objects have moved (topology unchanged).
 		 *
-		 * The BVH does not take ownership of BVHObject pointers.
-		 * Objects must remain valid for the lifetime of the BVH.
+		 * Ownership, ids and updates:
+		 * - The BVH does not take ownership of BVHObject pointers and does not copy the objects. They
+		 *   must stay alive, and at the same address, for as long as the BVH is queried. A null pointer
+		 *   in the input is skipped (counted by nullObjectCount()).
+		 * - Object ids should be unique (hasUniqueIds()). findAllPairs() reports a pair only when
+		 *   `idA < idB`, so two objects sharing an id never form a pair. queryOverlaps/queryRay do not
+		 *   look at ids.
+		 * - Moving objects: change `BVHObject::box`, then call refit() (cheap, keeps the topology, loose
+		 *   boxes if objects moved far) or rebuild() (re-splits from the current boxes). Queries made
+		 *   between moving a box and refit()/rebuild() can miss objects. The set of objects cannot change
+		 *   after construction: construct a new BVH to add or remove objects.
+		 * - refitDegradation() measures how much looser the boxes got since the last (re)build; use it to
+		 *   decide between the two.
 		 */
         class BVH {
         public:
@@ -79,6 +92,32 @@ namespace Phantom {
 			 * @param leafMax  Maximum number of objects per leaf node (default: 4).
 			 */
             explicit BVH(const std::vector<BVHObject*>& objects, int leafMax = 4);
+
+			/**
+			 * @brief Re-splits the tree from the objects' *current* boxes (same object set, same leafMax).
+			 *
+			 * Use it instead of refit() when objects moved a lot (see refitDegradation()). O(n log n).
+			 */
+			void rebuild();
+
+			/// Number of objects in the tree (null input pointers excluded).
+			size_t objectCount() const { return m_objects.size(); }
+
+			/// Null pointers skipped by the constructor.
+			size_t nullObjectCount() const { return m_nullObjects; }
+
+			/// True if no two objects share an id (checked at construction and by rebuild()).
+			bool hasUniqueIds() const { return m_uniqueIds; }
+
+			/**
+			 * @brief How much the tree's total box surface area has grown since the last (re)build.
+			 *
+			 * 1.0 right after construction/rebuild(). refit() keeps the topology, so when objects drift
+			 * far from where they were split, boxes overlap more, queries visit more nodes and this value
+			 * rises. A value well above ~2 means rebuild() is probably worthwhile (a rule of thumb, not a
+			 * guarantee -- measure your own workload). O(nodes).
+			 */
+			float refitDegradation() const;
 
 			/**
 			 * @brief Returns all objects whose AABB overlaps the query box.
@@ -216,28 +255,21 @@ namespace Phantom {
 			// n); a DFS that pushes both children holds at most depth + 1 entries. 64 leaves ample headroom.
 			static constexpr int kMaxTraversalDepth = 64;
 
-			// Slab test of a ray against a box over [tMin, tMax]; the one place both ray queries use.
 			static bool rayHitsBox(const Math::Box3df& box, const Math::Vector3df& origin, const Math::Vector3df& dir, float tMin, float tMax)
 			{
-				float lo = tMin, hi = tMax;
-				const auto bmin = box.getMin();
-				const auto bmax = box.getMax();
-				for (int i = 0; i < 3; ++i) {
-					const float invD = 1.0f / dir[i];
-					float t0 = (bmin[i] - origin[i]) * invD;
-					float t1 = (bmax[i] - origin[i]) * invD;
-					if (invD < 0.0f) std::swap(t0, t1);
-					lo = std::max(lo, t0);
-					hi = std::min(hi, t1);
-					if (hi < lo) return false;
-				}
-				return true;
+				return BoxQueries::rayHitsBox(box, origin, dir, tMin, tMax);
 			}
+
+			float totalSurfaceArea() const;
+			void buildFromObjects();
 
             std::vector<BVHObject*> m_objects;
             std::vector<int> m_indices;
             std::vector<BVHNode> m_nodes;
             int m_leafMax;
+			size_t m_nullObjects = 0;
+			bool m_uniqueIds = true;
+			float m_buildSurfaceArea = 0.0f;
 
             int buildRecursive(int begin, int end);
 

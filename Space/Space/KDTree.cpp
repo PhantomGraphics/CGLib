@@ -7,9 +7,10 @@
 using namespace Phantom::Math;
 using namespace Phantom::Space;
 
-void KDTree::addPoint(const Math::Vector3df& position)
+bool KDTree::addPoint(const Math::Vector3df& position)
 {
 	positions.push_back(position);
+	return Validation::isFinite(position);
 }
 
 void KDTree::clear()
@@ -17,6 +18,8 @@ void KDTree::clear()
 	positions.clear();
 	nodes.clear();
 	rootIndex = -1;
+	builtPointCount = 0;
+	rejectedPointCount = 0;
 }
 
 int KDTree::buildRecursive(std::vector<int>& indices, int begin, int end, int depth)
@@ -57,22 +60,32 @@ void KDTree::build()
 {
 	nodes.clear();
 	rootIndex = -1;
-
+	builtPointCount = positions.size();
+	rejectedPointCount = 0;
 	if (positions.empty()) {
 		return;
 	}
 
-	nodes.reserve(positions.size());
+	// Only finite points enter the tree; the others keep their index in `positions` but are never reachable.
+	std::vector<int> indices;
+	indices.reserve(positions.size());
+	for (size_t i = 0; i < positions.size(); ++i) {
+		if (Validation::isFinite(positions[i])) {
+			indices.push_back(static_cast<int>(i));
+		}
+	}
+	rejectedPointCount = positions.size() - indices.size();
+	if (indices.empty()) {
+		return;
+	}
 
-	std::vector<int> indices(positions.size());
-	for (size_t i = 0; i < positions.size(); ++i) indices[i] = static_cast<int>(i);
-
+	nodes.reserve(indices.size());
 	rootIndex = buildRecursive(indices, 0, static_cast<int>(indices.size()), 0);
 }
 
 int KDTree::findNearestIndex(const Math::Vector3df& query) const
 {
-	if (rootIndex < 0) return -1;
+	if (rootIndex < 0 || !Validation::isFinite(query)) return -1;
 	int bestIndex = -1;
 	float bestDist2 = std::numeric_limits<float>::infinity();
 	nearestRecursive(rootIndex, query, bestIndex, bestDist2);
@@ -126,13 +139,13 @@ std::vector<int> KDTree::findKNearestIndices(const Math::Vector3df& query, const
 void KDTree::findKNearestIndices(const Math::Vector3df& query, const size_t k, std::vector<int>& out, KNearestScratch& scratch) const
 {
 	out.clear();
-	if (rootIndex < 0 || k == 0) return;
+	if (rootIndex < 0 || k == 0 || !Validation::isFinite(query)) return;
 
 	const auto less = [](const Candidate& a, const Candidate& b) { return a.dist2 < b.dist2; };
 
 	auto& heap = scratch.heap;
 	heap.clear();
-	const size_t neighborCount = std::min(k, positions.size());
+	const size_t neighborCount = std::min(k, nodes.size());
 	heap.reserve(neighborCount);
 
 	kNearestRecursive(rootIndex, query, neighborCount, heap);

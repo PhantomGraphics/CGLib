@@ -1,18 +1,27 @@
-﻿#include "Octree.h"
+#include "Octree.h"
+#include "BoxQueries.h"
 
 #include <algorithm>
 
 using namespace Phantom::Math;
 using namespace Phantom::Space;
 
-void Octree::add(ITreeItem* item)
+bool Octree::add(ITreeItem* item)
 {
+	if (item == nullptr) {
+		return false;
+	}
 	constexpr float tol = 1.0e-12f;
 	const auto itemBox = item->getBox();
 
+	// A box with NaN/Inf corners cannot be placed (comparisons are all false), so reject it up front.
+	if (!Validation::isFinite(itemBox.getMin()) || !Validation::isFinite(itemBox.getMax())) {
+		return false;
+	}
+
 	// アイテムがこのノードの領域と交差しなければ無視する
 	if (!box.intersects(itemBox)) {
-		return;
+		return false;
 	}
 
 	// 葉ノードならまずこのノードに格納できるか確認
@@ -20,7 +29,7 @@ void Octree::add(ITreeItem* item)
 		// 完全にこのボックスに含まれるならこのノードに格納
 		if (box.contains(itemBox, tol)) {
 			items.push_back(item);
-			return;
+			return true;
 		}
 		// そうでなければ子を作成して配置を試みる
 		createChildren();
@@ -31,13 +40,24 @@ void Octree::add(ITreeItem* item)
 		const auto& child = children[i];
 		if (child == nullptr) continue;
 		if (child->getBox().contains(itemBox, tol)) {
-			child->add(item);
-			return;
+			return child->add(item);
 		}
 	}
 
 	// どの子にも完全に含まれない（複数子にまたがるなど）場合はこのノードに保持する
 	items.push_back(item);
+	return true;
+}
+
+std::size_t Octree::countItems() const
+{
+	std::size_t count = items.size();
+	for (const auto& child : children) {
+		if (child != nullptr) {
+			count += child->countItems();
+		}
+	}
+	return count;
 }
 
 void Octree::createChildren()
@@ -87,26 +107,13 @@ std::list<ITreeItem*> Octree::findItems(const Math::Vector3df& position, const f
 	std::list<ITreeItem*> result;
 	constexpr float tol = 1.0e-12f;
 	const float r = searchRadius;
+	if (!(r >= 0.0f) || !Validation::isFinite(position)) {
+		return result;
+	}
 	const float r2 = r * r;
 
 	auto boxIntersectsSphere = [&](const Box3df& b) -> bool {
-		const auto bmin = b.getMin();
-		const auto bmax = b.getMax();
-		// 最近接点を箱の内部にクランプ
-		float cx = position.x;
-		if (cx < bmin.x) cx = bmin.x;
-		if (cx > bmax.x) cx = bmax.x;
-		float cy = position.y;
-		if (cy < bmin.y) cy = bmin.y;
-		if (cy > bmax.y) cy = bmax.y;
-		float cz = position.z;
-		if (cz < bmin.z) cz = bmin.z;
-		if (cz > bmax.z) cz = bmax.z;
-		const float dx = position.x - cx;
-		const float dy = position.y - cy;
-		const float dz = position.z - cz;
-		const float dist2 = dx * dx + dy * dy + dz * dz;
-		return dist2 <= (r2 + tol);
+		return BoxQueries::squaredDistanceToBox(position, b) <= (r2 + tol);
 	};
 
 	// このノードのボックス自体が検索球と交差しなければ探索しない
