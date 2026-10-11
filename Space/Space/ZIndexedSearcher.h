@@ -45,8 +45,8 @@ namespace Phantom {
 			 */
 			Math::Vector3df getPosition() { return position; }
 
-			/// Application-defined index (set externally after insertion).
-			int index;
+			/// Insertion-order index (assigned by ZIndexedSearcher::add()).
+			int index = -1;
 
 		private:
 			unsigned int zIndex;
@@ -66,6 +66,12 @@ namespace Phantom {
 		 * 3. Call sort() once.
 		 * 4. Call findNeighbors() for each query position.
 		 *
+		 * Valid input: `searchRadius` finite and positive; every added or queried position finite, not
+		 * below `minPosition` on any axis, and less than 1022 search radii above it (the Morton code keeps
+		 * 10 bits per axis and the index is offset by one, so +-1 neighbors must still fit). findNeighbors()
+		 * returns the particles strictly closer than `searchRadius`, so a stored particle at the query
+		 * position is included.
+		 *
 		 * @note This class is non-copyable.
 		 */
 		class ZIndexedSearcher : private UnCopyable
@@ -83,20 +89,25 @@ namespace Phantom {
 			 *
 			 * Computes the Z-order index from the position and stores the particle internally.
 			 *
+			 * A position outside the valid range (see the class comment) is rejected: it still consumes
+			 * its insertion index, so later indices are unchanged, but it is never returned.
+			 *
 			 * @param position World-space position to add.
+			 * @return false if the position (or the searcher's radius / origin) was rejected.
 			 */
-			void add(const Math::Vector3df& position);
+			bool add(const Math::Vector3df& position);
 
 			/**
 			 * @brief Sorts all added particles by their Z-order index.
 			 *
-			 * Must be called after all add() calls and before any findNeighbors() call.
+			 * Must be called after all add() calls and before any findNeighbors() call. Call it again after
+			 * adding more particles; insertion-order indices are unaffected.
 			 */
 			void sort();
 
 			/**
 			 * @brief Returns the insertion-order indices of particles near the given position.
-			 * @param position The query position in world space.
+			 * @param position The query position in world space. An out-of-range position yields an empty list.
 			 * @return List of insertion-order indices of neighboring particles.
 			 */
 			std::list<int> findNeighbors(const Math::Vector3df& position);
@@ -104,11 +115,15 @@ namespace Phantom {
 			/**
 			 * @brief Converts a world position to a 3D unsigned integer grid index.
 			 * @param position World-space position.
-			 * @return 3D grid index [ix, iy, iz] relative to minPosition.
+			 * @return 3D grid index [ix, iy, iz] relative to minPosition, offset by +1. Undefined for a
+			 *         position below minPosition or non-finite; add() / findNeighbors() validate first.
 			 */
 			std::array<unsigned int, 3> toIndex(const Math::Vector3df& position) const;
 
 		private:
+			bool tryToIndex(const Math::Vector3df& position, std::array<unsigned int, 3>& index) const;
+
+			int insertionCount = 0;
 			float searchRadius;
 			Math::Vector3df minPosition;
 			std::vector<ZIndexedParticle> points;

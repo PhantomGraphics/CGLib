@@ -51,9 +51,9 @@ namespace
 	// order. A different order would still be correct but would break
 	// FluidDeterminism's bit-exact repeat-run checks
 	// (Physics/PhysicsTest/FluidDeterministicTest.cpp).
-	void appendMerged(std::vector<ParticlePair>& dst, const std::vector<std::vector<ParticlePair>>& eachPairs, const int threads)
+	void appendMerged(std::vector<ParticlePair>& dst, const std::vector<std::vector<ParticlePair>>& eachPairs, std::vector<size_t>& start, const int threads)
 	{
-		std::vector<size_t> start(static_cast<size_t>(threads) + 1, 0);
+		start.assign(static_cast<size_t>(threads) + 1, 0);
 		for (int i = 0; i < threads; ++i) {
 			start[static_cast<size_t>(i) + 1] = start[static_cast<size_t>(i)] + eachPairs[static_cast<size_t>(i)].size();
 		}
@@ -69,26 +69,48 @@ namespace
 	}
 }
 
-void IndexedSortBasedSearcher::add(const Vector3df& position)
+IndexedSortBasedSearcher::IndexedSortBasedSearcher(const float effectLength, NeighborSearchWorkspace* external) :
+	workspace(external ? *external : ownedWorkspace),
+	pairs(workspace.pairs),
+	iparticles(workspace.particles),
+	effectLength(effectLength)
 {
-	IndexedParticle ip(position);
-	ip.setGridId(effectLength);
-	ip.setId(static_cast<int>(iparticles.size()));
-	iparticles.push_back(ip);
+	// A borrowed workspace may hold the previous search; start from empty but keep the capacity.
+	iparticles.clear();
+	pairs.clear();
 }
 
-void IndexedSortBasedSearcher::add(const std::vector<Vector3df>& positions)
+bool IndexedSortBasedSearcher::add(const Vector3df& position)
+{
+	// Ids are insertion order whether or not the position is accepted, so a rejected position never
+	// shifts the indices of the ones after it.
+	const int id = nextId++;
+	IndexedParticle ip(position);
+	if (!ip.trySetGridId(effectLength)) {
+		++rejectedCount;
+		return false;
+	}
+	ip.setId(id);
+	iparticles.push_back(ip);
+	return true;
+}
+
+bool IndexedSortBasedSearcher::add(const std::vector<Vector3df>& positions)
 {
 	iparticles.reserve(iparticles.size() + positions.size());
+	bool allAccepted = true;
 	for (const auto& position : positions) {
-		this->add(position);
+		allAccepted = this->add(position) && allAccepted;
 	}
+	return allAccepted;
 }
 
 void IndexedSortBasedSearcher::clear()
 {
 	iparticles.clear();
 	pairs.clear();
+	nextId = 0;
+	rejectedCount = 0;
 }
 
 void IndexedSortBasedSearcher::search()
@@ -111,31 +133,36 @@ void IndexedSortBasedSearcher::search()
 	const int threads = 1;
 #endif
 
-	std::vector<std::vector<ParticlePair>> eachPairs(threads);
+	// resize() keeps the inner vectors (and their capacity) that a previous search through the same
+	// workspace left behind; each one is cleared by the search function that fills it.
+	auto& eachPairs = workspace.perThread;
+	eachPairs.resize(static_cast<size_t>(threads));
 
-	std::vector<ConstIter> iters;
-	iters.reserve(static_cast<size_t>(threads) + 1);
+	// Chunk boundaries as offsets into the sorted array: iters[i] == begin + bounds[i].
+	auto& bounds = workspace.bounds;
+	bounds.resize(static_cast<size_t>(threads) + 1);
 	for (int i = 0; i < threads; ++i) {
-		iters.push_back(iparticles.cbegin() + i * iparticles.size() / threads);
+		bounds[static_cast<size_t>(i)] = static_cast<size_t>(i) * iparticles.size() / static_cast<size_t>(threads);
 	}
-	iters.push_back(iparticles.cend());
+	bounds[static_cast<size_t>(threads)] = iparticles.size();
+	const auto at = [this, &bounds](const int i) { return iparticles.cbegin() + static_cast<std::ptrdiff_t>(bounds[static_cast<size_t>(i)]); };
 
 #pragma omp parallel for
 	for (int i = 0; i < threads; ++i) {
-		searchSameRow(iters[i], iters[i + 1], eachPairs[i]);
+		searchSameRow(at(i), at(i + 1), eachPairs[static_cast<size_t>(i)]);
 	}
 
-	appendMerged(pairs, eachPairs, threads);
+	appendMerged(pairs, eachPairs, workspace.starts, threads);
 
 #pragma omp parallel for
 	for (int i = 0; i < threads; ++i) {
-		searchForwardRows(iters[i], iters[i + 1], eachPairs[i]);
+		searchForwardRows(at(i), at(i + 1), eachPairs[static_cast<size_t>(i)]);
 	}
 
-	appendMerged(pairs, eachPairs, threads);
+	appendMerged(pairs, eachPairs, workspace.starts, threads);
 }
 
-void IndexedSortBasedSearcher::collectWindow(const ConstIter xIter, const ConstIter scanBegin, const int maxGridId, std::vector<ParticlePair>& out) const
+void IndexedSortBasedSearcher::collectWindow(const ConstIter xIter, const ConstIter scanBegin, const IndexedParticle::GridId maxGridId, std::vector<ParticlePair>& out) const
 {
 	const auto effectLengthSquared = effectLength * effectLength;
 	const auto& centerX = xIter->getPosition();

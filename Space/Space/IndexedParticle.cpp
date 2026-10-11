@@ -1,4 +1,5 @@
 #include "IndexedParticle.h"
+#include "SpaceValidation.h"
 
 //#include "SPHParticle.h"
 
@@ -10,12 +11,30 @@ void IndexedParticle::setGridId(const float effectLength)
 	this->gridId = toGridId(this->position, effectLength);
 }
 
-int IndexedParticle::toIdX(std::array<int, 3> index)
+IndexedParticle::GridId IndexedParticle::toIdX(const std::array<int, 3>& index)
 {
-	return index[2] * gridStrideZ + index[1] * gridStrideY + index[0];
+	return static_cast<GridId>(index[2]) * gridStrideZ + static_cast<GridId>(index[1]) * gridStrideY + index[0];
 }
 
-int IndexedParticle::toGridId(const Vector3df& pos, const float effectLength)
+bool IndexedParticle::tryToGridId(const Vector3df& pos, const float effectLength, GridId& out)
+{
+	if (!Validation::isValidCellSize(effectLength)) {
+		return false;
+	}
+	std::array<int, 3> index;
+	if (!Validation::tryToCellIndex(pos, effectLength, index)) {
+		return false;
+	}
+	out = toIdX(index);
+	return true;
+}
+
+bool IndexedParticle::trySetGridId(const float effectLength)
+{
+	return tryToGridId(this->position, effectLength, this->gridId);
+}
+
+IndexedParticle::GridId IndexedParticle::toGridId(const Vector3df& pos, const float effectLength)
 {
 	return toIdX(toIndex(pos, effectLength));
 }

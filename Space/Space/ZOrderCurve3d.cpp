@@ -1,4 +1,4 @@
-﻿#include "ZOrderCurve3d.h"
+#include "ZOrderCurve3d.h"
 
 using namespace Phantom::Space;
 
@@ -41,7 +41,9 @@ unsigned int ZOrderCurve3d::decode_(unsigned int x)
 	x = (x ^ (x >> 2)) & mask4;
 	x = (x ^ (x >> 4)) & mask8;
 	x = (x ^ (x >> 8)) & mask16;
-	//	x = (x ^ (x >> 16)) & mask16;
+	// Final fold: the top two bits of a 10-bit axis sit at bits 24-25 after the steps above; bring them
+	// down to bits 8-9 and drop everything else. Without this, decode() was wrong for axis values >= 256.
+	x = (x ^ (x >> 16)) & 0x3FFu;
 	return x;
 }
 

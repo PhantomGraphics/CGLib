@@ -118,22 +118,31 @@ void KDTree::nearestRecursive(int nodeIndex, const Math::Vector3df& query, int& 
 std::vector<int> KDTree::findKNearestIndices(const Math::Vector3df& query, const size_t k) const
 {
 	std::vector<int> result;
-	if (rootIndex < 0 || k == 0) return result;
+	KNearestScratch scratch;
+	findKNearestIndices(query, k, result, scratch);
+	return result;
+}
+
+void KDTree::findKNearestIndices(const Math::Vector3df& query, const size_t k, std::vector<int>& out, KNearestScratch& scratch) const
+{
+	out.clear();
+	if (rootIndex < 0 || k == 0) return;
 
 	const auto less = [](const Candidate& a, const Candidate& b) { return a.dist2 < b.dist2; };
 
-	std::vector<Candidate> heap;
+	auto& heap = scratch.heap;
+	heap.clear();
 	const size_t neighborCount = std::min(k, positions.size());
 	heap.reserve(neighborCount);
+
 	kNearestRecursive(rootIndex, query, neighborCount, heap);
 
 	// heap is a max-heap (w.r.t. dist2) of the k best candidates found so far;
 	// sort_heap turns it into an ascending-by-dist2 range, i.e. nearest first.
 	std::sort_heap(heap.begin(), heap.end(), less);
 
-	result.reserve(heap.size());
-	for (const auto& c : heap) result.push_back(c.index);
-	return result;
+	out.reserve(heap.size());
+	for (const auto& c : heap) out.push_back(c.index);
 }
 
 void KDTree::kNearestRecursive(int nodeIndex, const Math::Vector3df& query, size_t k, std::vector<Candidate>& heap) const
@@ -175,31 +184,12 @@ void KDTree::kNearestRecursive(int nodeIndex, const Math::Vector3df& query, size
 std::vector<int> KDTree::findWithinRadius(const Math::Vector3df& query, const float radius) const
 {
 	std::vector<int> result;
-	if (rootIndex < 0 || radius < 0.0f) return result;
-	const float radius2 = radius * radius;
-	radiusRecursive(rootIndex, query, radius2, result);
+	findWithinRadius(query, radius, result);
 	return result;
 }
 
-void KDTree::radiusRecursive(int nodeIndex, const Math::Vector3df& query, float radius2, std::vector<int>& result) const
+void KDTree::findWithinRadius(const Math::Vector3df& query, const float radius, std::vector<int>& out) const
 {
-	if (nodeIndex < 0) return;
-	const Node& node = nodes[nodeIndex];
-
-	const Math::Vector3df& p = positions[node.index];
-	const float d2 = getDistanceSquared(p, query);
-	if (d2 <= radius2) result.push_back(node.index);
-
-	const int axis = node.axis;
-	const float diff = query[axis] - p[axis];
-	const float diff2 = diff * diff;
-
-	if (diff <= 0.0f) {
-		if (node.left >= 0) radiusRecursive(node.left, query, radius2, result);
-		if (node.right >= 0 && diff2 <= radius2) radiusRecursive(node.right, query, radius2, result);
-	}
-	else {
-		if (node.right >= 0) radiusRecursive(node.right, query, radius2, result);
-		if (node.left >= 0 && diff2 <= radius2) radiusRecursive(node.left, query, radius2, result);
-	}
+	out.clear();
+	forEachWithinRadius(query, radius, [&out](const int index) { out.push_back(index); });
 }

@@ -1,26 +1,45 @@
 #include "CompactSpaceHash.h"
 
 #include <algorithm>
-#include <bitset>
+#include <cstdint>
 
 using namespace Phantom::Math;
 using namespace Phantom::Space;
 
 namespace {
-	constexpr long int p1 = 73856093;
-	constexpr long int p2 = 19349663;
-	constexpr long int p3 = 83492791;
+	// Unsigned 32-bit wraparound: the same bits the old `bitset<32>(index * p)` produced on MSVC (where
+	// `long` is 32-bit), but well defined and identical on platforms where `long` is 64-bit.
+	constexpr std::uint32_t p1 = 73856093u;
+	constexpr std::uint32_t p2 = 19349663u;
+	constexpr std::uint32_t p3 = 83492791u;
+
+	size_t bucketCount(const int tableSize) { return static_cast<size_t>(tableSize < 1 ? 1 : tableSize); }
 }
 
-CompactSpaceHash::CompactSpaceHash()
+CompactSpaceHash::CompactSpaceHash() :
+	table(1)
 {
 }
 
 CompactSpaceHash::CompactSpaceHash(const double divideLength, const int tableSize) :
+	table(bucketCount(tableSize)),
 	divideLength(divideLength),
-	table(tableSize),
 	zCurve()
 {
+}
+
+bool CompactSpaceHash::tryToIndex(const Vector3df& pos, std::array<int, 3>& index) const
+{
+	return Validation::isValidCellSize(divideLength) && Validation::tryToCellIndex(pos, divideLength, index);
+}
+
+CompactSpaceCell* CompactSpaceHash::findCell(const std::array<int, 3>& ix) const
+{
+	const auto& bucket = table[toHash(ix)];
+	const auto iter = std::find_if(bucket.begin(), bucket.end(), [&ix](const CompactSpaceCell* cell) {
+		return cell->index == ix;
+		});
+	return iter == bucket.end() ? nullptr : *iter;
 }
 
 CompactSpaceHash::~CompactSpaceHash()
@@ -32,7 +51,7 @@ void CompactSpaceHash::setup(const double divideLength, const int tableSize)
 {
 	clear();
 	this->divideLength = divideLength;
-	this->table.resize(tableSize);
+	this->table.resize(bucketCount(tableSize));
 }
 
 void CompactSpaceHash::clear()
@@ -51,141 +70,107 @@ void CompactSpaceHash::clear()
 		*/
 		t.clear();
 	}
-	table.clear();
+	// The buckets stay allocated (only emptied): table.size() is the modulus of toHash(), so a cleared
+	// hash must keep at least one bucket to remain usable.
 
 	positions.clear();
 }
 
-void CompactSpaceHash::add(const Vector3df& position)
+bool CompactSpaceHash::add(const Vector3df& position)
 {
 	const auto ix = static_cast<int>( this->positions.size() );
 	this->positions.push_back(position);
 
-	const auto& index = toIndex(position);
-	const auto hashIndex = toHash(index);
-	const auto cellId = toZIndex(index);
-
-	auto& cells = table[hashIndex];
-	auto iter = std::find_if(cells.begin(), cells.end(), [cellId](CompactSpaceCell* cell) {
-		return cell->cellId == cellId;
-		});
-	if (iter == cells.end()) {
-		auto cell = new CompactSpaceCell();
-		cell->index = index;
-		cell->cellId = cellId;
-		cell->particleIndices.reserve(64);
+	std::array<int, 3> index;
+	if (!tryToIndex(position, index)) {
+		return false;
+	}
+	if (auto* cell = findCell(index)) {
 		cell->particleIndices.push_back(ix);
-		this->cells.push_back(cell);
-		cells.push_back(cell);
+		return true;
 	}
-	else {
-		(*iter)->particleIndices.push_back(ix);
-	}
+
+	auto cell = new CompactSpaceCell();
+	cell->index = index;
+	cell->cellId = toZIndex(index);
+	cell->particleIndices.reserve(64);
+	cell->particleIndices.push_back(ix);
+	this->cells.push_back(cell);
+	table[toHash(index)].push_back(cell);
+	return true;
 }
 
-void CompactSpaceHash::remove(const int i)
+bool CompactSpaceHash::remove(const int i)
 {
-	const auto& index = toIndex( positions[i] );
-	const auto hashIndex = toHash(index);
-	const auto cellId = toZIndex(index);
-
-	auto& cells = table[hashIndex];
-	auto iter = std::find_if(cells.begin(), cells.end(), [cellId](CompactSpaceCell* cell) { return cell->cellId == cellId; });
-	assert(iter != cells.end());
-	auto& ps = (*iter)->particleIndices;
-	ps.erase(std::remove(ps.begin(), ps.end(), i), ps.end());
+	if (i < 0 || static_cast<size_t>(i) >= positions.size()) {
+		return false;
+	}
+	std::array<int, 3> index;
+	if (!tryToIndex(positions[i], index)) {
+		return false;
+	}
+	auto* cell = findCell(index);
+	if (cell == nullptr) {
+		return false;
+	}
+	auto& ps = cell->particleIndices;
+	const auto last = std::remove(ps.begin(), ps.end(), i);
+	const bool found = last != ps.end();
+	ps.erase(last, ps.end());
+	return found;
 }
 
 
-std::vector<int> CompactSpaceHash::findNeighborIndices(const int positionIndex)
+std::vector<int> CompactSpaceHash::findNeighborIndices(const int positionIndex) const
 {
-	const auto position = positions[positionIndex]; //particle->getPosition();
-
-	const auto index = toIndex(position);
-
 	std::vector<int> neighbors;
-	neighbors.reserve(64);
-
-	for (int i = -1; i <= 1; ++i) {
-		for (int j = -1; j <= 1; ++j) {
-			for (int k = -1; k <= 1; ++k) {
-				std::array<int, 3> ix{ i + index[0],j + index[1],k + index[2] };
-				const auto hash = toHash(ix);
-				const auto& cells = table[hash];
-				const auto cellId = toZIndex(ix);
-				auto iter = std::find_if(cells.begin(), cells.end(), [cellId](CompactSpaceCell* cell) {
-					return cell->cellId == cellId;
-					});
-				if (iter == cells.end()) {
-					continue;
-				}
-				const auto& indices = (*iter)->particleIndices;
-				for (const auto ix2 : indices) {
-					if (positionIndex == ix2) {
-						continue;
-					}
-					const auto position2 = positions[ix2];
-					const double d2 = Math::getDistanceSquared(position, position2);
-					if (d2 < divideLength * divideLength) {
-						neighbors.push_back(ix2);
-					}
-				}
-			}
-		}
-	}
+	findNeighborIndices(positionIndex, neighbors);
 	return neighbors;
 }
 
-std::vector<int> CompactSpaceHash::findNeighborIndices(const Vector3df& position)
+std::vector<int> CompactSpaceHash::findNeighborIndices(const Vector3df& position) const
 {
-	const auto index = toIndex(position);
-
 	std::vector<int> neighbors;
-	neighbors.reserve(64);
-
-	for (int i = -1; i <= 1; ++i) {
-		for (int j = -1; j <= 1; ++j) {
-			for (int k = -1; k <= 1; ++k) {
-				std::array<int, 3> ix{ i + index[0],j + index[1],k + index[2] };
-				const auto hash = toHash(ix);
-				const auto& cells = table[hash];
-				const auto cellId = toZIndex(ix);
-				auto iter = std::find_if(cells.begin(), cells.end(), [cellId](CompactSpaceCell* cell) {
-					return cell->cellId == cellId;
-					});
-				if (iter == cells.end()) {
-					continue;
-				}
-				const auto& particleIndices = (*iter)->particleIndices;
-				for (const auto ix2 : particleIndices) {
-					const auto p2 = positions[ix2];
-					const double d2 = Math::getDistanceSquared(position, p2);
-					if (d2 < divideLength * divideLength) {
-						neighbors.push_back(ix2);
-					}
-				}
-			}
-		}
-	}
+	findNeighborIndices(position, neighbors);
 	return neighbors;
+}
+
+void CompactSpaceHash::findNeighborIndices(const int positionIndex, std::vector<int>& out) const
+{
+	out.clear();
+	if (positionIndex < 0 || static_cast<size_t>(positionIndex) >= positions.size()) {
+		return;
+	}
+	out.reserve(64);
+	forEachNeighbor(positionIndex, [&out](const int neighbor) { out.push_back(neighbor); });
+}
+
+void CompactSpaceHash::findNeighborIndices(const Vector3df& position, std::vector<int>& out) const
+{
+	out.clear();
+	out.reserve(64);
+	forEachNeighbor(position, [&out](const int neighbor) { out.push_back(neighbor); });
 }
 
 std::vector<int> CompactSpaceHash::find(const int index) const
 {
-	const auto& p = positions[index];
-	return find(toIndex(p));
+	if (index < 0 || static_cast<size_t>(index) >= positions.size()) {
+		return {};
+	}
+	std::array<int, 3> cellIndex;
+	if (!tryToIndex(positions[index], cellIndex)) {
+		return {};
+	}
+	return find(cellIndex);
 }
 
 std::vector<int> CompactSpaceHash::find(const std::array<int, 3>& index) const
 {
-	const auto hash = toHash(index);
-	const auto& cells = table[hash];
-	const auto cellId = toZIndex(index);
-	auto iter = std::find_if(cells.begin(), cells.end(), [cellId](CompactSpaceCell* cell) { return cell->cellId == cellId; });
-	if (iter == cells.end()) {
+	const auto* cell = findCell(index);
+	if (cell == nullptr) {
 		return {};
 	}
-	return (*iter)->particleIndices;
+	return cell->particleIndices;
 }
 
 std::array<int, 3> CompactSpaceHash::toIndex(const Vector3df& pos) const
@@ -211,14 +196,10 @@ unsigned int CompactSpaceHash::toHash(const Vector3df& pos) const
 
 unsigned int CompactSpaceHash::toHash(const std::array<int, 3>& index) const
 {
-	std::bitset<32> x = index[0] * p1;
-	std::bitset<32> y = index[1] * p2;
-	std::bitset<32> z = index[2] * p3;
-	//assert(x >= 0);
-	//assert(y >= 0);
-	//assert(z >= 0);
-	const auto value = (x ^ y ^ z).to_ulong();
-	return value % table.size();
+	const std::uint32_t value = (static_cast<std::uint32_t>(index[0]) * p1) ^
+		(static_cast<std::uint32_t>(index[1]) * p2) ^
+		(static_cast<std::uint32_t>(index[2]) * p3);
+	return static_cast<unsigned int>(value % table.size());
 }
 
 unsigned int CompactSpaceHash::toZIndex(const std::array<int, 3>& index) const
@@ -233,6 +214,10 @@ std::array<unsigned int, 3> CompactSpaceHash::fromZIndex(unsigned int index) con
 
 bool CompactSpaceHash::isEmpty(const Vector3df& pos) const
 {
-	const auto pts = find(toIndex(pos));
-	return pts.empty();
+	std::array<int, 3> index;
+	if (!tryToIndex(pos, index)) {
+		return true;
+	}
+	const auto* cell = findCell(index);
+	return cell == nullptr || cell->particleIndices.empty();
 }
