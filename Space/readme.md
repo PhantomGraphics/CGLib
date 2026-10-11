@@ -4,6 +4,8 @@ A C++ library providing 3D spatial data structures and geometric query algorithm
 intended for use in real-time graphics, simulation, and computational geometry pipelines.
 
 This document is written for AI models and developers reading the codebase without prior context.
+The exact per-API contracts (ordering, boundaries, lifetimes, what degenerate input returns) are in
+`docs/spec/space_api_contracts.md` at the repository root; this file is the overview.
 
 ---
 
@@ -11,17 +13,36 @@ This document is written for AI models and developers reading the codebase witho
 
 ```
 CGLib/Space/
-├── Space/          # Core spatial algorithms library (static library)
+├── Space/          # Core spatial algorithms library (SpaceCore, static library)
 ├── SpaceTest/      # Unit tests (Google Test)
-└── SpaceView/      # UI visualization layer (dialog + renderer)
+└── SpaceView/      # Standalone ImGui + Vulkan viewer, plus SpaceDemoCore (its CPU side)
 ```
+
+Build: CMake only (`SpaceCore`, `SpaceDemoCore`, `SpaceTest`, `SpaceView` targets). Public headers are included as
+`CGLib/Space/Space/<Header>.h` (or relative to this directory inside the module); they include Math headers as
+`CGLib/Math/...`, so the include root must be the directory that contains `CGLib/`.
 
 ---
 
 ## Namespace
 
-All public symbols live in `Phantom::Space`.
-Math types (vectors, boxes, rays, etc.) live in `Phantom::Math`.
+All public symbols live in `Phantom::Space`. Math types (vectors, boxes, rays, etc.) live in `Phantom::Math`.
+`SpaceView` code lives in `VKSpace`.
+
+---
+
+## General conventions
+
+- **No exceptions.** Invalid input is rejected with a `bool` return or an empty result, never thrown.
+- **Input validation.** NaN/Inf positions, cell sizes that are not finite and positive, and cell coordinates beyond
+  ±2^30 are rejected (`SpaceValidation.h`). A rejected position still consumes its insertion index, so the indices of
+  the other points do not shift. Geometric queries return finite values or an empty vector.
+- **Ownership.** `KDTree`, `SpaceHash`, `CompactSpaceHash` and `IndexedSortBasedSearcher` copy positions by value.
+  `Octree` and `BVH` hold **non-owning pointers** to caller-owned objects.
+- **Result buffers.** Queries that return a container also have an overload taking a caller-owned `std::vector&`
+  (cleared first, capacity reused) and, for the hot ones, a `forEach...` callback form. They give the same elements in
+  the same order as the value-returning form. Pass one buffer per thread; const queries may run concurrently.
+- **Non-copyable classes** inherit `UnCopyable`; wrap in `unique_ptr` where needed.
 
 ---
 
@@ -29,87 +50,85 @@ Math types (vectors, boxes, rays, etc.) live in `Phantom::Math`.
 
 ### Octree (`Octree.h/.cpp`)
 
-Hierarchical 3D space partitioning into up to 8 child octants.
+Coarse 3D partition into 8 child octants, with sphere and AABB range queries.
 
-- Items must implement `ITreeItem` (provide an AABB via `getBox()`).
-- Children are created lazily when items are inserted.
-- Supports sphere-radius and AABB range queries.
+- Items implement `ITreeItem` (`getBox()` returns an AABB). The tree stores the **pointers**; items must outlive it.
+- `add()` returns `false` (and stores nothing) for a null item, a non-finite box, or a box outside the root.
+- Subdivision happens only when an item straddles the root boundary, and only **one level deep**: this is not an
+  adaptive octree. Items that fit the root are simply kept in a list there.
+- A box's node is chosen at `add()` time; moving an item afterwards needs a new `Octree`. There is no `remove()`.
 
 ```cpp
 Octree tree(Math::Box3df(...));
-tree.add(myItem);
-auto hits = tree.findItems(center, radius);
+tree.add(&myItem);
+auto hits = tree.findItems(center, radius);   // std::list<ITreeItem*>
 ```
 
 ### KDTree (`KDTree.h/.cpp`)
 
 Binary space partitioning tree for nearest-neighbor and radius queries over 3D point sets.
 
-- Points are plain `Math::Vector3df` values, held by value in a `Math::Vector3dfVector`
-  (`std::vector<Vector3df>`) — no item interface or virtual dispatch involved.
-- Build phase is separate from insertion: call `addPoint()` N times then `build()`, or pass a
-  whole `Vector3dfVector` to `build(positions)` directly (replaces any previously added points).
-- Axes cycle X→Y→Z at each depth; partitioning uses `nth_element` for O(n log n) build.
-- The tree copies positions into its own storage; callers don't need to keep anything alive
-  after `build()`.
-- `findKNearestIndices(query, k)` returns up to k indices sorted by ascending distance, using a
-  bounded max-heap of size k with the same splitting-plane pruning as `findNearest`.
+- Points are plain `Math::Vector3df` values held by value; the tree owns its copy.
+- `addPoint()` only **stages** a point; `build()` (or `build(positions)`) makes the tree. Queries see the points present
+  at the last `build()`; points staged afterwards are invisible until the next build (`isDirty()` reports that).
+  Querying an unbuilt tree returns nothing.
+- Non-finite points keep their index but are left out of the tree (`rejectedCount()`).
+- `findWithinRadius` is inclusive (`d² <= r²`); `findKNearestIndices(q, k)` returns nearest first. Ties between equidistant
+  points are broken by traversal order, so compare distances rather than ids.
+- Buffer forms: `findWithinRadius(q, r, out)`, `forEachWithinRadius(q, r, visit)`,
+  `findKNearestIndices(q, k, out, KNearestScratch&)`.
 
 ```cpp
 KDTree tree;
-tree.build(myPositions); // or: addPoint() N times, then build()
-const Vector3df* nearest = tree.findNearest(query); // pointer into internal storage, or nullptr
+tree.build(myPositions);                                  // or addPoint() N times, then build()
+const Vector3df* nearest = tree.findNearest(query);       // into internal storage; nullptr if empty
 std::vector<int> inRange = tree.findWithinRadius(query, radius);
-std::vector<int> kNearest = tree.findKNearestIndices(query, 5); // nearest first
 ```
 
 ### BVH — Bounding Volume Hierarchy (`BVH.h/.cpp`)
 
-Binary tree over a set of `BVHObject` instances (each with an integer ID and an AABB).
-Designed for overlap/collision queries.
+Binary tree over `BVHObject` instances (an integer id and an AABB), for overlap, ray-candidate and pair queries.
 
-- `queryOverlaps(box)` — returns all objects overlapping a query AABB.
-- `findAllPairs()` — returns all (idA, idB) pairs where idA < idB and the two objects overlap.
-- `refit()` — updates node AABBs bottom-up after objects have moved (topology unchanged).
-- Tree is built once in the constructor; use `refit()` for dynamic scenes with small motion.
+- `queryOverlaps(box)`, `queryRay(origin, direction, tMin, tMax)` (candidates only; the exact hit test is the caller's),
+  `findAllPairs()` — `(idA, idB)` with `idA < idB`, so **ids should be unique** (`hasUniqueIds()`).
+- Objects are not owned or copied; null pointers are skipped. After moving objects call `refit()` (cheap, keeps the
+  topology) or `rebuild()` (re-splits); `refitDegradation()` says how loose the boxes became.
+- Allocation-free forms: `queryOverlaps/queryRay(..., out)`, `findAllPairs(out, stack)`, `forEachOverlap`,
+  `forEachRayCandidate`.
 
 ```cpp
-BVH bvh(objects);
+BVH bvh(objects);                      // std::vector<BVHObject*>
 auto overlaps = bvh.queryOverlaps(queryBox);
 auto pairs = bvh.findAllPairs();
 ```
 
 ### SpaceHash (`SpaceHash.h/.cpp`)
 
-Uniform-grid spatial hash for O(1) average neighbor lookup.
-
-- Space is divided into cubic cells of side `divideLength`.
-- Hash function: `(ix*73856093) XOR (iy*19349663) XOR (iz*83492791)` mod `tableSize`.
-- `findNeighborIndices(pos)` searches the 3×3×3 = 27 neighboring cells.
-- Best suited for uniformly distributed point clouds.
+Uniform-grid spatial hash. Cells have side `divideLength`; `findNeighborIndices(pos)` scans the 27 surrounding cells and
+returns the points **strictly closer than `divideLength`** (an exact radius result, sorted, including a stored point at
+`pos`). Best for roughly uniform point clouds.
 
 ```cpp
-SpaceHash hash(cellSize, tableSize);
-hash.add(position);
+SpaceHash hash(cellSize, tableSize);     // tableSize < 1 is raised to 1
+hash.add(position);                      // false if the position/cell size was rejected
 std::list<int> neighbors = hash.findNeighborIndices(queryPos);
 ```
 
 ### CompactSpaceHash (`CompactSpaceHash.h/.cpp`)
 
-Memory-efficient spatial hash using Z-order (Morton) curve encoding for cell IDs.
+Same radius semantics as `SpaceHash`, with cells identified by their grid index (a Morton code is stored per cell).
 
-- Same interface as `SpaceHash` but uses `ZOrderCurve3d` internally for cell identification.
-- Supports removal by index, and coordinate conversion utilities.
-- Prefer over `SpaceHash` when spatial locality in memory matters or when cells are sparse.
+- `findNeighborIndices(int index)` excludes the particle itself; the position overload includes a stored point there.
+- `find(...)` returns a whole cell without a distance filter; `remove(index)` takes a particle out of its cell.
+- Buffer/callback forms: `findNeighborIndices(..., out)`, `forEachNeighbor(..., visit)`. `clear()` keeps the buckets.
 
-```cpp
-CompactSpaceHash hash(cellSize, tableSize);
-hash.add(position);
-hash.remove(index);
-std::vector<int> neighbors = hash.findNeighborIndices(queryPos);
-std::array<int,3> gridIdx = hash.toIndex(position);
-unsigned int morton = hash.toZIndex(gridIdx);
-```
+### CSRNeighborList / IndexedSortBasedSearcher (`NeighborList.h`, `IndexedSortBasedSearcher.h`)
+
+The SPH neighbor search used by Physics. `CSRNeighborList::build(positions, radius)` gives symmetric rows without the
+particle itself, strictly closer than `radius`; row order is part of the contract (solver determinism). Rebuilding every
+step reuses an internal scratch workspace (`NeighborSearchWorkspace`), so steady-state rebuilds do not allocate.
+`tryBuild(...)` variants report invalid input; `at(i)` is the bounds-checked row accessor.
+`IndexedParticle::gridId` is 64-bit: `iz * 2^20 + iy * 2^10 + ix`, linear in the cell index.
 
 ---
 
@@ -117,136 +136,87 @@ unsigned int morton = hash.toZIndex(gridIdx);
 
 ### ZOrderCurve3d (`ZOrderCurve3d.h/.cpp`)
 
-Encodes/decodes 3D unsigned integer grid coordinates to/from a single Morton value
-by interleaving the bits of x, y, z:
+Interleaves the bits of x, y, z (10 bits per axis, so axis values `0..1023`; `isEncodable()` checks that):
+`result bits: ... z2 y2 x2 z1 y1 x1 z0 y0 x0`. `encode`, `decode`, `getParent(ltd, rbd)`. `ZOrderCurve2d` is the 2D variant.
 
-```
-result bits: ... z2 y2 x2 z1 y1 x1 z0 y0 x0
-```
+### LinearOctreeIndex (`LinearOctreeIndex.h/.cpp`)
 
-- `encode({x,y,z})` → `uint`
-- `decode(uint)` → `{x,y,z}`
-- `getParent(ltd, rbd)` → parent node index in a linear octree.
+Encodes an octree node's `(level, number)` as `index1d = (8^0 + ... + 8^(level-1)) + number`; supports parent traversal.
 
-### ZOrderCurve2d (`ZOrderCurve2d.h/.cpp`)
+### ZIndexedSearcher (`ZIndexedSearcher.h/.cpp`)
 
-2D variant. Interleaves bits of x and y.
-
----
-
-## Particle Search Utilities
-
-### IndexedParticle (`IndexedParticle.h/.cpp`)
-
-A particle that caches a scalar `gridId` derived from its position and a cell size.
-Sorting a container of `IndexedParticle` by `gridId` groups spatially nearby particles,
-enabling efficient pair searches without a hash table.
-
-### ZIndexedParticle / ZIndexedSearcher (`ZIndexedSearcher.h/.cpp`)
-
-Similar to `IndexedParticle` but uses Z-order Morton encoding as the sort key.
-`ZIndexedSearcher` manages a sorted array of `ZIndexedParticle` and supports
-neighbor queries after a one-time `sort()` call.
+Neighbor search over Morton-sorted particles: `add()` all, `sort()` once, then `findNeighbors(pos)` (strictly closer than
+the search radius, 27 cells). Positions must be at or above `minPosition` and within 1022 radii of it.
 
 ---
 
 ## Geometric Query Algorithms
 
-All calculators are **template classes** parameterized on `T` (typically `float` or `double`).
-All methods are **static**. Return values are parametric `t` values along the ray/line,
-or a direct scalar distance. An **empty vector** means no intersection.
+All calculators are **template classes** over `T` (`float` and `double` are instantiated in the `.cpp` files) with
+**static** methods. A result is a list of parametric values or a scalar distance; an **empty vector means no result**.
+Non-finite input, zero-length directions/segments and zero-area triangles/rectangles always give an empty result.
 
-### IntersectionCalculator (`IntersectionCalculator.h/.cpp`)
-
-3D intersection tests (parametric `t` along ray or line):
-
-| Query | Primitives |
-|-------|-----------|
-| Ray | Sphere, Plane, Triangle, Rectangle, Box (AABB) |
-| Line | Plane, Sphere, Triangle |
-| Sphere vs Plane | returns intersection circle description |
-
-### DistanceCalculator (`DistanceCalculator.h/.cpp`)
-
-Distance queries:
+### IntersectionCalculator
 
 | Query | Result |
-|-------|--------|
-| Point to Triangle | scalar minimum distance |
-| Ray vs Sphere | up to 2 parametric `t` values |
-| Ray vs Triangle | 0 or 1 parametric `t` (Möller–Trumbore) |
-| Ray vs Box (AABB) | up to 2 parametric `t` values (slab method) |
+|---|---|
+| Ray vs Sphere / Box | the `DistanceCalculator` parameters that land on the surface (infinite line: `t < 0` is reported) |
+| Ray vs Triangle / Rectangle | `t >= 0` along the ray |
+| Ray vs Plane | the **origin's signed distance** if the origin is in front of the plane (a compatibility quirk, not a ray parameter) |
+| Line (segment) vs Plane | `u` in `[0,1]`, **front-to-back crossings only** |
+| Line vs Sphere / Triangle | `u` in `(0,1]` |
+| Sphere vs Plane | the centre's signed distance if `|d| <= r + tolerance` |
 
-### SignedDistanceCalculator (`SignedDistanceCalculator.h/.cpp`)
+### DistanceCalculator
 
-Signed distance from a point to a primitive (negative = inside, positive = outside):
+| Query | Result |
+|---|---|
+| Point to Triangle | scalar distance (0 within `tolerance`; finite for degenerate triangles) |
+| Ray vs Sphere | up to 2 `t` values; direction may be non-unit (`t` is in direction lengths) |
+| Ray vs Triangle | 0 or 1 `t >= 0` (Möller–Trumbore, absolute `det` tolerance) |
+| Ray vs Box | `{tmin, tmax}` of the slab test; axis-parallel rays handled explicitly |
+| `closestSegments` | closest points of two segments (capsule contacts) |
 
-| Primitive | Notes |
-|-----------|-------|
-| Sphere | `dist = \|p - center\| - radius` |
-| Plane  | Signed by plane normal direction |
+### SignedDistanceCalculator
 
-### Intersection2d (`Intersection2d.h/.cpp`)
+Sphere: `|p - center| - radius` (negative inside). Plane: `dot(p - origin, normal)` — the normal is **not normalized**,
+so pass a unit normal for a metric distance.
 
-2D intersection tests. Currently supports:
-- Line2d × Circle2d → up to 2 parametric `t` values.
+### Intersection2d
 
----
+Line2d × Circle2d → up to 2 parametric `t` values; a zero-length segment gives an empty result.
 
-## Other Utilities
+### PolygonSampler
 
-### LinearOctreeIndex (`LinearOctreeIndex.h/.cpp`)
-
-Encodes an octree node's (level, number) pair as a single `uint`:
-`index1d = (8^0 + ... + 8^(level-1)) + number`.
-Supports parent traversal and use in `std::set` / `std::map`.
-
-### PolygonSampler (`PolygonSampler.h/.cpp`)
-
-Samples points inside a closed triangle mesh.
-Uses ray casting (odd/even crossing rule) to determine inside/outside.
-`generateUniformGrid(spacing)` returns all grid points inside the mesh.
+Samples points inside a closed triangle mesh (ray casting, odd/even rule); `generateUniformGrid(spacing)`.
 
 ---
 
 ## Interfaces
 
 | Interface | Used By | Must Provide |
-|-----------|---------|-------------|
-| `ITreeItem` | Octree | `getBox() → Box3d<float>` |
+|---|---|---|
+| `ITreeItem` | Octree | `getBox() → Box3d<float>` (non-const) |
 | `BVHObject` | BVH | `id` (int), `box` (Box3df) — extend or use directly |
 
-`KDTree` takes plain `Vector3df` positions directly (via `addPoint()`/`build()`); it has no item
-interface of its own.
+`KDTree`, `SpaceHash` and `CompactSpaceHash` take plain `Vector3df` positions.
+
+---
+
+## SpaceView and SpaceDemoCore
+
+`SpaceView` is the standalone ImGui + Vulkan viewer (`VKSpace` namespace). Its CPU side — synthetic samples, one algorithm
+run, the wireframe/points written into a `SpaceResult` — is `SpaceDemos.h/.cpp` in the `SpaceDemoCore` library (no ImGui,
+no Vulkan), verified without a window by `SpaceDemoTest`. The `*Panel` classes only edit parameters and call `run()`; the
+`SetAlgorithm`/`Run`/`SetParam` scenario commands go through the same `panel->run()`.
 
 ---
 
 ## Dependencies
 
 ```
-Phantom::Math (CGLib)
-  ├── Vector3d<T>, Box3d<T>, Ray3d<T>, Plane3d<T>
-  ├── Triangle3d<T>, Sphere3d<T>, Rectangle3d<T>
-  └── Line3d<T>, Line2d<T>, Circle2d<T>
-
-Phantom::Space (this library)
-  └── consumed by SpaceView (UI / visualization layer)
+Phantom::Math (CGLib)  — Vector3d, Box3d, Ray3d, Plane3d, Triangle3d, Sphere3d, Rectangle3d, Line3d, Line2d, Circle2d
+Phantom::Space (SpaceCore) → MathCore only
+SpaceDemoCore → SpaceCore, glm headers
+SpaceView → SpaceDemoCore, VkAppBase, VkRenderer, UIWidgets, Vulkan, GLFW
 ```
-
----
-
-## Design Notes for AI Readers
-
-- **Non-copyable classes**: `Octree`, `KDTree`, `SpaceHash`, `CompactSpaceHash`, `ZIndexedSearcher`
-  all inherit from `UnCopyable`. Wrap in `unique_ptr` or `shared_ptr` where needed.
-- **Pointer ownership**: `Octree` does **not** own the pointers passed to it; the caller is
-  responsible for item lifetimes. `KDTree` instead copies positions by value into its own
-  storage, so it owns no external pointers.
-- **Build/query separation**: `KDTree` requires an explicit `build()` call after all `addPoint()`
-  calls (or use `build(positions)` to add and build in one step). Querying before `build()` is
-  undefined behavior.
-- **Template instantiation**: `IntersectionCalculator`, `DistanceCalculator`,
-  `SignedDistanceCalculator`, `Intersection2d` are header-only templates.
-  Explicit instantiations for `float` are defined in the corresponding `.cpp` files.
-- **SpaceView** is a separate Visual C++ project (`SpaceView.vcxproj`) and depends on
-  `Phantom::UI`, `Phantom::Renderer`, and `Phantom::Scene` frameworks in addition to `Space`.

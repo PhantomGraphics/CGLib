@@ -10,12 +10,8 @@ cmake_minimum_required(VERSION 3.20)
 
 project(SpaceStandalone LANGUAGES CXX)
 
-# C++20, not the repo-wide default C++17 (see root CLAUDE.md) -- Graphics.vcxproj/
-# VulkanGraphics.vcxproj/UIWidgets.vcxproj/SpaceView.vcxproj already override
-# <LanguageStandard> to stdcpp20 on Windows (Space/SpaceTest/Math stay at the
-# BuildConfig.props default), and VkAppBase.cpp uses std::string_view::starts_with
-# (C++20). One standard for the whole standalone build is simplest and matches
-# the superset actually needed.
+# C++20 for the whole standalone build: VkAppBase.cpp uses std::string_view::starts_with, and one standard for
+# every target is simplest. (The old per-project vcxproj <LanguageStandard> overrides no longer exist.)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
