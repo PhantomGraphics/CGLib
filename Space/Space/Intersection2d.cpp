@@ -1,7 +1,10 @@
-﻿#include "Intersection2d.h"
+#include "Intersection2d.h"
 
 #include "../../../CGLib/Math/Line2d.h"
 #include "../../../CGLib/Math/Circle2d.h"
+
+#include <cmath>
+#include <limits>
 
 using namespace Phantom::Math;
 using namespace Phantom::Space;
@@ -16,6 +19,10 @@ std::vector<T> Intersection2d<T>::calculate(const Line2d<T>& line, const Circle2
 
     // 2次方程式の係数
     const auto a = glm::dot(dir, dir);
+    // A zero-length segment has no parameter to report (the quadratic would divide by a == 0).
+    if (!(a > std::numeric_limits<T>::min())) {
+        return {};
+    }
     const auto oc = start - center;
     const auto b = 2 * glm::dot(dir, oc);
     const auto c = glm::dot(oc, oc) - radius * radius;

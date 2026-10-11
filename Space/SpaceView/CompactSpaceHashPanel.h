@@ -1,11 +1,13 @@
 #pragma once
 
 #include "IAlgorithmView.h"
+#include "SpaceDemos.h"
 #include "World.h"
 
 namespace VKSpace {
 
-/// @brief ImGui panel for CompactSpaceHash algorithm.
+/// @brief ImGui panel for the CompactSpaceHash demo. The computation lives in SpaceDemos.cpp; this class only edits
+/// the parameters, requests a run (button or command) and shows the statistics of the last run.
 class CompactSpaceHashPanel : public IAlgorithmView {
 public:
     const char* getName() const override { return "CompactSpaceHash"; }
@@ -14,8 +16,8 @@ public:
     bool setParam(const std::string& name, const std::string& value) override;
 
 private:
-    float  searchRadius_   = 0.35f;
-    int    totalNeighbors_ = 0;
+    HashDemoParams params_;
+    HashDemoStats  stats_;
 };
 
 } // namespace VKSpace

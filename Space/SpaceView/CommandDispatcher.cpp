@@ -1,6 +1,7 @@
-﻿#include "CommandDispatcher.h"
+#include "CommandDispatcher.h"
 
 #include <algorithm>
+#include <cmath>
 #include <charconv>
 #include <cstdio>
 #include <limits>
@@ -10,8 +11,12 @@ namespace VKSpace {
 
 namespace {
 bool parseDouble(const std::string& s, double& out) {
-    const auto [ptr, ec] = std::from_chars(s.data(), s.data() + s.size(), out);
-    return ec == std::errc{};
+    double v = 0.0;
+    const auto [ptr, ec] = std::from_chars(s.data(), s.data() + s.size(), v);
+    // from_chars accepts "nan"/"inf", which would poison the camera distance.
+    if (ec != std::errc{} || ptr != s.data() + s.size() || !std::isfinite(v)) return false;
+    out = v;
+    return true;
 }
 } // namespace
 
