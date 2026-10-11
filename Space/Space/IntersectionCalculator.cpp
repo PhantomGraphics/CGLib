@@ -1,6 +1,7 @@
-﻿#include "IntersectionCalculator.h"
+#include "IntersectionCalculator.h"
 
 #include "DistanceCalculator.h"
+#include "GeometryGuards.h"
 
 #include "CGLib/Math/Ray3d.h"
 #include "CGLib/Math/Sphere3d.h"
@@ -19,6 +20,11 @@ namespace {
 	bool isInside(const Vector3d<T>& p, const Triangle3d<T>& triangle)
 	{
 		const auto& n = triangle.getNormal();
+		// A zero-area triangle has no normal (normalizing a zero vector gives NaN, and every NaN
+		// comparison below would then pass): such a face contains nothing.
+		if (!GeometryGuards::isFinite(n)) {
+			return false;
+		}
 		const auto& vertices = triangle.getVertices();
 
 		const auto a = vertices[0] - p;
@@ -48,6 +54,9 @@ namespace {
 	bool isInside(const Vector3d<T>& p, const Rectangle3d<T>& quad)
 	{
 		const auto& n = quad.getNormal();
+		if (!GeometryGuards::isFinite(n)) {
+			return false;
+		}
 		const auto p0 = quad.getPosition(0,0);
 		const auto p1 = quad.getPosition(1, 0);
 		const auto p2 = quad.getPosition(0, 1);
@@ -100,6 +109,9 @@ std::vector<T> IntersectionCalculator<T>::calculate(const Ray3d<T>& ray, const S
 template<typename T>
 std::vector<T> IntersectionCalculator<T>::calculate(const Ray3d<T>& ray, const Plane3d<T>& plane, const T tolerance)
 {
+	if (!GeometryGuards::isUsable(ray) || !GeometryGuards::isFinite(plane.getOrigin()) || !GeometryGuards::isFinite(plane.getNormal())) {
+		return {};
+	}
 	const auto distance = plane.getDistance(ray.getOrigin());
 
 	if (distance > -tolerance) {
@@ -155,6 +167,9 @@ std::vector<T> IntersectionCalculator<T>::calculate(const Ray3d<T>& ray, const B
 template<typename T>
 std::vector<T> IntersectionCalculator<T>::calculate(const Line3d<T>& line, const Plane3d<T> plane, const T tolerance)
 {
+	if (!GeometryGuards::isUsable(line) || !GeometryGuards::isFinite(plane.getOrigin()) || !GeometryGuards::isFinite(plane.getNormal())) {
+		return {};
+	}
 	// 線分の始点が三角系の裏側にあれば、当たらない
 	const auto planeToStart = plane.getDistance(line.getStart());	// 線分の始点と平面の距離
 	if (planeToStart <= tolerance) {
@@ -177,6 +192,9 @@ std::vector<T> IntersectionCalculator<T>::calculate(const Line3d<T>& line, const
 template<typename T>
 std::vector<T> IntersectionCalculator<T>::calculate(const Line3d<T>& line, const Sphere3d<T>& sphere, const T tolerance)
 {
+	if (!GeometryGuards::isUsable(line) || !GeometryGuards::isUsable(sphere)) {
+		return {};
+	}
 	const auto& dir = glm::normalize(line.getDirection());
 	const auto diff = sphere.getCenter() - line.getStart();
 	const auto t0 = glm::dot(diff, dir);
@@ -209,6 +227,9 @@ std::vector<T> IntersectionCalculator<T>::calculate(const Line3d<T>& line, const
 template<typename T>
 std::vector<T> IntersectionCalculator<T>::calculate(const Line3d<T>& line, const Triangle3d<T>& triangle, const T tolerance)
 {
+	if (!GeometryGuards::isUsable(line) || !GeometryGuards::isFinite(triangle.getNormal())) {
+		return {};
+	}
 	const auto& plane = Plane3d<T>(triangle.getVertices()[0], triangle.getNormal());
 	const auto ps = IntersectionCalculator::calculate(line, plane, tolerance);
 	std::vector<T> inners;
@@ -224,6 +245,9 @@ std::vector<T> IntersectionCalculator<T>::calculate(const Line3d<T>& line, const
 template<typename T>
 std::vector<T> IntersectionCalculator<T>::calculate(const Sphere3d<T>& sphere, const Plane3d<T>& plane, const T tolerance)
 {
+	if (!GeometryGuards::isUsable(sphere) || !GeometryGuards::isFinite(plane.getOrigin()) || !GeometryGuards::isFinite(plane.getNormal())) {
+		return {};
+	}
 	const auto distance = plane.getDistance(sphere.getCenter());
 	if (std::abs(distance) <= sphere.getRadius() + tolerance) {
 		return { distance };

@@ -1,11 +1,13 @@
 #pragma once
 
 #include "IAlgorithmView.h"
+#include "SpaceDemos.h"
 #include "World.h"
 
 namespace VKSpace {
 
-/// @brief ImGui panel for SignedDistance algorithm.
+/// @brief ImGui panel for the SignedDistance demo. The computation lives in SpaceDemos.cpp; this class only edits
+/// the parameters, requests a run (button or command) and shows the statistics of the last run.
 class SignedDistancePanel : public IAlgorithmView {
 public:
     const char* getName() const override { return "SignedDistance"; }
@@ -14,11 +16,8 @@ public:
     bool setParam(const std::string& name, const std::string& value) override;
 
 private:
-    float  sphereRadius_ = 0.5f;
-    int    samples_      = 10;
-    int    sampleCount_  = 0;
-    float  minSdf_       = 0.f;
-    float  maxSdf_       = 0.f;
+    SignedDistanceDemoParams params_;
+    SignedDistanceDemoStats  stats_;
 };
 
 } // namespace VKSpace

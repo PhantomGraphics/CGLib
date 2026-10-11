@@ -36,6 +36,20 @@ include(PhantomVulkanApp)
 
 phantom_add_space_core()
 
+# SpaceDemoCore: the CPU side of the SpaceView demos (synthetic samples + one algorithm run -> SpaceResult).
+# No ImGui and no Vulkan, so SpaceTest can check the viewer's output without a window and SpaceView shares it.
+if(NOT TARGET SpaceDemoCore)
+    add_library(SpaceDemoCore STATIC
+        ${SPACE_ROOT}/SpaceView/SpaceDemos.cpp
+        ${SPACE_ROOT}/SpaceView/World.cpp
+    )
+    # World.h includes <glm/glm.hpp> directly (the Math headers reach glm through a relative path).
+    target_include_directories(SpaceDemoCore PUBLIC ${REPO_ROOT} ${CGLIB_ROOT}/ThirdParty/glm-0.9.9.8)
+    target_link_libraries(SpaceDemoCore PUBLIC SpaceCore MathCore)
+    target_compile_options(SpaceDemoCore PRIVATE ${PHANTOM_WARN_FLAGS})
+    target_compile_features(SpaceDemoCore PUBLIC cxx_std_20)
+endif()
+
 # --- SpaceTest (GoogleTest) ---
 
 phantom_find_gtest()
@@ -46,7 +60,7 @@ if(PHANTOM_GTEST_FOUND)
     file(GLOB SPACETEST_SOURCES CONFIGURE_DEPENDS ${SPACE_ROOT}/SpaceTest/*.cpp)
     list(FILTER SPACETEST_SOURCES EXCLUDE REGEX "pch\\.cpp$")
 
-    cglib_add_test(SpaceTest SOURCES ${SPACETEST_SOURCES} INCLUDES ${SPACE_ROOT}/SpaceTest LINK SpaceCore)
+    cglib_add_test(SpaceTest SOURCES ${SPACETEST_SOURCES} INCLUDES ${SPACE_ROOT}/SpaceTest LINK SpaceCore SpaceDemoCore)
 endif()
 
 # ---------------------------------------------------------------------------
@@ -79,7 +93,6 @@ add_executable(SpaceView
     ${SPACE_ROOT}/SpaceView/VkSpaceApp.cpp
     ${SPACE_ROOT}/SpaceView/CommandDispatcher.cpp
     ${SPACE_ROOT}/SpaceView/Renderer.cpp
-    ${SPACE_ROOT}/SpaceView/World.cpp
 )
 target_include_directories(SpaceView PRIVATE
     ${REPO_ROOT}
@@ -87,6 +100,7 @@ target_include_directories(SpaceView PRIVATE
     ${CGLIB_ROOT}/Renderer/VkRenderer
 )
 target_link_libraries(SpaceView PRIVATE
+    SpaceDemoCore
     SpaceCore
     VkAppBaseCore
     VkRendererCore

@@ -1,6 +1,8 @@
-﻿#include "DistanceCalculator.h"
+#include "DistanceCalculator.h"
+#include "GeometryGuards.h"
 #include <algorithm>
 #include <cmath>
+#include <limits>
 
 #include "CGLib/Math/Ray3d.h"
 #include "CGLib/Math/Sphere3d.h"
@@ -129,11 +131,32 @@ T DistanceCalculator<T>::calculate(const Triangle3d<T>& triangle, const Vector3d
 template<typename T>
 std::vector<T> DistanceCalculator<T>::calculate(const Ray3d<T>& ray, const Sphere3d<T>& sphere, const T tolerance)
 {
+	if (!GeometryGuards::isUsable(ray) || !GeometryGuards::isUsable(sphere))
+	{
+		return {};
+	}
 	const auto& direction = ray.getDirection();
 	const auto& diff = sphere.getCenter() - ray.getOrigin();
+	const auto sphereRadiusSquared = sphere.getRadius() * sphere.getRadius();
+
+	// |direction|^2. For a unit direction (the common case, up to normalization rounding) the original
+	// formulas below are used unchanged; otherwise the quadratic is solved with the real length so that
+	// t is measured in direction lengths, like the triangle and box overloads.
+	const auto a = glm::dot(direction, direction);
+	if (std::abs(a - T(1)) > T(1.0e-5))
+	{
+		const auto t0 = glm::dot(diff, direction) / a;
+		const auto distanceSquared = glm::dot(diff, diff) - t0 * t0 * a;
+		if (distanceSquared > sphereRadiusSquared)
+		{
+			return {};
+		}
+		const auto t1 = std::sqrt((sphereRadiusSquared - distanceSquared) / a);
+		return { t0 - t1, t0 + t1 };
+	}
+
 	const auto t0 = glm::dot(diff, direction);
 	const auto distanceSquared = glm::dot(diff, diff) - t0 * t0;
-	const auto sphereRadiusSquared = sphere.getRadius() * sphere.getRadius();
 	if (distanceSquared > sphereRadiusSquared)
 	{
 		return {};
@@ -145,6 +168,10 @@ std::vector<T> DistanceCalculator<T>::calculate(const Ray3d<T>& ray, const Spher
 template<typename T>
 std::vector<T> DistanceCalculator<T>::calculate(const Ray3d<T>& ray, const Triangle3d<T>& triangle, const T tolerance)
 {
+	if (!GeometryGuards::isUsable(ray))
+	{
+		return {};
+	}
 	// reference https://pheema.hatenablog.jp/entry/ray-triangle-intersection
 	const auto v0 = triangle.getVertices()[0];
 	const auto v1 = triangle.getVertices()[1];
@@ -152,6 +179,10 @@ std::vector<T> DistanceCalculator<T>::calculate(const Ray3d<T>& ray, const Trian
 
 	const auto e1 = v1 - v0;
 	const auto e2 = v2 - v0;
+	if (!GeometryGuards::isFinite(e1) || !GeometryGuards::isFinite(e2))
+	{
+		return {};
+	}
 
 	const auto o = ray.getOrigin();
 	const auto d = ray.getDirection();
@@ -197,44 +228,46 @@ std::vector<T> DistanceCalculator<T>::calculate(const Ray3d<T>& ray, const Trian
 template<typename T>
 std::vector<T> DistanceCalculator<T>::calculate(const Ray3d<T>& ray, const Box3d<T>& box, const T tolerance)
 {
-	// tmin, tmax -> parameter
+	if (!GeometryGuards::isUsable(ray) || !GeometryGuards::isFinite(box.getMin()) || !GeometryGuards::isFinite(box.getMax()))
+	{
+		return {};
+	}
+
+	// Slab test, one axis at a time: the ray is inside the slab for t in [t0, t1]. A direction component
+	// of exactly 0 makes the slab either always or never satisfied (dividing would give +-inf, or NaN
+	// when the origin lies exactly on a slab plane): outside the slab -> miss, inside (planes included,
+	// the box is closed) -> the axis does not constrain t.
 	const auto origin = ray.getOrigin();
 	const auto dir = ray.getDirection();
-
 	const auto min = box.getMin();
 	const auto max = box.getMax();
-	auto tmin = (min.x - origin.x) / dir.x;
-	auto tmax = (max.x - origin.x) / dir.x;
 
-	if (tmin > tmax) std::swap(tmin, tmax);
+	constexpr T inf = std::numeric_limits<T>::infinity();
+	T tmin = -inf;
+	T tmax = inf;
+	for (int axis = 0; axis < 3; ++axis)
+	{
+		T t0;
+		T t1;
+		if (dir[axis] == T(0))
+		{
+			if (origin[axis] < min[axis] || origin[axis] > max[axis])
+			{
+				return {};
+			}
+			continue;
+		}
+		t0 = (min[axis] - origin[axis]) / dir[axis];
+		t1 = (max[axis] - origin[axis]) / dir[axis];
+		if (t0 > t1) std::swap(t0, t1);
 
-	auto tymin = (min.y - origin.y) / dir.y;
-	auto tymax = (max.y - origin.y) / dir.y;
-
-	if (tymin > tymax) std::swap(tymin, tymax);
-
-	if ((tmin > tymax) || (tymin > tmax))
-		return {};
-
-	if (tymin > tmin)
-		tmin = tymin;
-
-	if (tymax < tmax)
-		tmax = tymax;
-
-	auto tzmin = (min.z - origin.z) / dir.z;
-	auto tzmax = (max.z - origin.z) / dir.z;
-
-	if (tzmin > tzmax) std::swap(tzmin, tzmax);
-
-	if ((tmin > tzmax) || (tzmin > tmax))
-		return {};
-
-	if (tzmin > tmin)
-		tmin = tzmin;
-
-	if (tzmax < tmax)
-		tmax = tzmax;
+		if (t0 > tmax || tmin > t1)
+			return {};
+		if (t0 > tmin)
+			tmin = t0;
+		if (t1 < tmax)
+			tmax = t1;
+	}
 
 	return { tmin, tmax };
 }

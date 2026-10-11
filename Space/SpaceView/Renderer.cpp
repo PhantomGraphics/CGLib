@@ -1,4 +1,4 @@
-﻿#include "Renderer.h"
+#include "Renderer.h"
 
 #include "../../CGLib/VulkanGraphics/VulkanContext.h"
 #include "../../CGLib/VulkanGraphics/VulkanCommandPool.h"
@@ -39,6 +39,7 @@ void Renderer::handleMouseMove(double x, double y) {
 }
 
 void Renderer::handleScroll(double dy) {
+    if (!std::isfinite(dy)) return;
     camDist_ = std::max(0.1f, camDist_ - static_cast<float>(dy) * 0.2f);
 }
 
