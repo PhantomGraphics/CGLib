@@ -5,7 +5,7 @@
 #include "../../CGLib/VkAppBase/ScenarioRunner/IScenarioHost.h"
 #include "../../CGLib/VkAppBase/ScenarioRunner/ScenarioBrowserPanel.h"
 #include "../../CGLib/VkAppBase/ScenarioRunner/ViewShell.h"
-#include "../../../CGLib/VulkanGraphics/VulkanSPVResolver.h"
+#include "CGLib/VulkanGraphics/VulkanSPVResolver.h"
 #include "Renderer.h"
 #include "CommandDispatcher.h"
 #include "World.h"

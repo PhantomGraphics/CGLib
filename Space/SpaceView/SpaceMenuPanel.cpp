@@ -5,7 +5,7 @@
 
 #include "imgui.h"
 
-#include "../../../CGLib/VkAppBase/ScenarioRunner/ViewShell.h"
+#include "CGLib/VkAppBase/ScenarioRunner/ViewShell.h"
 
 namespace VKSpace {
 

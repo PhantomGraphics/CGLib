@@ -1,7 +1,7 @@
 #pragma once
 
-#include "../../../CGLib/Util/UnCopyable.h"
-#include "../../../CGLib/Math/Vector3d.h"
+#include "CGLib/Util/UnCopyable.h"
+#include "CGLib/Math/Vector3d.h"
 #include "ZOrderCurve3d.h"
 #include "SpaceValidation.h"
 #include <vector>
