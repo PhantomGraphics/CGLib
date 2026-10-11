@@ -4,6 +4,7 @@
 #include "CGLib/Math/Vector3d.h"
 
 #include "ITreeItem.h"
+#include "SpaceValidation.h"
 
 #include <vector>
 
@@ -23,6 +24,17 @@ namespace Phantom {
 		 *
 		 * Internally, the tree cycles through X/Y/Z axes at successive depths
 		 * and uses nth_element-based balanced partitioning (O(n log n) build).
+		 *
+		 * Lifecycle (staging vs built):
+		 * - addPoint() only *stages* a point (appends to the position list). The queries see the points
+		 *   present at the last build(); a point added afterwards is invisible until the next build().
+		 *   Queries never read past what was built, so a stale tree is wrong-but-safe. isDirty() tells
+		 *   whether staged points are waiting.
+		 * - An index is a position in the staged list (insertion order). A non-finite point (NaN/Inf)
+		 *   keeps its index but is left out of the tree -- sorting NaN coordinates would break the
+		 *   partitioning -- and is counted by rejectedCount().
+		 * - build() always rebuilds from scratch; clear() empties everything.
+		 * - A query at a non-finite position returns nothing (-1 / nullptr / empty).
 		 *
 		 * @note This class is non-copyable.
 		 */
@@ -53,17 +65,34 @@ namespace Phantom {
 
 			/**
 			 * @brief Registers a point position to be included in the next build() call.
+			 *
+			 * Invalidates every pointer returned by findNearest() (the position list may reallocate).
 			 * @param position The point position to add.
+			 * @return false if the position is non-finite: it is still staged (keeping its index) but
+			 *         build() will leave it out of the tree.
 			 */
-			void addPoint(const Math::Vector3df& position);
+			bool addPoint(const Math::Vector3df& position);
 
 			/**
 			 * @brief Constructs the KD-Tree from all points added via addPoint().
 			 *
 			 * Must be called after all points have been added and before any queries.
-			 * Rebuilds the tree from scratch each time it is invoked.
+			 * Rebuilds the tree from scratch each time it is invoked. Invalidates every pointer returned
+			 * by findNearest().
 			 */
 			void build();
+
+			/// Number of points in the built tree (finite points staged at the last build()).
+			size_t size() const { return nodes.size(); }
+
+			/// Number of staged points, including ones not built yet and non-finite ones.
+			size_t pointCount() const { return positions.size(); }
+
+			/// True if points were staged (addPoint) after the last build(), i.e. queries are stale.
+			bool isDirty() const { return positions.size() != builtPointCount; }
+
+			/// Non-finite points left out by the last build().
+			size_t rejectedCount() const { return rejectedPointCount; }
 
 			/**
 			 * @brief Replaces the held positions with `positions` and builds the KD-Tree from
@@ -130,7 +159,7 @@ namespace Phantom {
 			template <typename Visitor>
 			void forEachWithinRadius(const Math::Vector3df& query, const float radius, Visitor&& visit) const
 			{
-				if (rootIndex < 0 || !(radius >= 0.0f)) return;
+				if (rootIndex < 0 || !(radius >= 0.0f) || !Validation::isFinite(query)) return;
 				radiusVisit(rootIndex, query, radius * radius, visit);
 			}
 
@@ -201,6 +230,8 @@ namespace Phantom {
 			Math::Vector3dfVector positions;
 			std::vector<Node> nodes;
 			int rootIndex = -1;
+			size_t builtPointCount = 0;
+			size_t rejectedPointCount = 0;
 		};
 	}
 }
