@@ -11,7 +11,7 @@
 #   lib/cmake/CGLib/CGLibConfig.cmake, CGLibConfigVersion.cmake, CGLibTargets*.cmake
 #
 # Public headers keep the source tree's relative layout because they reach vendored
-# headers by relative path (Math/glm.h -> ../ThirdParty/glm-0.9.9.8/glm/glm.hpp,
+# headers by relative path (Math/glm.h -> ../ThirdParty/glm/glm/glm.hpp,
 # Numerics/Converter.h -> ../ThirdParty/eigen-3.4.0/Eigen/Eigen). The install therefore
 # bundles glm, nlohmann/json, Eigen and cgltf headers under include/CGLib/. CGLib's own
 # LICENSE is installed under share/licenses/CGLib; the vendored libraries keep their
@@ -92,7 +92,7 @@ set(_cglib_vulkan_components "")
 if(TARGET VulkanGraphicsCore)
     set_target_properties(VulkanGraphicsCore PROPERTIES EXPORT_NAME VulkanGraphics)
     cglib_split_include_dirs(VulkanGraphicsCore BUILD_ONLY_OUTSIDE
-        BUILD_ONLY_DIRS ${CGLIB_ROOT}/ThirdParty/glm-0.9.9.8 ${CGLIB_ROOT}/ThirdParty/VulkanMemoryAllocator)
+        BUILD_ONLY_DIRS ${CGLIB_ROOT}/ThirdParty/glm ${CGLIB_ROOT}/ThirdParty/VulkanMemoryAllocator)
     install(TARGETS VulkanGraphicsCore EXPORT CGLibVulkanTargets ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
     install(EXPORT CGLibVulkanTargets NAMESPACE CGLib:: DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/CGLib)
     install(DIRECTORY ${CGLIB_ROOT}/VulkanGraphics/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/CGLib/VulkanGraphics
@@ -122,7 +122,7 @@ endforeach()
 install(FILES ${CGLIB_ROOT}/Scene/Scene/IPresenter.h DESTINATION ${_hdr_dest}/Scene/Scene)
 
 # Vendored header-only dependencies reached by relative or <angle> includes.
-install(DIRECTORY ${CGLIB_ROOT}/ThirdParty/glm-0.9.9.8/glm DESTINATION ${_hdr_dest}/ThirdParty/glm-0.9.9.8)
+install(DIRECTORY ${CGLIB_ROOT}/ThirdParty/glm/glm DESTINATION ${_hdr_dest}/ThirdParty/glm)
 install(DIRECTORY ${CGLIB_ROOT}/ThirdParty/nlohmann DESTINATION ${_hdr_dest}/ThirdParty)
 install(DIRECTORY ${CGLIB_ROOT}/Numerics/ThirdParty/eigen-3.4.0/Eigen
         DESTINATION ${_hdr_dest}/Numerics/ThirdParty/eigen-3.4.0)
@@ -131,7 +131,7 @@ install(DIRECTORY ${CGLIB_ROOT}/File/ThirdParty/cgltf DESTINATION ${_hdr_dest}/F
 
 install(FILES ${CGLIB_ROOT}/LICENSE DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/CGLib)
 # Public third-party dependencies ship their license texts (docs/third-party.md).
-install(FILES ${CGLIB_ROOT}/ThirdParty/glm-0.9.9.8/copying.txt
+install(FILES ${CGLIB_ROOT}/ThirdParty/glm/copying.txt
         DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/CGLib/glm)
 file(GLOB _eigen_licenses ${CGLIB_ROOT}/Numerics/ThirdParty/eigen-3.4.0/COPYING.*)
 install(FILES ${_eigen_licenses} DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/CGLib/eigen)

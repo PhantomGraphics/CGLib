@@ -10,7 +10,7 @@ is compiled into the static library and its code is not exposed to consumers.
 
 | Library | Version | License | Location | Role | Shipped in the install |
 |---|---|---|---|---|---|
-| GLM | 0.9.9.8 | MIT (or Happy Bunny) | `ThirdParty/glm-0.9.9.8` | **Public** (Math/Animation/SceneRuntime headers) | headers + `copying.txt` |
+| GLM | 1.0.3 | MIT (or Happy Bunny) | `ThirdParty/glm` | **Public** (Math/Animation/SceneRuntime headers) | headers + `copying.txt` |
 | Eigen | 3.4.0 (dev) | MPL-2.0 primarily; some files BSD/LGPL-2.1 | `Numerics/ThirdParty/eigen-3.4.0` | **Public** (`Numerics/Converter.h`) | headers + `COPYING.*` |
 | nlohmann/json | 3.11.3 | MIT | `ThirdParty/nlohmann` | **Public** (AssetCore, SceneRuntime, GeometryNode headers) | header (SPDX notice inside) |
 | cgltf | single header | MIT | `File/ThirdParty/cgltf` | Implementation (`File/GLTF*`); header is installed because it is in the File tree | header (notice at end of file) |
@@ -27,6 +27,7 @@ is compiled into the static library and its code is not exposed to consumers.
 - A dependency that appears in an installed header is listed as **Public** above and its license
   text must be installed with it (`share/licenses/CGLib/<name>/`). `cmake/CGLibInstall.cmake`
   does this for GLM and Eigen; nlohmann and cgltf carry their notice inside the header file.
+- GLM 1.0 turned the `GLM_ENABLE_EXPERIMENTAL` check for `glm/gtx/*` from a message into a hard `#error`. Any file that includes a `gtx` header (directly or via another header) must define `GLM_ENABLE_EXPERIMENTAL` first; `ThirdParty/glm` is the unpatched upstream 1.0.3 `glm/` directory plus `copying.txt`/`readme.md`.
 - Implementation-only libraries are statically compiled in; redistributing the resulting
   binaries still requires their notices (stb, pugixml are MIT/public domain).
 - Eigen: parts of Eigen are LGPL-2.1 and BSD. Defining `EIGEN_MPL2_ONLY` before including Eigen

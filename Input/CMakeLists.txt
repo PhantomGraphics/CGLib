@@ -59,7 +59,7 @@ add_library(InputCore STATIC
     ${INPUT_ROOT}/InputManager.cpp
 )
 target_include_directories(InputCore PRIVATE
-    ${CGLIB_ROOT}/ThirdParty/glm-0.9.9.8
+    ${CGLIB_ROOT}/ThirdParty/glm
     ${INPUT_GLFW_INCLUDE_DIR}
 )
 target_compile_options(InputCore PRIVATE ${INPUT_WARN_FLAGS})

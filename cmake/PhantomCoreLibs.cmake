@@ -285,7 +285,7 @@ function(phantom_add_scene_runtime_core)
     target_include_directories(SceneRuntimeCore PUBLIC
         ${REPO_ROOT}
         ${CGLIB_ROOT}/ThirdParty/nlohmann
-        ${CGLIB_ROOT}/ThirdParty/glm-0.9.9.8
+        ${CGLIB_ROOT}/ThirdParty/glm
     )
     target_link_libraries(SceneRuntimeCore PUBLIC MathCore AssetCore)
     target_compile_options(SceneRuntimeCore PRIVATE ${PHANTOM_WARN_FLAGS})
@@ -311,7 +311,7 @@ function(phantom_add_animation_core)
         ${CGLIB_ROOT}/Animation/Animation/Skeleton.cpp
         ${CGLIB_ROOT}/Animation/Animation/VMDConverter.cpp
     )
-    target_include_directories(AnimationCore PUBLIC ${REPO_ROOT} ${CGLIB_ROOT}/ThirdParty/glm-0.9.9.8)
+    target_include_directories(AnimationCore PUBLIC ${REPO_ROOT} ${CGLIB_ROOT}/ThirdParty/glm)
     # BVHConverter.h/PMXConverter.h/VMDConverter.h include File's BVHFile/PMXFile/VMDFile.
     target_link_libraries(AnimationCore PUBLIC MathCore FileCore)
     target_compile_options(AnimationCore PRIVATE ${PHANTOM_WARN_FLAGS})

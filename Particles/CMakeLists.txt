@@ -68,7 +68,7 @@ add_library(ParticlesCore STATIC
 )
 target_include_directories(ParticlesCore PRIVATE
     ${PARTICLES_VULKAN_INCLUDE_DIR}
-    ${CGLIB_ROOT}/ThirdParty/glm-0.9.9.8
+    ${CGLIB_ROOT}/ThirdParty/glm
     ${CGLIB_ROOT}/VulkanGraphics
 )
 target_compile_options(ParticlesCore PRIVATE ${PARTICLES_WARN_FLAGS})

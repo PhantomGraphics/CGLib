@@ -66,7 +66,7 @@ add_library(GizmoCore STATIC
 )
 target_include_directories(GizmoCore PRIVATE
     ${GIZMO_VULKAN_INCLUDE_DIR}
-    ${CGLIB_ROOT}/ThirdParty/glm-0.9.9.8
+    ${CGLIB_ROOT}/ThirdParty/glm
     ${CGLIB_ROOT}/VkAppBase
     ${CGLIB_ROOT}/VulkanGraphics
     ${CGLIB_ROOT}/ThirdParty/imgui
