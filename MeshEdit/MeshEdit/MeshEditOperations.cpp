@@ -1,0 +1,1164 @@
+#include "MeshEditOperations.h"
+#include <algorithm>
+#include <cctype>
+#include <cmath>
+#include <map>
+#include <set>
+
+namespace Phantom::MeshEdit {
+
+namespace {
+
+void fail(std::string* error, const std::string& message) {
+	if (error) *error = message;
+}
+
+bool finite3(const std::array<float, 3>& v) { return std::isfinite(v[0]) && std::isfinite(v[1]) && std::isfinite(v[2]); }
+
+using Mat3 = std::array<std::array<double, 3>, 3>;
+
+Mat3 mul(const Mat3& a, const Mat3& b) {
+	Mat3 r{};
+	for (int i = 0; i < 3; ++i)
+		for (int j = 0; j < 3; ++j)
+			for (int k = 0; k < 3; ++k) r[i][j] += a[i][k] * b[k][j];
+	return r;
+}
+
+// R = Ry * Rx * Rz, the same order as the object transform (glm::eulerAngleYXZ).
+Mat3 rotationYXZ(const std::array<float, 3>& deg) {
+	const double kDeg = 3.14159265358979323846 / 180.0;
+	const double x = deg[0] * kDeg, y = deg[1] * kDeg, z = deg[2] * kDeg;
+	const double cx = std::cos(x), sx = std::sin(x), cy = std::cos(y), sy = std::sin(y), cz = std::cos(z), sz = std::sin(z);
+	const Mat3 rx = {{ { 1, 0, 0 }, { 0, cx, -sx }, { 0, sx, cx } }};
+	const Mat3 ry = {{ { cy, 0, sy }, { 0, 1, 0 }, { -sy, 0, cy } }};
+	const Mat3 rz = {{ { cz, -sz, 0 }, { sz, cz, 0 }, { 0, 0, 1 } }};
+	return mul(mul(ry, rx), rz);
+}
+
+// Applies `edit(position)` to every listed vertex of a copy, then validates and stamps a new revision.
+template <typename Edit>
+bool editVertices(const EditableMesh& in, const std::vector<uint32_t>& vertices, EditableMesh& out, std::string* error,
+                  Edit edit) {
+	if (vertices.empty()) { fail(error, "no vertices selected"); return false; }
+	EditableMesh work = in;
+	for (uint32_t id : vertices) {
+		auto it = std::lower_bound(work.vertices.begin(), work.vertices.end(), id,
+		                           [](const EditableVertex& v, uint32_t value) { return v.id < value; });
+		if (it == work.vertices.end() || it->id != id) { fail(error, "vertex " + std::to_string(id) + " does not exist"); return false; }
+		edit(it->pos);
+		if (!std::isfinite(it->pos[0]) || !std::isfinite(it->pos[1]) || !std::isfinite(it->pos[2])) {
+			fail(error, "the result has a non-finite coordinate");
+			return false;
+		}
+	}
+	// Only positions changed (`work` is a copy of a validated mesh), so topology need not be re-checked.
+	if (!work.validateGeometry(error)) return false;
+	work.revision = nextEditableRevision();
+	out = std::move(work);
+	return true;
+}
+
+} // namespace
+
+const char* elementKindName(ElementKind kind) {
+	switch (kind) {
+	case ElementKind::Vertex: return "vertex";
+	case ElementKind::Edge:   return "edge";
+	case ElementKind::Face:   return "face";
+	}
+	return "vertex";
+}
+
+bool elementKindFromName(const std::string& name, ElementKind& out) {
+	std::string l = name;
+	for (auto& c : l) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+	if (l == "vertex" || l == "vertices") { out = ElementKind::Vertex; return true; }
+	if (l == "edge" || l == "edges")      { out = ElementKind::Edge;   return true; }
+	if (l == "face" || l == "faces")      { out = ElementKind::Face;   return true; }
+	return false;
+}
+
+bool hasElement(const EditableMesh& mesh, ElementKind kind, uint32_t id) {
+	switch (kind) {
+	case ElementKind::Vertex: return mesh.findVertex(id) != nullptr;
+	case ElementKind::Face:   return mesh.findFace(id) != nullptr;
+	case ElementKind::Edge:
+		for (const auto& e : mesh.edges) if (e.id == id) return true;
+		return false;
+	}
+	return false;
+}
+
+std::vector<uint32_t> allElementIds(const EditableMesh& mesh, ElementKind kind) {
+	std::vector<uint32_t> ids;
+	switch (kind) {
+	case ElementKind::Vertex: for (const auto& v : mesh.vertices) ids.push_back(v.id); break;
+	case ElementKind::Face:   for (const auto& f : mesh.faces) ids.push_back(f.id); break;
+	case ElementKind::Edge:   for (const auto& e : mesh.edges) ids.push_back(e.id); break;
+	}
+	std::sort(ids.begin(), ids.end());
+	return ids;
+}
+
+bool elementsToVertices(const EditableMesh& mesh, ElementKind kind, const std::vector<uint32_t>& ids,
+                        std::vector<uint32_t>& vertices, std::string* error) {
+	std::set<uint32_t> set;
+	for (uint32_t id : ids) {
+		switch (kind) {
+		case ElementKind::Vertex:
+			if (!mesh.findVertex(id)) { fail(error, "vertex " + std::to_string(id) + " does not exist"); return false; }
+			set.insert(id);
+			break;
+		case ElementKind::Face: {
+			const EditableFace* f = mesh.findFace(id);
+			if (!f) { fail(error, "face " + std::to_string(id) + " does not exist"); return false; }
+			for (const auto& c : f->loop) set.insert(c.vertex);
+			break;
+		}
+		case ElementKind::Edge: {
+			bool found = false;
+			for (const auto& e : mesh.edges)
+				if (e.id == id) { set.insert(e.a); set.insert(e.b); found = true; break; }
+			if (!found) { fail(error, "edge " + std::to_string(id) + " does not exist"); return false; }
+			break;
+		}
+		}
+	}
+	vertices.assign(set.begin(), set.end());
+	return true;
+}
+
+bool vertexCentroid(const EditableMesh& mesh, const std::vector<uint32_t>& vertices, std::array<float, 3>& out) {
+	if (vertices.empty()) return false;
+	double sum[3] = { 0, 0, 0 };
+	for (uint32_t id : vertices) {
+		const EditableVertex* v = mesh.findVertex(id);
+		if (!v) return false;
+		for (int k = 0; k < 3; ++k) sum[k] += v->pos[k];
+	}
+	for (int k = 0; k < 3; ++k) out[k] = static_cast<float>(sum[k] / vertices.size());
+	return true;
+}
+
+bool translateVertices(const EditableMesh& in, const std::vector<uint32_t>& vertices, const std::array<float, 3>& delta,
+                       EditableMesh& out, std::string* error) {
+	if (!finite3(delta)) { fail(error, "the offset is not finite"); return false; }
+	return editVertices(in, vertices, out, error, [&](float* p) { for (int k = 0; k < 3; ++k) p[k] += delta[k]; });
+}
+
+bool rotateVertices(const EditableMesh& in, const std::vector<uint32_t>& vertices, const std::array<float, 3>& eulerDeg,
+                    const std::array<float, 3>& pivot, EditableMesh& out, std::string* error) {
+	if (!finite3(eulerDeg) || !finite3(pivot)) { fail(error, "the rotation is not finite"); return false; }
+	const Mat3 r = rotationYXZ(eulerDeg);
+	return editVertices(in, vertices, out, error, [&](float* p) {
+		const double d[3] = { p[0] - double(pivot[0]), p[1] - double(pivot[1]), p[2] - double(pivot[2]) };
+		for (int i = 0; i < 3; ++i)
+			p[i] = static_cast<float>(pivot[i] + r[i][0] * d[0] + r[i][1] * d[1] + r[i][2] * d[2]);
+	});
+}
+
+bool scaleVertices(const EditableMesh& in, const std::vector<uint32_t>& vertices, const std::array<float, 3>& factor,
+                   const std::array<float, 3>& pivot, EditableMesh& out, std::string* error) {
+	if (!finite3(factor) || !finite3(pivot)) { fail(error, "the scale is not finite"); return false; }
+	return editVertices(in, vertices, out, error, [&](float* p) {
+		for (int k = 0; k < 3; ++k) p[k] = pivot[k] + (p[k] - pivot[k]) * factor[k];
+	});
+}
+
+namespace {
+
+// Shared by extrude (inset = 0) and inset (inset > 0, distance = depth along the normal, may be 0): the region's boundary
+// vertices are duplicated, the region moves onto the copies, and one quad wall/ring is created per boundary edge.
+bool extrudeRegion(const EditableMesh& in, const std::vector<uint32_t>& faceIds, float distance, float inset, EditableMesh& out,
+                   std::string* error, size_t* sideFaces) {
+	if (faceIds.empty()) { fail(error, "no faces selected"); return false; }
+
+	std::set<uint32_t> region(faceIds.begin(), faceIds.end());
+	for (uint32_t id : region)
+		if (!in.findFace(id)) { fail(error, "face " + std::to_string(id) + " does not exist"); return false; }
+
+	// Directed edges of the region; a boundary edge is one whose reverse is not used by another region face.
+	std::set<std::pair<uint32_t, uint32_t>> directed;
+	for (uint32_t id : region) {
+		const auto& loop = in.findFace(id)->loop;
+		for (size_t i = 0; i < loop.size(); ++i) directed.insert({ loop[i].vertex, loop[(i + 1) % loop.size()].vertex });
+	}
+	std::vector<std::pair<uint32_t, uint32_t>> boundary;  // in face order, a -> b as walked by the region face
+	std::map<uint32_t, int> boundaryOut;                  // vertex -> number of boundary edges leaving it
+	for (uint32_t id : region) {
+		const auto& loop = in.findFace(id)->loop;
+		for (size_t i = 0; i < loop.size(); ++i) {
+			const uint32_t a = loop[i].vertex, b = loop[(i + 1) % loop.size()].vertex;
+			if (directed.count({ b, a })) continue;
+			boundary.push_back({ a, b });
+			++boundaryOut[a];
+		}
+	}
+	if (boundary.empty()) { fail(error, "the selected faces have no boundary (they cover a closed surface), so there is nothing to extrude"); return false; }
+	for (const auto& kv : boundaryOut)
+		if (kv.second > 1) { fail(error, "the selected region touches itself at vertex " + std::to_string(kv.first) + " (non-manifold), extrude is not supported there"); return false; }
+
+	// Connected through shared edges.
+	{
+		std::map<std::pair<uint32_t, uint32_t>, std::vector<uint32_t>> edgeFaces;
+		for (uint32_t id : region) {
+			const auto& loop = in.findFace(id)->loop;
+			for (size_t i = 0; i < loop.size(); ++i) {
+				const uint32_t a = loop[i].vertex, b = loop[(i + 1) % loop.size()].vertex;
+				edgeFaces[{ std::min(a, b), std::max(a, b) }].push_back(id);
+			}
+		}
+		std::set<uint32_t> seen{ *region.begin() };
+		std::vector<uint32_t> stack{ *region.begin() };
+		while (!stack.empty()) {
+			const uint32_t id = stack.back(); stack.pop_back();
+			const auto& loop = in.findFace(id)->loop;
+			for (size_t i = 0; i < loop.size(); ++i) {
+				const uint32_t a = loop[i].vertex, b = loop[(i + 1) % loop.size()].vertex;
+				for (uint32_t other : edgeFaces[{ std::min(a, b), std::max(a, b) }])
+					if (seen.insert(other).second) stack.push_back(other);
+			}
+		}
+		if (seen.size() != region.size()) { fail(error, "the selected faces are not connected; extrude one connected region at a time"); return false; }
+	}
+
+	// Common normal: every face must point (almost) the same way.
+	double sum[3] = { 0, 0, 0 };
+	std::vector<std::array<double, 3>> normals;
+	for (uint32_t id : region) {
+		const auto& loop = in.findFace(id)->loop;
+		std::array<double, 3> n{ 0, 0, 0 };
+		for (size_t i = 0; i < loop.size(); ++i) {
+			const EditableVertex* p = in.findVertex(loop[i].vertex);
+			const EditableVertex* q = in.findVertex(loop[(i + 1) % loop.size()].vertex);
+			n[0] += (double(p->pos[1]) - q->pos[1]) * (double(p->pos[2]) + q->pos[2]);
+			n[1] += (double(p->pos[2]) - q->pos[2]) * (double(p->pos[0]) + q->pos[0]);
+			n[2] += (double(p->pos[0]) - q->pos[0]) * (double(p->pos[1]) + q->pos[1]);
+		}
+		for (int k = 0; k < 3; ++k) sum[k] += n[k];
+		normals.push_back(n);
+	}
+	const double sumLen = std::sqrt(sum[0] * sum[0] + sum[1] * sum[1] + sum[2] * sum[2]);
+	if (!(sumLen > 1e-12)) { fail(error, "the selected faces have no common direction to extrude along"); return false; }
+	const double dir[3] = { sum[0] / sumLen, sum[1] / sumLen, sum[2] / sumLen };
+	for (const auto& n : normals) {
+		const double len = std::sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
+		if (!(len > 1e-12) || (n[0] * dir[0] + n[1] * dir[1] + n[2] * dir[2]) / len < 0.9999) {
+			fail(error, "the selected faces are not coplanar; extrude a flat region (or one face at a time)");
+			return false;
+		}
+	}
+	const float offset[3] = { float(dir[0] * distance), float(dir[1] * distance), float(dir[2] * distance) };
+
+	// Inset: every boundary vertex moves in-plane toward the region's inside so each boundary edge shifts by `inset`
+	// (mitered corner: along the bisector of the two inward edge normals, scaled by 1/cos(half angle)).
+	std::map<uint32_t, std::array<float, 3>> insetOffset;
+	if (inset > 0.f) {
+		std::map<uint32_t, uint32_t> nextOf, prevOf;
+		for (const auto& e : boundary) { nextOf[e.first] = e.second; prevOf[e.second] = e.first; }
+		auto inward = [&](uint32_t a, uint32_t b, double r[3]) {
+			const EditableVertex* p = in.findVertex(a);
+			const EditableVertex* q = in.findVertex(b);
+			const double e[3] = { double(q->pos[0]) - p->pos[0], double(q->pos[1]) - p->pos[1], double(q->pos[2]) - p->pos[2] };
+			// The region is on the left of a boundary edge walked counter-clockwise: inward = normal x edge.
+			r[0] = dir[1] * e[2] - dir[2] * e[1];
+			r[1] = dir[2] * e[0] - dir[0] * e[2];
+			r[2] = dir[0] * e[1] - dir[1] * e[0];
+			const double len = std::sqrt(r[0] * r[0] + r[1] * r[1] + r[2] * r[2]);
+			if (!(len > 1e-12)) return false;
+			for (int k = 0; k < 3; ++k) r[k] /= len;
+			return true;
+		};
+		for (const auto& kv : nextOf) {
+			const uint32_t v = kv.first;
+			auto prev = prevOf.find(v);
+			double i1[3], i2[3];
+			if (prev == prevOf.end() || !inward(prev->second, v, i1) || !inward(v, kv.second, i2)) {
+				fail(error, "the region boundary at vertex " + std::to_string(v) + " is degenerate, inset is not supported there");
+				return false;
+			}
+			double d[3] = { i1[0] + i2[0], i1[1] + i2[1], i1[2] + i2[2] };
+			const double len = std::sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]);
+			if (!(len > 1e-9)) { fail(error, "the region boundary folds back at vertex " + std::to_string(v) + ", inset is not supported there"); return false; }
+			for (int k = 0; k < 3; ++k) d[k] /= len;
+			const double cosHalf = d[0] * i1[0] + d[1] * i1[1] + d[2] * i1[2];
+			if (cosHalf < 0.2) { fail(error, "the corner at vertex " + std::to_string(v) + " is too sharp to inset"); return false; }
+			const double scale = double(inset) / cosHalf;
+			insetOffset[v] = { float(d[0] * scale), float(d[1] * scale), float(d[2] * scale) };
+		}
+	}
+
+	EditableMesh work = in;
+	// Boundary vertices are copied; interior vertices of the region are simply moved.
+	std::set<uint32_t> boundaryVertices;
+	for (const auto& e : boundary) { boundaryVertices.insert(e.first); boundaryVertices.insert(e.second); }
+	std::set<uint32_t> regionVertices;
+	for (uint32_t id : region)
+		for (const auto& c : in.findFace(id)->loop) regionVertices.insert(c.vertex);
+	std::map<uint32_t, uint32_t> top;  // original vertex -> vertex the region now uses
+	for (uint32_t v : regionVertices) {
+		const EditableVertex* source = in.findVertex(v);
+		float p[3] = { source->pos[0] + offset[0], source->pos[1] + offset[1], source->pos[2] + offset[2] };
+		auto in2 = insetOffset.find(v);
+		if (in2 != insetOffset.end()) for (int k = 0; k < 3; ++k) p[k] += in2->second[k];
+		if (boundaryVertices.count(v)) {
+			top[v] = work.addVertex(p[0], p[1], p[2]);
+		} else {
+			auto it = std::lower_bound(work.vertices.begin(), work.vertices.end(), v,
+			                           [](const EditableVertex& e, uint32_t value) { return e.id < value; });
+			for (int k = 0; k < 3; ++k) it->pos[k] = p[k];
+			top[v] = v;
+		}
+	}
+	for (auto& face : work.faces)
+		if (region.count(face.id))
+			for (auto& c : face.loop) c.vertex = top[c.vertex];
+
+	if (inset > 0.f) {
+		// A thickness beyond the region's inradius turns faces inside out: reject instead of producing a bow-tie.
+		// (A square inset past its centre is a 180-degree rotation with the same normal, so also compare edge directions.)
+		for (const auto& e : boundary) {
+			const EditableVertex* a = in.findVertex(e.first);
+			const EditableVertex* b = in.findVertex(e.second);
+			const EditableVertex* na = work.findVertex(top[e.first]);
+			const EditableVertex* nb = work.findVertex(top[e.second]);
+			double dot = 0;
+			for (int k = 0; k < 3; ++k) dot += (double(nb->pos[k]) - na->pos[k]) * (double(b->pos[k]) - a->pos[k]);
+			if (dot <= 1e-12) { fail(error, "the inset thickness is too large for this region"); return false; }
+		}
+		for (uint32_t id : region) {
+			const auto& loop = work.findFace(id)->loop;
+			double n[3] = { 0, 0, 0 };
+			for (size_t i = 0; i < loop.size(); ++i) {
+				const EditableVertex* p = work.findVertex(loop[i].vertex);
+				const EditableVertex* q = work.findVertex(loop[(i + 1) % loop.size()].vertex);
+				n[0] += (double(p->pos[1]) - q->pos[1]) * (double(p->pos[2]) + q->pos[2]);
+				n[1] += (double(p->pos[2]) - q->pos[2]) * (double(p->pos[0]) + q->pos[0]);
+				n[2] += (double(p->pos[0]) - q->pos[0]) * (double(p->pos[1]) + q->pos[1]);
+			}
+			if (n[0] * dir[0] + n[1] * dir[1] + n[2] * dir[2] <= 1e-12) {
+				fail(error, "the inset thickness is too large for face " + std::to_string(id));
+				return false;
+			}
+		}
+	}
+
+	const float height = std::sqrt(distance * distance + inset * inset);
+	for (const auto& e : boundary) {
+		const EditableVertex* a = in.findVertex(e.first);
+		const EditableVertex* b = in.findVertex(e.second);
+		const float dx = b->pos[0] - a->pos[0], dy = b->pos[1] - a->pos[1], dz = b->pos[2] - a->pos[2];
+		const float width = std::sqrt(dx * dx + dy * dy + dz * dz);
+		// a, b, b', a': outward for a positive distance, and automatically facing the pocket for a negative one.
+		const uint32_t ids[4] = { e.first, e.second, top[e.second], top[e.first] };
+		const float uv[4][2] = { { 0.f, 0.f }, { width, 0.f }, { width, height }, { 0.f, height } };
+		std::vector<EditableCorner> loop(4);
+		for (int k = 0; k < 4; ++k) { loop[k].vertex = ids[k]; loop[k].uv[0] = uv[k][0]; loop[k].uv[1] = uv[k][1]; }
+		work.addFace(loop);
+	}
+	work.rebuildEdges();
+	if (!work.validate(error)) return false;
+	work.revision = nextEditableRevision();
+	out = std::move(work);
+	if (sideFaces) *sideFaces = boundary.size();
+	return true;
+}
+
+} // namespace
+
+bool extrudeFaces(const EditableMesh& in, const std::vector<uint32_t>& faceIds, float distance, EditableMesh& out,
+                  std::string* error, size_t* sideFaces) {
+	if (!std::isfinite(distance) || distance == 0.f) { fail(error, "the extrude distance must be a non-zero finite number"); return false; }
+	return extrudeRegion(in, faceIds, distance, 0.f, out, error, sideFaces);
+}
+
+bool insetFaces(const EditableMesh& in, const std::vector<uint32_t>& faceIds, float thickness, float depth, EditableMesh& out,
+                std::string* error, size_t* ringFaces) {
+	if (!std::isfinite(thickness) || thickness <= 0.f) { fail(error, "the inset thickness must be a positive finite number"); return false; }
+	if (!std::isfinite(depth)) { fail(error, "the inset depth is not finite"); return false; }
+	return extrudeRegion(in, faceIds, depth, thickness, out, error, ringFaces);
+}
+
+bool bevelEdges(const EditableMesh& in, const std::vector<uint32_t>& edgeIds, float width, EditableMesh& out,
+                std::string* error, std::vector<uint32_t>* bevelFaces) {
+	if (edgeIds.empty()) { fail(error, "no edges selected"); return false; }
+	if (!std::isfinite(width) || width <= 0.f) { fail(error, "the bevel width must be a positive finite number"); return false; }
+
+	// Per endpoint of a selected edge: the two faces of the edge (f1 walks a -> b, f2 walks b -> a), this vertex's
+	// neighbours n1 / n2 in them (other than the partner), the slide fractions along vertex->n1 / vertex->n2, and the
+	// replacement vertices v1 (on f1) / v2 (on f2).
+	struct Info {
+		uint32_t partner = 0, f1 = 0, f2 = 0;
+		uint32_t n1 = 0, n2 = 0;
+		float    s1 = 0.f, s2 = 0.f;
+		uint32_t v1 = 0, v2 = 0;
+	};
+	std::map<uint32_t, Info> info;
+	struct Selected { uint32_t a, b; };
+	std::vector<Selected> selected;
+
+	auto faceHasDirected = [&](const EditableFace& f, uint32_t a, uint32_t b) {
+		for (size_t i = 0; i < f.loop.size(); ++i)
+			if (f.loop[i].vertex == a && f.loop[(i + 1) % f.loop.size()].vertex == b) return true;
+		return false;
+	};
+	auto neighbourOther = [&](const EditableFace& f, uint32_t v, uint32_t partner) {
+		for (size_t i = 0; i < f.loop.size(); ++i) {
+			if (f.loop[i].vertex != v) continue;
+			const uint32_t prev = f.loop[(i + f.loop.size() - 1) % f.loop.size()].vertex;
+			const uint32_t next = f.loop[(i + 1) % f.loop.size()].vertex;
+			return prev == partner ? next : prev;
+		}
+		return partner;
+	};
+	auto faceCount = [&](uint32_t v) {
+		size_t n = 0;
+		for (const auto& f : in.faces)
+			for (const auto& c : f.loop) if (c.vertex == v) { ++n; break; }
+		return n;
+	};
+
+	const std::set<uint32_t> uniqueEdges(edgeIds.begin(), edgeIds.end());
+	for (uint32_t id : uniqueEdges) {
+		const EditableEdge* edge = nullptr;
+		for (const auto& e : in.edges) if (e.id == id) { edge = &e; break; }
+		if (!edge) { fail(error, "edge " + std::to_string(id) + " does not exist"); return false; }
+		const uint32_t a = edge->a, b = edge->b;
+		uint32_t f1 = 0, f2 = 0;
+		bool have1 = false, have2 = false;
+		for (const auto& f : in.faces) {
+			if (faceHasDirected(f, a, b)) { f1 = f.id; have1 = true; }
+			else if (faceHasDirected(f, b, a)) { f2 = f.id; have2 = true; }
+		}
+		if (!have1 || !have2) { fail(error, "edge " + std::to_string(id) + " is a border edge, bevel needs two faces"); return false; }
+		if (info.count(a) || info.count(b)) { fail(error, "selected edges share a vertex, bevel supports separate edges only"); return false; }
+		if (faceCount(a) != 3 || faceCount(b) != 3) {
+			fail(error, "edge " + std::to_string(id) + " ends at a vertex that does not have exactly three faces, bevel is not supported there");
+			return false;
+		}
+		selected.push_back({ a, b });
+		for (int end = 0; end < 2; ++end) {
+			Info i;
+			const uint32_t v = end ? b : a;
+			i.partner = end ? a : b;
+			i.f1 = f1; i.f2 = f2;
+			i.n1 = neighbourOther(*in.findFace(f1), v, i.partner);
+			i.n2 = neighbourOther(*in.findFace(f2), v, i.partner);
+			info[v] = i;
+		}
+	}
+
+	// Slide distances and the new vertex positions.
+	std::map<std::pair<uint32_t, uint32_t>, double> used;  // undirected neighbouring edge -> total fraction taken
+	EditableMesh work = in;
+	for (auto& kv : info) {
+		const uint32_t v = kv.first;
+		Info& i = kv.second;
+		const EditableVertex* pv = in.findVertex(v);
+		const EditableVertex* pp = in.findVertex(i.partner);
+		for (int side = 0; side < 2; ++side) {
+			const uint32_t n = side ? i.n2 : i.n1;
+			const EditableVertex* pn = in.findVertex(n);
+			double u[3], w[3];
+			for (int k = 0; k < 3; ++k) { u[k] = double(pp->pos[k]) - pv->pos[k]; w[k] = double(pn->pos[k]) - pv->pos[k]; }
+			const double lu = std::sqrt(u[0] * u[0] + u[1] * u[1] + u[2] * u[2]);
+			const double lw = std::sqrt(w[0] * w[0] + w[1] * w[1] + w[2] * w[2]);
+			if (!(lu > 1e-12) || !(lw > 1e-12)) { fail(error, "a degenerate edge next to vertex " + std::to_string(v)); return false; }
+			const double cx = u[1] * w[2] - u[2] * w[1], cy = u[2] * w[0] - u[0] * w[2], cz = u[0] * w[1] - u[1] * w[0];
+			const double sinT = std::sqrt(cx * cx + cy * cy + cz * cz) / (lu * lw);
+			if (!(sinT > 1e-6)) { fail(error, "the faces at vertex " + std::to_string(v) + " are degenerate, bevel is not supported there"); return false; }
+			const double fraction = (double(width) / sinT) / lw;
+			double& total = used[{ std::min(v, n), std::max(v, n) }];
+			total += fraction;
+			if (!(total < 0.999)) { fail(error, "the bevel width is too large for the edge next to vertex " + std::to_string(v)); return false; }
+			(side ? i.s2 : i.s1) = float(fraction);
+			const uint32_t created = work.addVertex(float(pv->pos[0] + w[0] * fraction), float(pv->pos[1] + w[1] * fraction),
+			                                       float(pv->pos[2] + w[2] * fraction));
+			(side ? i.v2 : i.v1) = created;
+		}
+	}
+
+	auto lerpCorner = [](const EditableCorner& from, const EditableCorner& to, float t, uint32_t vertex) {
+		EditableCorner c = from;
+		c.vertex = vertex;
+		c.uv[0] = from.uv[0] + (to.uv[0] - from.uv[0]) * t;
+		c.uv[1] = from.uv[1] + (to.uv[1] - from.uv[1]) * t;
+		return c;
+	};
+
+	// Rewrite every face that touches an old endpoint.
+	std::vector<std::pair<size_t, std::vector<std::vector<EditableCorner>>>> rewritten;  // face index -> pieces
+	for (size_t fi = 0; fi < in.faces.size(); ++fi) {
+		const EditableFace& f = in.faces[fi];
+		bool touched = false;
+		for (const auto& c : f.loop) if (info.count(c.vertex)) touched = true;
+		if (!touched) continue;
+		std::vector<EditableCorner> loop;
+		const size_t n = f.loop.size();
+		for (size_t i = 0; i < n; ++i) {
+			const EditableCorner& c = f.loop[i];
+			auto it = info.find(c.vertex);
+			if (it == info.end()) { loop.push_back(c); continue; }
+			const Info& inf = it->second;
+			const EditableCorner& prev = f.loop[(i + n - 1) % n];
+			const EditableCorner& next = f.loop[(i + 1) % n];
+			if (f.id == inf.f1) {
+				const EditableCorner& toward = prev.vertex == inf.n1 ? prev : next;
+				loop.push_back(lerpCorner(c, toward, inf.s1, inf.v1));
+			} else if (f.id == inf.f2) {
+				const EditableCorner& toward = prev.vertex == inf.n2 ? prev : next;
+				loop.push_back(lerpCorner(c, toward, inf.s2, inf.v2));
+			} else {
+				// The third face runs ... n2 -> a -> n1 ... at the edge's first end and ... n1 -> b -> n2 ... at the second;
+				// the vertex becomes two corners, the one toward the previous neighbour first.
+				if (prev.vertex == inf.n2 && next.vertex == inf.n1) {
+					loop.push_back(lerpCorner(c, prev, inf.s2, inf.v2));
+					loop.push_back(lerpCorner(c, next, inf.s1, inf.v1));
+				} else if (prev.vertex == inf.n1 && next.vertex == inf.n2) {
+					loop.push_back(lerpCorner(c, prev, inf.s1, inf.v1));
+					loop.push_back(lerpCorner(c, next, inf.s2, inf.v2));
+				} else {
+					fail(error, "the faces around vertex " + std::to_string(c.vertex) + " are not consistently oriented");
+					return false;
+				}
+			}
+		}
+		// Quads and triangles only: peel quads off the front of a longer loop.
+		std::vector<std::vector<EditableCorner>> pieces;
+		while (loop.size() > 4) {
+			pieces.push_back({ loop[0], loop[1], loop[2], loop[3] });
+			loop.erase(loop.begin() + 1, loop.begin() + 3);
+		}
+		pieces.push_back(std::move(loop));
+		rewritten.push_back({ fi, std::move(pieces) });
+	}
+	for (auto& r : rewritten) {
+		work.faces[r.first].loop = std::move(r.second[0]);
+		for (size_t k = 1; k < r.second.size(); ++k) work.addFace(r.second[k]);
+	}
+
+	// The bevel quads: b1 a1 a2 b2 (b1->a1 reverses f1's a1->b1, a2->b2 reverses f2's b2->a2).
+	std::vector<uint32_t> bevelIds;
+	for (const auto& s : selected) {
+		const Info& ia = info[s.a];
+		const Info& ib = info[s.b];
+		const EditableVertex* a1 = work.findVertex(ia.v1);
+		const EditableVertex* a2 = work.findVertex(ia.v2);
+		const EditableVertex* pa = in.findVertex(s.a);
+		const EditableVertex* pb = in.findVertex(s.b);
+		auto dist = [](const float* p, const float* q) {
+			return std::sqrt((p[0] - q[0]) * (p[0] - q[0]) + (p[1] - q[1]) * (p[1] - q[1]) + (p[2] - q[2]) * (p[2] - q[2]));
+		};
+		const float length = dist(pa->pos, pb->pos), across = dist(a1->pos, a2->pos);
+		const uint32_t ids[4] = { ib.v1, ia.v1, ia.v2, ib.v2 };
+		const float uv[4][2] = { { length, 0.f }, { 0.f, 0.f }, { 0.f, across }, { length, across } };
+		std::vector<EditableCorner> loop(4);
+		for (int k = 0; k < 4; ++k) { loop[k].vertex = ids[k]; loop[k].uv[0] = uv[k][0]; loop[k].uv[1] = uv[k][1]; }
+		bevelIds.push_back(work.addFace(loop));
+	}
+
+	work.vertices.erase(std::remove_if(work.vertices.begin(), work.vertices.end(),
+		[&](const EditableVertex& v) { return info.count(v.id) != 0; }), work.vertices.end());
+	work.rebuildEdges();
+	if (!work.validate(error)) return false;
+	work.revision = nextEditableRevision();
+	out = std::move(work);
+	if (bevelFaces) *bevelFaces = bevelIds;
+	return true;
+}
+
+bool loopCut(const EditableMesh& in, uint32_t edgeId, float factor, EditableMesh& out, std::string* error,
+             std::vector<uint32_t>* newVertices, size_t* splitFaces) {
+	if (!std::isfinite(factor) || !(factor > 0.f) || !(factor < 1.f)) { fail(error, "the loop cut position must be strictly between 0 and 1"); return false; }
+	const EditableEdge* start = nullptr;
+	for (const auto& e : in.edges) if (e.id == edgeId) { start = &e; break; }
+	if (!start) { fail(error, "edge " + std::to_string(edgeId) + " does not exist"); return false; }
+
+	using Key = std::pair<uint32_t, uint32_t>;
+	auto key = [](uint32_t a, uint32_t b) { return Key{ std::min(a, b), std::max(a, b) }; };
+	auto position = [](const EditableFace& f, uint32_t s, uint32_t e) {  // index i with {loop[i], loop[i+1]} == {s, e}, or -1
+		for (size_t i = 0; i < f.loop.size(); ++i) {
+			const uint32_t p = f.loop[i].vertex, q = f.loop[(i + 1) % f.loop.size()].vertex;
+			if ((p == s && q == e) || (p == e && q == s)) return int(i);
+		}
+		return -1;
+	};
+	auto otherFace = [&](uint32_t s, uint32_t e, uint32_t except) -> const EditableFace* {
+		for (const auto& f : in.faces) if (f.id != except && position(f, s, e) >= 0) return &f;
+		return nullptr;
+	};
+
+	// Ring edges as parallel-directed pairs (s -> e), and the faces they cross, each with the loop index of its first cut edge.
+	struct Cut { uint32_t s, e; };
+	std::vector<Cut> cuts;
+	std::set<Key> seen;
+	std::map<uint32_t, int> faceStart;  // face id -> index i of the cut edge (i, i+1); the other is (i+2, i+3)
+	cuts.push_back({ start->a, start->b });
+	seen.insert(key(start->a, start->b));
+
+	std::vector<const EditableFace*> firstFaces;
+	for (const auto& f : in.faces) if (position(f, start->a, start->b) >= 0) firstFaces.push_back(&f);
+	if (firstFaces.empty() || firstFaces.size() > 2) { fail(error, "the edge does not have one or two faces"); return false; }
+
+	bool closed = false;
+	for (const EditableFace* first : firstFaces) {
+		uint32_t s = start->a, e = start->b;
+		const EditableFace* face = first;
+		while (face) {
+			if (face->loop.size() != 4) { fail(error, "loop cut needs quad faces; face " + std::to_string(face->id) + " is not a quad"); return false; }
+			const int i = position(*face, s, e);
+			if (faceStart.count(face->id)) { closed = true; break; }  // the walk came back around
+			faceStart[face->id] = i;
+			const auto& q = face->loop;
+			uint32_t ns, ne;
+			if (q[i].vertex == s) { ns = q[(i + 3) % 4].vertex; ne = q[(i + 2) % 4].vertex; }
+			else                  { ns = q[(i + 2) % 4].vertex; ne = q[(i + 3) % 4].vertex; }
+			// `first` is the face on one side: the new edge continues on that side only.
+			if (seen.count(key(ns, ne))) { closed = true; break; }
+			seen.insert(key(ns, ne));
+			// Edges found while walking from the second face go to the front conceptually; order does not matter for cutting.
+			cuts.push_back({ ns, ne });
+			s = ns; e = ne;
+			face = otherFace(s, e, face->id);
+		}
+		if (closed) break;
+	}
+
+	// The faces cut: every face that has two cut edges opposite each other. Recompute from the final cut set so the
+	// start face on each side is included even when the ring closed immediately.
+	std::map<Key, uint32_t> midpoint;
+	EditableMesh work = in;
+	std::vector<uint32_t> created;
+	for (const auto& c : cuts) {
+		const EditableVertex* a = in.findVertex(c.s);
+		const EditableVertex* b = in.findVertex(c.e);
+		const uint32_t id = work.addVertex(a->pos[0] + (b->pos[0] - a->pos[0]) * factor, a->pos[1] + (b->pos[1] - a->pos[1]) * factor,
+		                                  a->pos[2] + (b->pos[2] - a->pos[2]) * factor);
+		midpoint[key(c.s, c.e)] = id;
+		created.push_back(id);
+	}
+	std::map<Key, std::pair<uint32_t, float>> factorFrom;  // undirected edge -> (vertex the factor is measured from, factor)
+	for (const auto& c : cuts) factorFrom[key(c.s, c.e)] = { c.s, factor };
+
+	auto cornerOn = [&](const EditableCorner& from, const EditableCorner& to, uint32_t mid) {
+		const auto& ff = factorFrom[key(from.vertex, to.vertex)];
+		const float t = ff.first == from.vertex ? ff.second : 1.f - ff.second;
+		EditableCorner c = from;
+		c.vertex = mid;
+		c.uv[0] = from.uv[0] + (to.uv[0] - from.uv[0]) * t;
+		c.uv[1] = from.uv[1] + (to.uv[1] - from.uv[1]) * t;
+		if (from.hasNormal && to.hasNormal) {
+			double n[3], len = 0;
+			for (int k = 0; k < 3; ++k) { n[k] = from.normal[k] + (to.normal[k] - from.normal[k]) * t; len += n[k] * n[k]; }
+			len = std::sqrt(len);
+			if (len > 1e-12) for (int k = 0; k < 3; ++k) c.normal[k] = float(n[k] / len);
+			else c.hasNormal = false;
+		} else c.hasNormal = false;
+		return c;
+	};
+
+	size_t split = 0;
+	std::vector<std::vector<EditableCorner>> extra;
+	for (auto& face : work.faces) {
+		const EditableFace* orig = in.findFace(face.id);
+		if (!orig || orig->loop.size() != 4) continue;
+		// Find a pair of opposite edges that are both cut.
+		int at = -1;
+		for (int i = 0; i < 2 && at < 0; ++i) {
+			const auto& q = orig->loop;
+			if (midpoint.count(key(q[i].vertex, q[(i + 1) % 4].vertex)) && midpoint.count(key(q[(i + 2) % 4].vertex, q[(i + 3) % 4].vertex))) at = i;
+		}
+		if (at < 0) continue;
+		const auto& q = orig->loop;
+		const EditableCorner &c0 = q[at], &c1 = q[(at + 1) % 4], &c2 = q[(at + 2) % 4], &c3 = q[(at + 3) % 4];
+		const EditableCorner m1 = cornerOn(c0, c1, midpoint[key(c0.vertex, c1.vertex)]);
+		const EditableCorner m1b = cornerOn(c1, c0, midpoint[key(c0.vertex, c1.vertex)]);
+		const EditableCorner m2 = cornerOn(c2, c3, midpoint[key(c2.vertex, c3.vertex)]);
+		const EditableCorner m2b = cornerOn(c3, c2, midpoint[key(c2.vertex, c3.vertex)]);
+		// [c0, m1, m2, c3] keeps the id, [m1, c1, c2, m2] is new. The midpoint corner is taken from the nearer end per piece.
+		face.loop = { c0, m1, m2b, c3 };
+		extra.push_back({ m1b, c1, c2, m2 });
+		++split;
+	}
+	for (const auto& loop : extra) work.addFace(loop);
+	// Every cut edge must belong to two split faces (or one, on a mesh border), otherwise a T-junction would remain.
+	{
+		std::map<Key, int> uses;
+		for (const auto& f : in.faces) {
+			if (f.loop.size() != 4) continue;
+			for (int i = 0; i < 2; ++i)
+				if (midpoint.count(key(f.loop[i].vertex, f.loop[(i + 1) % 4].vertex)) &&
+				    midpoint.count(key(f.loop[(i + 2) % 4].vertex, f.loop[(i + 3) % 4].vertex))) {
+					++uses[key(f.loop[i].vertex, f.loop[(i + 1) % 4].vertex)];
+					++uses[key(f.loop[(i + 2) % 4].vertex, f.loop[(i + 3) % 4].vertex)];
+				}
+		}
+		for (const auto& kv : midpoint) {
+			int neighbours = 0;
+			for (const auto& f : in.faces) if (position(f, kv.first.first, kv.first.second) >= 0) ++neighbours;
+			if (uses[kv.first] != neighbours) { fail(error, "the edge ring does not close cleanly (a face next to it is not cut)"); return false; }
+		}
+	}
+	work.rebuildEdges();
+	if (!work.validate(error)) return false;
+	work.revision = nextEditableRevision();
+	out = std::move(work);
+	if (newVertices) *newVertices = created;
+	if (splitFaces) *splitFaces = split;
+	return true;
+}
+
+bool shadeFaces(const EditableMesh& in, const std::vector<uint32_t>& faceIds, bool smooth, float angleDeg, EditableMesh& out,
+                std::string* error, size_t* changedCorners) {
+	if (faceIds.empty()) { fail(error, "no faces selected"); return false; }
+	if (!std::isfinite(angleDeg) || angleDeg < 0.f || angleDeg > 180.f) { fail(error, "the smoothing angle must be between 0 and 180 degrees"); return false; }
+	const std::set<uint32_t> selected(faceIds.begin(), faceIds.end());
+	for (uint32_t id : selected)
+		if (!in.findFace(id)) { fail(error, "face " + std::to_string(id) + " does not exist"); return false; }
+
+	EditableMesh work = in;
+	size_t changed = 0;
+	if (!smooth) {
+		for (auto& f : work.faces) {
+			if (!selected.count(f.id)) continue;
+			for (auto& c : f.loop)
+				if (c.hasNormal) { c.hasNormal = false; c.normal[0] = c.normal[1] = c.normal[2] = 0.f; ++changed; }
+		}
+	} else {
+		// Area-weighted face normals (Newell vector: length = twice the area), then per corner the average of the faces at
+		// that vertex whose normal is within the angle of this face's own normal (180 = fully smooth, small = keeps creases).
+		std::map<uint32_t, std::array<double, 3>> areaNormal;
+		std::map<uint32_t, std::vector<uint32_t>> facesAt;
+		for (const auto& f : in.faces) {
+			std::array<double, 3> n{ 0, 0, 0 };
+			for (size_t i = 0; i < f.loop.size(); ++i) {
+				const EditableVertex* p = in.findVertex(f.loop[i].vertex);
+				const EditableVertex* q = in.findVertex(f.loop[(i + 1) % f.loop.size()].vertex);
+				n[0] += (double(p->pos[1]) - q->pos[1]) * (double(p->pos[2]) + q->pos[2]);
+				n[1] += (double(p->pos[2]) - q->pos[2]) * (double(p->pos[0]) + q->pos[0]);
+				n[2] += (double(p->pos[0]) - q->pos[0]) * (double(p->pos[1]) + q->pos[1]);
+				facesAt[f.loop[i].vertex].push_back(f.id);
+			}
+			areaNormal[f.id] = n;
+		}
+		const double kPi = 3.14159265358979323846;
+		const double limit = std::cos(double(angleDeg) * kPi / 180.0) - 1e-9;
+		auto length = [](const std::array<double, 3>& v) { return std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]); };
+		for (auto& f : work.faces) {
+			if (!selected.count(f.id)) continue;
+			const auto& own = areaNormal[f.id];
+			const double ownLen = length(own);
+			if (!(ownLen > 1e-12)) continue;
+			for (auto& c : f.loop) {
+				std::array<double, 3> sum{ 0, 0, 0 };
+				for (uint32_t gid : facesAt[c.vertex]) {
+					const auto& g = areaNormal[gid];
+					const double gl = length(g);
+					if (!(gl > 1e-12)) continue;
+					if ((own[0] * g[0] + own[1] * g[1] + own[2] * g[2]) / (ownLen * gl) < limit) continue;
+					for (int k = 0; k < 3; ++k) sum[k] += g[k];
+				}
+				const double len = length(sum);
+				const bool before = c.hasNormal;
+				float prev[3] = { c.normal[0], c.normal[1], c.normal[2] };
+				if (!(len > 1e-12) || (sum[0] * own[0] + sum[1] * own[1] + sum[2] * own[2]) / (len * ownLen) > 0.99999) {
+					c.hasNormal = false;  // identical to the flat normal: keep deriving it
+					c.normal[0] = c.normal[1] = c.normal[2] = 0.f;
+				} else {
+					c.hasNormal = true;
+					for (int k = 0; k < 3; ++k) c.normal[k] = float(sum[k] / len);
+				}
+				if (before != c.hasNormal || (c.hasNormal && (prev[0] != c.normal[0] || prev[1] != c.normal[1] || prev[2] != c.normal[2]))) ++changed;
+			}
+		}
+	}
+	if (!work.validate(error)) return false;
+	work.revision = nextEditableRevision();
+	out = std::move(work);
+	if (changedCorners) *changedCorners = changed;
+	return true;
+}
+
+namespace {
+
+bool mirrorOneAxis(const EditableMesh& in, int a, float merge, EditableMesh& out, std::string* error) {
+	EditableMesh work = in;
+	std::map<uint32_t, uint32_t> twin;
+	std::set<uint32_t> onPlane;
+	for (size_t i = 0; i < in.vertices.size(); ++i) {
+		const EditableVertex& v = in.vertices[i];
+		if (std::fabs(v.pos[a]) <= merge) {
+			twin[v.id] = v.id;
+			onPlane.insert(v.id);
+			work.vertices[i].pos[a] = 0.f;  // snap so the seam is exactly closed
+		} else {
+			float p[3] = { v.pos[0], v.pos[1], v.pos[2] };
+			p[a] = -p[a];
+			twin[v.id] = work.addVertex(p[0], p[1], p[2]);
+		}
+	}
+	std::set<uint32_t> caps;  // faces lying entirely in the plane: the half-model's cap, removed so the halves join
+	for (const auto& f : in.faces) {
+		bool allOnPlane = true;
+		for (const auto& c : f.loop) if (!onPlane.count(c.vertex)) { allOnPlane = false; break; }
+		if (allOnPlane) { caps.insert(f.id); continue; }
+		std::vector<EditableCorner> loop;
+		for (size_t k = f.loop.size(); k-- > 0;) {
+			EditableCorner c = f.loop[k];
+			c.vertex = twin[c.vertex];
+			if (c.hasNormal) c.normal[a] = -c.normal[a];
+			loop.push_back(c);
+		}
+		work.addFace(loop);
+	}
+	work.faces.erase(std::remove_if(work.faces.begin(), work.faces.end(),
+		[&](const EditableFace& f) { return caps.count(f.id) != 0; }), work.faces.end());
+	if (work.faces.empty()) { fail(error, "the mirror left no faces (the whole mesh lies in the mirror plane)"); return false; }
+	std::set<uint32_t> used;
+	for (const auto& f : work.faces) for (const auto& c : f.loop) used.insert(c.vertex);
+	work.vertices.erase(std::remove_if(work.vertices.begin(), work.vertices.end(),
+		[&](const EditableVertex& v) { return !used.count(v.id); }), work.vertices.end());
+	work.rebuildEdges();
+	if (!work.validate(error)) return false;
+	out = std::move(work);
+	return true;
+}
+
+} // namespace
+
+bool mirrorMesh(const EditableMesh& in, const std::array<bool, 3>& axes, float mergeDistance, EditableMesh& out, std::string* error) {
+	if (!std::isfinite(mergeDistance) || mergeDistance < 0.f) { fail(error, "the mirror merge distance must be a non-negative number"); return false; }
+	if (!axes[0] && !axes[1] && !axes[2]) { fail(error, "the mirror modifier needs at least one axis"); return false; }
+	EditableMesh current = in;
+	for (int a = 0; a < 3; ++a) {
+		if (!axes[a]) continue;
+		EditableMesh next;
+		std::string why;
+		if (!mirrorOneAxis(current, a, mergeDistance, next, &why)) {
+			fail(error, std::string("mirror ") + "xyz"[a] + ": " + why);
+			return false;
+		}
+		current = std::move(next);
+	}
+	current.revision = nextEditableRevision();
+	out = std::move(current);
+	return true;
+}
+
+bool evaluateModifiers(const EditableMesh& in, const std::vector<MeshModifier>& modifiers, EditableMesh& out, std::string* error) {
+	EditableMesh current = in;
+	bool any = false;
+	for (const auto& m : modifiers) {
+		if (!m.enabled) continue;
+		EditableMesh next;
+		switch (m.type) {
+		case MeshModifier::Type::Mirror:
+			if (!mirrorMesh(current, m.axis, m.mergeDistance, next, error)) return false;
+			break;
+		case MeshModifier::Type::Subdivision:
+			if (!subdivideMesh(current, m.levels, m.smoothShading, next, error)) return false;
+			break;
+		}
+		current = std::move(next);
+		any = true;
+	}
+	if (!any) { current = in; }
+	out = std::move(current);
+	return true;
+}
+
+namespace {
+
+// One Catmull-Clark step. Every n-gon becomes n quads [corner', edge point, face point, previous edge point]; original vertex
+// ids survive (moved), new vertices are appended. Corner UVs are averaged inside each face, so seams stay seams.
+bool subdivideOnce(const EditableMesh& in, EditableMesh& out, std::string* error) {
+	using Key = std::pair<uint32_t, uint32_t>;
+	auto key = [](uint32_t a, uint32_t b) { return Key{ std::min(a, b), std::max(a, b) }; };
+	auto pos = [&](uint32_t id) { return in.findVertex(id)->pos; };
+
+	std::vector<std::array<double, 3>> facePoint(in.faces.size());
+	std::map<Key, std::vector<size_t>> edgeFaces;
+	std::map<uint32_t, std::vector<size_t>> vertexFaces;
+	for (size_t fi = 0; fi < in.faces.size(); ++fi) {
+		const auto& loop = in.faces[fi].loop;
+		std::array<double, 3> sum{ 0, 0, 0 };
+		for (size_t i = 0; i < loop.size(); ++i) {
+			const float* p = pos(loop[i].vertex);
+			for (int k = 0; k < 3; ++k) sum[k] += p[k];
+			edgeFaces[key(loop[i].vertex, loop[(i + 1) % loop.size()].vertex)].push_back(fi);
+			vertexFaces[loop[i].vertex].push_back(fi);
+		}
+		for (int k = 0; k < 3; ++k) facePoint[fi][k] = sum[k] / loop.size();
+	}
+
+	EditableMesh work;
+	work.nextVertexId = in.nextVertexId;
+	work.vertices = in.vertices;
+
+	// Edge points: average of both ends and both face points inside the surface, the plain midpoint on a border.
+	std::map<Key, uint32_t> edgePoint;
+	std::map<Key, std::array<double, 3>> edgeMid;
+	for (const auto& kv : edgeFaces) {
+		const float* a = pos(kv.first.first);
+		const float* b = pos(kv.first.second);
+		std::array<double, 3> mid{ (double(a[0]) + b[0]) / 2, (double(a[1]) + b[1]) / 2, (double(a[2]) + b[2]) / 2 };
+		edgeMid[kv.first] = mid;
+		std::array<double, 3> p = mid;
+		if (kv.second.size() == 2)
+			for (int k = 0; k < 3; ++k) p[k] = (double(a[k]) + b[k] + facePoint[kv.second[0]][k] + facePoint[kv.second[1]][k]) / 4;
+		edgePoint[kv.first] = work.addVertex(float(p[0]), float(p[1]), float(p[2]));
+	}
+
+	// Moved original vertices (interior rule, border crease rule, or unchanged on non-manifold spots).
+	std::map<uint32_t, std::set<uint32_t>> neighbours;
+	for (const auto& kv : edgeFaces) {
+		neighbours[kv.first.first].insert(kv.first.second);
+		neighbours[kv.first.second].insert(kv.first.first);
+	}
+	for (size_t i = 0; i < in.vertices.size(); ++i) {
+		const uint32_t v = in.vertices[i].id;
+		const float* p = in.vertices[i].pos;
+		const auto& around = neighbours[v];
+		std::vector<uint32_t> border;
+		bool nonManifold = false;
+		for (uint32_t n : around) {
+			const size_t count = edgeFaces[key(v, n)].size();
+			if (count == 1) border.push_back(n);
+			else if (count != 2) nonManifold = true;
+		}
+		if (nonManifold || around.size() < 2) continue;
+		std::array<double, 3> q{ p[0], p[1], p[2] };
+		if (border.empty()) {
+			const double n = double(around.size());
+			std::array<double, 3> F{ 0, 0, 0 }, R{ 0, 0, 0 };
+			for (size_t fi : vertexFaces[v]) for (int k = 0; k < 3; ++k) F[k] += facePoint[fi][k] / vertexFaces[v].size();
+			for (uint32_t nb : around) for (int k = 0; k < 3; ++k) R[k] += edgeMid[key(v, nb)][k] / around.size();
+			for (int k = 0; k < 3; ++k) q[k] = (F[k] + 2 * R[k] + (n - 3) * p[k]) / n;
+		} else if (border.size() == 2) {
+			const float* a = pos(border[0]);
+			const float* b = pos(border[1]);
+			for (int k = 0; k < 3; ++k) q[k] = (6.0 * p[k] + a[k] + b[k]) / 8.0;
+		} else continue;
+		for (int k = 0; k < 3; ++k) work.vertices[i].pos[k] = float(q[k]);
+	}
+
+	// Faces: one quad per corner.
+	for (size_t fi = 0; fi < in.faces.size(); ++fi) {
+		const auto& loop = in.faces[fi].loop;
+		const size_t n = loop.size();
+		const uint32_t fv = work.addVertex(float(facePoint[fi][0]), float(facePoint[fi][1]), float(facePoint[fi][2]));
+		float faceUv[2] = { 0.f, 0.f };
+		for (const auto& c : loop) { faceUv[0] += c.uv[0] / n; faceUv[1] += c.uv[1] / n; }
+		for (size_t i = 0; i < n; ++i) {
+			const EditableCorner& cur = loop[i];
+			const EditableCorner& next = loop[(i + 1) % n];
+			const EditableCorner& prev = loop[(i + n - 1) % n];
+			std::vector<EditableCorner> quad(4);
+			quad[0].vertex = cur.vertex;                     quad[0].uv[0] = cur.uv[0];                     quad[0].uv[1] = cur.uv[1];
+			quad[1].vertex = edgePoint[key(cur.vertex, next.vertex)];
+			quad[1].uv[0] = (cur.uv[0] + next.uv[0]) / 2;    quad[1].uv[1] = (cur.uv[1] + next.uv[1]) / 2;
+			quad[2].vertex = fv;                             quad[2].uv[0] = faceUv[0];                     quad[2].uv[1] = faceUv[1];
+			quad[3].vertex = edgePoint[key(prev.vertex, cur.vertex)];
+			quad[3].uv[0] = (cur.uv[0] + prev.uv[0]) / 2;    quad[3].uv[1] = (cur.uv[1] + prev.uv[1]) / 2;
+			work.addFace(quad);
+		}
+	}
+	work.rebuildEdges();
+	if (!work.validate(error)) return false;
+	out = std::move(work);
+	return true;
+}
+
+} // namespace
+
+bool subdivideMesh(const EditableMesh& in, int levels, bool smoothShading, EditableMesh& out, std::string* error) {
+	if (levels < 1 || levels > 4) { fail(error, "subdivision levels must be between 1 and 4"); return false; }
+	if (in.faces.empty()) { fail(error, "there is nothing to subdivide"); return false; }
+	const size_t kMaxFaces = 1000000;
+	size_t projected = 0;
+	for (const auto& f : in.faces) projected += f.loop.size();
+	for (int i = 1; i < levels; ++i) projected *= 4;
+	if (projected > kMaxFaces) { fail(error, "the subdivided mesh would have more than 1,000,000 faces; use fewer levels"); return false; }
+	EditableMesh current = in;
+	for (int i = 0; i < levels; ++i) {
+		EditableMesh next;
+		if (!subdivideOnce(current, next, error)) return false;
+		current = std::move(next);
+	}
+	if (smoothShading) {
+		std::vector<uint32_t> all;
+		for (const auto& f : current.faces) all.push_back(f.id);
+		EditableMesh shaded;
+		if (!shadeFaces(current, all, true, 180.f, shaded, error)) return false;
+		current = std::move(shaded);
+	}
+	current.revision = nextEditableRevision();
+	out = std::move(current);
+	return true;
+}
+
+bool deleteElements(const EditableMesh& in, ElementKind kind, const std::vector<uint32_t>& ids, EditableMesh& out,
+                    std::string* error, size_t* removedFaces, size_t* removedVertices) {
+	if (ids.empty()) { fail(error, "no elements selected"); return false; }
+	std::set<uint32_t> dropFaces;
+	for (uint32_t id : ids) {
+		switch (kind) {
+		case ElementKind::Face:
+			if (!in.findFace(id)) { fail(error, "face " + std::to_string(id) + " does not exist"); return false; }
+			dropFaces.insert(id);
+			break;
+		case ElementKind::Vertex:
+			if (!in.findVertex(id)) { fail(error, "vertex " + std::to_string(id) + " does not exist"); return false; }
+			for (const auto& f : in.faces)
+				for (const auto& c : f.loop) if (c.vertex == id) { dropFaces.insert(f.id); break; }
+			break;
+		case ElementKind::Edge: {
+			const EditableEdge* edge = nullptr;
+			for (const auto& e : in.edges) if (e.id == id) { edge = &e; break; }
+			if (!edge) { fail(error, "edge " + std::to_string(id) + " does not exist"); return false; }
+			for (const auto& f : in.faces) {
+				bool a = false, b = false;
+				for (const auto& c : f.loop) { a = a || c.vertex == edge->a; b = b || c.vertex == edge->b; }
+				if (a && b) {
+					// Both endpoints in the face is not enough for a triangle/quad diagonal: require a consecutive pair.
+					for (size_t i = 0; i < f.loop.size(); ++i) {
+						const uint32_t p = f.loop[i].vertex, q = f.loop[(i + 1) % f.loop.size()].vertex;
+						if ((p == edge->a && q == edge->b) || (p == edge->b && q == edge->a)) { dropFaces.insert(f.id); break; }
+					}
+				}
+			}
+			break;
+		}
+		}
+	}
+	EditableMesh work = in;
+	std::set<uint32_t> touched;
+	for (const auto& f : in.faces)
+		if (dropFaces.count(f.id)) for (const auto& c : f.loop) touched.insert(c.vertex);
+	work.faces.erase(std::remove_if(work.faces.begin(), work.faces.end(),
+		[&](const EditableFace& f) { return dropFaces.count(f.id) != 0; }), work.faces.end());
+	std::set<uint32_t> used;
+	for (const auto& f : work.faces) for (const auto& c : f.loop) used.insert(c.vertex);
+	size_t vertexCount = 0;
+	work.vertices.erase(std::remove_if(work.vertices.begin(), work.vertices.end(), [&](const EditableVertex& v) {
+		const bool drop = touched.count(v.id) && !used.count(v.id);
+		vertexCount += drop;
+		return drop;
+	}), work.vertices.end());
+	work.rebuildEdges();
+	if (!work.validate(error)) return false;
+	work.revision = nextEditableRevision();
+	out = std::move(work);
+	if (removedFaces) *removedFaces = dropFaces.size();
+	if (removedVertices) *removedVertices = vertexCount;
+	return true;
+}
+
+bool mergeTargetFromName(const std::string& name, MergeTarget& out) {
+	std::string l = name;
+	for (auto& c : l) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+	if (l == "center" || l == "centre") { out = MergeTarget::Center; return true; }
+	if (l == "first")                   { out = MergeTarget::First;  return true; }
+	if (l == "last")                    { out = MergeTarget::Last;   return true; }
+	return false;
+}
+
+bool mergeVertices(const EditableMesh& in, const std::vector<uint32_t>& vertices, MergeTarget target, EditableMesh& out,
+                   std::string* error, size_t* removedFaces) {
+	std::set<uint32_t> group(vertices.begin(), vertices.end());
+	if (group.size() < 2) { fail(error, "merge needs at least two distinct vertices"); return false; }
+	for (uint32_t id : group)
+		if (!in.findVertex(id)) { fail(error, "vertex " + std::to_string(id) + " does not exist"); return false; }
+
+	const uint32_t survivor = *group.begin();
+	std::array<float, 3> position{};
+	if (target == MergeTarget::Center) {
+		if (!vertexCentroid(in, std::vector<uint32_t>(group.begin(), group.end()), position)) { fail(error, "cannot compute the centre"); return false; }
+	} else {
+		const EditableVertex* source = in.findVertex(target == MergeTarget::First ? *group.begin() : *group.rbegin());
+		position = { source->pos[0], source->pos[1], source->pos[2] };
+	}
+
+	EditableMesh work = in;
+	std::set<uint32_t> touched;
+	std::vector<EditableFace> kept;
+	size_t dropped = 0;
+	for (auto& face : work.faces) {
+		bool affected = false;
+		for (auto& c : face.loop) if (group.count(c.vertex)) { affected = true; touched.insert(c.vertex); c.vertex = survivor; }
+		if (!affected) { kept.push_back(std::move(face)); continue; }
+		// Remove consecutive duplicates (cyclic); any vertex still repeated means the face is degenerate.
+		std::vector<EditableCorner> loop;
+		for (const auto& c : face.loop)
+			if (loop.empty() || loop.back().vertex != c.vertex) loop.push_back(c);
+		while (loop.size() > 1 && loop.front().vertex == loop.back().vertex) loop.pop_back();
+		std::set<uint32_t> distinct;
+		for (const auto& c : loop) distinct.insert(c.vertex);
+		if (loop.size() < 3 || distinct.size() != loop.size()) { ++dropped; continue; }
+		face.loop = std::move(loop);
+		kept.push_back(std::move(face));
+	}
+	work.faces = std::move(kept);
+	for (auto& v : work.vertices)
+		if (v.id == survivor) { v.pos[0] = position[0]; v.pos[1] = position[1]; v.pos[2] = position[2]; }
+	std::set<uint32_t> used;
+	for (const auto& f : work.faces) for (const auto& c : f.loop) used.insert(c.vertex);
+	work.vertices.erase(std::remove_if(work.vertices.begin(), work.vertices.end(), [&](const EditableVertex& v) {
+		return touched.count(v.id) && !used.count(v.id);
+	}), work.vertices.end());
+	work.rebuildEdges();
+	if (!work.validate(error)) {
+		if (error) *error = "the merge would produce an invalid mesh: " + *error;
+		return false;
+	}
+	// The faces around the merged vertex must still form one fan; two fans meeting at a point are a non-manifold vertex.
+	{
+		std::vector<const EditableFace*> around;
+		for (const auto& f : work.faces)
+			for (const auto& c : f.loop) if (c.vertex == survivor) { around.push_back(&f); break; }
+		auto neighbours = [&](const EditableFace& f, uint32_t other) {
+			for (size_t i = 0; i < f.loop.size(); ++i) {
+				const uint32_t p = f.loop[i].vertex, q = f.loop[(i + 1) % f.loop.size()].vertex;
+				if (p == survivor && q == other) return true;
+				if (q == survivor && p == other) return true;
+			}
+			return false;
+		};
+		if (!around.empty()) {
+			std::set<const EditableFace*> seen{ around.front() };
+			std::vector<const EditableFace*> stack{ around.front() };
+			while (!stack.empty()) {
+				const EditableFace* f = stack.back(); stack.pop_back();
+				for (const auto& c : f->loop) {
+					if (c.vertex == survivor || !neighbours(*f, c.vertex)) continue;
+					for (const EditableFace* g : around)
+						if (neighbours(*g, c.vertex) && seen.insert(g).second) stack.push_back(g);
+				}
+			}
+			if (seen.size() != around.size()) { fail(error, "the merge would join two separate fans at one vertex (non-manifold); merge neighbouring vertices instead"); return false; }
+		}
+	}
+	work.revision = nextEditableRevision();
+	out = std::move(work);
+	if (removedFaces) *removedFaces = dropped;
+	return true;
+}
+
+bool worldVectorToLocal(const std::array<float, 3>& rotationEulerDeg, const std::array<float, 3>& scale,
+                        const std::array<float, 3>& world, std::array<float, 3>& local, std::string* error) {
+	for (float s : scale)
+		if (!std::isfinite(s) || std::fabs(s) < 1e-12f) {
+			fail(error, "the object has a zero scale on an axis, so a world-space offset cannot be applied; use space=local or fix the scale");
+			return false;
+		}
+	const Mat3 r = rotationYXZ(rotationEulerDeg);
+	for (int i = 0; i < 3; ++i) {
+		// (R^T * world)[i] = sum_j R[j][i] * world[j]
+		const double v = r[0][i] * world[0] + r[1][i] * world[1] + r[2][i] * world[2];
+		local[i] = static_cast<float>(v / scale[i]);
+	}
+	return true;
+}
+
+} // namespace Phantom::MeshEdit

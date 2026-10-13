@@ -31,6 +31,10 @@ Math ──┬── Graphics ──┬── File
   the install consumer uses it; new code uses SceneRuntime
   (`docs/scene-usage-2026-10-06.md`).
 - **GeometryNode:** CPU evaluation of node-graph geometry (fields, attribute domains, terrain nodes).
+- **MeshEdit:** polygon mesh editing (`Phantom::MeshEdit`, CPU only): `EditableMesh` (logical topology, persistent vertex/edge/face
+  ids, per-corner UV and normals), shape operations (extrude, inset, bevel, loop cut, merge, delete, shading), the modifier
+  stack (mirror, subdivision), screen-space picking and box selection, and the edit-session selection state with its argument
+  parsing. Conventions: counter-clockwise from outside, loops and render triangles share the order.
 - **AssetCore:** project-relative asset ids, URIs and manifests (no Math or Vulkan dependency).
 - **SceneRuntime:** UUID node hierarchy, TRS, generic components and schemas, play sessions, `.universe`
   v2 read/write and merge. Uses `AssetCore`'s `AssetId` as the node id.
