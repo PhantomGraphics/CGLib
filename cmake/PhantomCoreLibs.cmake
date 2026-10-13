@@ -210,6 +210,25 @@ function(phantom_add_geometrynode_core)
     target_compile_features(GeometryNodeCore PUBLIC cxx_std_20)
 endfunction()
 
+function(phantom_add_meshedit_core)
+    if(TARGET MeshEditCore)
+        return()
+    endif()
+    # Polygon mesh editing (Phantom::MeshEdit -- CPU-only): EditableMesh (logical topology with persistent ids),
+    # shape operations (extrude/inset/bevel/loop cut/merge/delete/shading), the modifier stack (mirror, subdivision),
+    # screen-space picking, and the edit-session selection state with its argument parsing.
+    # No Vulkan / scene / render-mesh dependency; picking uses the vendored header-only GLM.
+    add_library(MeshEditCore STATIC
+        ${CGLIB_ROOT}/MeshEdit/MeshEdit/EditableMesh.cpp
+        ${CGLIB_ROOT}/MeshEdit/MeshEdit/MeshEditOperations.cpp
+        ${CGLIB_ROOT}/MeshEdit/MeshEdit/MeshEditPicking.cpp
+        ${CGLIB_ROOT}/MeshEdit/MeshEdit/MeshEditState.cpp
+    )
+    target_include_directories(MeshEditCore PUBLIC ${REPO_ROOT} ${CGLIB_ROOT}/ThirdParty/glm)
+    target_compile_options(MeshEditCore PRIVATE ${PHANTOM_WARN_FLAGS})
+    target_compile_features(MeshEditCore PUBLIC cxx_std_20)
+endfunction()
+
 function(phantom_add_shadergraph_core)
     if(TARGET ShaderGraphCore)
         return()
