@@ -330,6 +330,44 @@ TEST(ResultApiTest, BVHEmptyTreeClearsBuffers)
 	EXPECT_TRUE(pairs.empty());
 }
 
+TEST(ResultApiTest, BVHRayRejectsInvalidInputAcrossAllResultApis)
+{
+	BVHObject object(0, Box3df(Vector3df(0), Vector3df(1)));
+	BVH bvh({ &object });
+	const float nan = std::numeric_limits<float>::quiet_NaN();
+	const float inf = std::numeric_limits<float>::infinity();
+	const auto expectMiss = [&](const Vector3df& origin, const Vector3df& direction, float lo, float hi) {
+		EXPECT_TRUE(bvh.queryRay(origin, direction, lo, hi).empty());
+		std::vector<BVHObject*> out = { &object };
+		bvh.queryRay(origin, direction, out, lo, hi);
+		EXPECT_TRUE(out.empty());
+		int visits = 0;
+		bvh.forEachRayCandidate(origin, direction, lo, hi, [&](BVHObject*) { ++visits; });
+		EXPECT_EQ(visits, 0);
+	};
+	for (const Vector3df bad : { Vector3df(nan), Vector3df(nan, 0, 1), Vector3df(inf, 0, 0) }) {
+		expectMiss(Vector3df(100), bad, 0, 10);
+		expectMiss(bad, Vector3df(1, 0, 0), 0, 10);
+	}
+	expectMiss(Vector3df(0.5f), Vector3df(0), 0, 10);
+	expectMiss(Vector3df(-1, 0.5f, 0.5f), Vector3df(1, 0, 0), nan, 10);
+	expectMiss(Vector3df(-1, 0.5f, 0.5f), Vector3df(1, 0, 0), 0, nan);
+	expectMiss(Vector3df(0.5f), Vector3df(1, 0, 0), 2, 1);
+}
+
+TEST(ResultApiTest, BVHAxisParallelRayIncludesClosedSlabsAndRespectsRange)
+{
+	BVHObject object(0, Box3df(Vector3df(0), Vector3df(1)));
+	BVH bvh({ &object });
+	const float inf = std::numeric_limits<float>::infinity();
+	for (const float y : { 0.0f, 0.5f, 1.0f }) {
+		EXPECT_EQ(bvh.queryRay(Vector3df(-1, y, 0.5f), Vector3df(1, -0.0f, 0), 0, inf), std::vector<BVHObject*>{ &object });
+	}
+	EXPECT_TRUE(bvh.queryRay(Vector3df(-1, 2, 0.5f), Vector3df(1, 0, 0), 0, inf).empty());
+	EXPECT_TRUE(bvh.queryRay(Vector3df(-1, 0, 0.5f), Vector3df(1, 0, 0), 0, 0.5f).empty());
+	EXPECT_EQ(bvh.queryRay(Vector3df(-1, 0, 0.5f), Vector3df(1, 0, 0), 1, 1), std::vector<BVHObject*>{ &object });
+}
+
 TEST(ResultApiTest, BVHTraversalStackHoldsForDegenerateInputs)
 {
 	// All boxes identical: every object overlaps every query, and the median split still halves the set,

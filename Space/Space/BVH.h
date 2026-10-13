@@ -166,6 +166,8 @@ namespace Phantom {
 
 			/**
 			 * @brief Returns all objects potentially intersected by a ray (slab test).
+			 * Non-finite origin/direction, zero direction, NaN or reversed t ranges return no candidates.
+			 * Infinite t endpoints are allowed. Axis-parallel rays include the closed slab boundaries.
 			 * @param origin    Ray origin.
 			 * @param direction Ray direction (need not be normalized).
 			 * @param tMin      Minimum ray parameter (default 1e-4).
