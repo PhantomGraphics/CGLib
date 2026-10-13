@@ -22,9 +22,9 @@ bool Triangle3d<T>::tryGetNormal(Vector3d<T>& out) const
 template<typename T>
 Vector3d<T> Triangle3d<T>::getNormal() const
 {
-	const auto v1 = vertices[1] - vertices[0];
-	const auto v2 = vertices[2] - vertices[0];
-	return glm::normalize(glm::cross(v1, v2));
+	Vector3d<T> n(0, 0, 0);
+	tryGetNormal(n);
+	return n;
 }
 
 template<typename T>

@@ -33,7 +33,9 @@ bool Rectangle3d<T>::tryGetNormal(Vector3d<T>& out) const
 template<typename T>
 Vector3d<T> Rectangle3d<T>::getNormal() const
 {
-	return glm::normalize(glm::cross(uvec, vvec));
+	Vector3d<T> n(0, 0, 0);
+	tryGetNormal(n);
+	return n;
 }
 
 template class Phantom::Math::Rectangle3d<float>;

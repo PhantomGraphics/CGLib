@@ -16,8 +16,8 @@ public:
 
 	//Triangle3d(const Vector3dd& v1, const Vector3dd& v2, const Vector3dd& v3);
 
-	/// Unit normal. A degenerate triangle yields NaN components (callers such as
-	/// Space's intersection code detect that with isFinite); prefer tryGetNormal().
+	/// Unit normal, or the zero vector for a degenerate triangle (collinear/coincident
+	/// vertices or non-finite input). Use tryGetNormal() to tell the cases apart.
 	Vector3d<T> getNormal() const;
 
 	/// Writes the unit normal and returns true; false (out unchanged) when the

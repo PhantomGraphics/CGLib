@@ -63,12 +63,13 @@ TYPED_TEST(Triangle3dTypedTest, TryGetNormalFailsForDegenerateTriangleAndKeepsOu
 	}
 }
 
-// Documented legacy behavior that Space relies on: getNormal() of a degenerate
-// triangle is NOT finite (so isFinite() detects it).
-TYPED_TEST(Triangle3dTypedTest, GetNormalOfDegenerateTriangleIsNonFinite)
+// Phase 4 follow-up: Space now uses tryGetNormal(), so getNormal() of a degenerate
+// triangle is the zero vector instead of NaN (previously Space detected NaN).
+TYPED_TEST(Triangle3dTypedTest, GetNormalOfDegenerateTriangleIsZero)
 {
 	using T = TypeParam;
 	const Vector3d<T> p(1, 1, 1);
-	const auto n = Triangle3d<T>({ p, p, p }).getNormal();
-	EXPECT_FALSE(std::isfinite(n.x) && std::isfinite(n.y) && std::isfinite(n.z));
+	EXPECT_EQ(Vector3d<T>(0, 0, 0), Triangle3d<T>({ p, p, p }).getNormal());
+	const Triangle3d<T> collinear({ Vector3d<T>(0, 0, 0), Vector3d<T>(1, 1, 1), Vector3d<T>(3, 3, 3) });
+	EXPECT_EQ(Vector3d<T>(0, 0, 0), collinear.getNormal());
 }

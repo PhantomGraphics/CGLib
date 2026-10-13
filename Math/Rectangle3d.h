@@ -16,7 +16,8 @@ public:
 
 	Vector3d<T> getPosition(const T u, const T v) const override;
 
-	/// Unit normal. A degenerate rectangle yields NaN components; prefer tryGetNormal().
+	/// Unit normal, or the zero vector for a degenerate rectangle. Use tryGetNormal()
+	/// to tell the cases apart.
 	Vector3d<T> getNormal() const;
 
 	/// Writes the unit normal and returns true; false (out unchanged) when uvec and

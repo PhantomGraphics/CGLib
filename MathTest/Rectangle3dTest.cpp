@@ -56,3 +56,10 @@ TYPED_TEST(Rectangle3dTypedTest, TryGetNormalFailsForDegenerateAxesAndKeepsOut)
 		EXPECT_EQ(sentinel, n);
 	}
 }
+
+TYPED_TEST(Rectangle3dTypedTest, GetNormalOfDegenerateRectangleIsZero)
+{
+	using T = TypeParam;
+	const Rectangle3d<T> r(Vector3d<T>(0, 0, 0), Vector3d<T>(1, 0, 0), Vector3d<T>(2, 0, 0));
+	EXPECT_EQ(Vector3d<T>(0, 0, 0), r.getNormal());
+}

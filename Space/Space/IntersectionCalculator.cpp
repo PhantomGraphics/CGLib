@@ -19,10 +19,10 @@ namespace {
 	template<typename T>
 	bool isInside(const Vector3d<T>& p, const Triangle3d<T>& triangle)
 	{
-		const auto& n = triangle.getNormal();
-		// A zero-area triangle has no normal (normalizing a zero vector gives NaN, and every NaN
-		// comparison below would then pass): such a face contains nothing.
-		if (!GeometryGuards::isFinite(n)) {
+		// A zero-area triangle has no normal (and every NaN comparison below would pass):
+		// such a face contains nothing.
+		Vector3d<T> n;
+		if (!triangle.tryGetNormal(n)) {
 			return false;
 		}
 		const auto& vertices = triangle.getVertices();
@@ -53,8 +53,8 @@ namespace {
 	template<typename T>
 	bool isInside(const Vector3d<T>& p, const Rectangle3d<T>& quad)
 	{
-		const auto& n = quad.getNormal();
-		if (!GeometryGuards::isFinite(n)) {
+		Vector3d<T> n;
+		if (!quad.tryGetNormal(n)) {
 			return false;
 		}
 		const auto p0 = quad.getPosition(0,0);
@@ -137,7 +137,11 @@ std::vector<T> IntersectionCalculator<T>::calculate(const Ray3d<T>& ray, const T
 template<typename T>
 std::vector<T> IntersectionCalculator<T>::calculate(const Ray3d<T>& ray, const Rectangle3d<T>& quad, const T tolerance)
 {
-	const auto& plane = Plane3d<T>(quad.getPosition(0.0, 0.0), quad.getNormal());
+	Vector3d<T> quadNormal;
+	if (!quad.tryGetNormal(quadNormal)) {
+		return {};
+	}
+	const auto& plane = Plane3d<T>(quad.getPosition(0.0, 0.0), quadNormal);
 
 	const auto ps = IntersectionCalculator::calculate(ray, plane, tolerance);
 	std::vector<T> inners;
@@ -227,10 +231,11 @@ std::vector<T> IntersectionCalculator<T>::calculate(const Line3d<T>& line, const
 template<typename T>
 std::vector<T> IntersectionCalculator<T>::calculate(const Line3d<T>& line, const Triangle3d<T>& triangle, const T tolerance)
 {
-	if (!GeometryGuards::isUsable(line) || !GeometryGuards::isFinite(triangle.getNormal())) {
+	Vector3d<T> triangleNormal;
+	if (!GeometryGuards::isUsable(line) || !triangle.tryGetNormal(triangleNormal)) {
 		return {};
 	}
-	const auto& plane = Plane3d<T>(triangle.getVertices()[0], triangle.getNormal());
+	const auto& plane = Plane3d<T>(triangle.getVertices()[0], triangleNormal);
 	const auto ps = IntersectionCalculator::calculate(line, plane, tolerance);
 	std::vector<T> inners;
 	for (auto p : ps) {

@@ -21,7 +21,14 @@ public:
 
 	Vector3d<T> getPosition(const T u, const T v, const T w) const override;
 
+	/// Unit normal normalize(position - center) at (u, v) (a negative radius therefore
+	/// gives the inward direction). Returns the zero vector when the sphere is degenerate
+	/// (radius 0 or non-finite); use tryGetNormal() to tell the cases apart.
 	Vector3d<T> getNormal(const T u, const T v) const;// const override;
+
+	/// Writes the unit normal to `out` and returns true; returns false and leaves `out`
+	/// unchanged for a zero-radius or non-finite sphere.
+	bool tryGetNormal(const T u, const T v, Vector3d<T>& out) const;
 
 	Vector3d<T> getCenter() const { return center; }
 
