@@ -10,28 +10,13 @@
 #include "VulkanPipeline.h"
 
 #include "GizmoGeometry.h"
+#include "GizmoTypes.h"
 
 #include <array>
 #include <optional>
 #include <vector>
 
 namespace Phantom::Gizmo {
-
-enum class GizmoMode { Translate, Rotate, Scale };
-
-// Transform of the manipulated object
-struct GizmoTransform {
-    std::array<float, 3> translation      = {0.f, 0.f, 0.f};
-    std::array<float, 3> rotationEulerDeg = {0.f, 0.f, 0.f};
-    std::array<float, 3> scale            = {1.f, 1.f, 1.f};
-};
-
-struct GizmoMouseState {
-    glm::vec2 pos          = {0.f, 0.f};
-    bool      leftDown     = false;
-    bool      leftPressed  = false;
-    bool      leftReleased = false;
-};
 
 // GizmoCameraUBO — matches gizmo.vert set=0 binding=0
 struct GizmoCameraUBO {

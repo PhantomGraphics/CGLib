@@ -28,7 +28,7 @@ TARGETS = {
 }
 MODULE_OF_TARGET = {t: m for t, (m, _) in TARGETS.items()}
 # Modules that live in a Core's directory tree but are not CPU cores (never allowed).
-GPU_MODULES = {"Renderer", "VkAppBase", "VulkanGraphics", "UIWidgets", "GltfRenderer", "Gizmo", "Input", "Particles", "PostProcess"}
+GPU_MODULES = {"Renderer", "VkAppBase", "VulkanGraphics", "UIWidgets", "GltfRenderer", "Editor", "Input", "Particles", "PostProcess"}
 # Util is header-only and travels with the repo include root.
 HEADER_ONLY = {"Util"}
 
