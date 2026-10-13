@@ -40,7 +40,7 @@ if(NOT TARGET SpaceDemoCore)
         ${SPACE_ROOT}/SpaceView/World.cpp
     )
     # World.h includes <glm/glm.hpp> directly (the Math headers reach glm through a relative path).
-    target_include_directories(SpaceDemoCore PUBLIC ${REPO_ROOT} ${CGLIB_ROOT}/ThirdParty/glm-0.9.9.8)
+    target_include_directories(SpaceDemoCore PUBLIC ${REPO_ROOT} ${CGLIB_ROOT}/ThirdParty/glm)
     target_link_libraries(SpaceDemoCore PUBLIC SpaceCore MathCore)
     target_compile_options(SpaceDemoCore PRIVATE ${PHANTOM_WARN_FLAGS})
     target_compile_features(SpaceDemoCore PUBLIC cxx_std_20)

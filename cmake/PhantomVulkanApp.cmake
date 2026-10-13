@@ -120,7 +120,7 @@ function(phantom_add_vulkangraphics_core)
     target_include_directories(VulkanGraphicsCore PUBLIC
         ${CGLIB_ROOT}
         ${PHANTOM_VULKAN_INCLUDE_DIR}
-        ${CGLIB_ROOT}/ThirdParty/glm-0.9.9.8
+        ${CGLIB_ROOT}/ThirdParty/glm
         ${CGLIB_ROOT}/ThirdParty/VulkanMemoryAllocator
     )
     target_compile_options(VulkanGraphicsCore PRIVATE ${PHANTOM_WARN_FLAGS})
@@ -233,7 +233,7 @@ function(phantom_add_vkappbase_core)
     target_include_directories(VkAppBaseCore PUBLIC
         ${REPO_ROOT}
         ${PHANTOM_VULKAN_INCLUDE_DIR}
-        ${CGLIB_ROOT}/ThirdParty/glm-0.9.9.8
+        ${CGLIB_ROOT}/ThirdParty/glm
         ${CGLIB_ROOT}/ThirdParty/glfw-3.3.8/include
         ${CGLIB_ROOT}/VulkanGraphics
         ${CGLIB_ROOT}/ThirdParty/imgui
@@ -282,7 +282,7 @@ function(phantom_add_vkrenderer_core)
         ${REPO_ROOT}
         ${CGLIB_ROOT}/ThirdParty/imgui
         ${PHANTOM_VULKAN_INCLUDE_DIR}
-        ${CGLIB_ROOT}/ThirdParty/glm-0.9.9.8
+        ${CGLIB_ROOT}/ThirdParty/glm
         ${CGLIB_ROOT}/ThirdParty/glfw-3.3.8/include
         ${CGLIB_ROOT}/VkAppBase
         ${CGLIB_ROOT}/VulkanGraphics
@@ -347,7 +347,7 @@ function(phantom_add_gltfrenderer_core)
     )
     target_include_directories(GltfRendererCore PUBLIC
         ${REPO_ROOT}
-        ${CGLIB_ROOT}/ThirdParty/glm-0.9.9.8
+        ${CGLIB_ROOT}/ThirdParty/glm
         ${CGLIB_ROOT}/ThirdParty/nlohmann
         ${CGLIB_ROOT}/ThirdParty/stb
         ${CGLIB_ROOT}/ThirdParty/glfw-3.3.8/include
@@ -389,7 +389,7 @@ function(phantom_add_volumeraymarch_core)
     )
     target_include_directories(VolumeRaymarch PUBLIC
         ${REPO_ROOT}
-        ${CGLIB_ROOT}/ThirdParty/glm-0.9.9.8
+        ${CGLIB_ROOT}/ThirdParty/glm
         ${PHANTOM_VULKAN_INCLUDE_DIR}
     )
     target_link_libraries(VolumeRaymarch PUBLIC VulkanGraphicsCore VolumeCore)
@@ -413,7 +413,7 @@ function(phantom_add_volumerenderer_core)
     )
     target_include_directories(VolumeRenderer PUBLIC
         ${REPO_ROOT}
-        ${CGLIB_ROOT}/ThirdParty/glm-0.9.9.8
+        ${CGLIB_ROOT}/ThirdParty/glm
         ${PHANTOM_VULKAN_INCLUDE_DIR}
     )
     target_link_libraries(VolumeRenderer PUBLIC VulkanGraphicsCore VolumeCore)

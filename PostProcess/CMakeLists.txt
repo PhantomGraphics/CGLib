@@ -70,7 +70,7 @@ add_library(PostProcessCore STATIC
 )
 target_include_directories(PostProcessCore PRIVATE
     ${POSTPROCESS_VULKAN_INCLUDE_DIR}
-    ${CGLIB_ROOT}/ThirdParty/glm-0.9.9.8
+    ${CGLIB_ROOT}/ThirdParty/glm
     ${CGLIB_ROOT}/VulkanGraphics
 )
 target_compile_options(PostProcessCore PRIVATE ${POSTPROCESS_WARN_FLAGS})

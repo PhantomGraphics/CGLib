@@ -2,7 +2,7 @@
 
 #include "../Math/pi.h"
 
-#include "../ThirdParty/glm-0.9.9.8/glm/gtc/matrix_transform.hpp"
+#include "../ThirdParty/glm/glm/gtc/matrix_transform.hpp"
 
 #include <cmath>
 
