@@ -1,7 +1,7 @@
 #include "Cone3d.h"
 #include "pi.h"
 
-using namespace Phantom::Math;
+namespace Phantom::Math {
 
 template<typename T>
 Cone3d<T>::Cone3d() :
@@ -28,5 +28,7 @@ Vector3d<T> Cone3d<T>::getPosition(const T u, const T v) const
 	return bottom + uu + vv + ww;
 }
 
-template class Phantom::Math::Cone3d<float>;
-template class Phantom::Math::Cone3d<double>;
+template class Cone3d<float>;
+template class Cone3d<double>;
+
+} // namespace Phantom::Math

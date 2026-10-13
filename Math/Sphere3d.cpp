@@ -5,7 +5,7 @@
 //#include <numeric>
 #include "pi.h"
 
-using namespace Phantom::Math;
+namespace Phantom::Math {
 
 template<typename T>
 Sphere3d<T>::Sphere3d() :
@@ -62,9 +62,11 @@ template<typename T>
 bool Sphere3d<T>::contains(const Vector3d<T>& p, const T tolerance) const
 {
 	const auto r = radius + tolerance;
-	return ::getDistanceSquared(p, center) < r * r;
+	return getDistanceSquared(p, center) < r * r;
 }
 
 
-template class Phantom::Math::Sphere3d<float>;
-template class Phantom::Math::Sphere3d<double>;
+template class Sphere3d<float>;
+template class Sphere3d<double>;
+
+} // namespace Phantom::Math

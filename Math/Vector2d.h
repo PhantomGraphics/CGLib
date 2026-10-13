@@ -36,5 +36,13 @@ namespace Phantom {
 			return std::sqrt(getDistanceSquared(lhs, rhs));
 		}
 
+		/// Same contract as the Vector3d overload: absolute distance, strict `<`,
+		/// tolerance in world units.
+		template<typename T>
+		static bool areSame(const Vector2d<T>& lhs, const Vector2d<T>& rhs, const T tolerance)
+		{
+			return getDistanceSquared(lhs, rhs) < tolerance * tolerance;
+		}
+
 	}
 }
