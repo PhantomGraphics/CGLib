@@ -1,0 +1,85 @@
+{
+  "name": "modifiers",
+  "steps": [
+    {
+      "label": "Box",
+      "command": "NewMesh:box",
+      "expect": "OK"
+    },
+    {
+      "label": "Subdivide once",
+      "command": "AddModifier:subdivision levels=1",
+      "expect": "OK"
+    },
+    {
+      "label": "One modifier",
+      "command": "GetModifierCount",
+      "expect": "Modifiers:1"
+    },
+    {
+      "label": "The editing mesh is untouched",
+      "command": "GetCounts",
+      "expect": "Counts:8,12,6"
+    },
+    {
+      "label": "The result is a quad mesh",
+      "command": "GetEvaluatedCounts",
+      "expect": "Counts:26,48,24"
+    },
+    {
+      "label": "Levels are range checked",
+      "command": "AddModifier:subdivision levels=9",
+      "expect_prefix": "Error:"
+    },
+    {
+      "label": "Bad mirror axis",
+      "command": "AddModifier:mirror axis=q",
+      "expect_prefix": "Error:"
+    },
+    {
+      "label": "Still one modifier",
+      "command": "GetModifierCount",
+      "expect": "Modifiers:1"
+    },
+    {
+      "label": "Bake the stack",
+      "command": "ApplyModifiers",
+      "expect": "OK"
+    },
+    {
+      "label": "The base mesh is the subdivided mesh",
+      "command": "GetCounts",
+      "expect": "Counts:26,48,24"
+    },
+    {
+      "label": "No modifiers left",
+      "command": "GetModifierCount",
+      "expect": "Modifiers:0"
+    },
+    {
+      "label": "Undo the bake",
+      "command": "Undo",
+      "expect": "OK"
+    },
+    {
+      "label": "Box again",
+      "command": "GetCounts",
+      "expect": "Counts:8,12,6"
+    },
+    {
+      "label": "With its modifier",
+      "command": "GetModifierCount",
+      "expect": "Modifiers:1"
+    },
+    {
+      "label": "Clear them",
+      "command": "ClearModifiers",
+      "expect": "OK"
+    },
+    {
+      "label": "Evaluated equals base",
+      "command": "GetEvaluatedCounts",
+      "expect": "Counts:8,12,6"
+    }
+  ]
+}

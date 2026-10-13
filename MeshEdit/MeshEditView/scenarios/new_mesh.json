@@ -1,0 +1,40 @@
+{
+  "name": "new_mesh",
+  "steps": [
+    {
+      "label": "Box",
+      "command": "NewMesh:box",
+      "expect": "OK"
+    },
+    {
+      "label": "Box has 8 vertices, 12 edges, 6 faces",
+      "command": "GetCounts",
+      "expect": "Counts:8,12,6"
+    },
+    {
+      "label": "Divided plane",
+      "command": "NewMesh:plane divs=2",
+      "expect": "OK"
+    },
+    {
+      "label": "3x3 vertices, 12 edges, 4 faces",
+      "command": "GetCounts",
+      "expect": "Counts:9,12,4"
+    },
+    {
+      "label": "Unknown shape is refused",
+      "command": "NewMesh:cube",
+      "expect_prefix": "Error:"
+    },
+    {
+      "label": "divs is range checked",
+      "command": "NewMesh:plane divs=0",
+      "expect_prefix": "Error:"
+    },
+    {
+      "label": "The mesh is untouched by a refused command",
+      "command": "GetCounts",
+      "expect": "Counts:9,12,4"
+    }
+  ]
+}

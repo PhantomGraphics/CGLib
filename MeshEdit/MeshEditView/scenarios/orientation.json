@@ -1,0 +1,25 @@
+{
+  "name": "orientation",
+  "steps": [
+    {
+      "label": "Box",
+      "command": "NewMesh:box",
+      "expect": "OK"
+    },
+    {
+      "label": "Subdivide",
+      "command": "AddModifier:subdivision levels=1",
+      "expect": "OK"
+    },
+    {
+      "label": "Orientation view",
+      "command": "SetDisplay:orientation=1 normals=1",
+      "expect": "OK"
+    },
+    {
+      "label": "View",
+      "command": "SetCamera:1.0,0.8,3.0",
+      "expect": "OK"
+    }
+  ]
+}

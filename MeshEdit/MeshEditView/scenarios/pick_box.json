@@ -1,0 +1,87 @@
+{
+  "name": "pick_box",
+  "steps": [
+    {
+      "label": "Box",
+      "command": "NewMesh:box",
+      "expect": "OK"
+    },
+    {
+      "label": "Fixed view",
+      "command": "SetCamera:1.2,0.7,3.2",
+      "expect": "OK"
+    },
+    {
+      "label": "Picking needs edit mode",
+      "command": "Pick:640,360",
+      "expect_prefix": "Error:"
+    },
+    {
+      "label": "Edit mode",
+      "command": "SetMode:edit",
+      "expect": "OK"
+    },
+    {
+      "label": "Vertices",
+      "command": "SelectElement:vertex",
+      "expect": "OK"
+    },
+    {
+      "label": "Where is vertex 6?",
+      "command": "ProjectVertex:6",
+      "expect_prefix": "Pixel:",
+      "store_as": "px",
+      "strip_prefix": "Pixel:"
+    },
+    {
+      "label": "Click on it",
+      "command": "Pick:${px}",
+      "expect": "OK"
+    },
+    {
+      "label": "Vertex 6 is selected",
+      "command": "GetSelection",
+      "expect": "Selection:vertex:1:6"
+    },
+    {
+      "label": "Click on empty space clears a replace selection",
+      "command": "Pick:20,20",
+      "expect": "OK"
+    },
+    {
+      "label": "Nothing selected",
+      "command": "GetSelection",
+      "expect": "Selection:vertex:0:"
+    },
+    {
+      "label": "See-through selection",
+      "command": "SetXray:1",
+      "expect": "OK"
+    },
+    {
+      "label": "A window around everything",
+      "command": "BoxSelect:0,0,1280,720",
+      "expect": "OK"
+    },
+    {
+      "label": "All eight vertices",
+      "command": "GetSelection",
+      "expect": "Selection:vertex:8:0,1,2,3,4,5,6,7"
+    },
+    {
+      "label": "Face elements",
+      "command": "SelectElement:face",
+      "expect": "OK"
+    },
+    {
+      "label": "Window selection of faces needs all their vertices inside",
+      "command": "BoxSelect:0,0,1280,720",
+      "expect": "OK"
+    },
+    {
+      "label": "All six faces",
+      "command": "GetSelection",
+      "expect": "Selection:face:6:0,1,2,3,4,5"
+    }
+  ]
+}

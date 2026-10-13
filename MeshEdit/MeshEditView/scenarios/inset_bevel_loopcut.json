@@ -1,0 +1,100 @@
+{
+  "name": "inset_bevel_loopcut",
+  "steps": [
+    {
+      "label": "Box",
+      "command": "NewMesh:box",
+      "expect": "OK"
+    },
+    {
+      "label": "Edit mode",
+      "command": "SetMode:edit",
+      "expect": "OK"
+    },
+    {
+      "label": "Faces",
+      "command": "SelectElement:face",
+      "expect": "OK"
+    },
+    {
+      "label": "Top face",
+      "command": "Select:2",
+      "expect": "OK"
+    },
+    {
+      "label": "Inset it",
+      "command": "Inset:thickness=0.1",
+      "expect": "OK"
+    },
+    {
+      "label": "A ring of four quads was added",
+      "command": "GetCounts",
+      "expect": "Counts:12,20,10"
+    },
+    {
+      "label": "Thickness must be given",
+      "command": "Inset:depth=0.1",
+      "expect_prefix": "Error:"
+    },
+    {
+      "label": "Back to the box",
+      "command": "Undo",
+      "expect": "OK"
+    },
+    {
+      "label": "Edges",
+      "command": "SelectElement:edge",
+      "expect": "OK"
+    },
+    {
+      "label": "First edge",
+      "command": "Select:0",
+      "expect": "OK"
+    },
+    {
+      "label": "Loop cut through the edge ring",
+      "command": "LoopCut:factor=0.5",
+      "expect": "OK"
+    },
+    {
+      "label": "Four new vertices, four faces split",
+      "command": "GetCounts",
+      "expect": "Counts:12,20,10"
+    },
+    {
+      "label": "The new loop is selected as vertices",
+      "command": "GetSelection",
+      "expect_prefix": "Selection:vertex:4:"
+    },
+    {
+      "label": "Undo the cut",
+      "command": "Undo",
+      "expect": "OK"
+    },
+    {
+      "label": "Edges again",
+      "command": "SelectElement:edge",
+      "expect": "OK"
+    },
+    {
+      "label": "Select an edge",
+      "command": "Select:0",
+      "expect": "OK"
+    },
+    {
+      "label": "Bevel it",
+      "command": "Bevel:width=0.1",
+      "expect": "OK"
+    },
+    {
+      "label": "The mesh changed",
+      "command": "GetCounts",
+      "expect_not": "Counts:8,12,6"
+    },
+    {
+      "label": "The bevel faces are selected",
+      "command": "GetSelection",
+      "expect_prefix": "Selection:face:"
+    }
+  ]
+}
