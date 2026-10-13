@@ -1,4 +1,7 @@
 // Uses only the installed package: headers via "CGLib/...", libraries via CGLib::<Component>.
+#include "CGLib/Math/Ellipse3d.h"
+#include "CGLib/Math/SafeNormalize.h"
+#include "CGLib/Math/Statistics.h"
 #include "CGLib/Math/Vector3d.h"
 #include "CGLib/Numerics/Numerics/SVD3d.h"
 #include "CGLib/Space/Space/BVH.h"
@@ -22,6 +25,16 @@ int main()
 
     const Phantom::Math::Vector3df v(3.0f, 4.0f, 0.0f);
     check(Phantom::Math::getLength(v) > 4.9f, "Math");
+
+    // Math contracts: try* APIs fail without touching `out`, and succeed on valid input.
+    Phantom::Math::Vector3df normal(9.0f, 9.0f, 9.0f);
+    const Phantom::Math::Ellipse3df flat({0, 0, 0}, {2, 0, 0}, {0, 3, 0});
+    const Phantom::Math::Ellipse3df degenerate({0, 0, 0}, {1, 0, 0}, {2, 0, 0});
+    check(!degenerate.tryGetNormal(normal) && normal.x == 9.0f, "Math tryGetNormal failure keeps out");
+    check(flat.tryGetNormal(normal) && normal.z > 0.999f, "Math tryGetNormal");
+    float mean = 0.0f;
+    check(!Phantom::Math::Statistics<float>().tryGetAverage(mean), "Math Statistics empty fails");
+    check(Phantom::Math::Statistics<float>({1.0f, 3.0f}).tryGetAverage(mean) && mean == 2.0f, "Math Statistics average");
 
     Phantom::Numerics::SVD3d svd;
     Phantom::Math::Matrix3dd identity(1.0);
