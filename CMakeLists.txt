@@ -88,6 +88,22 @@ file(GLOB MATHTEST_SOURCES CONFIGURE_DEPENDS ${CGLIB_ROOT}/MathTest/*.cpp)
 list(FILTER MATHTEST_SOURCES EXCLUDE REGEX "pch\\.cpp$")
 cglib_add_test(MathTest SOURCES ${MATHTEST_SOURCES} INCLUDES ${CGLIB_ROOT}/MathTest LINK MathCore)
 
+# Every public Math header must compile on its own (no reliance on include order or a
+# precompiled header). One generated TU per header; nothing is linked or run.
+file(GLOB _math_headers CONFIGURE_DEPENDS RELATIVE ${CGLIB_ROOT}/Math ${CGLIB_ROOT}/Math/*.h)
+list(FILTER _math_headers EXCLUDE REGEX "^(pch|framework)[.]h$")
+set(_math_header_tus)
+foreach(_h IN LISTS _math_headers)
+    set(_tu ${CMAKE_CURRENT_BINARY_DIR}/MathHeaderCheck/${_h}.cpp)
+    set(MATH_HEADER ${_h})
+    configure_file(${CGLIB_ROOT}/cmake/MathHeaderCheck.cpp.in ${_tu} @ONLY)
+    list(APPEND _math_header_tus ${_tu})
+endforeach()
+add_library(MathHeaderCheck OBJECT ${_math_header_tus})
+target_link_libraries(MathHeaderCheck PRIVATE MathCore)
+set_target_properties(MathHeaderCheck PROPERTIES DISABLE_PRECOMPILE_HEADERS ON)
+target_compile_options(MathHeaderCheck PRIVATE ${PHANTOM_WARN_FLAGS})
+
 # Graphics (Phantom::Graphics)
 phantom_add_graphics_core()
 file(GLOB GRAPHICSTEST_SOURCES CONFIGURE_DEPENDS ${CGLIB_ROOT}/GraphicsTest/*.cpp)

@@ -33,3 +33,13 @@ Existing coverage includes vectors, matrices, transformations, `Box3d`,
 
 All public primitives have nominal, boundary, degenerate, and precision-parity
 coverage, and the suite passes deterministically in Debug and Release builds.
+
+## Status (2026-10-13)
+
+Items 1-4 of "Remaining priorities" are done for `Cylinder3d`, `Ellipse3d`,
+`Ellipsoid3d`, `Cone3d`, `Capsule3d`, `Triangle3d`, `Rectangle3d`, `Torus3d`,
+`Statistics` and the shared invariants (`MathInvariantTest.cpp`), as typed
+`float` / `double` tests. Shared tolerances live in `PrimitiveTestSupport.h`
+(item 5). Still open: typed parity for the older suites (`Box2d`, `Circle*`,
+`Line*`, `Plane3d`, `Ray3d`, `Sphere3d`, `Gaussian`, `SphericalHarmonics`).
+See `docs/todo/PLAN_math_refactoring.md` in the superproject.
