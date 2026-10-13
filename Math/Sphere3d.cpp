@@ -1,5 +1,6 @@
 #include "Sphere3d.h"
 #include "Box3d.h"
+#include "SafeNormalize.h"
 
 //#include <numeric>
 #include "pi.h"
@@ -36,10 +37,17 @@ Vector3d<T> Sphere3d<T>::getPosition(const T u, const T v, const T w) const
 }
 
 template<typename T>
+bool Sphere3d<T>::tryGetNormal(const T u, const T v, Vector3d<T>& out) const
+{
+	return tryNormalize(getPosition(u, v, 1.0) - center, T(0), out);
+}
+
+template<typename T>
 Vector3d<T> Sphere3d<T>::getNormal(const T u, const T v) const
 {
-	const auto& pos = getPosition(u, v, 1.0);
-	return glm::normalize(pos - center);
+	Vector3d<T> n(0, 0, 0);
+	tryGetNormal(u, v, n);
+	return n;
 }
 
 template<typename T>
