@@ -1,5 +1,8 @@
 #include "Ellipse3d.h"
+#include "SafeNormalize.h"
 #include "pi.h"
+
+#include <cmath>
 
 using namespace Phantom::Math;
 
@@ -39,11 +42,17 @@ Vector3d<T> Ellipse3d<T>::getPosition(const T u, const T v) const
 }
 
 template<typename T>
+bool Ellipse3d<T>::tryGetNormal(Vector3d<T>& out) const
+{
+	return tryNormalizedCross(uvec, vvec, out);
+}
+
+template<typename T>
 Vector3d<T> Ellipse3d<T>::getNormal() const
 {
-	const auto u = glm::normalize(uvec);
-	const auto v = glm::normalize(vvec);
-	return glm::cross(uvec,vvec);
+	Vector3d<T> n(0, 0, 0);
+	tryGetNormal(n);
+	return n;
 }
 
 template class Phantom::Math::Ellipse3d<float>;

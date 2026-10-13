@@ -1,4 +1,5 @@
 #include "Capsule3d.h"
+#include "SafeNormalize.h"
 #include "pi.h"
 
 using namespace Phantom::Math;
@@ -26,7 +27,13 @@ Vector3d<T> Capsule3d<T>::getPosition(const T u, const T v) const
 	const auto radial = std::cos(angle) * uvec + std::sin(angle) * vvec;
 
 	const auto radius = getLength(uvec);
-	const auto wDir = wvec / getLength(wvec);
+	// Pole direction. A zero-length or non-finite axis degenerates the capsule to a
+	// sphere around `bottom`; pick the plane normal (or zero) so results stay finite.
+	Vector3d<T> wDir(0, 0, 0);
+	if (!tryNormalize(wvec, T(0), wDir)) {
+		wDir = Vector3d<T>(0, 0, 0);
+		tryNormalizedCross(uvec, vvec, wDir);
+	}
 	const auto top = bottom + wvec;
 
 	constexpr T third = T(1) / T(3);

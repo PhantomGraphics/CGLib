@@ -1,5 +1,7 @@
 #include "gtest/gtest.h"
 
+#include <limits>
+
 #include "../Math/Ellipse3d.h"
 #include "PrimitiveTestSupport.h"
 
@@ -79,20 +81,17 @@ TYPED_TEST(Ellipse3dTypedTest, ZeroAxesCollapseToCenter)
 	EXPECT_TRUE(::areSame(Vector3d<T>(1, 2, 3), e.getPosition(T(0.3)), tol));
 }
 
-// Current behavior (Phase 0 baseline): getNormal() returns the raw cross product,
-// not a unit vector. Phase 2 changes this on purpose; update this test then.
-TYPED_TEST(Ellipse3dTypedTest, GetNormalCurrentlyReturnsUnnormalizedCross)
+// Phase 0 baseline was the unnormalized cross (0,0,6); Phase 2 made it a unit normal.
+TYPED_TEST(Ellipse3dTypedTest, GetNormalIsNormalizedCross)
 {
 	using T = TypeParam;
 	const T tol = primitiveTolerance<T>();
 	const Ellipse3d<T> e(Vector3d<T>(0, 0, 0), Vector3d<T>(2, 0, 0), Vector3d<T>(0, 3, 0));
-	EXPECT_TRUE(::areSame(Vector3d<T>(0, 0, 6), e.getNormal(), tol));
+	EXPECT_TRUE(::areSame(Vector3d<T>(0, 0, 1), e.getNormal(), tol));
 }
 
-// Target contract for Phase 2: a valid ellipse yields a unit normal perpendicular
-// to both axes. Disabled until Phase 2 fixes getNormal(); it must FAIL today
-// (run with --gtest_also_run_disabled_tests to confirm).
-TYPED_TEST(Ellipse3dTypedTest, DISABLED_GetNormalIsUnitAndPerpendicular)
+// A valid ellipse yields a unit normal perpendicular to both axes.
+TYPED_TEST(Ellipse3dTypedTest, GetNormalIsUnitAndPerpendicular)
 {
 	using T = TypeParam;
 	const T tol = primitiveTolerance<T>();
@@ -101,5 +100,61 @@ TYPED_TEST(Ellipse3dTypedTest, DISABLED_GetNormalIsUnitAndPerpendicular)
 	EXPECT_NEAR(T(1), getLength(n), tol);
 	EXPECT_NEAR(T(0), glm::dot(n, e.getUVec()), tol);
 	EXPECT_NEAR(T(0), glm::dot(n, e.getVVec()), tol);
+	EXPECT_TRUE(::areSame(Vector3d<T>(0, 0, 1), n, tol));
+}
+
+// Orientation follows cross(uvec, vvec): swapping the axes flips the normal.
+TYPED_TEST(Ellipse3dTypedTest, GetNormalFlipsWhenAxesSwap)
+{
+	using T = TypeParam;
+	const T tol = primitiveTolerance<T>();
+	const Ellipse3d<T> e(Vector3d<T>(0, 0, 0), Vector3d<T>(0, 3, 0), Vector3d<T>(2, 0, 0));
+	EXPECT_TRUE(::areSame(Vector3d<T>(0, 0, -1), e.getNormal(), tol));
+}
+
+TYPED_TEST(Ellipse3dTypedTest, TryGetNormalSucceedsForValidEllipse)
+{
+	using T = TypeParam;
+	const T tol = primitiveTolerance<T>();
+	const Ellipse3d<T> e(Vector3d<T>(5, 5, 5), Vector3d<T>(2, 0, 0), Vector3d<T>(0, 0, 3));
+	Vector3d<T> n(9, 9, 9);
+	ASSERT_TRUE(e.tryGetNormal(n));
+	EXPECT_TRUE(::areSame(Vector3d<T>(0, -1, 0), n, tol));
+}
+
+// Failure must leave `out` untouched; getNormal() then returns the zero vector.
+TYPED_TEST(Ellipse3dTypedTest, TryGetNormalFailsForDegenerateAxes)
+{
+	using T = TypeParam;
+	const T nan = std::numeric_limits<T>::quiet_NaN();
+	const T inf = std::numeric_limits<T>::infinity();
+	const Vector3d<T> zero(0, 0, 0);
+	const Vector3d<T> x(1, 0, 0);
+	const Ellipse3d<T> cases[] = {
+		Ellipse3d<T>(zero, zero, x),                              // zero uvec
+		Ellipse3d<T>(zero, x, zero),                              // zero vvec
+		Ellipse3d<T>(zero, x, Vector3d<T>(-3, 0, 0)),             // antiparallel
+		Ellipse3d<T>(zero, x, Vector3d<T>(2, 0, 0)),              // parallel
+		Ellipse3d<T>(zero, Vector3d<T>(nan, 0, 0), Vector3d<T>(0, 1, 0)),
+		Ellipse3d<T>(zero, Vector3d<T>(inf, 0, 0), Vector3d<T>(0, 1, 0)),
+	};
+	for (const auto& e : cases) {
+		const Vector3d<T> sentinel(7, 8, 9);
+		Vector3d<T> n = sentinel;
+		EXPECT_FALSE(e.tryGetNormal(n));
+		EXPECT_EQ(sentinel, n);
+		const auto fallback = e.getNormal();
+		EXPECT_EQ(Vector3d<T>(0, 0, 0), fallback);
+	}
+}
+
+// Tiny but valid axes are scale-independent: the normal is still found.
+TYPED_TEST(Ellipse3dTypedTest, TryGetNormalIsScaleInvariant)
+{
+	using T = TypeParam;
+	const T tol = primitiveTolerance<T>();
+	const Ellipse3d<T> e(Vector3d<T>(0, 0, 0), Vector3d<T>(1.0e-3, 0, 0), Vector3d<T>(0, 1.0e-3, 0));
+	Vector3d<T> n;
+	ASSERT_TRUE(e.tryGetNormal(n));
 	EXPECT_TRUE(::areSame(Vector3d<T>(0, 0, 1), n, tol));
 }

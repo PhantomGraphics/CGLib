@@ -25,7 +25,14 @@ public:
 
 	Vector3d<T> getVVec() const { return vvec; }
 
+	/// Unit normal of the ellipse plane, normalize(cross(uvec, vvec)).
+	/// For a degenerate ellipse (zero-length or parallel axes, non-finite values)
+	/// returns the zero vector; use tryGetNormal() to detect that case.
 	Vector3d<T> getNormal() const;
+
+	/// Writes the unit normal to `out` and returns true. Returns false and leaves
+	/// `out` unchanged when the axes are zero-length, (nearly) parallel or non-finite.
+	bool tryGetNormal(Vector3d<T>& out) const;
 
 private:
 	Vector3d<T> center;

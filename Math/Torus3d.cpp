@@ -1,4 +1,5 @@
 #include "Torus3d.h"
+#include "SafeNormalize.h"
 #include "pi.h"
 
 using namespace Phantom::Math;
@@ -11,10 +12,14 @@ Torus3d<T>::Torus3d() :
 template<typename T>
 Torus3d<T>::Torus3d(const Vector3d<T>& center, const Vector3d<T>& normal, const T majorRadius, const T minorRadius) :
 	center(center),
-	normal(glm::normalize(normal)),
+	normal(0, 1, 0),
 	majorRadius(majorRadius),
 	minorRadius(minorRadius)
-{}
+{
+	// A zero-length or non-finite axis falls back to +Y (the default torus axis)
+	// instead of storing NaN.
+	tryNormalize(normal, T(0), this->normal);
+}
 
 template<typename T>
 Vector3d<T> Torus3d<T>::getPosition(const T u, const T v) const
