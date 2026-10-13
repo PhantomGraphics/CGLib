@@ -2,7 +2,7 @@
 
 #include "pi.h"
 
-using namespace Phantom::Math;
+namespace Phantom::Math {
 
 template<typename T>
 Circle2d<T>::Circle2d() :
@@ -28,5 +28,7 @@ Vector2d<T> Circle2d<T>::getPosition(const T u) const
 	return Vector2d<T>(x, y);
 }
 
-template class Phantom::Math::Circle2d<float>;
-template class Phantom::Math::Circle2d<double>;
+template class Circle2d<float>;
+template class Circle2d<double>;
+
+} // namespace Phantom::Math

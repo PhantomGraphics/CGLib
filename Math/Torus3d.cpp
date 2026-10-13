@@ -2,7 +2,7 @@
 #include "SafeNormalize.h"
 #include "pi.h"
 
-using namespace Phantom::Math;
+namespace Phantom::Math {
 
 template<typename T>
 Torus3d<T>::Torus3d() :
@@ -37,5 +37,7 @@ Vector3d<T> Torus3d<T>::getPosition(const T u, const T v) const
 	return ringPosition + minorRadius * (std::cos(av) * radial + std::sin(av) * normal);
 }
 
-template class Phantom::Math::Torus3d<float>;
-template class Phantom::Math::Torus3d<double>;
+template class Torus3d<float>;
+template class Torus3d<double>;
+
+} // namespace Phantom::Math

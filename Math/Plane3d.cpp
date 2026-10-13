@@ -1,6 +1,6 @@
 #include "Plane3d.h"
 
-using namespace Phantom::Math;
+namespace Phantom::Math {
 
 template<typename T>
 Plane3d<T>::Plane3d() :
@@ -49,5 +49,7 @@ double Plane3d::calculateD() const
 }
 */
 
-template class Phantom::Math::Plane3d<float>;
-template class Phantom::Math::Plane3d<double>;
+template class Plane3d<float>;
+template class Plane3d<double>;
+
+} // namespace Phantom::Math

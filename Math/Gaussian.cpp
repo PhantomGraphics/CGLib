@@ -1,7 +1,7 @@
 #include "Gaussian.h"
 #include "pi.h"
 
-using namespace Phantom::Math;
+namespace Phantom::Math {
 
 Gaussian::Gaussian(const float a, const float b, const float c) :
 	a(a),
@@ -31,3 +31,4 @@ Gaussian Gaussian::createNormalDistributionFunc(const float mu, const float tau)
 	return Gaussian(a, b, c);
 }
 
+} // namespace Phantom::Math

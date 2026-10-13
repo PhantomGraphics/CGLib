@@ -2,7 +2,7 @@
 
 #include <numeric>
 
-using namespace Phantom::Math;
+namespace Phantom::Math {
 
 template<typename T>
 Box3d<T>::Box3d() :
@@ -122,5 +122,7 @@ bool Box3d<T>::isSame(const Box3d<T>& rhs, const T tolerance) const
 }
 
 
-template class Phantom::Math::Box3d<float>;
-template class Phantom::Math::Box3d<double>;
+template class Box3d<float>;
+template class Box3d<double>;
+
+} // namespace Phantom::Math

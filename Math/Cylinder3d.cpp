@@ -1,7 +1,7 @@
 #include "Cylinder3d.h"
 #include "pi.h"
 
-using namespace Phantom::Math;
+namespace Phantom::Math {
 
 template<typename T>
 Cylinder3d<T>::Cylinder3d() :
@@ -27,5 +27,7 @@ Vector3d<T> Cylinder3d<T>::getPosition(const T u, const T v) const
 	return bottom + uu + vv + ww;
 }
 
-template class Phantom::Math::Cylinder3d<float>;
-template class Phantom::Math::Cylinder3d<double>;
+template class Cylinder3d<float>;
+template class Cylinder3d<double>;
+
+} // namespace Phantom::Math

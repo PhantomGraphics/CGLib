@@ -2,7 +2,7 @@
 
 #include <cmath>
 
-using namespace Phantom::Math;
+namespace Phantom::Math {
 
 template<typename T>
 T Statistics<T>::getAverage() const
@@ -86,5 +86,7 @@ bool Statistics<T>::tryGetStandardDeviation(T& out) const
 	return true;
 }
 
-template class Phantom::Math::Statistics<float>;
-template class Phantom::Math::Statistics<double>;
+template class Statistics<float>;
+template class Statistics<double>;
+
+} // namespace Phantom::Math

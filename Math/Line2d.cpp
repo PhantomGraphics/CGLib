@@ -1,6 +1,6 @@
 #include "Line2d.h"
 
-using namespace Phantom::Math;
+namespace Phantom::Math {
 
 template<typename T>
 Line2d<T>::Line2d() :
@@ -16,5 +16,7 @@ Line2d<T>::Line2d(const Vector2d<T>& start, const Vector2d<T>& end) :
 {
 }
 
-template class Phantom::Math::Line2d<float>;
-template class Phantom::Math::Line2d<double>;
+template class Line2d<float>;
+template class Line2d<double>;
+
+} // namespace Phantom::Math

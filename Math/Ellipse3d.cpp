@@ -4,7 +4,7 @@
 
 #include <cmath>
 
-using namespace Phantom::Math;
+namespace Phantom::Math {
 
 template<typename T>
 Ellipse3d<T>::Ellipse3d() :
@@ -55,5 +55,7 @@ Vector3d<T> Ellipse3d<T>::getNormal() const
 	return n;
 }
 
-template class Phantom::Math::Ellipse3d<float>;
-template class Phantom::Math::Ellipse3d<double>;
+template class Ellipse3d<float>;
+template class Ellipse3d<double>;
+
+} // namespace Phantom::Math

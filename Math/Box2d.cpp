@@ -2,7 +2,7 @@
 
 #include <numeric>
 
-using namespace Phantom::Math;
+namespace Phantom::Math {
 
 template<typename T>
 Box2d<T>::Box2d() :
@@ -70,5 +70,7 @@ void Box2d<T>::add(const Box2d<T>& b)
 	this->max = Vector2d<T>(ex, ey);
 }
 
-template class Phantom::Math::Box2d<float>;
-template class Phantom::Math::Box2d<double>;
+template class Box2d<float>;
+template class Box2d<double>;
+
+} // namespace Phantom::Math

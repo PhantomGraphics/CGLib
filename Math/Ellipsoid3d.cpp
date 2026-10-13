@@ -2,7 +2,7 @@
 
 #include "Sphere3d.h"
 
-using namespace Phantom::Math;
+namespace Phantom::Math {
 
 template<typename T>
 Ellipsoid3d<T>::Ellipsoid3d() :
@@ -32,5 +32,7 @@ Vector3d<T> Ellipsoid3d<T>::getPosition(const T u, const T v) const
 	return center + uu + vv + ww;
 }
 
-template class Phantom::Math::Ellipsoid3d<float>;
-template class Phantom::Math::Ellipsoid3d<double>;
+template class Ellipsoid3d<float>;
+template class Ellipsoid3d<double>;
+
+} // namespace Phantom::Math

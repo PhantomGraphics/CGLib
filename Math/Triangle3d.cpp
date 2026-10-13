@@ -1,7 +1,7 @@
 #include "Triangle3d.h"
 #include "SafeNormalize.h"
 
-using namespace Phantom::Math;
+namespace Phantom::Math {
 
 template<typename T>
 Triangle3d<T>::Triangle3d() :
@@ -39,10 +39,12 @@ template<typename T>
 bool Triangle3d<T>::isSame(const Triangle3d<T>& rhs, const T tolerance) const
 {
 	return
-		::areSame(vertices[0], rhs.vertices[0], tolerance) &&
-		::areSame(vertices[1], rhs.vertices[1], tolerance) &&
-		::areSame(vertices[2], rhs.vertices[2], tolerance);
+		areSame(vertices[0], rhs.vertices[0], tolerance) &&
+		areSame(vertices[1], rhs.vertices[1], tolerance) &&
+		areSame(vertices[2], rhs.vertices[2], tolerance);
 }
 
-template class Phantom::Math::Triangle3d<float>;
-template class Phantom::Math::Triangle3d<double>;
+template class Triangle3d<float>;
+template class Triangle3d<double>;
+
+} // namespace Phantom::Math

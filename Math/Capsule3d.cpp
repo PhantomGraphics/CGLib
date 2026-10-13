@@ -2,7 +2,7 @@
 #include "SafeNormalize.h"
 #include "pi.h"
 
-using namespace Phantom::Math;
+namespace Phantom::Math {
 
 template<typename T>
 Capsule3d<T>::Capsule3d() :
@@ -55,5 +55,7 @@ Vector3d<T> Capsule3d<T>::getPosition(const T u, const T v) const
 	}
 }
 
-template class Phantom::Math::Capsule3d<float>;
-template class Phantom::Math::Capsule3d<double>;
+template class Capsule3d<float>;
+template class Capsule3d<double>;
+
+} // namespace Phantom::Math

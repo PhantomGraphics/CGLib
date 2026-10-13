@@ -3,7 +3,7 @@
 
 #include "Plane3d.h"
 
-using namespace Phantom::Math;
+namespace Phantom::Math {
 
 template<typename T>
 Rectangle3d<T>::Rectangle3d() :
@@ -38,5 +38,7 @@ Vector3d<T> Rectangle3d<T>::getNormal() const
 	return n;
 }
 
-template class Phantom::Math::Rectangle3d<float>;
-template class Phantom::Math::Rectangle3d<double>;
+template class Rectangle3d<float>;
+template class Rectangle3d<double>;
+
+} // namespace Phantom::Math

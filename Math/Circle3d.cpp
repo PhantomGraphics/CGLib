@@ -1,6 +1,6 @@
 #include "Circle3d.h"
 
-using namespace Phantom::Math;
+namespace Phantom::Math {
 
 template<typename T>
 Circle3d<T>::Circle3d() :
@@ -15,5 +15,7 @@ Circle3d<T>::Circle3d(const T radius, const Vector3d<T>& center, const Vector3d<
 {
 }
 
-template class Phantom::Math::Circle3d<float>;
-template class Phantom::Math::Circle3d<double>;
+template class Circle3d<float>;
+template class Circle3d<double>;
+
+} // namespace Phantom::Math

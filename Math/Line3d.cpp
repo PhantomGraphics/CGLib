@@ -1,6 +1,6 @@
 #include "Line3d.h"
 
-using namespace Phantom::Math;
+namespace Phantom::Math {
 
 template<typename T>
 Line3d<T>::Line3d() :
@@ -16,5 +16,7 @@ Line3d<T>::Line3d(const Vector3d<T>& start, const Vector3d<T>& end) :
 {
 }
 
-template class Phantom::Math::Line3d<float>;
-template class Phantom::Math::Line3d<double>;
+template class Line3d<float>;
+template class Line3d<double>;
+
+} // namespace Phantom::Math
