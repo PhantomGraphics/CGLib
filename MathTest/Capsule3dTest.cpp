@@ -4,6 +4,8 @@
 
 #include "PrimitiveTestSupport.h"
 
+#include <limits>
+
 using namespace Phantom::Math;
 
 namespace {
@@ -107,15 +109,26 @@ TYPED_TEST(Capsule3dTypedTest, TiltedAxisPolesExtendAlongWVec)
 	EXPECT_TRUE(::areSame(Vector3d<T>(4, 0, 0), c.getPosition(T(0), T(1)), tol));
 }
 
-// Target contract for Phase 2: a zero-length axis (wvec = 0) must not produce
-// NaN/inf. Disabled until the contract is implemented (it divides by |wvec|
-// today); must FAIL when run with --gtest_also_run_disabled_tests.
-TYPED_TEST(Capsule3dTypedTest, DISABLED_ZeroLengthAxisProducesFinitePositions)
+// A zero-length axis (wvec = 0) degenerates the capsule to a sphere around
+// `bottom`: positions stay finite and at distance `radius` from it.
+TYPED_TEST(Capsule3dTypedTest, ZeroLengthAxisDegeneratesToSphere)
 {
 	using T = TypeParam;
 	const Capsule3d<T> c(Vector3d<T>(0, 0, 0), Vector3d<T>(1, 0, 0), Vector3d<T>(0, 1, 0), Vector3d<T>(0, 0, 0));
 	for (const T v : { T(0), T(0.2), T(0.5), T(1) }) {
 		const auto p = c.getPosition(T(0.1), v);
 		EXPECT_TRUE(std::isfinite(p.x) && std::isfinite(p.y) && std::isfinite(p.z));
+		EXPECT_NEAR(c.getRadius(), getLength(p - c.getBottom()), primitiveTolerance<T>() * 10);
 	}
+}
+
+TYPED_TEST(Capsule3dTypedTest, NonFiniteAxisIsTreatedAsDegenerate)
+{
+	using T = TypeParam;
+	const Capsule3d<T> c(Vector3d<T>(0, 0, 0), Vector3d<T>(1, 0, 0), Vector3d<T>(0, 1, 0),
+		Vector3d<T>(std::numeric_limits<T>::quiet_NaN(), 0, 0));
+	// The axis itself is NaN so getTop() is NaN, but the pole direction must not
+	// add further non-finite terms beyond that.
+	const auto p = c.getPosition(T(0.1), T(0));
+	EXPECT_TRUE(std::isfinite(p.x) && std::isfinite(p.y) && std::isfinite(p.z));
 }

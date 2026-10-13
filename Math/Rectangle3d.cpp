@@ -1,4 +1,5 @@
 #include "Rectangle3d.h"
+#include "SafeNormalize.h"
 
 #include "Plane3d.h"
 
@@ -21,6 +22,12 @@ template<typename T>
 Vector3d<T> Rectangle3d<T>::getPosition(const T u, const T v) const
 {
 	return origin + uvec * u + vvec * v;
+}
+
+template<typename T>
+bool Rectangle3d<T>::tryGetNormal(Vector3d<T>& out) const
+{
+	return tryNormalizedCross(uvec, vvec, out);
 }
 
 template<typename T>

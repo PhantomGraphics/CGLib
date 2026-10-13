@@ -1,4 +1,5 @@
 #include "Triangle3d.h"
+#include "SafeNormalize.h"
 
 using namespace Phantom::Math;
 
@@ -11,6 +12,12 @@ template<typename T>
 Triangle3d<T>::Triangle3d(const std::array<Vector3d<T>, 3>& vertices) :
 	vertices(vertices)
 {}
+
+template<typename T>
+bool Triangle3d<T>::tryGetNormal(Vector3d<T>& out) const
+{
+	return tryNormalizedCross(vertices[1] - vertices[0], vertices[2] - vertices[0], out);
+}
 
 template<typename T>
 Vector3d<T> Triangle3d<T>::getNormal() const

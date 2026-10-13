@@ -32,6 +32,10 @@ public:
 
 	Vector3d<T> getCenter() const;
 
+	/// Strict containment: points on the surface are NOT contained. `tolerance`
+	/// grows the box on every side before the strict test, so a point exactly
+	/// `tolerance` outside a face is still excluded. A zero-volume box contains
+	/// nothing at tolerance 0. Callers such as Physics OutflowRegion rely on this.
 	bool contains(const Vector3d<T>& p, const T tolerance) const;
 
 	bool contains(const Box3d<T>& p, const T tolerance) const;
