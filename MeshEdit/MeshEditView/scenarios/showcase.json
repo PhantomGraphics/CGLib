@@ -1,0 +1,45 @@
+{
+  "name": "showcase",
+  "steps": [
+    {
+      "label": "Box",
+      "command": "NewMesh:box",
+      "expect": "OK"
+    },
+    {
+      "label": "Edit mode",
+      "command": "SetMode:edit",
+      "expect": "OK"
+    },
+    {
+      "label": "Faces",
+      "command": "SelectElement:face",
+      "expect": "OK"
+    },
+    {
+      "label": "Top face",
+      "command": "Select:2",
+      "expect": "OK"
+    },
+    {
+      "label": "Extrude",
+      "command": "Extrude:distance=0.5",
+      "expect": "OK"
+    },
+    {
+      "label": "Inset",
+      "command": "Inset:thickness=0.1",
+      "expect": "OK"
+    },
+    {
+      "label": "Extrude the inner face",
+      "command": "Extrude:distance=0.2",
+      "expect": "OK"
+    },
+    {
+      "label": "Fixed view",
+      "command": "SetCamera:1.15,0.7,3.4",
+      "expect": "OK"
+    }
+  ]
+}

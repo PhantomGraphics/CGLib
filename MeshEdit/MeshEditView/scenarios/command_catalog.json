@@ -1,0 +1,10 @@
+{
+  "name": "command_catalog",
+  "steps": [
+    {
+      "label": "Every catalog entry is routed",
+      "command": "CheckCommandCatalog",
+      "expect": "OK"
+    }
+  ]
+}

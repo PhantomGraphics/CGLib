@@ -1,0 +1,90 @@
+{
+  "name": "select_extrude",
+  "steps": [
+    {
+      "label": "Box",
+      "command": "NewMesh:box",
+      "expect": "OK"
+    },
+    {
+      "label": "Operations need edit mode",
+      "command": "Extrude:distance=0.4",
+      "expect_prefix": "Error:"
+    },
+    {
+      "label": "Enter edit mode",
+      "command": "SetMode:edit",
+      "expect": "OK"
+    },
+    {
+      "label": "Mode",
+      "command": "GetMode",
+      "expect": "Mode:edit"
+    },
+    {
+      "label": "Face elements",
+      "command": "SelectElement:face",
+      "expect": "OK"
+    },
+    {
+      "label": "Select the top face (+Y)",
+      "command": "Select:2",
+      "expect": "OK"
+    },
+    {
+      "label": "One face selected",
+      "command": "GetSelection",
+      "expect": "Selection:face:1:2"
+    },
+    {
+      "label": "Missing ids are refused",
+      "command": "Select:99",
+      "expect_prefix": "Error:"
+    },
+    {
+      "label": "Extrude the top face",
+      "command": "Extrude:distance=0.4",
+      "expect": "OK"
+    },
+    {
+      "label": "A prism: 12 vertices, 20 edges, 10 faces",
+      "command": "GetCounts",
+      "expect": "Counts:12,20,10"
+    },
+    {
+      "label": "The extruded face stays selected",
+      "command": "GetSelection",
+      "expect": "Selection:face:1:2"
+    },
+    {
+      "label": "Undo",
+      "command": "Undo",
+      "expect": "OK"
+    },
+    {
+      "label": "Back to a box",
+      "command": "GetCounts",
+      "expect": "Counts:8,12,6"
+    },
+    {
+      "label": "Redo",
+      "command": "Redo",
+      "expect": "OK"
+    },
+    {
+      "label": "The prism again",
+      "command": "GetCounts",
+      "expect": "Counts:12,20,10"
+    },
+    {
+      "label": "Leaving edit mode drops the selection",
+      "command": "SetMode:object",
+      "expect": "OK"
+    },
+    {
+      "label": "Nothing selected",
+      "command": "GetSelection",
+      "expect": "Selection:face:0:"
+    }
+  ]
+}

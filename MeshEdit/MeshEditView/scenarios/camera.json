@@ -1,0 +1,35 @@
+{
+  "name": "camera",
+  "steps": [
+    {
+      "label": "Zoom out",
+      "command": "Scroll:-10",
+      "expect": "OK"
+    },
+    {
+      "label": "Farther than the default 3.2",
+      "command": "GetCameraDistance",
+      "expect_range": "5.0,100.0"
+    },
+    {
+      "label": "Reset",
+      "command": "ResetCamera",
+      "expect": "OK"
+    },
+    {
+      "label": "Back to 3.2",
+      "command": "GetCameraDistance",
+      "expect_range": "3.1,3.3"
+    },
+    {
+      "label": "Exact camera",
+      "command": "SetCamera:1.0,0.5,6",
+      "expect": "OK"
+    },
+    {
+      "label": "Distance 6",
+      "command": "GetCameraDistance",
+      "expect_range": "5.9,6.1"
+    }
+  ]
+}

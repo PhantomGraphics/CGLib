@@ -1,0 +1,35 @@
+{
+  "name": "display",
+  "steps": [
+    {
+      "label": "Defaults",
+      "command": "GetDisplay",
+      "expect": "Display:faces=1,edges=1,vertices=1,normals=0,orientation=0"
+    },
+    {
+      "label": "Hide faces, show normals",
+      "command": "SetDisplay:faces=0 normals=1",
+      "expect": "OK"
+    },
+    {
+      "label": "Applied",
+      "command": "GetDisplay",
+      "expect": "Display:faces=0,edges=1,vertices=1,normals=1,orientation=0"
+    },
+    {
+      "label": "Unknown option",
+      "command": "SetDisplay:glow=1",
+      "expect_prefix": "Error:"
+    },
+    {
+      "label": "Not a boolean",
+      "command": "SetDisplay:edges=maybe",
+      "expect_prefix": "Error:"
+    },
+    {
+      "label": "A refused command changes nothing",
+      "command": "GetDisplay",
+      "expect": "Display:faces=0,edges=1,vertices=1,normals=1,orientation=0"
+    }
+  ]
+}

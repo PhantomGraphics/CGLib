@@ -1,0 +1,70 @@
+{
+  "name": "undo_redo",
+  "steps": [
+    {
+      "label": "Box",
+      "command": "NewMesh:box",
+      "expect": "OK"
+    },
+    {
+      "label": "Nothing to undo yet",
+      "command": "Undo",
+      "expect_prefix": "Error:"
+    },
+    {
+      "label": "Edit mode",
+      "command": "SetMode:edit",
+      "expect": "OK"
+    },
+    {
+      "label": "Vertices",
+      "command": "SelectElement:vertex",
+      "expect": "OK"
+    },
+    {
+      "label": "Select all",
+      "command": "Select:all",
+      "expect": "OK"
+    },
+    {
+      "label": "Move up",
+      "command": "Move:0,1,0",
+      "expect": "OK"
+    },
+    {
+      "label": "One undo step (selection is not history)",
+      "command": "GetHistory",
+      "expect": "History:undo=1,redo=0"
+    },
+    {
+      "label": "Undo",
+      "command": "Undo",
+      "expect": "OK"
+    },
+    {
+      "label": "Redo is available",
+      "command": "GetHistory",
+      "expect": "History:undo=0,redo=1"
+    },
+    {
+      "label": "Redo",
+      "command": "Redo",
+      "expect": "OK"
+    },
+    {
+      "label": "Nothing more to redo",
+      "command": "Redo",
+      "expect_prefix": "Error:"
+    },
+    {
+      "label": "A new mesh clears the history",
+      "command": "NewMesh:box",
+      "expect": "OK"
+    },
+    {
+      "label": "Empty history",
+      "command": "GetHistory",
+      "expect": "History:undo=0,redo=0"
+    }
+  ]
+}

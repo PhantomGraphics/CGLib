@@ -1,0 +1,100 @@
+{
+  "name": "winding",
+  "steps": [
+    {
+      "label": "Box",
+      "command": "NewMesh:box",
+      "expect": "OK"
+    },
+    {
+      "label": "A box encloses +1 (counter-clockwise from outside)",
+      "command": "GetVolume",
+      "expect": "Volume:1.000000,closed=1"
+    },
+    {
+      "label": "Edit mode",
+      "command": "SetMode:edit",
+      "expect": "OK"
+    },
+    {
+      "label": "Faces",
+      "command": "SelectElement:face",
+      "expect": "OK"
+    },
+    {
+      "label": "Top face",
+      "command": "Select:2",
+      "expect": "OK"
+    },
+    {
+      "label": "Extrude 0.4",
+      "command": "Extrude:distance=0.4",
+      "expect": "OK"
+    },
+    {
+      "label": "Still outward: 1 + 0.4",
+      "command": "GetVolume",
+      "expect": "Volume:1.400000,closed=1"
+    },
+    {
+      "label": "Extrude inward digs a pit",
+      "command": "Extrude:distance=-0.8",
+      "expect": "OK"
+    },
+    {
+      "label": "Volume 1.4 - 0.8",
+      "command": "GetVolume",
+      "expect": "Volume:0.600000,closed=1"
+    },
+    {
+      "label": "Fixed view",
+      "command": "SetCamera:1.2,0.7,3.2",
+      "expect": "OK"
+    },
+    {
+      "label": "New box",
+      "command": "NewMesh:box",
+      "expect": "OK"
+    },
+    {
+      "label": "Three faces look at the camera, three away",
+      "command": "GetOrientation",
+      "expect": "Orientation:front=6,back=6"
+    },
+    {
+      "label": "Orientation colours on",
+      "command": "SetDisplay:orientation=1",
+      "expect": "OK"
+    },
+    {
+      "label": "Reported by the display",
+      "command": "GetDisplay",
+      "expect_prefix": "Display:faces=1,edges=1,vertices=1,normals=0,orientation=1"
+    },
+    {
+      "label": "A plane facing +Y seen from above",
+      "command": "NewMesh:plane",
+      "expect": "OK"
+    },
+    {
+      "label": "Both triangles are front faces",
+      "command": "GetOrientation",
+      "expect": "Orientation:front=2,back=0"
+    },
+    {
+      "label": "Seen from below they are back faces",
+      "command": "SetCamera:2.6,0.7,3.2",
+      "expect": "OK"
+    },
+    {
+      "label": "Orientation from below",
+      "command": "GetOrientation",
+      "expect": "Orientation:front=0,back=2"
+    },
+    {
+      "label": "An open surface has no volume",
+      "command": "GetVolume",
+      "expect": "Volume:0.000000,closed=0"
+    }
+  ]
+}
