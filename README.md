@@ -30,7 +30,7 @@ glTF/VRM/MMD rendering, animation, particles, and Eigen adapters.
 | `Animation` | `Phantom::Animation` | Skeletal animation | Yes |
 | `Particles` | `Phantom::Particles` | GPU particles and billboards | Yes |
 | `PostProcess` | `Phantom::PostProcess` | Bloom, SSAO, FXAA, tone mapping | Yes |
-| `Gizmo` | `Phantom::Gizmo` | Transform gizmos | Yes |
+| `Editor` | `Phantom::Gizmo` | Shared editing: CPU geometry/types + Vulkan gizmo backend | Optional backend |
 | `Input` | `Phantom::Input` | Input mapping | No |
 
 See [the module reference](docs/module-reference.md) for public APIs and design

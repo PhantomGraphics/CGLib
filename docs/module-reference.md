@@ -63,7 +63,7 @@ Math ──┬── Graphics ──┬── File
 - **Animation:** skeletal clips, poses, interpolation, and playback.
 - **Particles:** GPU simulation and billboard rendering.
 - **PostProcess:** bloom, SSAO, FXAA, and tone mapping.
-- **Gizmo:** interactive transform manipulators.
+- **Editor:** shared editing functionality. `Editor/Gizmo` provides transform gizmo types and geometry (`EditorCore`) plus the optional Vulkan backend (`EditorVulkanCore`). See `Editor/README.md`.
 - **Input:** device-to-action input mapping.
 
 ## Design conventions
