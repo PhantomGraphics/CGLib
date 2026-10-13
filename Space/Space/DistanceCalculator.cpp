@@ -64,6 +64,20 @@ T DistanceCalculator<T>::calculate(const Triangle3d<T>& triangle, const Vector3d
 	const auto AB = B - A;
 	const auto AC = C - A;
 	const auto AP = point - A;
+	const auto normal = glm::cross(AB, AC);
+	if (normal.x == T(0) && normal.y == T(0) && normal.z == T(0)) {
+		// A zero-area triangle is the union of its three closed edges. In particular,
+		// a repeated vertex must not enter the edge-region formula's 0/0 division.
+		const auto edgeDistance = [&point](const Vector3d<T>& start, const Vector3d<T>& end) {
+			const auto edge = end - start;
+			const T lengthSquared = glm::dot(edge, edge);
+			const T fraction = lengthSquared > T(0)
+				? std::clamp(glm::dot(point - start, edge) / lengthSquared, T(0), T(1)) : T(0);
+			return glm::length(point - (start + fraction * edge));
+		};
+		const T dist = std::min({ edgeDistance(A, B), edgeDistance(B, C), edgeDistance(C, A) });
+		return dist <= tolerance ? T(0) : dist;
+	}
 
 	const T d1 = glm::dot(AB, AP);
 	const T d2 = glm::dot(AC, AP);
@@ -125,7 +139,6 @@ T DistanceCalculator<T>::calculate(const Triangle3d<T>& triangle, const Vector3d
 	const auto closest = A + AB * v + AC * w;
 	const T dist = glm::length(point - closest);
 	return dist <= tolerance ? T(0) : dist;
-	return T(0);
 }
 
 template<typename T>

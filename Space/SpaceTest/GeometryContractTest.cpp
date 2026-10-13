@@ -301,6 +301,24 @@ TEST(GeometryContractTest, PointToTriangleDistanceOrdinaryCasesAreUnchanged)
 	EXPECT_FLOAT_EQ((DistanceCalculator<float>::calculate(tri, Vector3df(2, 2, 1.0e-7f), 1.0e-6f)), 0.0f) << "within tolerance -> 0";
 }
 
+TEST(GeometryContractTest, RepeatedTriangleVerticesUseTheClosedSegmentDistance)
+{
+	// Exercise every vertex ordering in float and double, including projection beyond an endpoint.
+	for (int distinct = 0; distinct < 3; ++distinct) {
+		std::array<Vector3df, 3> vertices = { Vector3df(0), Vector3df(0), Vector3df(0) };
+		vertices[distinct] = Vector3df(1, 0, 0);
+		const Triangle3df tf(vertices);
+		const Triangle3d<double> td({ Vector3dd(vertices[0]), Vector3dd(vertices[1]), Vector3dd(vertices[2]) });
+		for (const float x : { -1.0f, 0.0f, 0.5f, 1.0f, 2.0f }) {
+			const float dx = x < 0 ? -x : (x > 1 ? x - 1 : 0);
+			const double expected = std::sqrt(1.0 + double(dx) * dx);
+			EXPECT_NEAR(DistanceCalculator<float>::calculate(tf, Vector3df(x, 1, 0), 0.0f), expected, 1.0e-6);
+			EXPECT_NEAR(DistanceCalculator<double>::calculate(td, Vector3dd(x, 1, 0), 0.0), expected, 1.0e-12);
+		}
+		EXPECT_FLOAT_EQ(DistanceCalculator<float>::calculate(tf, Vector3df(0.5f, 1.0e-7f, 0), 1.0e-6f), 0.0f);
+	}
+}
+
 TEST(GeometryContractTest, ZeroDirectionLineAgainstCircleFindsNothing)
 {
 	const Line2df point(Vector2df(1, 0), Vector2df(1, 0));

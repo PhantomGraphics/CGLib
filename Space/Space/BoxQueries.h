@@ -2,8 +2,10 @@
 
 #include "CGLib/Math/Box3d.h"
 #include "CGLib/Math/Vector3d.h"
+#include "SpaceValidation.h"
 
 #include <algorithm>
+#include <cmath>
 #include <utility>
 
 namespace Phantom {
@@ -42,16 +44,24 @@ namespace Phantom {
 			/**
 			 * @brief Slab test of the ray `origin + t * dir`, t in [tMin, tMax], against `box`.
 			 *
-			 * `dir` need not be normalized (t scales with its length). A zero component divides by zero
-			 * (+-inf slabs, or NaN when the origin lies exactly on a slab plane); the NaN behavior is
-			 * documented in docs/spec/space_api_contracts.md and handled in Phase 5.
+			 * `dir` need not be normalized (t scales with its length). Zero components are tested against
+			 * the closed slab directly. Non-finite vectors, zero direction, NaN or reversed t ranges miss.
+			 * Infinite range endpoints are allowed.
 			 */
 			inline bool rayHitsBox(const Math::Box3df& box, const Math::Vector3df& origin, const Math::Vector3df& dir, float tMin, float tMax)
 			{
+				if (!Validation::isFinite(origin) || !Validation::isFinite(dir) ||
+					(dir.x == 0.0f && dir.y == 0.0f && dir.z == 0.0f) ||
+					std::isnan(tMin) || std::isnan(tMax) || tMax < tMin) return false;
 				float lo = tMin, hi = tMax;
 				const auto bmin = box.getMin();
 				const auto bmax = box.getMax();
+				if (!Validation::isFinite(bmin) || !Validation::isFinite(bmax)) return false;
 				for (int i = 0; i < 3; ++i) {
+					if (dir[i] == 0.0f) {
+						if (origin[i] < bmin[i] || origin[i] > bmax[i]) return false;
+						continue;
+					}
 					const float invD = 1.0f / dir[i];
 					float t0 = (bmin[i] - origin[i]) * invD;
 					float t1 = (bmax[i] - origin[i]) * invD;
