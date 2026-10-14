@@ -12,9 +12,11 @@ bool VulkanOffscreen::createImages(const VulkanContext& ctx, uint32_t width, uin
     // --- カラーアタッチメント ---
     // VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT: レンダーパスへ書き込み
     // VK_IMAGE_USAGE_SAMPLED_BIT         : 後続パスでサンプリング可能
+    // VK_IMAGE_USAGE_TRANSFER_SRC_BIT    : CPU への読み戻し（画像ファイル保存）用
     if (!VulkanImage::create(ctx, width, height, colorFormat_,
                              VK_IMAGE_TILING_OPTIMAL,
-                             VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+                             VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT
+                                 | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
                              VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
                              colorImage_, colorMemory_))
         return false;
