@@ -5,7 +5,7 @@
 
 namespace Phantom::VKG { class VulkanContext; class VulkanCommandPool; }
 
-namespace Phantom::PostProcess {
+namespace Phantom::Effects::PostProcess {
 
 // Shared setup context passed to IPostEffect::init(). extent/framesInFlight describe the
 // chain's working resolution and how many frames the caller keeps in flight for per-frame
@@ -41,4 +41,4 @@ public:
     virtual void destroy(VkDevice device) = 0;
 };
 
-} // namespace Phantom::PostProcess
+} // namespace Phantom::Effects::PostProcess

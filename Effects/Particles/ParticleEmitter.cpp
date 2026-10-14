@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-namespace Phantom::Particles {
+namespace Phantom::Effects::Particles {
 
 ParticleEmitter::EmitBatch ParticleEmitter::update(float dt, uint32_t maxParticles)
 {
@@ -32,4 +32,4 @@ void ParticleEmitter::reset()
     frameSeed_ = 1;
 }
 
-} // namespace Phantom::Particles
+} // namespace Phantom::Effects::Particles

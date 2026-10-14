@@ -1,6 +1,6 @@
 #include "PostProcessChain.h"
 
-namespace Phantom::PostProcess {
+namespace Phantom::Effects::PostProcess {
 
 void PostProcessChain::addEffect(std::unique_ptr<IPostEffect> effect)
 {
@@ -46,4 +46,4 @@ void PostProcessChain::destroy(VkDevice device)
     passthroughSampler_ = VK_NULL_HANDLE;
 }
 
-} // namespace Phantom::PostProcess
+} // namespace Phantom::Effects::PostProcess

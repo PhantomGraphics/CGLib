@@ -1,7 +1,7 @@
 #include "SSAOEffect.h"
-#include "../../CGLib/VulkanGraphics/VulkanContext.h"
-#include "../../CGLib/VulkanGraphics/VulkanCommandPool.h"
-#include "../../CGLib/VulkanGraphics/VulkanImage.h"
+#include "CGLib/VulkanGraphics/VulkanContext.h"
+#include "CGLib/VulkanGraphics/VulkanCommandPool.h"
+#include "CGLib/VulkanGraphics/VulkanImage.h"
 
 #include <algorithm>
 #include <cassert>
@@ -11,7 +11,7 @@
 #include <random>
 #include <vector>
 
-namespace Phantom::PostProcess {
+namespace Phantom::Effects::PostProcess {
 
 namespace {
 constexpr VkFormat kHdrFormat   = VK_FORMAT_R16G16B16A16_SFLOAT; // composite output (matches HDR chain)
@@ -168,4 +168,4 @@ void SSAOEffect::destroy(VkDevice device)
     ctx_ = nullptr;
 }
 
-} // namespace Phantom::PostProcess
+} // namespace Phantom::Effects::PostProcess

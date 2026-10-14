@@ -1,11 +1,11 @@
 #include "ParticlePool.h"
 #include "ParticleGpu.h"
-#include "../../CGLib/VulkanGraphics/VulkanContext.h"
-#include "../../CGLib/VulkanGraphics/VulkanCommandPool.h"
+#include "CGLib/VulkanGraphics/VulkanContext.h"
+#include "CGLib/VulkanGraphics/VulkanCommandPool.h"
 
 #include <vector>
 
-namespace Phantom::Particles {
+namespace Phantom::Effects::Particles {
 
 void ParticlePool::create(const Phantom::VKG::VulkanContext& ctx, const Phantom::VKG::VulkanCommandPool& pool,
                            uint32_t maxParticles)
@@ -27,4 +27,4 @@ void ParticlePool::destroy(VkDevice device)
     maxParticles_ = 0;
 }
 
-} // namespace Phantom::Particles
+} // namespace Phantom::Effects::Particles

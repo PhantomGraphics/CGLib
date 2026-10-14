@@ -1,9 +1,9 @@
 #include "BloomEffect.h"
-#include "../../CGLib/VulkanGraphics/VulkanContext.h"
+#include "CGLib/VulkanGraphics/VulkanContext.h"
 
 #include <algorithm>
 
-namespace Phantom::PostProcess {
+namespace Phantom::Effects::PostProcess {
 
 namespace {
 constexpr VkFormat kBloomColorFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
@@ -139,4 +139,4 @@ void BloomEffect::destroy(VkDevice device)
     ctx_ = nullptr;
 }
 
-} // namespace Phantom::PostProcess
+} // namespace Phantom::Effects::PostProcess

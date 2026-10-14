@@ -1,7 +1,7 @@
 #pragma once
 
-#include "../../../CGLib/VulkanGraphics/VulkanBuffer.h"
-#include "../../../CGLib/VulkanGraphics/VulkanDescriptorPool.h"
+#include "CGLib/VulkanGraphics/VulkanBuffer.h"
+#include "CGLib/VulkanGraphics/VulkanDescriptorPool.h"
 
 #include <vulkan/vulkan.h>
 #include <cstdint>
@@ -9,7 +9,7 @@
 
 namespace Phantom::VKG { class VulkanContext; }
 
-namespace Phantom::PostProcess::detail {
+namespace Phantom::Effects::PostProcess::detail {
 
 // Binding layout produced by create(): binding 0 is a per-frame UBO when uboSize > 0,
 // followed by `sampledImageCount` combined-image-sampler bindings (all VK_SHADER_STAGE_FRAGMENT_BIT).
@@ -85,4 +85,4 @@ private:
     VkShaderModule createShaderModule(VkDevice device, const std::vector<uint32_t>& spv) const;
 };
 
-} // namespace Phantom::PostProcess::detail
+} // namespace Phantom::Effects::PostProcess::detail

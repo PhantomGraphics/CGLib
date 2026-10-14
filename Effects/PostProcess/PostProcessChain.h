@@ -5,7 +5,7 @@
 #include <memory>
 #include <vector>
 
-namespace Phantom::PostProcess {
+namespace Phantom::Effects::PostProcess {
 
 // Owns an ordered list of IPostEffect stages and wires each one's input to the previous
 // stage's output. Typical use (see internal design notes Phase E):
@@ -48,4 +48,4 @@ private:
     VkSampler   passthroughSampler_ = VK_NULL_HANDLE;
 };
 
-} // namespace Phantom::PostProcess
+} // namespace Phantom::Effects::PostProcess

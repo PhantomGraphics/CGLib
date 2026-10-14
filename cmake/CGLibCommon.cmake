@@ -2,7 +2,7 @@
 #
 # Included by the top-level CGLib/CMakeLists.txt and by every module
 # CMakeLists.txt (Math has none; Space/File/Numerics/Animation/Volume/
-# Renderer/GltfRenderer/Editor/Particles/PostProcess each do, and each is
+# Renderer/GltfRenderer/Editor/Effects each do, and each is
 # usable standalone as `cmake -S CGLib/<Module> -B ...`). This file has no
 # dependency on anything outside the CGLib directory -- that self-containment
 # is the whole point of docs/standalone-repository-plan.md Phase 1.
