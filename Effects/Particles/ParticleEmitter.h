@@ -4,7 +4,7 @@
 
 #include <cstdint>
 
-namespace Phantom::Particles {
+namespace Phantom::Effects::Particles {
 
 // Owns emitter configuration and, every frame, decides which ring-buffer slots of the
 // particle SSBO to (re)spawn. Emission uses a simple ring cursor rather than a free list:
@@ -46,4 +46,4 @@ private:
     uint32_t frameSeed_ = 1;
 };
 
-} // namespace Phantom::Particles
+} // namespace Phantom::Effects::Particles

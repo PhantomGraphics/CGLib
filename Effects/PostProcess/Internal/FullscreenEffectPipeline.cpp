@@ -1,9 +1,9 @@
 #include "FullscreenEffectPipeline.h"
-#include "../../../CGLib/VulkanGraphics/VulkanContext.h"
+#include "CGLib/VulkanGraphics/VulkanContext.h"
 
 #include <stdexcept>
 
-namespace Phantom::PostProcess::detail {
+namespace Phantom::Effects::PostProcess::detail {
 
 void FullscreenEffectPipeline::create(const Phantom::VKG::VulkanContext& ctx, VkRenderPass renderPass,
                                        const FullscreenEffectPipelineConfig& cfg)
@@ -237,4 +237,4 @@ VkShaderModule FullscreenEffectPipeline::createShaderModule(VkDevice device, con
     return mod;
 }
 
-} // namespace Phantom::PostProcess::detail
+} // namespace Phantom::Effects::PostProcess::detail

@@ -6,12 +6,12 @@
 
 #include "IPostEffect.h"
 #include "Internal/FullscreenEffectPipeline.h"
-#include "../../CGLib/VulkanGraphics/VulkanOffscreen.h"
-#include "../../CGLib/VulkanGraphics/VulkanSampler.h"
+#include "CGLib/VulkanGraphics/VulkanOffscreen.h"
+#include "CGLib/VulkanGraphics/VulkanSampler.h"
 
 #include <vector>
 
-namespace Phantom::PostProcess {
+namespace Phantom::Effects::PostProcess {
 
 // Dual-pass Kawase bloom: bright-pass extract -> N same-resolution Kawase blur iterations
 // (ping-ponging between two offscreen targets) -> additive composite with the original HDR
@@ -71,4 +71,4 @@ private:
     detail::FullscreenEffectPipeline compositePipeline_;
 };
 
-} // namespace Phantom::PostProcess
+} // namespace Phantom::Effects::PostProcess

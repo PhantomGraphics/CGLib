@@ -2,12 +2,12 @@
 
 #include "IPostEffect.h"
 #include "Internal/FullscreenEffectPipeline.h"
-#include "../../CGLib/VulkanGraphics/VulkanOffscreen.h"
-#include "../../CGLib/VulkanGraphics/VulkanSampler.h"
+#include "CGLib/VulkanGraphics/VulkanOffscreen.h"
+#include "CGLib/VulkanGraphics/VulkanSampler.h"
 
 #include <vector>
 
-namespace Phantom::PostProcess {
+namespace Phantom::Effects::PostProcess {
 
 // ACES Filmic tone mapping (Hill 2015 fit) + gamma 2.2 + optional vignette.
 // Converts the HDR input to an LDR (UNORM) output; typically the second-to-last stage in
@@ -53,4 +53,4 @@ private:
     detail::FullscreenEffectPipeline pipeline_;
 };
 
-} // namespace Phantom::PostProcess
+} // namespace Phantom::Effects::PostProcess

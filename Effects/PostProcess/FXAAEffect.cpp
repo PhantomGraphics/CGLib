@@ -1,7 +1,7 @@
 #include "FXAAEffect.h"
-#include "../../CGLib/VulkanGraphics/VulkanContext.h"
+#include "CGLib/VulkanGraphics/VulkanContext.h"
 
-namespace Phantom::PostProcess {
+namespace Phantom::Effects::PostProcess {
 
 void FXAAEffect::init(const PostEffectContext& ctx, VkImageView inputView, VkSampler inputSampler)
 {
@@ -47,4 +47,4 @@ void FXAAEffect::destroy(VkDevice device)
     ctx_ = nullptr;
 }
 
-} // namespace Phantom::PostProcess
+} // namespace Phantom::Effects::PostProcess

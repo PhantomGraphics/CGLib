@@ -6,14 +6,14 @@
 
 #include "IPostEffect.h"
 #include "Internal/FullscreenEffectPipeline.h"
-#include "../../CGLib/VulkanGraphics/VulkanOffscreen.h"
-#include "../../CGLib/VulkanGraphics/VulkanSampler.h"
+#include "CGLib/VulkanGraphics/VulkanOffscreen.h"
+#include "CGLib/VulkanGraphics/VulkanSampler.h"
 
 #include <vector>
 
 namespace Phantom::VKG { class VulkanCommandPool; }
 
-namespace Phantom::PostProcess {
+namespace Phantom::Effects::PostProcess {
 
 // Hemisphere-sampling SSAO (Crysis / LearnOpenGL style) that darkens the chain's color
 // input using a caller-supplied view-space G-buffer (linear depth + normal).
@@ -108,4 +108,4 @@ private:
     void createKernelAndNoise(const Phantom::VKG::VulkanCommandPool& pool);
 };
 
-} // namespace Phantom::PostProcess
+} // namespace Phantom::Effects::PostProcess

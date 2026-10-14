@@ -4,15 +4,15 @@
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 
-#include "../../CGLib/VulkanGraphics/VulkanBuffer.h"
-#include "../../CGLib/VulkanGraphics/VulkanDescriptorPool.h"
-#include "../../CGLib/VulkanGraphics/VulkanPipeline.h"
+#include "CGLib/VulkanGraphics/VulkanBuffer.h"
+#include "CGLib/VulkanGraphics/VulkanDescriptorPool.h"
+#include "CGLib/VulkanGraphics/VulkanPipeline.h"
 
 #include <vector>
 
 namespace Phantom::VKG { class VulkanContext; }
 
-namespace Phantom::Particles {
+namespace Phantom::Effects::Particles {
 
 // Renders a ParticleSimulator's SSBO as camera-facing billboard sprites: no vertex/index
 // buffer is bound, the vertex shader derives a quad corner from gl_VertexIndex % 6 and the
@@ -63,4 +63,4 @@ private:
     uint32_t  framesInFlight_ = 0;
 };
 
-} // namespace Phantom::Particles
+} // namespace Phantom::Effects::Particles

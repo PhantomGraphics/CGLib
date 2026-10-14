@@ -27,8 +27,7 @@ glTF/VRM/MMD rendering, animation, particles, and Eigen adapters.
 | `Renderer` | `VKG` | Reusable subrenderers | Yes |
 | `GltfRenderer` | — | glTF, VRM, MMD, and IBL rendering | Yes |
 | `Animation` | `Phantom::Animation` | Skeletal animation | Yes |
-| `Particles` | `Phantom::Particles` | GPU particles and billboards | Yes |
-| `PostProcess` | `Phantom::PostProcess` | Bloom, SSAO, FXAA, tone mapping | Yes |
+| `Effects` | `Phantom::Effects` | GPU particles/billboards and post-processing (Bloom, SSAO, FXAA, tone mapping) | Yes |
 | `Editor` | `Phantom::Editor` / `Phantom::Gizmo` | Shared input/keymaps/action state + CPU gizmo geometry/types + Vulkan gizmo backend | Optional backend |
 
 See [the module reference](docs/module-reference.md) for public APIs and design

@@ -1,7 +1,7 @@
 #include "ToneMappingEffect.h"
-#include "../../CGLib/VulkanGraphics/VulkanContext.h"
+#include "CGLib/VulkanGraphics/VulkanContext.h"
 
-namespace Phantom::PostProcess {
+namespace Phantom::Effects::PostProcess {
 
 void ToneMappingEffect::init(const PostEffectContext& ctx, VkImageView inputView, VkSampler inputSampler)
 {
@@ -41,4 +41,4 @@ void ToneMappingEffect::destroy(VkDevice device)
     ctx_ = nullptr;
 }
 
-} // namespace Phantom::PostProcess
+} // namespace Phantom::Effects::PostProcess

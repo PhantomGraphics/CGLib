@@ -1,12 +1,12 @@
 #pragma once
 
-#include "../../CGLib/VulkanGraphics/VulkanBuffer.h"
+#include "CGLib/VulkanGraphics/VulkanBuffer.h"
 
 #include <cstdint>
 
 namespace Phantom::VKG { class VulkanContext; class VulkanCommandPool; }
 
-namespace Phantom::Particles {
+namespace Phantom::Effects::Particles {
 
 // Owns the single GPU-resident ParticleGpu[maxParticles] storage buffer shared by
 // ParticleSimulator (compute read/write) and ParticleBillboardRenderer (vertex-stage read).
@@ -30,4 +30,4 @@ private:
     uint32_t maxParticles_ = 0;
 };
 
-} // namespace Phantom::Particles
+} // namespace Phantom::Effects::Particles

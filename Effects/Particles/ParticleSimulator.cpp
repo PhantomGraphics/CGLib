@@ -1,8 +1,8 @@
 #include "ParticleSimulator.h"
-#include "../../CGLib/VulkanGraphics/VulkanContext.h"
-#include "../../CGLib/VulkanGraphics/VulkanCommandPool.h"
+#include "CGLib/VulkanGraphics/VulkanContext.h"
+#include "CGLib/VulkanGraphics/VulkanCommandPool.h"
 
-namespace Phantom::Particles {
+namespace Phantom::Effects::Particles {
 
 void ParticleSimulator::create(const Phantom::VKG::VulkanContext& ctx, const Phantom::VKG::VulkanCommandPool& pool,
                                 uint32_t maxParticles, uint32_t framesInFlight)
@@ -117,4 +117,4 @@ void ParticleSimulator::recordUpdate(VkCommandBuffer cmd, uint32_t frameIndex, f
         0, 1, &barrier, 0, nullptr, 0, nullptr);
 }
 
-} // namespace Phantom::Particles
+} // namespace Phantom::Effects::Particles

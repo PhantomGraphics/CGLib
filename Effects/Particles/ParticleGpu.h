@@ -6,7 +6,7 @@
 
 #include <cstdint>
 
-namespace Phantom::Particles {
+namespace Phantom::Effects::Particles {
 
 // GPU-side particle layout (std430, 64 bytes). Must match the `Particle` struct in
 // shaders/particle_update.comp and shaders/particle_billboard.vert exactly.
@@ -38,4 +38,4 @@ struct EmitterParams {
     float                shapeRadius = 0.1f;
 };
 
-} // namespace Phantom::Particles
+} // namespace Phantom::Effects::Particles

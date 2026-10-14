@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 CGLib は Phantom フレームワークの基盤ライブラリ群。数学・グラフィックス・UI・Vulkan 抽象化の 4 モジュール
 （Math/Graphics/VulkanGraphics/UIWidgets、本ファイルが扱う範囲）に加え、2026-08-21 にかつて別サブモジュールだった
-（`Animation`/`File`/`Gizmo`/`GltfRenderer`/`GltfViewer`/`Input`/`Numerics`/`Particles`/`PostProcess`/`Renderer`/
+（`Animation`/`File`/`Gizmo`/`GltfRenderer`/`GltfViewer`/`Input`/`Numerics`/`Effects`/`Renderer`/
 `Space`/`VkAppBase`/`Volume`）がフラットに統合された。
 モジュール一覧・依存関係・各モジュールのクラス仕様は `docs/module-reference.md` を参照（本ファイルは
 Math/Graphics/VulkanGraphics/UIWidgets のビルド・規約のみを扱う）。プロジェクト概要・ビルド手順は

@@ -6,15 +6,15 @@
 
 #include "ParticleEmitter.h"
 #include "ParticlePool.h"
-#include "../../CGLib/VulkanGraphics/VulkanBuffer.h"
-#include "../../CGLib/VulkanGraphics/VulkanComputePipeline.h"
-#include "../../CGLib/VulkanGraphics/VulkanDescriptorPool.h"
+#include "CGLib/VulkanGraphics/VulkanBuffer.h"
+#include "CGLib/VulkanGraphics/VulkanComputePipeline.h"
+#include "CGLib/VulkanGraphics/VulkanDescriptorPool.h"
 
 #include <vector>
 
 namespace Phantom::VKG { class VulkanContext; class VulkanCommandPool; }
 
-namespace Phantom::Particles {
+namespace Phantom::Effects::Particles {
 
 // Drives a fixed-capacity GPU particle pool with a single compute dispatch per frame:
 // ParticleEmitter decides which ring-buffer slots to (re)spawn this frame, the shader
@@ -76,4 +76,4 @@ private:
     uint32_t framesInFlight_ = 0;
 };
 
-} // namespace Phantom::Particles
+} // namespace Phantom::Effects::Particles

@@ -57,8 +57,10 @@ Math ──┬── Graphics ──┬── File
   blend x double-sided pipelines), `GltfPipelineVariantPool` (`.phmat` override pipelines),
   `GltfPrimitiveData` (AABB centre, animation geometry, blend sort) and `nodeLocalMatrix()`.
 - **Animation:** skeletal clips, poses, interpolation, and playback.
-- **Particles:** GPU simulation and billboard rendering.
-- **PostProcess:** bloom, SSAO, FXAA, and tone mapping.
+- **Effects:** Vulkan visual effects. `Particles/` owns emission, GPU simulation and billboard rendering;
+  `PostProcess/` owns bloom, SSAO, FXAA, tone mapping and the post-process chain.
+  Target: `EffectsCore` / `CGLib::Effects`; namespaces: `Phantom::Effects::Particles` and
+  `Phantom::Effects::PostProcess`.
 - **Editor:** generic snapshot history (`Editor/History/UndoStack<T>`, host-owned capture/restore), CPU rectangle mesh selection (`Editor/Selection`, Vulkan clip-space convention without a Vulkan dependency), selection-centroid/pivot-delta maths (`Editor/Gizmo`, `GizmoTransform`), UI-independent header-only console state/catalog (`Editor/Console`, `Phantom::Editor`), ordered `SelectionSet<Id>` plus command registry/JSON responses/reference helpers (legacy `PG::CommandCore` namespace; header-only nlohmann JSON dependency), and shared editing functionality, including UI/device-independent input notation, keymaps, command/action resolution and named action state (`Phantom::Editor`). Device polling and concrete game actions belong to the host. `Editor/Gizmo` provides transform gizmo types and geometry (`EditorCore`) plus the optional Vulkan backend (`EditorVulkanCore`). See `Editor/README.md`.
 
 ## Design conventions

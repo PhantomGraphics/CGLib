@@ -6,12 +6,12 @@
 
 #include "IPostEffect.h"
 #include "Internal/FullscreenEffectPipeline.h"
-#include "../../CGLib/VulkanGraphics/VulkanOffscreen.h"
-#include "../../CGLib/VulkanGraphics/VulkanSampler.h"
+#include "CGLib/VulkanGraphics/VulkanOffscreen.h"
+#include "CGLib/VulkanGraphics/VulkanSampler.h"
 
 #include <vector>
 
-namespace Phantom::PostProcess {
+namespace Phantom::Effects::PostProcess {
 
 // Lightweight luma-edge-detection FXAA. Operates on an LDR input (expects to run after
 // ToneMappingEffect) and computes luma inline rather than relying on a precomputed alpha
@@ -58,4 +58,4 @@ private:
     detail::FullscreenEffectPipeline pipeline_;
 };
 
-} // namespace Phantom::PostProcess
+} // namespace Phantom::Effects::PostProcess

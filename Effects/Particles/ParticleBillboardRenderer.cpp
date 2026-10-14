@@ -1,7 +1,7 @@
 #include "ParticleBillboardRenderer.h"
-#include "../../CGLib/VulkanGraphics/VulkanContext.h"
+#include "CGLib/VulkanGraphics/VulkanContext.h"
 
-namespace Phantom::Particles {
+namespace Phantom::Effects::Particles {
 
 void ParticleBillboardRenderer::onInit(const Phantom::VKG::VulkanContext& ctx, VkRenderPass renderPass,
                                        uint32_t framesInFlight, VkBuffer particleBuffer, uint32_t maxParticles)
@@ -111,4 +111,4 @@ void ParticleBillboardRenderer::onCleanup(VkDevice device)
     maxParticles_ = 0;
 }
 
-} // namespace Phantom::Particles
+} // namespace Phantom::Effects::Particles
