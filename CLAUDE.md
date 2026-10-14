@@ -155,7 +155,7 @@ Viewport/scissor は dynamic state なので `PipelineConfig` に含めない。
 - `VulkanBuffer` はコピー禁止・ムーブ可。他の VKG クラスはコピー禁止・ムーブ未定義（値として保持せず `unique_ptr` か直接メンバーで使う）。
 - Math の `Vector3df`/`Vector3dd`/`Matrix4df` 等のエイリアスを使い、`glm::vec3` 等のプリミティブを直接コードに書かない。
 - エラーは `bool` 戻り値で表現する（`VK_SUCCESS` チェック後）。失敗時は `stderr` にログを出し、ハンドルは未設定（`VK_NULL_HANDLE` 等の既定値）のまま返す。呼び出し元は戻り値または `isValid()` で確認する。「見つからなかった」系（`findMemoryType`/`findDepthFormat` 等）は `std::optional<T>` を返す — `.value()` は使わず、`.value_or(default)` か `if (opt)` で取り出すこと（`std::bad_optional_access` の送出を避けるため）。例外は使わない。
-- SPIR-V は `std::vector<uint32_t>` で受け渡し。`VulkanSPVLoader.h` の `loadSPV()` で読み込む。
+- SPIR-V は `std::vector<uint32_t>` で受け渡し。`SpvLoader.h` の `loadSPV()` で読み込む。
 
 ## リファクタリング関連ドキュメント
 

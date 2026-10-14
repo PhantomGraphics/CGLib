@@ -15,7 +15,7 @@
 // Screenshot (VkAppBase): MeshEditView.exe --screenshot out.png [--screenshot-frame N]
 //
 
-#include "VkMeshEditApp.h"
+#include "MeshEditApp.h"
 
 #include <cstdio>
 #include <string>
@@ -34,7 +34,7 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    Phantom::MeshView::VkMeshEditApp app(1280, 720, "Mesh Edit View");
+    Phantom::MeshView::MeshEditApp app(1280, 720, "Mesh Edit View");
 
     if (!scenarioPath.empty()) {
         if (!app.loadScenario(scenarioPath)) {

@@ -51,7 +51,7 @@ phantom_add_vkrenderer_core()
 if(NOT DEFINED CGLIB_BUILD_VIEWERS OR CGLIB_BUILD_VIEWERS)
 add_executable(VkRendererView
     ${RENDERER_ROOT}/VkRendererView/main.cpp
-    ${RENDERER_ROOT}/VkRendererView/VkRendererApp.cpp
+    ${RENDERER_ROOT}/VkRendererView/RendererApp.cpp
     ${RENDERER_ROOT}/VkRendererView/VkRendererSubRenderer.cpp
 )
 target_include_directories(VkRendererView PRIVATE
@@ -67,7 +67,7 @@ target_link_libraries(VkRendererView PRIVATE
 )
 target_compile_options(VkRendererView PRIVATE ${PHANTOM_WARN_FLAGS})
 
-# loadSPVRepo() (VulkanSPVResolver.h) resolves "shaders/*.spv" relative to the
+# loadSPVRepo() (SpvResolver.h) resolves "shaders/*.spv" relative to the
 # running binary's directory on Windows, and to the current working directory
 # on other platforms -- mirror VkRendererView.vcxproj's PostBuildEvent xcopy
 # (which pulls from VkRenderer/Shaders/, not VkRendererView/shaders/ -- the

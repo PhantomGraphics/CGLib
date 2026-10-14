@@ -1,6 +1,6 @@
-﻿#include "VkRendererApp.h"
+﻿#include "RendererApp.h"
 
-#include "../../../CGLib/VulkanGraphics/VulkanSPVResolver.h"
+#include "../../../CGLib/VulkanGraphics/SpvResolver.h"
 
 #include "imgui.h"
 
@@ -10,12 +10,12 @@
 
 namespace Phantom::VKRenderer {
 
-VkRendererApp::VkRendererApp(int w, int h, const std::string& title)
+RendererApp::RendererApp(int w, int h, const std::string& title)
     : ::Phantom::VKG::VkAppBase(w, h, title) {
     add(&renderer_);
 }
 
-void VkRendererApp::onInit() {
+void RendererApp::onInit() {
     static constexpr auto kSh = "shaders/";
     VkRendererSubRenderer::Shaders s;
     s.pointVert  = ::Phantom::VKG::loadSPVRepo(std::string(kSh) + "point.vert.spv");
@@ -36,16 +36,16 @@ void VkRendererApp::onInit() {
     setupWindowCallbacks();
 }
 
-void VkRendererApp::onUpdate(uint32_t frameIndex) {
+void RendererApp::onUpdate(uint32_t frameIndex) {
     renderer_.setCamera(computeProjMatrix(), computeViewMatrix());
     ::Phantom::VKG::VkAppBase::onUpdate(frameIndex);
 }
 
-void VkRendererApp::onSwapChainCreated() {
+void RendererApp::onSwapChainCreated() {
     renderer_.setExtent(getExtent());
 }
 
-void VkRendererApp::onImGui() {
+void RendererApp::onImGui() {
     ::Phantom::VKG::VkAppBase::onImGui();
 
     if (ImGui::BeginMainMenuBar()) {
@@ -69,11 +69,11 @@ void VkRendererApp::onImGui() {
     }
 }
 
-void VkRendererApp::onCleanup() {
+void RendererApp::onCleanup() {
     ::Phantom::VKG::VkAppBase::onCleanup();
 }
 
-void VkRendererApp::setupWindowCallbacks() {
+void RendererApp::setupWindowCallbacks() {
     auto& win = getWindow();
 
     win.onMouseButton = [this](int button, int action, int) {
@@ -98,7 +98,7 @@ void VkRendererApp::setupWindowCallbacks() {
     };
 }
 
-glm::mat4 VkRendererApp::computeViewMatrix() const {
+glm::mat4 RendererApp::computeViewMatrix() const {
     const float az = glm::radians(azimuth_);
     const float el = glm::radians(elevation_);
 
@@ -111,7 +111,7 @@ glm::mat4 VkRendererApp::computeViewMatrix() const {
     return glm::lookAt(eye, target, glm::vec3(0.f, 1.f, 0.f));
 }
 
-glm::mat4 VkRendererApp::computeProjMatrix() const {
+glm::mat4 RendererApp::computeProjMatrix() const {
     const auto ext = getExtent();
     const float aspect = (ext.height > 0)
         ? static_cast<float>(ext.width) / static_cast<float>(ext.height)

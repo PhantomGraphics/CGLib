@@ -9,9 +9,9 @@
 
 namespace Phantom::VKRenderer {
 
-class VkRendererApp : public ::Phantom::VKG::VkAppBase {
+class RendererApp : public ::Phantom::VKG::VkAppBase {
 public:
-    VkRendererApp(int w, int h, const std::string& title);
+    RendererApp(int w, int h, const std::string& title);
 
 protected:
     void onInit() override;

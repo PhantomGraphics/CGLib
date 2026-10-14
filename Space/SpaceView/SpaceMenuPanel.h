@@ -17,7 +17,7 @@ namespace Phantom::VKSpace {
 class World;
 class Renderer;
 
-class SpaceMenuPanel : public ::Phantom::VKG::IVkUIPanel {
+class SpaceMenuPanel : public ::Phantom::VKG::IUIPanel {
 public:
     void init(World* world, Renderer* renderer);
 

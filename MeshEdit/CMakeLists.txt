@@ -65,7 +65,7 @@ else()
 endif()
 
 # ---------------------------------------------------------------------------
-# MeshEditView (VkMeshEditApp : VkAppBase) -- standalone ImGui + Vulkan viewer
+# MeshEditView (MeshEditApp : VkAppBase) -- standalone ImGui + Vulkan viewer
 # ---------------------------------------------------------------------------
 
 phantom_find_vulkan_headers()
@@ -85,7 +85,7 @@ phantom_add_vkrenderer_core()
 if(NOT DEFINED CGLIB_BUILD_VIEWERS OR CGLIB_BUILD_VIEWERS)
 add_executable(MeshEditView
     ${MESHEDIT_ROOT}/MeshEditView/main.cpp
-    ${MESHEDIT_ROOT}/MeshEditView/VkMeshEditApp.cpp
+    ${MESHEDIT_ROOT}/MeshEditView/MeshEditApp.cpp
     ${MESHEDIT_ROOT}/MeshEditView/MeshMenuPanel.cpp
     ${MESHEDIT_ROOT}/MeshEditView/Renderer.cpp
 )

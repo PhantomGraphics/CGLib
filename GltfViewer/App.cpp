@@ -9,7 +9,7 @@
 #include "../GltfRenderer/Phmat/PhmatCompiler.h"
 #include "../File/File/OBJFileReader.h"
 #include "../File/File/STLFileReader.h"
-#include "../../CGLib/VulkanGraphics/VulkanSPVResolver.h"
+#include "../../CGLib/VulkanGraphics/SpvResolver.h"
 #include "../../CGLib/VulkanGraphics/VulkanContext.h"
 #include "../../CGLib/VulkanGraphics/VulkanCommandPool.h"
 #include "../../CGLib/ThirdParty/tinyfiledialogs/tinyfiledialogs.h"

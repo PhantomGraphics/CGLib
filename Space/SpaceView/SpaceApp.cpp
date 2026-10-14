@@ -1,4 +1,4 @@
-﻿#include "VkSpaceApp.h"
+﻿#include "SpaceApp.h"
 
 #include "imgui.h"
 
@@ -11,7 +11,7 @@ namespace Phantom::VKSpace {
 //  Construction
 // ============================================================
 
-VkSpaceApp::VkSpaceApp(int w, int h, const std::string& title)
+SpaceApp::SpaceApp(int w, int h, const std::string& title)
     : ::Phantom::VKG::VkAppBase(w, h, title)
     , renderer_(&world_)
 {
@@ -42,12 +42,12 @@ VkSpaceApp::VkSpaceApp(int w, int h, const std::string& title)
     // Control and Scenario Browser are drawn through the shell in onImGui().
 }
 
-void VkSpaceApp::onImGuiReady() {
+void SpaceApp::onImGuiReady() {
     // Context exists, imgui.ini is not read until the first frame.
     shell_.installSettings();
 }
 
-bool VkSpaceApp::loadScenario(const std::string& jsonPath) {
+bool SpaceApp::loadScenario(const std::string& jsonPath) {
     return runner_.load(jsonPath);
 }
 
@@ -55,7 +55,7 @@ bool VkSpaceApp::loadScenario(const std::string& jsonPath) {
 //  VkAppBase hooks
 // ============================================================
 
-void VkSpaceApp::onInit() {
+void SpaceApp::onInit() {
     {
         static constexpr auto kSS = "shaders/";
         Renderer::Shaders s;
@@ -70,11 +70,11 @@ void VkSpaceApp::onInit() {
     setupWindowCallbacks();
 }
 
-void VkSpaceApp::onSwapChainCreated() {
+void SpaceApp::onSwapChainCreated() {
     renderer_.setExtent(getExtent());
 }
 
-void VkSpaceApp::onUpdate(uint32_t frameIndex) {
+void SpaceApp::onUpdate(uint32_t frameIndex) {
     dispatcher_.processQueue();
 
     // Single place that collects responses: first the ones for commands typed
@@ -101,7 +101,7 @@ void VkSpaceApp::onUpdate(uint32_t frameIndex) {
     ::Phantom::VKG::VkAppBase::onUpdate(frameIndex);
 }
 
-void VkSpaceApp::onImGui() {
+void SpaceApp::onImGui() {
     ::Phantom::VKG::VkAppBase::onImGui();
 
     if (ImGui::BeginMainMenuBar()) {
@@ -118,7 +118,7 @@ void VkSpaceApp::onImGui() {
     }
 }
 
-void VkSpaceApp::onCleanup() {
+void SpaceApp::onCleanup() {
     ::Phantom::VKG::VkAppBase::onCleanup();
 }
 
@@ -126,7 +126,7 @@ void VkSpaceApp::onCleanup() {
 //  Private
 // ============================================================
 
-void VkSpaceApp::setupWindowCallbacks() {
+void SpaceApp::setupWindowCallbacks() {
     auto& win = getWindow();
     // Camera input is ignored while ImGui owns the mouse and while a scenario
     // runs; a release is always forwarded so a drag can end.

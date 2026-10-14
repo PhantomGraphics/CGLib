@@ -5,7 +5,7 @@
 #include "../../CGLib/VkAppBase/ScenarioRunner/IScenarioHost.h"
 #include "../../CGLib/VkAppBase/ScenarioRunner/ScenarioBrowserPanel.h"
 #include "../../CGLib/VkAppBase/ScenarioRunner/ViewShell.h"
-#include "CGLib/VulkanGraphics/VulkanSPVResolver.h"
+#include "CGLib/VulkanGraphics/SpvResolver.h"
 #include "Renderer.h"
 #include "CommandDispatcher.h"
 #include "MeshWorld.h"
@@ -15,9 +15,9 @@
 
 namespace Phantom::MeshView {
 
-class VkMeshEditApp : public ::Phantom::VKG::VkAppBase, public ::IScenarioHost {
+class MeshEditApp : public ::Phantom::VKG::VkAppBase, public ::IScenarioHost {
 public:
-    VkMeshEditApp(int w, int h, const std::string& title);
+    MeshEditApp(int w, int h, const std::string& title);
 
     MeshWorld& getWorld() { return world_; }
     Renderer& getRenderer() { return renderer_; }

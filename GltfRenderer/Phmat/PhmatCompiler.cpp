@@ -3,7 +3,7 @@
 #include "PhmatReflection.h"
 #include "json.hpp"
 
-#include "../../../CGLib/VulkanGraphics/VulkanSPVLoader.h"
+#include "../../../CGLib/VulkanGraphics/SpvLoader.h"
 
 #include <algorithm>
 #include <cctype>

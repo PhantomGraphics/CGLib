@@ -31,7 +31,7 @@ public:
     explicit Renderer(World* world);
 
     /// @brief Update swapchain extent used for the MVP aspect ratio.
-    /// Call from VkSpaceApp::onInit() and onSwapChainCreated().
+    /// Call from SpaceApp::onInit() and onSwapChainCreated().
     void setExtent(VkExtent2D ext) { extent_ = ext; }
     void setShaders(Shaders shaders) { shaders_ = std::move(shaders); }
 

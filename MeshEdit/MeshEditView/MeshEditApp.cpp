@@ -1,4 +1,4 @@
-#include "VkMeshEditApp.h"
+#include "MeshEditApp.h"
 
 #include "imgui.h"
 
@@ -7,7 +7,7 @@
 
 namespace Phantom::MeshView {
 
-VkMeshEditApp::VkMeshEditApp(int w, int h, const std::string& title)
+MeshEditApp::MeshEditApp(int w, int h, const std::string& title)
     : ::Phantom::VKG::VkAppBase(w, h, title)
     , renderer_(&world_)
 {
@@ -45,14 +45,14 @@ VkMeshEditApp::VkMeshEditApp(int w, int h, const std::string& title)
     menuPanel_.setSubmit([this](const std::string& c) { dispatcher_.submitUi(c); });
 }
 
-void VkMeshEditApp::onImGuiReady() {
+void MeshEditApp::onImGuiReady() {
     // Context exists, imgui.ini is not read until the first frame.
     shell_.installSettings();
 }
 
-bool VkMeshEditApp::loadScenario(const std::string& jsonPath) { return runner_.load(jsonPath); }
+bool MeshEditApp::loadScenario(const std::string& jsonPath) { return runner_.load(jsonPath); }
 
-void VkMeshEditApp::onInit() {
+void MeshEditApp::onInit() {
     {
         static constexpr auto kSS = "shaders/";
         Renderer::Shaders s;
@@ -69,9 +69,9 @@ void VkMeshEditApp::onInit() {
     setupWindowCallbacks();
 }
 
-void VkMeshEditApp::onSwapChainCreated() { renderer_.setExtent(getExtent()); }
+void MeshEditApp::onSwapChainCreated() { renderer_.setExtent(getExtent()); }
 
-void VkMeshEditApp::onUpdate(uint32_t frameIndex) {
+void MeshEditApp::onUpdate(uint32_t frameIndex) {
     dispatcher_.processQueue();
 
     // Single place that collects responses: first the ones for commands typed into the Command window, the rest belong
@@ -97,7 +97,7 @@ void VkMeshEditApp::onUpdate(uint32_t frameIndex) {
     ::Phantom::VKG::VkAppBase::onUpdate(frameIndex);
 }
 
-void VkMeshEditApp::onImGui() {
+void MeshEditApp::onImGui() {
     ::Phantom::VKG::VkAppBase::onImGui();
 
     if (ImGui::BeginMainMenuBar()) {
@@ -114,9 +114,9 @@ void VkMeshEditApp::onImGui() {
     }
 }
 
-void VkMeshEditApp::onCleanup() { ::Phantom::VKG::VkAppBase::onCleanup(); }
+void MeshEditApp::onCleanup() { ::Phantom::VKG::VkAppBase::onCleanup(); }
 
-void VkMeshEditApp::setupWindowCallbacks() {
+void MeshEditApp::setupWindowCallbacks() {
     auto& win = getWindow();
     // Camera and picking input is ignored while ImGui owns the mouse and while a scenario runs; a release is always
     // forwarded so a drag can end.

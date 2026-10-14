@@ -9,7 +9,7 @@ PhantomStudio（`CGApp/PhantomStudio`）が使う編集マスタ・編集操作�
 | ディレクトリ | 内容 |
 |---|---|
 | `MeshEdit/` | `EditableMesh.h/.cpp`（論理トポロジ。永続 id の頂点・辺・面、コーナーごとの UV と法線、`validate()`、`makeEditableBox/Plane`、`newellNormal`）、`MeshEditOperations.h/.cpp`（移動/回転/拡縮、押し出し、Inset、ベベル、ループカット、結合、削除、シェーディング、Mirror・Subdivision モディファイア）、`MeshEditPicking.h/.cpp`（画面空間の点・矩形ピック）、`MeshEditState.h/.cpp`（編集セッションの選択ステート、`ids=` / ピクセル / ミラー軸の引数パース） |
-| `MeshEditView/` | テストビュー。`MeshWorld`（メッシュ・モディファイア・選択・Undo・描画データ。ImGui/Vulkan なし）と `CommandDispatcher`（コマンド言語）は `MeshEditDemoCore` に入り、`MeshEditTest` が窓なしで検証する。`VkMeshEditApp`/`Renderer`/`MeshMenuPanel` が Vulkan + ImGui 側 |
+| `MeshEditView/` | テストビュー。`MeshWorld`（メッシュ・モディファイア・選択・Undo・描画データ。ImGui/Vulkan なし）と `CommandDispatcher`（コマンド言語）は `MeshEditDemoCore` に入り、`MeshEditTest` が窓なしで検証する。`MeshEditApp`/`Renderer`/`MeshMenuPanel` が Vulkan + ImGui 側 |
 | `MeshEditTest/` | GoogleTest。`EditableMeshTest`、`MeshEditOperationsTest`、`MeshEditPickingTest`、`MeshEditStateTest`、`MeshEditViewTest` |
 
 ## 規約

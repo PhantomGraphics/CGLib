@@ -60,7 +60,7 @@ if(PHANTOM_GTEST_FOUND)
 endif()
 
 # ---------------------------------------------------------------------------
-# SpaceView (VkSpaceApp : VkAppBase) -- standalone ImGui + Vulkan viewer
+# SpaceView (SpaceApp : VkAppBase) -- standalone ImGui + Vulkan viewer
 # ---------------------------------------------------------------------------
 
 phantom_find_vulkan_headers()
@@ -86,7 +86,7 @@ add_executable(SpaceView
     ${SPACE_ROOT}/SpaceView/SignedDistancePanel.cpp
     ${SPACE_ROOT}/SpaceView/SpaceHashPanel.cpp
     ${SPACE_ROOT}/SpaceView/SpaceMenuPanel.cpp
-    ${SPACE_ROOT}/SpaceView/VkSpaceApp.cpp
+    ${SPACE_ROOT}/SpaceView/SpaceApp.cpp
     ${SPACE_ROOT}/SpaceView/CommandDispatcher.cpp
     ${SPACE_ROOT}/SpaceView/Renderer.cpp
 )
@@ -105,7 +105,7 @@ target_link_libraries(SpaceView PRIVATE
 )
 target_compile_options(SpaceView PRIVATE ${PHANTOM_WARN_FLAGS})
 
-# loadSPVRepo() (VulkanSPVResolver.h) resolves "shaders/*.spv" relative to the
+# loadSPVRepo() (SpvResolver.h) resolves "shaders/*.spv" relative to the
 # running binary's directory on Windows, and to the current working directory
 # on other platforms (no portable "own module path" API used there) -- mirror
 # Windows' PostBuildEvent xcopy so the binary finds its shaders either way.
