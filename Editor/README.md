@@ -5,7 +5,8 @@ Features include the transform gizmo in `Gizmo/` and shared input in `Input/`.
 
 - `EditorCore` / `CGLib::Editor`: CPU-only gizmo types/geometry, input notation,
   keymaps, command/action resolution, named action state, command schemas/responses,
-  reference syntax helpers, and ordered selection sets.
+  reference syntax helpers, ordered selection sets, header-only console state and
+  snapshot history.
 - `EditorVulkanCore` / `CGLib::EditorVulkan`: existing Vulkan transform gizmo,
   including picking and dragging. Requires Vulkan headers; no WPF or ImGui dependency.
 
@@ -69,6 +70,37 @@ tracks each pending command's origin, logs responses and returns scenario
 responses plus unclaimed responses to the host. ViewShell retains the scenario
 proxy and UI connection. Clearing the log preserves pending ownership/history.
 The log holds at most 2000 lines; history keeps its existing unbounded behavior.
+
+## History
+
+`History/UndoStack.h` provides `Phantom::Editor::UndoStack<T>`, a header-only,
+standard-library-only snapshot stack. FluidStudio's `PG::FS::UndoStack<T>` is a
+compatibility alias. Hosts capture state before an edit and apply the state
+returned by undo/redo; the stack owns only history values. It clears redo on
+push, discards the oldest undo state beyond the limit (default 100; zero disables
+history), and clears both stacks at host-defined new/open/import boundaries.
+
+Universe retains its inverse/function-based history. PointCloudStudio retains
+shared-buffer snapshots and memory-budget eviction. Neither is converted to this
+count-limited snapshot stack.
+
+## Conditional migration decisions
+
+- ViewShell remains in VkAppBase/ScenarioRunner: it already serves the viewers,
+  owns ImGui windows/settings and adapts ScenarioRunner to the console. Its shared
+  CPU console state is now in Editor; moving the remaining UI would require a
+  separate EditorImGui target and scenario adapter without adding shared behavior.
+- Universe completion remains beside CommandTable: multi-word verbs, positional
+  arguments and option-key completion differ from the viewer catalog. There is
+  currently no second host consuming that grammar or metadata contract.
+- Universe CommandLog retains command-source semantics, delta merging,
+  entity-name rewriting integration and read-only/script filtering. ConsoleModel
+  is the shared viewer log/history; no common command-log contract is established.
+- JobManager remains in CGApp/Common/CommandCore, shared by FluidStudio and
+  PointCloudStudio. It is a generic poll/cancel registry for host-owned conversion,
+  simulation and rendering work, not tied to editing. Moving it into Editor would
+  add thread coordination without a new Editor consumer. Host callbacks must stay
+  alive while jobs are registered; the manager does not own worker threads.
 
 ## Input
 

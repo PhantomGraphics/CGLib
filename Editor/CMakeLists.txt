@@ -37,6 +37,7 @@ if(PHANTOM_GTEST_FOUND)
             EditorTest/CommandTest.cpp EditorTest/SelectionSetTest.cpp
             EditorTest/CommandConsoleModelTest.cpp
             EditorTest/MultiSelectionGizmoTest.cpp EditorTest/SelectionGeometryTest.cpp
+            EditorTest/UndoStackTest.cpp
         LINK EditorCore)
 endif()
 
