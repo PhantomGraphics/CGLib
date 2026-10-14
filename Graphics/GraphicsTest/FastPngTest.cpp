@@ -2,7 +2,7 @@
 #include "gtest/gtest.h"
 
 #include "../Graphics/FastPng.h"
-#include "../ThirdParty/stb/stb_image.h"  // declarations only: the implementation lives in ImageFileReader.cpp
+#include "../../ThirdParty/stb/stb_image.h"  // declarations only: the implementation lives in ImageFileReader.cpp
 
 #include <chrono>
 #include <cstdint>

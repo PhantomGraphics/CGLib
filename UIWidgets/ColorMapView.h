@@ -4,7 +4,7 @@
 #include "imgui.h"
 #include "FloatView.h"
 #include "IntView.h"
-#include "../Graphics/ColorMap.h"
+#include "../Graphics/Graphics/ColorMap.h"
 
 namespace Phantom {
 	namespace UI {

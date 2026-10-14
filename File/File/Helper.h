@@ -1,7 +1,7 @@
 #pragma once
 
 #include "CGLib/Math/Vector3d.h"
-#include "CGLib/Graphics/ColorRGBA.h"
+#include "CGLib/Graphics/Graphics/ColorRGBA.h"
 #include <istream>
 #include <sstream>
 #include <string>

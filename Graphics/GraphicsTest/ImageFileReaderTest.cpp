@@ -1,9 +1,9 @@
 ﻿#include "pch.h"
 #include "gtest/gtest.h"
 
-#include "../../CGLib/Graphics/ImageFileReader.h"
-#include "../../CGLib/Graphics/ImageFileWriter.h"
-#include "../../CGLib/Graphics/Image.h"
+#include "../Graphics/ImageFileReader.h"
+#include "../Graphics/ImageFileWriter.h"
+#include "../Graphics/Image.h"
 
 #include <filesystem>
 #include <string>

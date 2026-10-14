@@ -9,7 +9,7 @@
 
 #include <string>
 
-#include "CGLib/Graphics/ColorRGBA.h"
+#include "CGLib/Graphics/Graphics/ColorRGBA.h"
 
 
 using namespace Phantom::Graphics;

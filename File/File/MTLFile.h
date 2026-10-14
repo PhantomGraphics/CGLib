@@ -1,6 +1,6 @@
 #pragma once
 
-#include "CGLib/Graphics/Image.h"
+#include "CGLib/Graphics/Graphics/Image.h"
 
 #include <algorithm>
 #include <string>
