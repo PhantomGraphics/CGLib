@@ -145,7 +145,7 @@ namespace Phantom {
 	{
 		std::string name;
 		int imageIndex = -1;
-		int samplerIndex = -1; // index into GLTFFile::samplers; -1 = no sampler node (spec default LINEAR/REPEAT)
+		int samplerIndex = -1; // index into GltfFile::samplers; -1 = no sampler node (spec default LINEAR/REPEAT)
 	};
 
 	struct GLTFNode
@@ -230,7 +230,7 @@ namespace Phantom {
 		std::vector<int> nodes;
 	};
 
-	struct GLTFFile
+	struct GltfFile
 	{
 		std::vector<GLTFMesh> meshes;
 		std::vector<GLTFMaterial> materials;

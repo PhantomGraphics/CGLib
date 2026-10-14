@@ -1,4 +1,4 @@
-#include "VolumePbvrGpu.h"
+#include "VolumePBVRGpu.h"
 
 #include "VolumeGpuUtil.h"
 
@@ -16,7 +16,7 @@ using detail::imageBarrier;
 using detail::memoryBarrier;
 
 // std140 layout; keep in sync with volume_pbvr_common.glsl.
-struct VolumePbvrGpu::Params {
+struct VolumePBVRGpu::Params {
     glm::mat4 viewProj;
     glm::vec4 camPos;
     glm::vec4 gridOrigin;
@@ -36,7 +36,7 @@ struct GeneratePush { uint32_t seed; };
 struct AccumPush { uint32_t first, width, height; };
 }
 
-bool VolumePbvrGpu::create(const VulkanContext& ctx, const VulkanCommandPool& pool, const Config& config)
+bool VolumePBVRGpu::create(const VulkanContext& ctx, const VulkanCommandPool& pool, const Config& config)
 {
     config_ = config;
     VkDevice device = ctx.getDevice();
@@ -103,7 +103,7 @@ bool VolumePbvrGpu::create(const VulkanContext& ctx, const VulkanCommandPool& po
     return true;
 }
 
-void VolumePbvrGpu::destroyTargets(const VulkanContext& ctx)
+void VolumePBVRGpu::destroyTargets(const VulkanContext& ctx)
 {
     VkDevice device = ctx.getDevice();
     ensembleTarget_.destroy(ctx);
@@ -117,7 +117,7 @@ void VolumePbvrGpu::destroyTargets(const VulkanContext& ctx)
     accumMemory_ = VK_NULL_HANDLE;
 }
 
-void VolumePbvrGpu::destroy(const VulkanContext& ctx)
+void VolumePBVRGpu::destroy(const VulkanContext& ctx)
 {
     VkDevice device = ctx.getDevice();
     destroyTargets(ctx);
@@ -137,7 +137,7 @@ void VolumePbvrGpu::destroy(const VulkanContext& ctx)
     genSets_.clear();
 }
 
-bool VolumePbvrGpu::setViewport(const VulkanContext& ctx, const VulkanCommandPool& pool, uint32_t width, uint32_t height)
+bool VolumePBVRGpu::setViewport(const VulkanContext& ctx, const VulkanCommandPool& pool, uint32_t width, uint32_t height)
 {
     destroyTargets(ctx);
     width_ = width;
@@ -222,7 +222,7 @@ bool VolumePbvrGpu::setViewport(const VulkanContext& ctx, const VulkanCommandPoo
     return true;
 }
 
-void VolumePbvrGpu::bindGrid(const VulkanContext& ctx, const VolumeRaymarchGpu& grid)
+void VolumePBVRGpu::bindGrid(const VulkanContext& ctx, const VolumeRaymarchGpu& grid)
 {
     if (!grid.hasGrid()) return;
     VkDevice device = ctx.getDevice();
@@ -257,7 +257,7 @@ void VolumePbvrGpu::bindGrid(const VulkanContext& ctx, const VolumeRaymarchGpu& 
     vkUpdateDescriptorSets(device, static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
 }
 
-void VolumePbvrGpu::recordEnsembles(VkCommandBuffer cmd, uint32_t frameIndex, const VolumeRaymarchGpu& grid,
+void VolumePBVRGpu::recordEnsembles(VkCommandBuffer cmd, uint32_t frameIndex, const VolumeRaymarchGpu& grid,
                                     const Camera& camera, const ScatteringParams& sp, uint32_t count)
 {
     if (!isReady() || !grid.hasGrid() || count == 0 || genSets_.empty()) return;
@@ -335,7 +335,7 @@ void VolumePbvrGpu::recordEnsembles(VkCommandBuffer cmd, uint32_t frameIndex, co
                   VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 }
 
-void VolumePbvrGpu::recordComposite(VkCommandBuffer cmd) const
+void VolumePBVRGpu::recordComposite(VkCommandBuffer cmd) const
 {
     if (!isReady() || accumulated_ == 0 || compositePipeline_.getPipeline() == VK_NULL_HANDLE) return;
     const float invCount = 1.0f / static_cast<float>(accumulated_);
@@ -345,7 +345,7 @@ void VolumePbvrGpu::recordComposite(VkCommandBuffer cmd) const
     vkCmdDraw(cmd, 3, 1, 0, 0);
 }
 
-bool VolumePbvrGpu::readStats(const VulkanContext& ctx, const VulkanCommandPool& pool, Stats& out) const
+bool VolumePBVRGpu::readStats(const VulkanContext& ctx, const VulkanCommandPool& pool, Stats& out) const
 {
     detail::HostBuffer host;
     if (!host.create(ctx, 16, VK_BUFFER_USAGE_TRANSFER_DST_BIT)) {

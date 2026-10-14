@@ -12,13 +12,13 @@ namespace Phantom::Volume {
 /**
  * @brief Device-local R32_SFLOAT 3D image (sampled + storage + transfer), permanently in
  * VK_IMAGE_LAYOUT_GENERAL so a compute pass can write it and a fragment pass can sample it
- * with only a memory barrier in between. This is the GPU form of ScalarGrid3D.
+ * with only a memory barrier in between. This is the GPU form of ScalarGrid3d.
  */
-class Volume3DImage {
+class Volume3dImage {
 public:
-    Volume3DImage() = default;
-    Volume3DImage(const Volume3DImage&) = delete;
-    Volume3DImage& operator=(const Volume3DImage&) = delete;
+    Volume3dImage() = default;
+    Volume3dImage(const Volume3dImage&) = delete;
+    Volume3dImage& operator=(const Volume3dImage&) = delete;
 
     /** @brief True if R32_SFLOAT supports linear-filtered sampling and storage on this device. */
     static bool isSupported(const Phantom::VKG::VulkanContext& ctx);

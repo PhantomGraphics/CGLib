@@ -2,11 +2,11 @@
 #include "CommandParse.h"
 #include "McMesh.h"
 
-#include "VolumeScene.h"
+#include "SparseVolumeScene.h"
 
 #include "../Volume/SparseVolumeTree/SparseVolume.h"
 #include "../Volume/SparseVolumeTree/Coord.h"
-#include "../Volume/SparseVolumeTree/Interpolator.h"
+#include "../Volume/SparseVolumeTree/TrilinearInterpolator.h"
 #include "../Volume/LevelSet.h"
 #include "../Volume/MCSurfaceBuilder.h"
 

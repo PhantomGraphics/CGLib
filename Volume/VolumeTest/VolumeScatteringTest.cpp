@@ -11,26 +11,26 @@ namespace VS = Phantom::Volume::VolumeScattering;
 namespace
 {
 // 16^3 grid, cell 1. Density `rho` fills every x,y column but only z in [4, 12) (8 cells thick).
-ScalarGrid3D makeSlab(float rho)
+ScalarGrid3d makeSlab(float rho)
 {
   ScalarGridDesc d;
   d.nx = d.ny = d.nz = 16;
   d.cellSize = 1.0f;
-  ScalarGrid3D g(d, 0.0f, 0.0f);
+  ScalarGrid3d g(d, 0.0f, 0.0f);
   for (uint32_t k = 4; k < 12; ++k)
     for (uint32_t j = 0; j < 16; ++j)
       for (uint32_t i = 0; i < 16; ++i) g.at(i, j, k) = rho;
   return g;
 }
 
-ScalarGrid3D ones(const ScalarGridDesc& d) { return ScalarGrid3D(d, 1.0f, 1.0f); }
+ScalarGrid3d ones(const ScalarGridDesc& d) { return ScalarGrid3d(d, 1.0f, 1.0f); }
 
-ScalarGrid3D makeBlob(uint32_t n, float peak)
+ScalarGrid3d makeBlob(uint32_t n, float peak)
 {
   ScalarGridDesc d;
   d.nx = d.ny = d.nz = n;
   d.cellSize = 1.0f;
-  ScalarGrid3D g(d);
+  ScalarGrid3d g(d);
   const float c = 0.5f * static_cast<float>(n), r = 0.35f * static_cast<float>(n);
   for (uint32_t k = 0; k < n; ++k)
     for (uint32_t j = 0; j < n; ++j)
@@ -72,11 +72,11 @@ TEST(VolumeScatteringTest, IntersectBox)
 
 TEST(VolumeScatteringTest, UniformSlabTransmittanceMatchesBeerLambert)
 {
-  const ScalarGrid3D rho = makeSlab(1.0f);
+  const ScalarGrid3d rho = makeSlab(1.0f);
   ScatteringParams p;
   p.extinction = 0.1f;
   p.minTransmittance = 0.0f;
-  const ScalarGrid3D lit = ones(rho.desc());
+  const ScalarGrid3d lit = ones(rho.desc());
   for (float step : { 0.25f, 0.5f, 1.0f, 2.0f }) {
     p.stepLength = step;
     const RayResult r = VS::marchRay(rho, lit, p, Vector3df(8.0f, 8.0f, -3.0f), Vector3df(0, 0, 1));
@@ -86,7 +86,7 @@ TEST(VolumeScatteringTest, UniformSlabTransmittanceMatchesBeerLambert)
 
 TEST(VolumeScatteringTest, SlabRadianceMatchesAnalyticSingleScatter)
 {
-  const ScalarGrid3D rho = makeSlab(1.0f);
+  const ScalarGrid3d rho = makeSlab(1.0f);
   ScatteringParams p;
   p.extinction = 0.2f;
   p.albedo = 0.8f;
@@ -96,7 +96,7 @@ TEST(VolumeScatteringTest, SlabRadianceMatchesAnalyticSingleScatter)
   p.stepLength = 0.5f;
   p.minTransmittance = 0.0f;
   p.sunDirection = Vector3df(0, 1, 0);
-  const ScalarGrid3D lit = ones(rho.desc());   // no self-shadowing: source is constant along the ray
+  const ScalarGrid3d lit = ones(rho.desc());   // no self-shadowing: source is constant along the ray
   const RayResult r = VS::marchRay(rho, lit, p, Vector3df(8.0f, 8.0f, -3.0f), Vector3df(0, 0, 1));
   const float src = p.albedo * (p.sunIrradiance * VS::henyeyGreenstein(0.0f, 0.0f) + p.ambient);
   const float T = std::exp(-0.2f * 8.0f);
@@ -107,12 +107,12 @@ TEST(VolumeScatteringTest, SlabRadianceMatchesAnalyticSingleScatter)
 
 TEST(VolumeScatteringTest, SunTransmittanceInsideSlab)
 {
-  const ScalarGrid3D rho = makeSlab(1.0f);
+  const ScalarGrid3d rho = makeSlab(1.0f);
   ScatteringParams p;
   p.extinction = 0.1f;
   p.sunDirection = Vector3df(0, 0, 1);
   p.stepLength = 0.25f;
-  const ScalarGrid3D t = VS::computeSunTransmittance(rho, p);
+  const ScalarGrid3d t = VS::computeSunTransmittance(rho, p);
   EXPECT_EQ(t.borderValue(), 1.0f);
   EXPECT_NEAR(t.at(8, 8, 15), 1.0f, 1e-6f);                       // above the slab
   EXPECT_NEAR(t.at(8, 8, 11), std::exp(-0.1f * 0.5f), 5.0e-3f);   // half a cell below the top plane (z=12)
@@ -126,9 +126,9 @@ TEST(VolumeScatteringTest, EmptyMissAndZeroAlbedo)
 {
   ScalarGridDesc d;
   d.nx = d.ny = d.nz = 8;
-  ScalarGrid3D empty(d);
+  ScalarGrid3d empty(d);
   ScatteringParams p;
-  const ScalarGrid3D lit = ones(d);
+  const ScalarGrid3d lit = ones(d);
   RayResult r = VS::marchRay(empty, lit, p, Vector3df(4, 4, -3), Vector3df(0, 0, 1));
   EXPECT_EQ(r.radiance.x, 0.0f);
   EXPECT_EQ(r.transmittance, 1.0f);
@@ -136,7 +136,7 @@ TEST(VolumeScatteringTest, EmptyMissAndZeroAlbedo)
   EXPECT_EQ(r.steps, 0);
   EXPECT_EQ(r.transmittance, 1.0f);
 
-  const ScalarGrid3D blob = makeBlob(16, 2.0f);
+  const ScalarGrid3d blob = makeBlob(16, 2.0f);
   p.albedo = 0.0f;
   r = VS::marchRay(blob, ones(blob.desc()), p, Vector3df(8, 8, -3), Vector3df(0, 0, 1));
   EXPECT_EQ(r.radiance.x, 0.0f);
@@ -145,12 +145,12 @@ TEST(VolumeScatteringTest, EmptyMissAndZeroAlbedo)
 
 TEST(VolumeScatteringTest, TMaxTruncatesTheRay)
 {
-  const ScalarGrid3D rho = makeSlab(1.0f);
+  const ScalarGrid3d rho = makeSlab(1.0f);
   ScatteringParams p;
   p.extinction = 0.1f;
   p.stepLength = 0.5f;
   p.minTransmittance = 0.0f;
-  const ScalarGrid3D lit = ones(rho.desc());
+  const ScalarGrid3d lit = ones(rho.desc());
   // Ray enters the box at z=0 (t=3); an opaque surface at t=3+8 (z=8) leaves 4 cells of slab (z 4..8).
   const RayResult r = VS::marchRay(rho, lit, p, Vector3df(8, 8, -3), Vector3df(0, 0, 1), 11.0f);
   EXPECT_NEAR(r.transmittance, std::exp(-0.4f), 3.0e-3f);
@@ -158,14 +158,14 @@ TEST(VolumeScatteringTest, TMaxTruncatesTheRay)
 
 TEST(VolumeScatteringTest, SelfShadowingDarkensTheBlobAndStepConverges)
 {
-  const ScalarGrid3D blob = makeBlob(24, 3.0f);
+  const ScalarGrid3d blob = makeBlob(24, 3.0f);
   ScatteringParams p;
   p.extinction = 0.4f;
   p.phaseG = 0.0f;
   p.sunDirection = Vector3df(0, 0, 1);
   p.minTransmittance = 0.0f;
   p.stepLength = 0.125f;
-  const ScalarGrid3D shadowed = VS::computeSunTransmittance(blob, p);
+  const ScalarGrid3d shadowed = VS::computeSunTransmittance(blob, p);
   const Vector3df o(12, 12, -3);
   const Vector3df dir(1.0f, 0.0f, 0.0f);   // side-on view of the sun-lit blob
   const Vector3df side(-3.0f, 12.0f, 12.0f);
@@ -184,7 +184,7 @@ TEST(VolumeScatteringTest, SelfShadowingDarkensTheBlobAndStepConverges)
 
 TEST(VolumeScatteringTest, MaxStepsCapIsReported)
 {
-  const ScalarGrid3D rho = makeSlab(0.01f);   // thin: never reaches minTransmittance
+  const ScalarGrid3d rho = makeSlab(0.01f);   // thin: never reaches minTransmittance
   ScatteringParams p;
   p.stepLength = 0.1f;
   p.maxSteps = 10;
@@ -193,16 +193,16 @@ TEST(VolumeScatteringTest, MaxStepsCapIsReported)
   EXPECT_EQ(r.steps, 10);
 }
 
-TEST(ScalarGrid3DTest, TrilinearSampling)
+TEST(ScalarGrid3dTest, TrilinearSampling)
 {
   ScalarGridDesc d;
   d.nx = d.ny = d.nz = 2;
-  ScalarGrid3D g(d, 0.0f, 0.0f);
+  ScalarGrid3d g(d, 0.0f, 0.0f);
   g.at(0, 0, 0) = 1.0f;
   EXPECT_NEAR(g.sample(g.cellCenter(0, 0, 0)), 1.0f, 1e-6f);
   EXPECT_NEAR(g.sample(g.cellCenter(1, 0, 0)), 0.0f, 1e-6f);
   EXPECT_NEAR(g.sample(Vector3df(1.0f, 0.5f, 0.5f)), 0.5f, 1e-6f);   // midway between two centres
   EXPECT_NEAR(g.sample(Vector3df(-5, 0, 0)), 0.0f, 1e-6f);           // border value
-  ScalarGrid3D b(d, 1.0f, 7.0f);
+  ScalarGrid3d b(d, 1.0f, 7.0f);
   EXPECT_NEAR(b.sample(Vector3df(-5, 0, 0)), 7.0f, 1e-6f);
 }

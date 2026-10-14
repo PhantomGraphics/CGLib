@@ -27,7 +27,7 @@ namespace Phantom::Gltf
             glm::vec4  jointWeights{1.f, 0.f, 0.f, 0.f};
             glm::vec2  texCoord1{0.f, 0.f};        // TEXCOORD_1; a material's GltfTextureInfo::texCoord
                                                     // selects which UV set its sampler reads (see
-                                                    // GltfMaterial.cpp/gltf.frag)
+                                                    // GltfGpuMaterial.cpp/gltf.frag)
             glm::vec4  color{1.f, 1.f, 1.f, 1.f};  // COLOR_0, modulates baseColor; white = no vertex color
 
             static VkVertexInputBindingDescription getBindingDescription();

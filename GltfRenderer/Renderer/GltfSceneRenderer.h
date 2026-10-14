@@ -4,9 +4,9 @@
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 
-#include "GltfMesh.h"
-#include "GltfMaterial.h"
-#include "CameraUBO.h"
+#include "GltfGpuMesh.h"
+#include "GltfGpuMaterial.h"
+#include "GltfUniformTypes.h"
 #include "LightManager.h"
 #include "GltfObjectAnimation.h"
 #include "GltfGlobalDescriptors.h"
@@ -171,7 +171,7 @@ namespace Phantom::Gltf
 
         // --- GPU skinning ---
         // Per-frame joint matrices for skinned primitives (see GltfSkin/JOINTS_0/WEIGHTS_0 in
-        // GltfTypes.h and BoneUBO in CameraUBO.h). Index i is position i within the relevant
+        // GltfTypes.h and BoneUBO in GltfUniformTypes.h). Index i is position i within the relevant
         // GltfSkin::joints array, not a node index -- callers combine each joint's current global
         // transform with that joint's inverseBindMatrices entry before passing it in here (see
         // Phantom::Animation::Animator::getSkinMatrices() for the existing pattern this mirrors).
@@ -282,7 +282,7 @@ namespace Phantom::Gltf
         // Phase 4B tone mapping: multiplies color before gltf.frag's Reinhard tonemap (1.0 =
         // unchanged from before this existed). GlobalUBO::exposure was appended at the very end
         // of the struct specifically so this is safe to add without shifting any other
-        // consumer's field offsets -- see CameraUBO.h's comment. A consumer whose own gltf.frag
+        // consumer's field offsets -- see GltfUniformTypes.h's comment. A consumer whose own gltf.frag
         // copy doesn't declare `exposure` (every one but Universe's, as of Phase 4B) simply never
         // reads the extra tail bytes; this setter is a no-op for it either way.
         void  setExposure(float v) { exposure_ = v; }

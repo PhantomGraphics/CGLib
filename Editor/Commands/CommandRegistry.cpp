@@ -1,4 +1,4 @@
-#include "Registry.h"
+#include "CommandRegistry.h"
 
 #include "Tokenizer.h"
 #include "json.hpp"

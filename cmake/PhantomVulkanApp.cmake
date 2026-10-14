@@ -171,7 +171,7 @@ function(phantom_add_uiwidgets_core)
         ${CGLIB_ROOT}/UIWidgets/Matrix4dView.cpp
         ${CGLIB_ROOT}/UIWidgets/Panel.cpp
         ${CGLIB_ROOT}/UIWidgets/Ray3dView.cpp
-        ${CGLIB_ROOT}/UIWidgets/Rect3dView.cpp
+        ${CGLIB_ROOT}/UIWidgets/Rectangle3dView.cpp
         ${CGLIB_ROOT}/UIWidgets/Row.cpp
         ${CGLIB_ROOT}/UIWidgets/Section.cpp
         ${CGLIB_ROOT}/UIWidgets/Separator.cpp
@@ -329,9 +329,9 @@ function(phantom_add_gltfrenderer_core)
         ${_gltfr_root}/Vrm/VrmMToonFallback.cpp
         ${_gltfr_root}/Vrm/VrmReader.cpp
         ${_gltfr_root}/IBL/GltfIBLPrecomputer.cpp
-        ${_gltfr_root}/IBL/GltfEnvironmentCubemap.cpp
-        ${_gltfr_root}/Renderer/GltfMesh.cpp
-        ${_gltfr_root}/Renderer/GltfMaterial.cpp
+        ${_gltfr_root}/IBL/GltfEnvironmentCubeMap.cpp
+        ${_gltfr_root}/Renderer/GltfGpuMesh.cpp
+        ${_gltfr_root}/Renderer/GltfGpuMaterial.cpp
         ${_gltfr_root}/Renderer/GltfSceneRenderer.cpp
         ${_gltfr_root}/Renderer/ShadowMapPass.cpp
         ${_gltfr_root}/Renderer/LightManager.cpp
@@ -383,9 +383,9 @@ function(phantom_add_volumeraymarch_core)
     phantom_add_volume_core()
     phantom_add_vulkangraphics_core()
     add_library(VolumeRaymarch STATIC
-        ${CGLIB_ROOT}/Volume/VolumeRaymarch/Volume3DImage.cpp
+        ${CGLIB_ROOT}/Volume/VolumeRaymarch/Volume3dImage.cpp
         ${CGLIB_ROOT}/Volume/VolumeRaymarch/VolumeRaymarchGpu.cpp
-        ${CGLIB_ROOT}/Volume/VolumeRaymarch/VolumePbvrGpu.cpp
+        ${CGLIB_ROOT}/Volume/VolumeRaymarch/VolumePBVRGpu.cpp
     )
     target_include_directories(VolumeRaymarch PUBLIC
         ${REPO_ROOT}

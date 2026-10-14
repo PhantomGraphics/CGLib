@@ -128,14 +128,14 @@ function(phantom_add_file_core)
     # never-wired-up leftover from the original VS "static library" project
     # template (a stub fnFile() nobody calls) -- confirmed NOT part of File.
     # vcxproj's <ClCompile> list. Do NOT file(GLOB) this directory -- the
-    # explicit list below matches File.vcxproj exactly. cgltf (GLTFFileReader/
+    # explicit list below matches File.vcxproj exactly. cgltf (GltfFileReader/
     # Writer) is a single-header library under File/ThirdParty/cgltf, included
     # via the repo-root-relative path "CGLib/File/ThirdParty/cgltf/cgltf.h"
     # -- no extra include dir needed beyond REPO_ROOT (already PUBLIC below).
     add_library(FileCore STATIC
         ${CGLIB_ROOT}/File/File/BVHFileReader.cpp
-        ${CGLIB_ROOT}/File/File/GLTFFileReader.cpp
-        ${CGLIB_ROOT}/File/File/GLTFFileWriter.cpp
+        ${CGLIB_ROOT}/File/File/GltfFileReader.cpp
+        ${CGLIB_ROOT}/File/File/GltfFileWriter.cpp
         ${CGLIB_ROOT}/File/File/MTLFileReader.cpp
         ${CGLIB_ROOT}/File/File/MTLFileWriter.cpp
         ${CGLIB_ROOT}/File/File/OBJFileReader.cpp
@@ -263,7 +263,7 @@ function(phantom_add_scene_runtime_core)
         ${CGLIB_ROOT}/SceneRuntime/SceneRuntime/SceneGraph.cpp
         ${CGLIB_ROOT}/SceneRuntime/SceneRuntime/ComponentSchema.cpp
         ${CGLIB_ROOT}/SceneRuntime/SceneRuntime/ComponentSchemaRegistry.cpp
-        ${CGLIB_ROOT}/SceneRuntime/SceneRuntime/UniverseSceneV2.cpp
+        ${CGLIB_ROOT}/SceneRuntime/SceneRuntime/SceneV2.cpp
         ${CGLIB_ROOT}/SceneRuntime/SceneRuntime/SceneV2Editor.cpp
         ${CGLIB_ROOT}/SceneRuntime/SceneRuntime/ColliderDesc.cpp
         ${CGLIB_ROOT}/SceneRuntime/SceneRuntime/AssetSidecar.cpp

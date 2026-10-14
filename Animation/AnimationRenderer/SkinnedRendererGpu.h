@@ -16,7 +16,7 @@ namespace Phantom::Animation {
 
 // GPU-skinned renderer: bone matrices sent via UBO; skinning done in vertex shader.
 // CPU skinning is bypassed -- raw SkinVertex data is uploaded once per mesh change.
-class GpuSkinnedRenderer : public ::Phantom::VKG::IVkSubRenderer {
+class SkinnedRendererGpu : public ::Phantom::VKG::IVkSubRenderer {
 public:
     struct Shaders {
         std::vector<uint32_t> vertSpv;

@@ -4,7 +4,7 @@
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 
-#include "CameraUBO.h"
+#include "GltfUniformTypes.h"
 #include "../Gltf/GltfDocument.h"
 #include "../../../CGLib/VulkanGraphics/VulkanBuffer.h"
 #include "../../../CGLib/VulkanGraphics/VulkanSampler.h"

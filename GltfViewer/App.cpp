@@ -225,7 +225,7 @@ void App::applyShaders() {
     renderer_.setShaders(std::move(s));
 
     // Real-HDRI loading (2026-09-15): shaders/equirect_to_cube.{vert,frag}, loaded once here and
-    // copied into each loadEnvironmentHDR() call. See GltfEnvironmentCubemap::loadFromHDR()'s comment.
+    // copied into each loadEnvironmentHDR() call. See GltfEnvironmentCubeMap::loadFromHDR()'s comment.
     equirectVertSpv_ = ::Phantom::VKG::loadSPVRepo("shaders/equirect_to_cube.vert.spv");
     equirectFragSpv_ = ::Phantom::VKG::loadSPVRepo("shaders/equirect_to_cube.frag.spv");
 }
@@ -353,12 +353,12 @@ void App::onInit() {
     ::Phantom::VKG::VkAppBase::onInit();
     renderer_.setExtent(getExtent());
     // Default off: the environment cubemap above is a flat placeholder color, not a real
-    // HDRI/skybox (see GltfEnvironmentCubemap::create()). Even heavily dimmed, full
+    // HDRI/skybox (see GltfEnvironmentCubeMap::create()). Even heavily dimmed, full
     // diffuse+specular IBL against that flat color still visibly overwhelms every material's own
     // base color/texture detail (confirmed by A/B screenshot comparison across DamagedHelmet/
     // Corset/Duck/Avocado/AntiqueCamera -- all washed toward a uniform pale tint with IBL on).
     // Leave it available as an opt-in (panel checkbox / SetUseIBL scenario command) for once a
-    // real environment map is loaded (GltfEnvironmentCubemap::loadFromHDR()), but don't make a
+    // real environment map is loaded (GltfEnvironmentCubeMap::loadFromHDR()), but don't make a
     // visibly-broken default.
     renderer_.setUseIBL(false);
     frameCameraToDocument();

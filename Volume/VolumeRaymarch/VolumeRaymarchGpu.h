@@ -4,7 +4,7 @@
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 
-#include "Volume3DImage.h"
+#include "Volume3dImage.h"
 #include "../Volume/VolumeScattering.h"
 
 #include "../../VulkanGraphics/VulkanBuffer.h"
@@ -58,7 +58,7 @@ public:
     bool setGrid(const Phantom::VKG::VulkanContext& ctx, const Phantom::VKG::VulkanCommandPool& pool,
                  const ScalarGridDesc& desc);
     bool uploadDensity(const Phantom::VKG::VulkanContext& ctx, const Phantom::VKG::VulkanCommandPool& pool,
-                       const ScalarGrid3D& density) const;
+                       const ScalarGrid3d& density) const;
 
     /** @brief Fills the sun-transmittance image from the density image (call when either or the sun changes). */
     void recordSunTransmittance(VkCommandBuffer cmd, const ScatteringParams& params) const;
@@ -70,8 +70,8 @@ public:
     void recordRaymarch(VkCommandBuffer cmd, uint32_t frameIndex, const Camera& camera,
                         const ScatteringParams& params, float tMax = 0.0f);
 
-    const Volume3DImage& density() const { return density_; }
-    const Volume3DImage& sunTransmittance() const { return sunT_; }
+    const Volume3dImage& density() const { return density_; }
+    const Volume3dImage& sunTransmittance() const { return sunT_; }
     const ScalarGridDesc& gridDesc() const { return desc_; }
     VkSampler densitySampler() const { return zeroBorderSampler_; }         ///< border 0
     VkSampler transmittanceSampler() const { return oneBorderSampler_; }    ///< border 1
@@ -83,8 +83,8 @@ private:
     void updateDescriptors(VkDevice device);
 
     ScalarGridDesc desc_;
-    Volume3DImage density_;
-    Volume3DImage sunT_;
+    Volume3dImage density_;
+    Volume3dImage sunT_;
     VkSampler zeroBorderSampler_ = VK_NULL_HANDLE;   // clamp-to-border, outside = 0 (density)
     VkSampler oneBorderSampler_ = VK_NULL_HANDLE;    // clamp-to-border, outside = 1 (sun transmittance)
 

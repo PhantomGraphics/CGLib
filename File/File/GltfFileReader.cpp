@@ -5,7 +5,7 @@
 
 #include "CGLib/File/ThirdParty/cgltf/cgltf.h"
 
-#include "GLTFFileReader.h"
+#include "GltfFileReader.h"
 
 #include <string>
 #include <cstring>
@@ -39,7 +39,7 @@ int resolveTexCoord(const cgltf_texture_view& view)
 
 } // namespace
 
-bool GLTFFileReader::read(const std::filesystem::path& filename)
+bool GltfFileReader::read(const std::filesystem::path& filename)
 {
 	cgltf_options options = {};
 	cgltf_data* data = nullptr;
@@ -56,7 +56,7 @@ bool GLTFFileReader::read(const std::filesystem::path& filename)
 		return false;
 	}
 
-	gltf = GLTFFile{};
+	gltf = GltfFile{};
 
  // Meshes
 	for (cgltf_size mi = 0; mi < data->meshes_count; ++mi) {

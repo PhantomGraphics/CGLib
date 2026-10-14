@@ -1,4 +1,4 @@
-#include "GLTFFileWriter.h"
+#include "GltfFileWriter.h"
 
 #include <fstream>
 #include <sstream>
@@ -88,10 +88,10 @@ namespace {
 } // anonymous namespace
 
 // ============================================================
-// GLTFFileWriter implementation
+// GltfFileWriter implementation
 // ============================================================
 
-bool GLTFFileWriter::write(const std::filesystem::path& filename, const GLTFFile& gltf)
+bool GltfFileWriter::write(const std::filesystem::path& filename, const GltfFile& gltf)
 {
 	std::ofstream stream(filename);
 	if (!stream.is_open()) {
@@ -100,7 +100,7 @@ bool GLTFFileWriter::write(const std::filesystem::path& filename, const GLTFFile
 	return write(stream, gltf);
 }
 
-bool GLTFFileWriter::write(std::ostream& stream, const GLTFFile& gltf)
+bool GltfFileWriter::write(std::ostream& stream, const GltfFile& gltf)
 {
    // Build binary buffer / accessors / bufferViews
 	std::vector<uint8_t>     binData;

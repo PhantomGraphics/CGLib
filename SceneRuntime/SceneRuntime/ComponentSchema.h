@@ -30,7 +30,7 @@ struct ComponentFieldSchema {
     // for Bool, string for String, a 3/4-element array for Vec3/Vec4). Null (the default) means
     // "no default declared". Not validated against `type` here -- ComponentSchemaRegistry::
     // validate() checks actual component data, not the schema's own declared defaults. Appended
-    // at the end (like GlobalUBO's exposure field, CameraUBO.h) so every existing positional
+    // at the end (like GlobalUBO's exposure field, GltfUniformTypes.h) so every existing positional
     // aggregate-init call site (`ComponentFieldSchema{name, type, min, max, tooltip, required}`,
     // e.g. in ComponentSchemaTest.cpp/ComponentSchemaRegistryTest.cpp) keeps compiling unchanged.
     nlohmann::json defaultValue = nullptr;

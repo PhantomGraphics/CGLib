@@ -1,6 +1,6 @@
 #include "gtest/gtest.h"
 
-#include "../../File/File/GLTFFileReader.h"
+#include "../../File/File/GltfFileReader.h"
 #include "../Gltf/GltfReader.h"
 #include "../Gltf/GltfLightsCameras.h"
 
@@ -71,12 +71,12 @@ const char* kOrthographicCameraSpotLightGltf = R"JSON(
 
 } // namespace
 
-TEST(GLTFFileReaderCameraLightTest, FileLayerReadsPerspectiveCameraFields)
+TEST(GltfFileReaderCameraLightTest, FileLayerReadsPerspectiveCameraFields)
 {
     const auto path = writeTempGltf("GltfLightsCamerasTest_persp.gltf", kPerspectiveCameraPointLightGltf);
-    GLTFFileReader reader;
+    GltfFileReader reader;
     ASSERT_TRUE(reader.read(path));
-    const GLTFFile gltf = reader.getGLTF();
+    const GltfFile gltf = reader.getGLTF();
 
     ASSERT_EQ(1u, gltf.cameras.size());
     const GLTFCamera& cam = gltf.cameras[0];
@@ -89,12 +89,12 @@ TEST(GLTFFileReaderCameraLightTest, FileLayerReadsPerspectiveCameraFields)
     std::remove(path.string().c_str());
 }
 
-TEST(GLTFFileReaderCameraLightTest, FileLayerReadsPointLightFields)
+TEST(GltfFileReaderCameraLightTest, FileLayerReadsPointLightFields)
 {
     const auto path = writeTempGltf("GltfLightsCamerasTest_point.gltf", kPerspectiveCameraPointLightGltf);
-    GLTFFileReader reader;
+    GltfFileReader reader;
     ASSERT_TRUE(reader.read(path));
-    const GLTFFile gltf = reader.getGLTF();
+    const GltfFile gltf = reader.getGLTF();
 
     ASSERT_EQ(1u, gltf.lights.size());
     const GLTFLight& light = gltf.lights[0];
@@ -108,12 +108,12 @@ TEST(GLTFFileReaderCameraLightTest, FileLayerReadsPointLightFields)
     std::remove(path.string().c_str());
 }
 
-TEST(GLTFFileReaderCameraLightTest, FileLayerReadsOrthographicCameraAndSpotConeAngles)
+TEST(GltfFileReaderCameraLightTest, FileLayerReadsOrthographicCameraAndSpotConeAngles)
 {
     const auto path = writeTempGltf("GltfLightsCamerasTest_ortho.gltf", kOrthographicCameraSpotLightGltf);
-    GLTFFileReader reader;
+    GltfFileReader reader;
     ASSERT_TRUE(reader.read(path));
-    const GLTFFile gltf = reader.getGLTF();
+    const GltfFile gltf = reader.getGLTF();
 
     ASSERT_EQ(1u, gltf.cameras.size());
     const GLTFCamera& cam = gltf.cameras[0];

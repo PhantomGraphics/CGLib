@@ -1,7 +1,7 @@
 ﻿#include "MCMeshView.h"
 
 #include "World.h"
-#include "VolumeScene.h"
+#include "SparseVolumeScene.h"
 
 #include "../Volume/MCSurfaceBuilder.h"
 #include "../Volume/SparseVolumeTree/SparseVolume.h"

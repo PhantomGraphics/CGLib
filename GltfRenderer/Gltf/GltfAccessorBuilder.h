@@ -10,7 +10,7 @@ namespace Phantom::Gltf {
 // Appends `values` as a brand-new buffer+bufferView+accessor triplet to `doc` and returns the
 // new accessor's index (-1 if `values` is empty). Used to synthesize accessors for data that
 // didn't come from an actual glTF file's binary chunk (e.g. GltfReader converting from
-// Phantom::File::GLTFFile's already-flattened per-vertex arrays, or SkeletonGltfConverter
+// Phantom::File::GltfFile's already-flattened per-vertex arrays, or SkeletonGltfConverter
 // building a document directly from a Skeleton/SkinnedMesh).
 template<typename T>
 int appendAccessor(GltfDocument& doc,

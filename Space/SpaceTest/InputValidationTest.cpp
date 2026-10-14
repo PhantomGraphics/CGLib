@@ -6,7 +6,7 @@
 #include "../Space/CompactSpaceHash.h"
 #include "../Space/IndexedParticle.h"
 #include "../Space/IndexedSortBasedSearcher.h"
-#include "../Space/NeighborList.h"
+#include "../Space/CSRNeighborList.h"
 #include "../Space/SpaceHash.h"
 #include "../Space/SpaceValidation.h"
 #include "../Space/ZIndexedSearcher.h"

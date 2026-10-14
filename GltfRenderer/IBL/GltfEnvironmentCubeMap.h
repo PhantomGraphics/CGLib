@@ -27,11 +27,11 @@ namespace Phantom::Gltf {
 // environment floods every material's ambient term and washes out texture detail (confirmed by
 // A/B screenshot comparison across several glTF samples, both in GltfViewer originally and again
 // in Universe).
-class GltfEnvironmentCubemap {
+class GltfEnvironmentCubeMap {
 public:
-    GltfEnvironmentCubemap() = default;
-    GltfEnvironmentCubemap(const GltfEnvironmentCubemap&) = delete;
-    GltfEnvironmentCubemap& operator=(const GltfEnvironmentCubemap&) = delete;
+    GltfEnvironmentCubeMap() = default;
+    GltfEnvironmentCubeMap(const GltfEnvironmentCubeMap&) = delete;
+    GltfEnvironmentCubeMap& operator=(const GltfEnvironmentCubeMap&) = delete;
 
     bool create(const Phantom::VKG::VulkanContext& ctx, const Phantom::VKG::VulkanCommandPool& pool);
     void destroy(VkDevice device);

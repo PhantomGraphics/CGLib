@@ -39,7 +39,7 @@ if(PHANTOM_GTEST_FOUND)
         SOURCES
             ${FILE_ROOT}/FileTest/BVHFileReaderTest.cpp
             ${FILE_ROOT}/FileTest/FileErrorHandlingTest.cpp
-            ${FILE_ROOT}/FileTest/GLTFFileReaderWriterTest.cpp
+            ${FILE_ROOT}/FileTest/GltfFileReaderWriterTest.cpp
             ${FILE_ROOT}/FileTest/MTLFileReaderTest.cpp
             ${FILE_ROOT}/FileTest/MTLFileWriterTest.cpp
             ${FILE_ROOT}/FileTest/OBJFileReaderTest.cpp

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "ScalarGrid3D.h"
+#include "ScalarGrid3d.h"
 
 namespace Phantom {
 	namespace Volume {
@@ -46,7 +46,7 @@ bool intersectBox(const Math::Vector3df& origin, const Math::Vector3df& directio
  * along sunDirection to the box boundary). Border value is 1 (open sky). Computed once per
  * density/sun change and read by every raymarch and PBVR sample.
  */
-ScalarGrid3D computeSunTransmittance(const ScalarGrid3D& density, const ScatteringParams& params);
+ScalarGrid3d computeSunTransmittance(const ScalarGrid3d& density, const ScatteringParams& params);
 
 /**
  * @brief Reference single-scattering raymarch. Per step of length ds with midpoint density rho:
@@ -55,7 +55,7 @@ ScalarGrid3D computeSunTransmittance(const ScalarGrid3D& density, const Scatteri
  *   T *= exp(-sigma*ds)
  * `direction` must be unit length. `tMax` limits the ray (e.g. an opaque surface depth).
  */
-RayResult marchRay(const ScalarGrid3D& density, const ScalarGrid3D& sunTransmittance,
+RayResult marchRay(const ScalarGrid3d& density, const ScalarGrid3d& sunTransmittance,
                    const ScatteringParams& params, const Math::Vector3df& origin,
                    const Math::Vector3df& direction, float tMax = 1.0e30f);
 

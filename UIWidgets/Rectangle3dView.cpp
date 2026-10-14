@@ -1,9 +1,9 @@
-#include "Rect3dView.h"
+#include "Rectangle3dView.h"
 
 using namespace Phantom::Math;
 using namespace Phantom::UI;
 
-Rect3dView::Rect3dView(const std::string& name) :
+Rectangle3dView::Rectangle3dView(const std::string& name) :
 	IView(name),
 	originView("Origin", Vector3dd(0, 0, 0)),
 	uvecView("UVec", Vector3dd(1, 0, 0)),
@@ -14,7 +14,7 @@ Rect3dView::Rect3dView(const std::string& name) :
 	add(&vvecView);
 }
 
-Rect3dView::Rect3dView(const std::string& name, const Rectangle3df& value) :
+Rectangle3dView::Rectangle3dView(const std::string& name, const Rectangle3df& value) :
 	IView(name),
 	originView("Origin", value.getPosition(0,0)),
 	uvecView("UVec", value.getUVec()),
@@ -25,7 +25,7 @@ Rect3dView::Rect3dView(const std::string& name, const Rectangle3df& value) :
 	add(&vvecView);
 }
 
-Rectangle3df Rect3dView::getValue() const
+Rectangle3df Rectangle3dView::getValue() const
 {
 	const auto o = originView.getValue();
 	const auto u = uvecView.getValue();
@@ -33,7 +33,7 @@ Rectangle3df Rect3dView::getValue() const
 	return Rectangle3df(o, u, v);
 }
 
-void Rect3dView::setValue(const Rectangle3df& value)
+void Rectangle3dView::setValue(const Rectangle3df& value)
 {
 	originView.setValue(value.getPosition(0, 0));
 	uvecView.setValue(value.getUVec());

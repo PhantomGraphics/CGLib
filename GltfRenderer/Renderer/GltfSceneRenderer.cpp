@@ -1,5 +1,5 @@
 ﻿#include "GltfSceneRenderer.h"
-#include "GltfMaterial.h"
+#include "GltfGpuMaterial.h"
 #include "../Gltf/GltfAnimationEvaluator.h"
 #include "GltfMainPipelines.h"
 #include "GltfPrimitiveData.h"

@@ -1,6 +1,6 @@
 #include "gtest/gtest.h"
 
-#include "../Space/NeighborList.h"
+#include "../Space/CSRNeighborList.h"
 
 #include <algorithm>
 #include <random>

@@ -1,6 +1,6 @@
 #include "GltfReader.h"
 #include "GltfAccessorBuilder.h"
-#include "../../File/File/GLTFFileReader.h"
+#include "../../File/File/GltfFileReader.h"
 
 #include "../../../CGLib/ThirdParty/stb/stb_image.h"
 
@@ -82,7 +82,7 @@ void tryDecodeImageFromUri(GltfImage& img, const std::filesystem::path& baseDir)
 } // namespace
 
 std::optional<GltfDocument> GltfReader::load(const std::filesystem::path& path) {
-    Phantom::File::GLTFFileReader reader;
+    Phantom::File::GltfFileReader reader;
     if (!reader.read(path)) {
         std::fprintf(stderr, "[GltfReader] Failed to load glTF via Phantom::File: %s\n", path.string().c_str());
         return std::nullopt;
@@ -91,7 +91,7 @@ std::optional<GltfDocument> GltfReader::load(const std::filesystem::path& path) 
     return load(reader.getGLTF(), path.parent_path());
 }
 
-GltfDocument GltfReader::load(const Phantom::File::GLTFFile& src, const std::filesystem::path& baseDir) {
+GltfDocument GltfReader::load(const Phantom::File::GltfFile& src, const std::filesystem::path& baseDir) {
     GltfDocument doc;
 
     for (const auto& s : src.samplers) {

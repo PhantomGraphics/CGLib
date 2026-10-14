@@ -24,7 +24,7 @@ enum class ValueType { Float, Vec2, Vec3, Vec4 };
 
 enum class NodeType { Constant, TextureSlot, Uv, NormalMap, Mix, Math, Custom, PbrOutput };
 
-// Mirrors GltfGpuMaterial::TEXTURE_SLOT_COUNT's 5 fixed slots (GltfMaterial.h) -- a `.phmat`
+// Mirrors GltfGpuMaterial::TEXTURE_SLOT_COUNT's 5 fixed slots (GltfGpuMaterial.h) -- a `.phmat`
 // graph drives how these already-bound textures are combined, it does not introduce new texture
 // bindings of its own (that would need a new/larger set=1 descriptor layout; left for a later
 // increment, see the plan's Phase 4C notes).
@@ -46,7 +46,7 @@ struct PhmatNode {
 
     // TextureSlot: samples the given slot at UV0 (fragTexCoord) -- always unconditionally, since
     // GltfGpuMaterial::build() already binds a 1x1 white fallback for any slot the glTF material
-    // didn't populate (GltfMaterial.cpp), so there is no "hasXTex" branch to reproduce here.
+    // didn't populate (GltfGpuMaterial.cpp), so there is no "hasXTex" branch to reproduce here.
     TextureSlot textureSlot = TextureSlot::BaseColor;
 
     // Uv: only set=0 (fragTexCoord) is wired in the base gltf.frag this compiles against (see

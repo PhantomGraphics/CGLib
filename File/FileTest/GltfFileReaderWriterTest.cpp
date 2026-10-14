@@ -1,7 +1,7 @@
 #include "gtest/gtest.h"
 
-#include "../File/GLTFFileReader.h"
-#include "../File/GLTFFileWriter.h"
+#include "../File/GltfFileReader.h"
+#include "../File/GltfFileWriter.h"
 
 #include <cstdint>
 #include <cstdio>
@@ -11,9 +11,9 @@
 
 using namespace Phantom::File;
 
-TEST(GLTFFileWriterTest, TestWriteAndReadRoundTrip)
+TEST(GltfFileWriterTest, TestWriteAndReadRoundTrip)
 {
-    GLTFFile src;
+    GltfFile src;
 
     GLTFMaterial material;
     material.name = "mat0";
@@ -63,13 +63,13 @@ TEST(GLTFFileWriterTest, TestWriteAndReadRoundTrip)
     src.scenes.push_back(scene);
     src.defaultScene = 0;
 
-    const std::filesystem::path filePath = std::filesystem::temp_directory_path() / "GLTFFileReaderWriterTest.gltf";
-    GLTFFileWriter writer;
+    const std::filesystem::path filePath = std::filesystem::temp_directory_path() / "GltfFileReaderWriterTest.gltf";
+    GltfFileWriter writer;
     EXPECT_TRUE(writer.write(filePath, src));
 
-    GLTFFileReader reader;
+    GltfFileReader reader;
     EXPECT_TRUE(reader.read(filePath));
-    const GLTFFile dst = reader.getGLTF();
+    const GltfFile dst = reader.getGLTF();
 
     ASSERT_EQ(1u, dst.meshes.size());
     ASSERT_EQ(1u, dst.meshes[0].primitives.size());
@@ -97,10 +97,10 @@ TEST(GLTFFileWriterTest, TestWriteAndReadRoundTrip)
     std::remove(filePath.string().c_str());
 }
 
-// GLTFFileWriter can't emit animations, so exercise the reader against a hand-written minimal
+// GltfFileWriter can't emit animations, so exercise the reader against a hand-written minimal
 // glTF: one node rotation-animated by a 2-keyframe LINEAR sampler. Verifies the animation
 // channel/sampler parsing added for the Blender->Universe authoring loop (Phase 3).
-TEST(GLTFFileReaderTest, ParsesRotationAnimationChannel)
+TEST(GltfFileReaderTest, ParsesRotationAnimationChannel)
 {
     // Binary blob: input times [0,1] (2 x f32) then output quats identity, 180deg-about-Y
     // (2 x vec4 f32, xyzw). 8 + 32 = 40 bytes.
@@ -143,9 +143,9 @@ TEST(GLTFFileReaderTest, ParsesRotationAnimationChannel)
         f << gltf;
     }
 
-    GLTFFileReader reader;
+    GltfFileReader reader;
     ASSERT_TRUE(reader.read(gltfPath));
-    const GLTFFile g = reader.getGLTF();
+    const GltfFile g = reader.getGLTF();
 
     ASSERT_EQ(1u, g.animations.size());
     EXPECT_EQ("Spin4s", g.animations[0].name);

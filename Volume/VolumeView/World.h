@@ -1,6 +1,6 @@
 ﻿#pragma once
 
-#include "VolumeScene.h"
+#include "SparseVolumeScene.h"
 #include "DenseVolumeScene.h"
 
 #include "../VolumeRenderer/IPBVRDataSource.h"

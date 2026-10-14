@@ -2,7 +2,7 @@
 #include "VrmExtensionParser.h"
 #include "VrmMToonFallback.h"
 #include "../Gltf/GltfReader.h"
-#include "../../File/File/GLTFFileReader.h"
+#include "../../File/File/GltfFileReader.h"
 
 #include <cstdio>
 
@@ -21,12 +21,12 @@ const std::string* findExtension(const std::vector<std::pair<std::string, std::s
 } // namespace
 
 std::optional<VrmDocument> VrmReader::load(const std::filesystem::path& path) {
-    Phantom::File::GLTFFileReader reader;
+    Phantom::File::GltfFileReader reader;
     if (!reader.read(path)) {
         std::fprintf(stderr, "[VrmReader] Failed to load glTF via Phantom::File: %s\n", path.string().c_str());
         return std::nullopt;
     }
-    const Phantom::File::GLTFFile src = reader.getGLTF();
+    const Phantom::File::GltfFile src = reader.getGLTF();
 
     VrmDocument out;
     out.gltf = GltfReader::load(src, path.parent_path());

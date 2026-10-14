@@ -47,10 +47,10 @@ float effectiveStep(const ScalarGridDesc& desc, const ScatteringParams& params)
 	return params.stepLength > 0.0f ? params.stepLength : 0.5f * desc.cellSize;
 }
 
-ScalarGrid3D computeSunTransmittance(const ScalarGrid3D& density, const ScatteringParams& params)
+ScalarGrid3d computeSunTransmittance(const ScalarGrid3d& density, const ScatteringParams& params)
 {
 	const ScalarGridDesc& desc = density.desc();
-	ScalarGrid3D out(desc, 1.0f, 1.0f);
+	ScalarGrid3d out(desc, 1.0f, 1.0f);
 	const float ds = effectiveStep(desc, params);
 	const Vector3df bmin = desc.origin;
 	const Vector3df bmax = desc.maxCorner();
@@ -74,7 +74,7 @@ ScalarGrid3D computeSunTransmittance(const ScalarGrid3D& density, const Scatteri
 	return out;
 }
 
-RayResult marchRay(const ScalarGrid3D& density, const ScalarGrid3D& sunT, const ScatteringParams& params,
+RayResult marchRay(const ScalarGrid3d& density, const ScalarGrid3d& sunT, const ScatteringParams& params,
                    const Vector3df& origin, const Vector3df& direction, float tMax)
 {
 	RayResult r;

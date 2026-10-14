@@ -2,7 +2,7 @@
 #include "CommandParse.h"
 #include "McMesh.h"
 
-#include "VolumeScene.h"
+#include "SparseVolumeScene.h"
 
 #include "../Volume/SparseVolumeTree/SparseVolume.h"
 #include "../Volume/SparseVolumeTree/Coord.h"

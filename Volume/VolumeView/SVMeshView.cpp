@@ -1,7 +1,7 @@
 ﻿#include "SVMeshView.h"
 
 #include "World.h"
-#include "VolumeScene.h"
+#include "SparseVolumeScene.h"
 
 #include "../Volume/LevelSet.h"
 #include "../Volume/SparseVolumeTree/SparseVolume.h"

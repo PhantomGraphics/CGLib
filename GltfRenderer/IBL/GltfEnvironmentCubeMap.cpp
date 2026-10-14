@@ -1,4 +1,4 @@
-#include "GltfEnvironmentCubemap.h"
+#include "GltfEnvironmentCubeMap.h"
 #include "GltfIBLPrecomputer.h"
 #include "../../../CGLib/VulkanGraphics/VulkanContext.h"
 #include "../../../CGLib/VulkanGraphics/VulkanCommandPool.h"
@@ -15,12 +15,12 @@ namespace {
 constexpr VkFormat   kFormat = VK_FORMAT_R32G32B32A32_SFLOAT;
 constexpr uint32_t   kSize   = 1;
 constexpr uint32_t   kFaces  = 6;
-// Dim sky tint, not black: see GltfEnvironmentCubemap.h's comment for why (a bright flat
+// Dim sky tint, not black: see GltfEnvironmentCubeMap.h's comment for why (a bright flat
 // environment washes out every material's own texture detail once IBL is enabled).
 constexpr float kSkyColor[4] = { 0.05f, 0.07f, 0.10f, 1.0f };
 } // namespace
 
-bool GltfEnvironmentCubemap::create(const Phantom::VKG::VulkanContext& ctx, const Phantom::VKG::VulkanCommandPool& pool)
+bool GltfEnvironmentCubeMap::create(const Phantom::VKG::VulkanContext& ctx, const Phantom::VKG::VulkanCommandPool& pool)
 {
     VkDevice device = ctx.getDevice();
     const VkDeviceSize pixBytes = kSize * kSize * 4 * sizeof(float);
@@ -48,7 +48,7 @@ bool GltfEnvironmentCubemap::create(const Phantom::VKG::VulkanContext& ctx, cons
     return true;
 }
 
-void GltfEnvironmentCubemap::destroy(VkDevice device)
+void GltfEnvironmentCubeMap::destroy(VkDevice device)
 {
     if (sampler_) { vkDestroySampler(device, sampler_, nullptr);   sampler_ = VK_NULL_HANDLE; }
     if (view_)    { vkDestroyImageView(device, view_, nullptr);    view_    = VK_NULL_HANDLE; }
@@ -77,7 +77,7 @@ bool createEquirectTexture(const Phantom::VKG::VulkanContext& ctx, const Phantom
 {
     Phantom::Graphics::HDRImageFileReader reader;
     if (!reader.read(path)) {
-        std::fprintf(stderr, "[GltfEnvironmentCubemap] failed to read HDR file: %s\n", path.c_str());
+        std::fprintf(stderr, "[GltfEnvironmentCubeMap] failed to read HDR file: %s\n", path.c_str());
         return false;
     }
     Phantom::Graphics::Imagef img = reader.toImage();
@@ -118,7 +118,7 @@ bool createEquirectTexture(const Phantom::VKG::VulkanContext& ctx, const Phantom
 
 } // namespace
 
-bool GltfEnvironmentCubemap::loadFromHDR(const Phantom::VKG::VulkanContext& ctx, const Phantom::VKG::VulkanCommandPool& pool,
+bool GltfEnvironmentCubeMap::loadFromHDR(const Phantom::VKG::VulkanContext& ctx, const Phantom::VKG::VulkanCommandPool& pool,
                                          const std::string& path,
                                          std::vector<uint32_t> equirectVert, std::vector<uint32_t> equirectFrag,
                                          uint32_t cubeSize)
@@ -150,7 +150,7 @@ bool GltfEnvironmentCubemap::loadFromHDR(const Phantom::VKG::VulkanContext& ctx,
     vkFreeMemory(device, eqMem, nullptr);
 
     if (!cube) {
-        std::fprintf(stderr, "[GltfEnvironmentCubemap] equirect-to-cube conversion failed for: %s\n", path.c_str());
+        std::fprintf(stderr, "[GltfEnvironmentCubeMap] equirect-to-cube conversion failed for: %s\n", path.c_str());
         return false;
     }
 
@@ -164,7 +164,7 @@ bool GltfEnvironmentCubemap::loadFromHDR(const Phantom::VKG::VulkanContext& ctx,
     return true;
 }
 
-bool GltfEnvironmentCubemap::resetToPlaceholder(const Phantom::VKG::VulkanContext& ctx, const Phantom::VKG::VulkanCommandPool& pool)
+bool GltfEnvironmentCubeMap::resetToPlaceholder(const Phantom::VKG::VulkanContext& ctx, const Phantom::VKG::VulkanCommandPool& pool)
 {
     destroy(ctx.getDevice());
     return create(ctx, pool); // create() already leaves isRealHDR_/hdrPath_ at their defaults
