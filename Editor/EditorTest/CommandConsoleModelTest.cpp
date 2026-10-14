@@ -1,0 +1,281 @@
+#include <gtest/gtest.h>
+
+// docs/todo/PLAN_viewer_command_ui.md Phase 1: the ImGui-free state of the shared
+// Command window (response ownership between console and ScenarioRunner,
+// history, completion, help).
+#include "../Console/CommandConsoleModel.h"
+
+using Phantom::Editor::CommandInfo;
+using Phantom::Editor::CommandConsoleModel;
+
+namespace {
+
+const std::vector<CommandInfo> kCatalog = {
+    {"GetStatus", "", "alive?"},
+    {"GetSplatCount", "", ""},
+    {"SetRenderMode", "SortBased|GaussianPoint", "switch mode"},
+    {"SetGpSpp", "int", ""},
+    {"SetGpSeed", "uint", ""},
+};
+
+using Model = CommandConsoleModel;
+
+} // namespace
+
+TEST(CommandConsoleModel, DispatchesCommandTextUnchangedExceptOuterWhitespace)
+{
+    Model m;
+    std::string cmd;
+    ASSERT_EQ(m.submit("  LoadPLY:C:\\My Data\\a b.ply \t", kCatalog, cmd), Model::SubmitResult::Dispatch);
+    EXPECT_EQ(cmd, "LoadPLY:C:\\My Data\\a b.ply");  // inner spaces / colons / backslashes survive
+    EXPECT_EQ(m.pending(), 1u);
+}
+
+TEST(CommandConsoleModel, BlankLineIsIgnored)
+{
+    Model m;
+    std::string cmd;
+    EXPECT_EQ(m.submit("   ", kCatalog, cmd), Model::SubmitResult::Ignored);
+    EXPECT_EQ(m.pending(), 0u);
+    EXPECT_TRUE(m.lines().empty());
+}
+
+TEST(CommandConsoleModel, ConsumesOnlyItsOwnResponsesAndLeavesTheRestForTheScenario)
+{
+    Model m;
+    std::string cmd;
+    m.submit("GetStatus", kCatalog, cmd);
+    m.submit("GetSplatCount", kCatalog, cmd);
+    ASSERT_EQ(m.pending(), 2u);
+
+    // Dispatcher answered both manual commands and (later in the same frame
+    // batch) the scenario's first command.
+    std::vector<std::string> responses = {"OK", "Val:5", "Val:scenario"};
+    m.consumeResponses(responses);
+
+    ASSERT_EQ(responses.size(), 1u);
+    EXPECT_EQ(responses[0], "Val:scenario");
+    EXPECT_EQ(m.pending(), 0u);
+    ASSERT_EQ(m.lines().size(), 4u);  // 2 echoes + 2 results
+    EXPECT_EQ(m.lines()[2].text, "OK");
+    EXPECT_EQ(m.lines()[3].text, "Val:5");
+}
+
+TEST(CommandConsoleModel, NothingPendingMeansEveryResponseGoesToTheScenario)
+{
+    Model m;
+    std::vector<std::string> responses = {"OK", "Val:1"};
+    m.consumeResponses(responses);
+    EXPECT_EQ(responses.size(), 2u);
+    EXPECT_TRUE(m.lines().empty());
+}
+
+TEST(CommandConsoleModel, ResponseArrivingLaterKeepsPendingCount)
+{
+    Model m;
+    std::string cmd;
+    m.submit("GetStatus", kCatalog, cmd);
+    m.submit("GetSplatCount", kCatalog, cmd);
+
+    std::vector<std::string> first = {"OK"};
+    m.consumeResponses(first);
+    EXPECT_TRUE(first.empty());
+    EXPECT_EQ(m.pending(), 1u);
+
+    std::vector<std::string> second = {"Val:5"};
+    m.consumeResponses(second);
+    EXPECT_TRUE(second.empty());
+    EXPECT_EQ(m.pending(), 0u);
+}
+
+TEST(CommandConsoleModel, ErrorResponsesAreClassified)
+{
+    Model m;
+    std::string cmd;
+    m.submit("Nope", kCatalog, cmd);
+    std::vector<std::string> responses = {"Error:unknown command Nope"};
+    m.consumeResponses(responses);
+    EXPECT_EQ(m.lines().back().kind, Model::Line::Kind::Error);
+}
+
+TEST(CommandConsoleModel, HelpAndClearAreLocalAndNeverDispatched)
+{
+    Model m;
+    std::string cmd;
+    EXPECT_EQ(m.submit("help", kCatalog, cmd), Model::SubmitResult::Local);
+    EXPECT_EQ(m.pending(), 0u);
+    EXPECT_GT(m.lines().size(), 2u);
+
+    const size_t before = m.lines().size();
+    EXPECT_EQ(m.submit("help SetRenderMode", kCatalog, cmd), Model::SubmitResult::Local);
+    ASSERT_GE(m.lines().size(), before + 3);
+    EXPECT_EQ(m.lines()[before + 1].text, "SetRenderMode:SortBased|GaussianPoint");
+
+    EXPECT_EQ(m.submit("clear", kCatalog, cmd), Model::SubmitResult::Local);
+    EXPECT_TRUE(m.lines().empty());
+}
+
+TEST(CommandConsoleModel, HelpForUnknownCommandIsAnErrorLine)
+{
+    Model m;
+    std::string cmd;
+    m.submit("help Bogus", kCatalog, cmd);
+    EXPECT_EQ(m.lines().back().kind, Model::Line::Kind::Error);
+}
+
+TEST(CommandConsoleModel, HelpWithEmptyCatalogDoesNotCrash)
+{
+    Model m;
+    std::string cmd;
+    EXPECT_EQ(m.submit("help", {}, cmd), Model::SubmitResult::Local);
+}
+
+TEST(CommandConsoleModel, HistoryWalksBackAndForward)
+{
+    Model m;
+    std::string cmd;
+    m.submit("A", kCatalog, cmd);
+    m.submit("B", kCatalog, cmd);
+    m.submit("B", kCatalog, cmd);  // duplicate of the last entry is not stored twice
+    EXPECT_EQ(m.historyPrev(), "B");
+    EXPECT_EQ(m.historyPrev(), "A");
+    EXPECT_EQ(m.historyPrev(), "A");  // stays at the oldest
+    EXPECT_EQ(m.historyNext(), "B");
+    EXPECT_EQ(m.historyNext(), "");   // past the newest -> empty input
+}
+
+TEST(CommandConsoleModel, CompletionOnlyOffersCatalogNames)
+{
+    EXPECT_EQ(Model::complete("SetGp", kCatalog), (std::vector<std::string>{"SetGpSeed", "SetGpSpp"}));
+    EXPECT_TRUE(Model::complete("Frobnicate", kCatalog).empty());
+    EXPECT_EQ(Model::complete("", kCatalog).size(), kCatalog.size());
+}
+
+TEST(CommandConsoleModel, NoCompletionOnceTheArgumentStarted)
+{
+    EXPECT_TRUE(Model::complete("SetGpSpp:", kCatalog).empty());
+}
+
+TEST(CommandConsoleModel, CommonPrefixOfCandidates)
+{
+    EXPECT_EQ(Model::commonPrefix({"SetGpSeed", "SetGpSpp"}), "SetGpS");
+    EXPECT_EQ(Model::commonPrefix({"GetStatus"}), "GetStatus");
+    EXPECT_EQ(Model::commonPrefix({}), "");
+}
+
+TEST(CommandConsoleModel, ScenarioCommandRunsThroughTheSameSubmitPathAndItsResponseGoesBackToTheScenario)
+{
+    Model m;
+    std::string cmd;
+    ASSERT_EQ(m.submit("GetStatus", kCatalog, cmd, true), Model::SubmitResult::Dispatch);
+    EXPECT_EQ(cmd, "GetStatus");
+    EXPECT_EQ(m.pending(), 1u);
+    EXPECT_EQ(m.lines()[0].text, "> GetStatus");   // echoed exactly like a typed line
+
+    std::vector<std::string> responses = {"OK"};
+    m.consumeResponses(responses);
+    EXPECT_EQ(m.lines().back().text, "OK");          // shown in the window ...
+    ASSERT_EQ(responses.size(), 1u);                 // ... and still delivered to the scenario
+    EXPECT_EQ(responses[0], "OK");
+    EXPECT_EQ(m.pending(), 0u);
+}
+
+TEST(CommandConsoleModel, ScenarioAndTypedResponsesAreSeparatedByOrigin)
+{
+    Model m;
+    std::string cmd;
+    m.submit("GetSplatCount", kCatalog, cmd);        // typed
+    m.submit("GetStatus", kCatalog, cmd, true);      // scenario
+    std::vector<std::string> responses = {"Val:5", "OK"};
+    m.consumeResponses(responses);
+    ASSERT_EQ(responses.size(), 1u);
+    EXPECT_EQ(responses[0], "OK");                   // only the scenario's answer is passed on
+}
+
+TEST(CommandConsoleModel, ScenarioLineIsNeverTreatedAsAConsoleLocalCommand)
+{
+    Model m;
+    std::string cmd;
+    EXPECT_EQ(m.submit("help", kCatalog, cmd, true), Model::SubmitResult::Dispatch);
+    EXPECT_EQ(cmd, "help");
+    EXPECT_EQ(m.submit("clear", kCatalog, cmd, true), Model::SubmitResult::Dispatch);
+}
+
+TEST(CommandConsoleModel, LogStaysBoundedUnderLongScenarios)
+{
+    Model m;
+    std::string cmd;
+    for (int i = 0; i < 5000; ++i) m.submit("Step" + std::to_string(i), kCatalog, cmd, true);
+    EXPECT_LE(m.lines().size(), 2000u);
+    EXPECT_EQ(m.lines().back().text, "> Step4999");
+}
+
+TEST(CommandConsoleModel, ErrorClassificationIgnoresCase)
+{
+    EXPECT_TRUE(Model::isError("Error:x"));
+    EXPECT_TRUE(Model::isError("ERROR:UnknownCommand:Foo"));
+    EXPECT_FALSE(Model::isError("OK:Play"));
+    EXPECT_FALSE(Model::isError("Err"));
+}
+
+TEST(CommandConsoleModel, MixedOriginsRemainFifoAcrossEmptyAndDelayedBatches)
+{
+    Model m;
+    std::string command;
+    m.submit("manual1", kCatalog, command);
+    m.submit("scenario1", kCatalog, command, true);
+    m.submit("manual2", kCatalog, command);
+    m.submit("scenario2", kCatalog, command, true);
+    std::vector<std::string> empty;
+    m.consumeResponses(empty);
+    EXPECT_EQ(m.pending(), 4u);
+    std::vector<std::string> first = {"OK:manual1", "OK:scenario1", "ERROR:manual2"};
+    m.consumeResponses(first);
+    EXPECT_EQ(first, (std::vector<std::string>{"OK:scenario1"}));
+    EXPECT_EQ(m.pending(), 1u);
+    EXPECT_EQ(m.lines().back().kind, Model::Line::Kind::Error);
+    std::vector<std::string> last = {"OK:scenario2", "unclaimed"};
+    m.consumeResponses(last);
+    EXPECT_EQ(last, (std::vector<std::string>{"OK:scenario2", "unclaimed"}));
+    EXPECT_EQ(m.pending(), 0u);
+}
+
+TEST(CommandConsoleModel, ClearRetainsPendingOwnershipAndHistory)
+{
+    Model m;
+    std::string command;
+    m.submit("manual", kCatalog, command);
+    m.submit("scenario", kCatalog, command, true);
+    ASSERT_EQ(m.submit("clear", kCatalog, command), Model::SubmitResult::Local);
+    EXPECT_TRUE(m.lines().empty());
+    EXPECT_EQ(m.pending(), 2u);
+    EXPECT_EQ(m.historyPrev(), "clear");
+    EXPECT_EQ(m.historyPrev(), "scenario");
+    EXPECT_EQ(m.historyPrev(), "manual");
+    std::vector<std::string> responses = {"OK:manual", "OK:scenario"};
+    m.consumeResponses(responses);
+    EXPECT_EQ(responses, (std::vector<std::string>{"OK:scenario"}));
+    EXPECT_EQ(m.lines().size(), 2u);
+}
+
+TEST(CommandConsoleModel, BoundedOutputLogDoesNotDropPendingResponsesOrHistory)
+{
+    Model m;
+    std::string command;
+    std::vector<std::string> responses;
+    for (int i = 0; i < 2100; ++i) {
+        m.submit("Step" + std::to_string(i), kCatalog, command, true);
+        responses.push_back("OK:" + std::to_string(i));
+    }
+    EXPECT_EQ(m.lines().size(), 2000u);
+    EXPECT_EQ(m.pending(), 2100u);
+    m.consumeResponses(responses);
+    EXPECT_EQ(responses.size(), 2100u);
+    EXPECT_EQ(responses.front(), "OK:0");
+    EXPECT_EQ(responses.back(), "OK:2099");
+    EXPECT_EQ(m.lines().size(), 2000u);
+    EXPECT_EQ(m.lines().front().text, "OK:100");
+    EXPECT_EQ(m.lines().back().text, "OK:2099");
+    for (int i = 2099; i >= 0; --i)
+        EXPECT_EQ(m.historyPrev(), "Step" + std::to_string(i));
+}

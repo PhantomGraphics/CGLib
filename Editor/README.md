@@ -39,6 +39,21 @@ schema and tokenizer here without a dependency on CGApp or UI. The existing
 CommandCore include location can remain a compatibility facade. This migration
 does not add prompt metadata or change execution routes.
 
+## Console
+
+`Console/CommandConsoleModel.h` and `CommandInfo.h` provide header-only,
+standard-library-only console state in `Phantom::Editor`. No dependency on
+VkAppBase, ScenarioRunner, Vulkan or ImGui is required. The legacy global types
+and `VkAppBase/ScenarioRunner` includes forward to these types.
+
+The host supplies a command catalog and dispatches submitted lines. Manual
+help/clear stay local; scenario lines reach the dispatcher unchanged after
+outer whitespace trimming. Responses must arrive in dispatch order. The model
+tracks each pending command's origin, logs responses and returns scenario
+responses plus unclaimed responses to the host. ViewShell retains the scenario
+proxy and UI connection. Clearing the log preserves pending ownership/history.
+The log holds at most 2000 lines; history keeps its existing unbounded behavior.
+
 ## Input
 
 `Phantom::Editor` provides `InputSpec`, `BindingTable`, keymap parsing/formatting,
