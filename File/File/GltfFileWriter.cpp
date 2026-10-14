@@ -222,6 +222,38 @@ bool GltfFileWriter::write(std::ostream& stream, const GltfFile& gltf)
 		}
 	}
 
+	// Animations: per sampler one time accessor (SCALAR, min/max required by the spec) and one value accessor.
+	struct AnimAccessors { int input = -1; int output = -1; };
+	std::vector<std::vector<AnimAccessors>> animAcc(gltf.animations.size());
+	for (size_t ai = 0; ai < gltf.animations.size(); ++ai) {
+		const GLTFAnimation& anim = gltf.animations[ai];
+		animAcc[ai].resize(anim.samplers.size());
+		for (size_t si = 0; si < anim.samplers.size(); ++si) {
+			const GLTFAnimationSampler& smp = anim.samplers[si];
+			if (smp.times.empty() || smp.values.empty()) continue;
+			AccessorRec in;
+			in.bufferViewIndex = addBufferView(smp.times.data(), smp.times.size() * sizeof(float), 0);
+			in.componentType = 5126;
+			in.count = smp.times.size();
+			in.type = "SCALAR";
+			in.hasMinMax = true;
+			in.minVal[0] = *std::min_element(smp.times.begin(), smp.times.end());
+			in.maxVal[0] = *std::max_element(smp.times.begin(), smp.times.end());
+			in.minMaxCount = 1;
+			animAcc[ai][si].input = static_cast<int>(accessors.size());
+			accessors.push_back(in);
+
+			AccessorRec out;
+			out.bufferViewIndex = addBufferView(smp.values.data(), smp.values.size() * sizeof(float), 0);
+			out.componentType = 5126;
+			out.type = smp.components == 3 ? "VEC3" : smp.components == 4 ? "VEC4" : "SCALAR";
+			const size_t stride = (smp.components == 3 || smp.components == 4) ? static_cast<size_t>(smp.components) : 1u;
+			out.count = smp.values.size() / stride;
+			animAcc[ai][si].output = static_cast<int>(accessors.size());
+			accessors.push_back(out);
+		}
+	}
+
     // Build JSON sections and join with commas
 	std::vector<std::pair<std::string, std::string>> sections;
 
@@ -422,6 +454,41 @@ bool GltfFileWriter::write(std::ostream& stream, const GltfFile& gltf)
 		sections.push_back({ "images", ss.str() });
 	}
 
+	// animations
+	if (!gltf.animations.empty()) {
+		std::ostringstream ss;
+		ss << "[\n";
+		for (size_t ai = 0; ai < gltf.animations.size(); ++ai) {
+			const GLTFAnimation& anim = gltf.animations[ai];
+			ss << "    {";
+			if (!anim.name.empty()) ss << "\"name\": " << quoted(anim.name) << ", ";
+			ss << "\"samplers\": [";
+			for (size_t si = 0; si < anim.samplers.size(); ++si) {
+				const GLTFAnimationSampler& smp = anim.samplers[si];
+				const char* interp = smp.interpolation == GLTFInterpolation::Step ? "STEP"
+					: smp.interpolation == GLTFInterpolation::CubicSpline ? "CUBICSPLINE" : "LINEAR";
+				if (si > 0) ss << ", ";
+				ss << "{\"input\": " << animAcc[ai][si].input << ", \"output\": " << animAcc[ai][si].output
+				   << ", \"interpolation\": \"" << interp << "\"}";
+			}
+			ss << "], \"channels\": [";
+			for (size_t ci = 0; ci < anim.channels.size(); ++ci) {
+				const GLTFAnimationChannel& ch = anim.channels[ci];
+				const char* path = ch.path == GLTFAnimationPath::Rotation ? "rotation"
+					: ch.path == GLTFAnimationPath::Scale ? "scale"
+					: ch.path == GLTFAnimationPath::Weights ? "weights" : "translation";
+				if (ci > 0) ss << ", ";
+				ss << "{\"sampler\": " << ch.sampler << ", \"target\": {\"node\": " << ch.targetNode
+				   << ", \"path\": \"" << path << "\"}}";
+			}
+			ss << "]}";
+			if (ai + 1 < gltf.animations.size()) ss << ",";
+			ss << "\n";
+		}
+		ss << "  ]";
+		sections.push_back({ "animations", ss.str() });
+	}
+
 	// accessors
 	if (!accessors.empty()) {
 		std::ostringstream ss;
@@ -454,9 +521,9 @@ bool GltfFileWriter::write(std::ostream& stream, const GltfFile& gltf)
 			ss << "    {"
 				<< "\"buffer\": 0"
 				<< ", \"byteOffset\": " << bv.byteOffset
-				<< ", \"byteLength\": " << bv.byteLength
-				<< ", \"target\": "     << bv.target
-				<< "}";
+				<< ", \"byteLength\": " << bv.byteLength;
+			if (bv.target != 0) ss << ", \"target\": " << bv.target;
+			ss << "}";
 			if (bvi + 1 < bufferViews.size()) ss << ",";
 			ss << "\n";
 		}
