@@ -18,7 +18,7 @@
 // Dense-volume operations (CreateDenseBox / DenseFromSparse / DenseMarchingCubes / DeleteDense).
 // Argument parsing lives in CommandDispatcher::route(); these only act on the World.
 
-namespace VolumeView {
+namespace Phantom::VolumeView {
 
 namespace {
 

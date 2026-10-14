@@ -14,9 +14,9 @@
 #include <cstdint>
 #include <vector>
 
-namespace VolumeView {
+namespace Phantom::VolumeView {
 
-class SparseVolumeRenderer : public ::VKG::IVkSubRenderer {
+class SparseVolumeRenderer : public ::Phantom::VKG::IVkSubRenderer {
 public:
     struct CameraState {
         float azimuth = 0.0f;

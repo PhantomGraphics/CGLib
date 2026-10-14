@@ -18,7 +18,7 @@
 #include <string_view>
 #include <vector>
 
-namespace VolumeView {
+namespace Phantom::VolumeView {
 
 // ============================================================
 //  IScenarioDispatcher interface
@@ -117,7 +117,7 @@ std::string CommandDispatcher::cmdCheckCommandCatalog() {
     VectorFieldRenderer* const sLine = lineRenderer_;
     MenuPanel* const sMenu = menuPanel_;
     Phantom::Volume::PBVRRenderer* const sPbvr = pbvrRenderer_;
-    ::VKG::VkAppBase* const sApp = app_;
+    ::Phantom::VKG::VkAppBase* const sApp = app_;
     world_ = &scratch; pActiveSceneId_ = nullptr; pActiveDenseSceneId_ = nullptr;
     onRebuild_ = nullptr; onCameraReset_ = nullptr;
     pointRenderer_ = nullptr; denseRenderer_ = nullptr; lineRenderer_ = nullptr;

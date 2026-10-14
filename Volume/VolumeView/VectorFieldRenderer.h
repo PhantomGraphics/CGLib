@@ -13,9 +13,9 @@
 
 #include <vector>
 
-namespace VolumeView {
+namespace Phantom::VolumeView {
 
-class VectorFieldRenderer : public ::VKG::IVkSubRenderer {
+class VectorFieldRenderer : public ::Phantom::VKG::IVkSubRenderer {
 public:
     struct Shaders {
         std::vector<uint32_t> vertSpv;

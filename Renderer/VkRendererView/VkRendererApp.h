@@ -7,9 +7,9 @@
 
 #include <string>
 
-namespace VKRenderer {
+namespace Phantom::VKRenderer {
 
-class VkRendererApp : public ::VKG::VkAppBase {
+class VkRendererApp : public ::Phantom::VKG::VkAppBase {
 public:
     VkRendererApp(int w, int h, const std::string& title);
 

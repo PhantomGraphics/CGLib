@@ -60,15 +60,15 @@ void BoneWireRenderer::updatePose(const Skeleton& skeleton,
     dirty_ = true;
 }
 
-void BoneWireRenderer::onInit(::VKG::VulkanContext& ctx,
-                               const ::VKG::VulkanCommandPool& pool,
+void BoneWireRenderer::onInit(::Phantom::VKG::VulkanContext& ctx,
+                               const ::Phantom::VKG::VulkanCommandPool& pool,
                                VkRenderPass renderPass,
                                uint32_t framesInFlight)
 {
     ctx_  = &ctx;
     pool_ = &pool;
 
-    VKG::VkLineRenderer::Config cfg;
+    Phantom::VKG::VkLineRenderer::Config cfg;
     cfg.vertSpv = std::move(shaders_.vertSpv);
     cfg.fragSpv = std::move(shaders_.fragSpv);
     lineRenderer_.emplace(std::move(cfg));
@@ -84,7 +84,7 @@ void BoneWireRenderer::onUpdate(uint32_t frameIndex)
 
     vkDeviceWaitIdle(ctx_->getDevice());
 
-    VKG::VkLineRenderer::Buffer buf;
+    Phantom::VKG::VkLineRenderer::Buffer buf;
     buf.positions        = positions_;
     buf.colors           = colors_;
     buf.indices          = indices_;

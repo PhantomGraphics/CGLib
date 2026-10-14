@@ -22,7 +22,7 @@
 #include <memory>
 #include <utility>
 
-namespace VolumeView {
+namespace Phantom::VolumeView {
 
 void MenuPanel::init(World* world, int* pActiveSceneId, int* pActiveDenseSceneId,
                             std::function<void()> onRebuild,

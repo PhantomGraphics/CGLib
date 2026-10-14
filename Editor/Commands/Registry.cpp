@@ -9,7 +9,7 @@
 #include <cstdlib>
 #include <sstream>
 
-namespace PG::CommandCore {
+namespace Phantom::Editor::CommandCore {
 using Phantom::Editor::toLower;
 namespace {
 using Json = nlohmann::json;
@@ -160,4 +160,4 @@ bool CommandRegistry::validateOption(const CommandSchema& command, const std::st
     return valid;
 }
 
-} // namespace PG::CommandCore
+} // namespace Phantom::Editor::CommandCore

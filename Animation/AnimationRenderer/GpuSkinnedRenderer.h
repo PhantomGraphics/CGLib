@@ -16,7 +16,7 @@ namespace Phantom::Animation {
 
 // GPU-skinned renderer: bone matrices sent via UBO; skinning done in vertex shader.
 // CPU skinning is bypassed -- raw SkinVertex data is uploaded once per mesh change.
-class GpuSkinnedRenderer : public ::VKG::IVkSubRenderer {
+class GpuSkinnedRenderer : public ::Phantom::VKG::IVkSubRenderer {
 public:
     struct Shaders {
         std::vector<uint32_t> vertSpv;
@@ -37,8 +37,8 @@ public:
                     const glm::mat4& mvp);
 
     // IVkSubRenderer
-    void onInit(::VKG::VulkanContext& ctx,
-                const ::VKG::VulkanCommandPool& pool,
+    void onInit(::Phantom::VKG::VulkanContext& ctx,
+                const ::Phantom::VKG::VulkanCommandPool& pool,
                 VkRenderPass renderPass,
                 uint32_t framesInFlight) override;
 
@@ -54,21 +54,21 @@ private:
     bool     visible_   = true;
     bool     meshDirty_ = false;
 
-    const ::VKG::VulkanContext*     ctx_            = nullptr;
-    const ::VKG::VulkanCommandPool* pool_           = nullptr;
+    const ::Phantom::VKG::VulkanContext*     ctx_            = nullptr;
+    const ::Phantom::VKG::VulkanCommandPool* pool_           = nullptr;
     VkDevice                      device_         = VK_NULL_HANDLE;
     uint32_t                      framesInFlight_ = 2;
     uint32_t                      indexCount_     = 0;
 
-    ::VKG::VulkanDescriptorSetLayout descriptorSetLayout_;
-    ::VKG::VulkanDescriptorPool      descriptorPool_;
+    ::Phantom::VKG::VulkanDescriptorSetLayout descriptorSetLayout_;
+    ::Phantom::VKG::VulkanDescriptorPool      descriptorPool_;
     std::vector<VkDescriptorSet>   descriptorSets_;
-    ::VKG::VulkanPipeline            pipeline_;
+    ::Phantom::VKG::VulkanPipeline            pipeline_;
 
-    ::VKG::VulkanBuffer              vertexBuffer_;
-    ::VKG::VulkanBuffer              indexBuffer_;
-    std::vector<::VKG::VulkanBuffer> cameraUBOs_;
-    std::vector<::VKG::VulkanBuffer> boneUBOs_;
+    ::Phantom::VKG::VulkanBuffer              vertexBuffer_;
+    ::Phantom::VKG::VulkanBuffer              indexBuffer_;
+    std::vector<::Phantom::VKG::VulkanBuffer> cameraUBOs_;
+    std::vector<::Phantom::VKG::VulkanBuffer> boneUBOs_;
 
     SkinnedMesh            mesh_;
     std::vector<glm::mat4> skinMatrices_;

@@ -48,6 +48,3 @@ inline std::vector<uint32_t> loadSPV(const std::string& path)
 
 } // namespace VKG
 
-namespace VKG {
-using namespace Phantom::VKG;
-}

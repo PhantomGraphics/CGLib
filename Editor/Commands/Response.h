@@ -5,7 +5,7 @@
 #include <string>
 #include <utility>
 
-namespace PG::CommandCore {
+namespace Phantom::Editor::CommandCore {
 
 // Every command answers with {"ok":true,"result":...} or {"ok":false,"error":{"code":...,"message":...}}.
 using Json = nlohmann::json;
@@ -29,4 +29,4 @@ inline Json failure(const char* code, const std::string& message) {
 
 inline bool good(const Json& response) { return response.value("ok", false); }
 
-} // namespace PG::CommandCore
+} // namespace Phantom::Editor::CommandCore

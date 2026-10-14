@@ -7,7 +7,7 @@
 
 #include <cmath>
 
-namespace VKSpace {
+namespace Phantom::VKSpace {
 
 // ============================================================
 //  Construction

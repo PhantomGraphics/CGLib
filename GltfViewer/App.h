@@ -23,7 +23,7 @@
 
 namespace Phantom::Gltf {
 
-    class App : public ::VKG::VkAppBase, public ::IScenarioHost {
+    class App : public ::Phantom::VKG::VkAppBase, public ::IScenarioHost {
     public:
         explicit App(const std::filesystem::path& gltfPath);
 

@@ -20,7 +20,7 @@
 #include <string>
 #include <vector>
 
-namespace VolumeView {
+namespace Phantom::VolumeView {
 
 void SVMeshView::onImGui(World& world, int /*activeSceneId*/,
                           const std::function<void()>& onRebuild)

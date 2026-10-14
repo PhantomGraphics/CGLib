@@ -5,14 +5,14 @@
 #include <cstdio>
 #include <stdexcept>
 
-namespace VKSpace {
+namespace Phantom::VKSpace {
 
 // ============================================================
 //  Construction
 // ============================================================
 
 VkSpaceApp::VkSpaceApp(int w, int h, const std::string& title)
-    : ::VKG::VkAppBase(w, h, title)
+    : ::Phantom::VKG::VkAppBase(w, h, title)
     , renderer_(&world_)
 {
     dispatcher_.setWorld(&world_);
@@ -59,13 +59,13 @@ void VkSpaceApp::onInit() {
     {
         static constexpr auto kSS = "shaders/";
         Renderer::Shaders s;
-        s.lineVert  = ::VKG::loadSPVRepo(std::string(kSS) + "line.vert.spv");
-        s.lineFrag  = ::VKG::loadSPVRepo(std::string(kSS) + "line.frag.spv");
-        s.pointVert = ::VKG::loadSPVRepo(std::string(kSS) + "point.vert.spv");
-        s.pointFrag = ::VKG::loadSPVRepo(std::string(kSS) + "point.frag.spv");
+        s.lineVert  = ::Phantom::VKG::loadSPVRepo(std::string(kSS) + "line.vert.spv");
+        s.lineFrag  = ::Phantom::VKG::loadSPVRepo(std::string(kSS) + "line.frag.spv");
+        s.pointVert = ::Phantom::VKG::loadSPVRepo(std::string(kSS) + "point.vert.spv");
+        s.pointFrag = ::Phantom::VKG::loadSPVRepo(std::string(kSS) + "point.frag.spv");
         renderer_.setShaders(std::move(s));
     }
-    ::VKG::VkAppBase::onInit();
+    ::Phantom::VKG::VkAppBase::onInit();
     renderer_.setExtent(getExtent());
     setupWindowCallbacks();
 }
@@ -98,11 +98,11 @@ void VkSpaceApp::onUpdate(uint32_t frameIndex) {
     } else {
     }
 
-    ::VKG::VkAppBase::onUpdate(frameIndex);
+    ::Phantom::VKG::VkAppBase::onUpdate(frameIndex);
 }
 
 void VkSpaceApp::onImGui() {
-    ::VKG::VkAppBase::onImGui();
+    ::Phantom::VKG::VkAppBase::onImGui();
 
     if (ImGui::BeginMainMenuBar()) {
         menuPanel_.onImGuiMenuBar();
@@ -119,7 +119,7 @@ void VkSpaceApp::onImGui() {
 }
 
 void VkSpaceApp::onCleanup() {
-    ::VKG::VkAppBase::onCleanup();
+    ::Phantom::VKG::VkAppBase::onCleanup();
 }
 
 // ============================================================

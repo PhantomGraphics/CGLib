@@ -2,7 +2,7 @@
 
 #include "McMesh.h"
 
-using namespace VolumeView;
+using namespace Phantom::VolumeView;
 using Phantom::Math::Triangle3df;
 using Phantom::Math::Vector3df;
 

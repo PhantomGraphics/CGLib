@@ -14,9 +14,9 @@
 #include <optional>
 #include <vector>
 
-namespace VKRenderer {
+namespace Phantom::VKRenderer {
 
-class VkRendererSubRenderer : public ::VKG::IVkSubRenderer {
+class VkRendererSubRenderer : public ::Phantom::VKG::IVkSubRenderer {
 public:
     struct Shaders {
         std::vector<uint32_t> pointVert, pointFrag;

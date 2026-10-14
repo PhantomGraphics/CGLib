@@ -17,7 +17,7 @@ GpuTexture VulkanTextureHelper::uploadPixels(
 {
     GpuTexture t;
     // Single level (no mip chain): the sampler below keeps the default LOD range.
-    if (!::VKG::VulkanImage::createFromPixelsRGBA8(ctx, pool, pixels,
+    if (!::Phantom::VKG::VulkanImage::createFromPixelsRGBA8(ctx, pool, pixels,
             static_cast<uint32_t>(w), static_cast<uint32_t>(h), false,
             t.image, t.memory, t.view))
         return GpuTexture{};

@@ -5,7 +5,7 @@
 #include <memory>
 #include <string>
 
-namespace VolumeView {
+namespace Phantom::VolumeView {
 
 class SparseVolumeScene {
 public:

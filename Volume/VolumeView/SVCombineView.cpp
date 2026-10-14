@@ -15,7 +15,7 @@
 #include <string>
 #include <vector>
 
-namespace VolumeView {
+namespace Phantom::VolumeView {
 
 void SVCombineView::onImGui(World& world, int /*activeSceneId*/,
                              const std::function<void()>& onRebuild)

@@ -5,10 +5,10 @@
 #include <cmath>
 #include <cstdio>
 
-namespace MeshView {
+namespace Phantom::MeshView {
 
 VkMeshEditApp::VkMeshEditApp(int w, int h, const std::string& title)
-    : ::VKG::VkAppBase(w, h, title)
+    : ::Phantom::VKG::VkAppBase(w, h, title)
     , renderer_(&world_)
 {
     dispatcher_.setWorld(&world_);
@@ -56,15 +56,15 @@ void VkMeshEditApp::onInit() {
     {
         static constexpr auto kSS = "shaders/";
         Renderer::Shaders s;
-        s.lineVert = ::VKG::loadSPVRepo(std::string(kSS) + "line.vert.spv");
-        s.lineFrag = ::VKG::loadSPVRepo(std::string(kSS) + "line.frag.spv");
-        s.pointVert = ::VKG::loadSPVRepo(std::string(kSS) + "point.vert.spv");
-        s.pointFrag = ::VKG::loadSPVRepo(std::string(kSS) + "point.frag.spv");
-        s.triVert = ::VKG::loadSPVRepo(std::string(kSS) + "triangle.vert.spv");
-        s.triFrag = ::VKG::loadSPVRepo(std::string(kSS) + "triangle.frag.spv");
+        s.lineVert = ::Phantom::VKG::loadSPVRepo(std::string(kSS) + "line.vert.spv");
+        s.lineFrag = ::Phantom::VKG::loadSPVRepo(std::string(kSS) + "line.frag.spv");
+        s.pointVert = ::Phantom::VKG::loadSPVRepo(std::string(kSS) + "point.vert.spv");
+        s.pointFrag = ::Phantom::VKG::loadSPVRepo(std::string(kSS) + "point.frag.spv");
+        s.triVert = ::Phantom::VKG::loadSPVRepo(std::string(kSS) + "triangle.vert.spv");
+        s.triFrag = ::Phantom::VKG::loadSPVRepo(std::string(kSS) + "triangle.frag.spv");
         renderer_.setShaders(std::move(s));
     }
-    ::VKG::VkAppBase::onInit();
+    ::Phantom::VKG::VkAppBase::onInit();
     renderer_.setExtent(getExtent());
     setupWindowCallbacks();
 }
@@ -94,11 +94,11 @@ void VkMeshEditApp::onUpdate(uint32_t frameIndex) {
         }
     }
 
-    ::VKG::VkAppBase::onUpdate(frameIndex);
+    ::Phantom::VKG::VkAppBase::onUpdate(frameIndex);
 }
 
 void VkMeshEditApp::onImGui() {
-    ::VKG::VkAppBase::onImGui();
+    ::Phantom::VKG::VkAppBase::onImGui();
 
     if (ImGui::BeginMainMenuBar()) {
         menuPanel_.onImGuiMenuBar();
@@ -114,7 +114,7 @@ void VkMeshEditApp::onImGui() {
     }
 }
 
-void VkMeshEditApp::onCleanup() { ::VKG::VkAppBase::onCleanup(); }
+void VkMeshEditApp::onCleanup() { ::Phantom::VKG::VkAppBase::onCleanup(); }
 
 void VkMeshEditApp::setupWindowCallbacks() {
     auto& win = getWindow();

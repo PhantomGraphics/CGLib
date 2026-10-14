@@ -3,7 +3,7 @@
 #include "World.h"
 #include <functional>
 
-namespace VolumeView {
+namespace Phantom::VolumeView {
 
 // Renders the scene list section inside an existing ImGui window.
 // Call onImGui() from within an ImGui::Begin() / ImGui::End() block.

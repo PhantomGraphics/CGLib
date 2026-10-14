@@ -7,7 +7,7 @@
 
 class ViewShell;
 
-namespace MeshView {
+namespace Phantom::MeshView {
 
 // The "Control" window and the "Mesh" menu of MeshEditView. Nothing here edits the mesh directly: every button submits the
 // same command string a scenario or the Command window would, so the GUI and the scripts cannot drift apart.

@@ -8,29 +8,29 @@
 
 #include <algorithm>
 
-namespace VKRenderer {
+namespace Phantom::VKRenderer {
 
 VkRendererApp::VkRendererApp(int w, int h, const std::string& title)
-    : ::VKG::VkAppBase(w, h, title) {
+    : ::Phantom::VKG::VkAppBase(w, h, title) {
     add(&renderer_);
 }
 
 void VkRendererApp::onInit() {
     static constexpr auto kSh = "shaders/";
     VkRendererSubRenderer::Shaders s;
-    s.pointVert  = ::VKG::loadSPVRepo(std::string(kSh) + "point.vert.spv");
-    s.pointFrag  = ::VKG::loadSPVRepo(std::string(kSh) + "point.frag.spv");
-    s.lineVert   = ::VKG::loadSPVRepo(std::string(kSh) + "line.vert.spv");
-    s.lineFrag   = ::VKG::loadSPVRepo(std::string(kSh) + "line.frag.spv");
-    s.triVert    = ::VKG::loadSPVRepo(std::string(kSh) + "triangle.vert.spv");
-    s.triFrag    = ::VKG::loadSPVRepo(std::string(kSh) + "triangle.frag.spv");
-    s.texVert    = ::VKG::loadSPVRepo(std::string(kSh) + "tex.vert.spv");
-    s.texFrag    = ::VKG::loadSPVRepo(std::string(kSh) + "tex.frag.spv");
-    s.skyboxVert = ::VKG::loadSPVRepo(std::string(kSh) + "skybox.vert.spv");
-    s.skyboxFrag = ::VKG::loadSPVRepo(std::string(kSh) + "skybox.frag.spv");
+    s.pointVert  = ::Phantom::VKG::loadSPVRepo(std::string(kSh) + "point.vert.spv");
+    s.pointFrag  = ::Phantom::VKG::loadSPVRepo(std::string(kSh) + "point.frag.spv");
+    s.lineVert   = ::Phantom::VKG::loadSPVRepo(std::string(kSh) + "line.vert.spv");
+    s.lineFrag   = ::Phantom::VKG::loadSPVRepo(std::string(kSh) + "line.frag.spv");
+    s.triVert    = ::Phantom::VKG::loadSPVRepo(std::string(kSh) + "triangle.vert.spv");
+    s.triFrag    = ::Phantom::VKG::loadSPVRepo(std::string(kSh) + "triangle.frag.spv");
+    s.texVert    = ::Phantom::VKG::loadSPVRepo(std::string(kSh) + "tex.vert.spv");
+    s.texFrag    = ::Phantom::VKG::loadSPVRepo(std::string(kSh) + "tex.frag.spv");
+    s.skyboxVert = ::Phantom::VKG::loadSPVRepo(std::string(kSh) + "skybox.vert.spv");
+    s.skyboxFrag = ::Phantom::VKG::loadSPVRepo(std::string(kSh) + "skybox.frag.spv");
     renderer_.setShaders(std::move(s));
 
-    ::VKG::VkAppBase::onInit();
+    ::Phantom::VKG::VkAppBase::onInit();
     renderer_.setExtent(getExtent());
     renderer_.setCamera(computeProjMatrix(), computeViewMatrix());
     setupWindowCallbacks();
@@ -38,7 +38,7 @@ void VkRendererApp::onInit() {
 
 void VkRendererApp::onUpdate(uint32_t frameIndex) {
     renderer_.setCamera(computeProjMatrix(), computeViewMatrix());
-    ::VKG::VkAppBase::onUpdate(frameIndex);
+    ::Phantom::VKG::VkAppBase::onUpdate(frameIndex);
 }
 
 void VkRendererApp::onSwapChainCreated() {
@@ -46,7 +46,7 @@ void VkRendererApp::onSwapChainCreated() {
 }
 
 void VkRendererApp::onImGui() {
-    ::VKG::VkAppBase::onImGui();
+    ::Phantom::VKG::VkAppBase::onImGui();
 
     if (ImGui::BeginMainMenuBar()) {
         if (ImGui::BeginMenu("Renderer")) {
@@ -70,7 +70,7 @@ void VkRendererApp::onImGui() {
 }
 
 void VkRendererApp::onCleanup() {
-    ::VKG::VkAppBase::onCleanup();
+    ::Phantom::VKG::VkAppBase::onCleanup();
 }
 
 void VkRendererApp::setupWindowCallbacks() {

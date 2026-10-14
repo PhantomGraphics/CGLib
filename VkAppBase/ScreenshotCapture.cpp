@@ -10,7 +10,7 @@
 #include <string_view>
 #include <utility>
 
-namespace VKG {
+namespace Phantom::VKG {
 
 namespace {
 

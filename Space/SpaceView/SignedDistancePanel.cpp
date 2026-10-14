@@ -2,7 +2,7 @@
 
 #include "imgui.h"
 
-namespace VKSpace {
+namespace Phantom::VKSpace {
 
 void SignedDistancePanel::onImGui(World& world) {
     ImGui::SliderFloat("Sphere Radius", &params_.sphereRadius, 0.1f, 1.5f);

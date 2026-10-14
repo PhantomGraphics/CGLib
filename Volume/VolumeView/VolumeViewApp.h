@@ -18,9 +18,9 @@
 
 #include <string>
 
-namespace VolumeView {
+namespace Phantom::VolumeView {
 
-class VolumeViewApp : public ::VKG::VkAppBase, public ::IScenarioHost {
+class VolumeViewApp : public ::Phantom::VKG::VkAppBase, public ::IScenarioHost {
 public:
     VolumeViewApp();
 

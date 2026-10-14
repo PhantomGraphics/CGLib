@@ -11,9 +11,9 @@
 #include <cstdint>
 #include <vector>
 
-namespace VolumeView {
+namespace Phantom::VolumeView {
 
-class DenseVolumeRenderer : public ::VKG::IVkSubRenderer {
+class DenseVolumeRenderer : public ::Phantom::VKG::IVkSubRenderer {
 public:
 	enum class ColorMapType {
 		Jet = 0,

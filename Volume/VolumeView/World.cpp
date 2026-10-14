@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-namespace VolumeView {
+namespace Phantom::VolumeView {
 
 SparseVolumeScene* World::addScene(const std::string& name) {
     auto scene   = std::make_unique<SparseVolumeScene>();

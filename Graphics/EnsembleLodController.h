@@ -30,7 +30,7 @@
 // Moved here from PointCloud/GSView/ (header-only, no link dependency) on
 // 2026-09-24 so PhysicsView's Flame PBVR can share it
 // (docs/todo/PLAN_flame_sph_pbvr_improvement.md Phase 4). GSView keeps a
-// `GSView::EnsembleLodController` alias in its old header.
+// `Phantom::GSView::EnsembleLodController` alias in its old header.
 // -----------------------------------------------------------------------------
 
 #include <algorithm>

@@ -44,15 +44,15 @@ void SkinnedMeshRenderer::updatePose(const std::vector<glm::mat4>& skinMatrices,
     dirty_ = true;
 }
 
-void SkinnedMeshRenderer::onInit(::VKG::VulkanContext& ctx,
-                                  const ::VKG::VulkanCommandPool& pool,
+void SkinnedMeshRenderer::onInit(::Phantom::VKG::VulkanContext& ctx,
+                                  const ::Phantom::VKG::VulkanCommandPool& pool,
                                   VkRenderPass renderPass,
                                   uint32_t framesInFlight)
 {
     ctx_  = &ctx;
     pool_ = &pool;
 
-    VKG::VkTriangleRenderer::Config cfg;
+    Phantom::VKG::VkTriangleRenderer::Config cfg;
     cfg.vertSpv   = std::move(shaders_.vertSpv);
     cfg.fragSpv   = std::move(shaders_.fragSpv);
     cfg.cullBack  = false; // show both sides of the bone diamonds
@@ -67,7 +67,7 @@ void SkinnedMeshRenderer::onUpdate(uint32_t frameIndex)
     if (dirty_ && !skinnedPositions_.empty()) {
         vkDeviceWaitIdle(ctx_->getDevice());
 
-        VKG::VkTriangleRenderer::Buffer buf;
+        Phantom::VKG::VkTriangleRenderer::Buffer buf;
         buf.positions        = skinnedPositions_;
         buf.colors           = skinnedColors_;
         buf.indices          = mesh_.indices;

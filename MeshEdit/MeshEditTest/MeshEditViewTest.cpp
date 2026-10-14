@@ -10,7 +10,7 @@
 
 // MeshEditView without a window: the world (mesh, selection, history, draw data) and the command router the viewer's menu,
 // Command window and scenarios share. The Vulkan side is covered by the viewer's scenarios (MeshEditView/scenarios).
-using namespace MeshView;
+using namespace Phantom::MeshView;
 using namespace Phantom::MeshEdit;
 
 namespace {

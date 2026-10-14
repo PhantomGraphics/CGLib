@@ -5,7 +5,7 @@
 #include <algorithm>
 #include <string>
 
-namespace VolumeView {
+namespace Phantom::VolumeView {
 
 void SceneListPanel::init(World* world, int* pActiveSceneId, int* pActiveDenseSceneId,
                                  std::function<void()> onWorldChanged,

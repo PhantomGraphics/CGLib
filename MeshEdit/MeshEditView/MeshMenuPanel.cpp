@@ -8,7 +8,7 @@
 
 using namespace Phantom::MeshEdit;
 
-namespace MeshView {
+namespace Phantom::MeshView {
 
 namespace {
 

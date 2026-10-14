@@ -5,7 +5,7 @@
 #include <functional>
 #include <string>
 
-namespace VolumeView {
+namespace Phantom::VolumeView {
 
 // Resample a SparseVolume to a different cell size using trilinear interpolation.
 class SVResampleView : public IVolumeProcessView {

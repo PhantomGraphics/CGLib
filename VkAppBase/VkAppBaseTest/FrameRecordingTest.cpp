@@ -1,8 +1,8 @@
 #include <gtest/gtest.h>
 
 #include "FrameRecording.h"
+using namespace Phantom::VKG;
 
-using namespace VKG;
 
 TEST(FrameRecordingTest, ClearValues) {
     const auto v = swapchainClearValues();

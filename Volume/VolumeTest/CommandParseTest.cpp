@@ -2,7 +2,7 @@
 
 #include "CommandParse.h"
 
-using namespace VolumeView;
+using namespace Phantom::VolumeView;
 
 TEST(CommandParseTest, SplitKeepsEmptyFields)
 {

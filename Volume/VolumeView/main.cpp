@@ -27,7 +27,7 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    VolumeView::VolumeViewApp app;
+    Phantom::VolumeView::VolumeViewApp app;
 
     if (!scenarioPath.empty()) {
         if (!app.loadScenario(scenarioPath)) {

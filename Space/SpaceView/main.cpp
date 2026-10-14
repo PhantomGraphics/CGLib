@@ -29,7 +29,7 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    VKSpace::VkSpaceApp app(1280, 720, "Vk Space View");
+    Phantom::VKSpace::VkSpaceApp app(1280, 720, "Vk Space View");
 
     if (!scenarioPath.empty()) {
         if (!app.loadScenario(scenarioPath)) {

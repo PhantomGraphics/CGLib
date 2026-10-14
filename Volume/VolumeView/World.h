@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-namespace VolumeView {
+namespace Phantom::VolumeView {
 
 struct PolygonMesh {
     std::string           name;

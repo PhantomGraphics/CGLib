@@ -27,7 +27,7 @@ struct GpuVoxelEntry {
 
 class VolumeComputePBVR {
 public:
-    void create(const ::VKG::VulkanContext& ctx);
+    void create(const ::Phantom::VKG::VulkanContext& ctx);
     void destroy(VkDevice device);
 
     void setDensityScale(float s)       { densityScale_ = s; }
@@ -38,8 +38,8 @@ public:
     // voxelSize: cell size (same for all voxels in the list)
     // tfLut:    TransferFunction::getLUT() — 256 TFSample {r,g,b,a} entries
     // Blocks until GPU is idle (beginSingleTimeCommands / endSingleTimeCommands).
-    void dispatch(const ::VKG::VulkanContext& ctx,
-                  const ::VKG::VulkanCommandPool& pool,
+    void dispatch(const ::Phantom::VKG::VulkanContext& ctx,
+                  const ::Phantom::VKG::VulkanCommandPool& pool,
                   const std::vector<GpuVoxelEntry>& voxels,
                   float voxelSize,
                   const std::vector<TFSample>& tfLut);
@@ -56,24 +56,24 @@ private:
         float    voxelSize;
     };
 
-    ::VKG::VulkanBuffer           voxelBuf_;   // SSBO: GpuVoxelEntry[] (binding 0)
-    ::VKG::VulkanBuffer           tfBuf_;      // SSBO: vec4[256]       (binding 1)
-    ::VKG::VulkanBuffer           outputBuf_;  // SSBO + VBO: PBVRVertex[] (binding 2)
-    ::VKG::VulkanDescriptorSetLayout dsl_;
-    ::VKG::VulkanDescriptorPool   descPool_;
+    ::Phantom::VKG::VulkanBuffer           voxelBuf_;   // SSBO: GpuVoxelEntry[] (binding 0)
+    ::Phantom::VKG::VulkanBuffer           tfBuf_;      // SSBO: vec4[256]       (binding 1)
+    ::Phantom::VKG::VulkanBuffer           outputBuf_;  // SSBO + VBO: PBVRVertex[] (binding 2)
+    ::Phantom::VKG::VulkanDescriptorSetLayout dsl_;
+    ::Phantom::VKG::VulkanDescriptorPool   descPool_;
     VkDescriptorSet             descSet_  = VK_NULL_HANDLE;
-    ::VKG::VulkanComputePipeline  pipeline_;
+    ::Phantom::VKG::VulkanComputePipeline  pipeline_;
 
     uint32_t totalCount_       = 0;
     uint32_t cachedVoxelCount_ = 0;
     uint32_t maxPPV_           = 4;
     float    densityScale_     = 1.0f;
 
-    void rebuildVoxelBuf(const ::VKG::VulkanContext&, const ::VKG::VulkanCommandPool&,
+    void rebuildVoxelBuf(const ::Phantom::VKG::VulkanContext&, const ::Phantom::VKG::VulkanCommandPool&,
                          const std::vector<GpuVoxelEntry>&);
-    void rebuildTfBuf(const ::VKG::VulkanContext&, const ::VKG::VulkanCommandPool&,
+    void rebuildTfBuf(const ::Phantom::VKG::VulkanContext&, const ::Phantom::VKG::VulkanCommandPool&,
                       const std::vector<TFSample>&);
-    void rebuildOutputBuf(const ::VKG::VulkanContext&, const ::VKG::VulkanCommandPool&,
+    void rebuildOutputBuf(const ::Phantom::VKG::VulkanContext&, const ::Phantom::VKG::VulkanCommandPool&,
                           uint32_t numVoxels);
     void updateDescSet(VkDevice);
 };

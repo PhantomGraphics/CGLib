@@ -2,7 +2,7 @@
 
 // VulkanSPVResolver.h
 // Exe-directory-relative SPIR-V loader. Include this header in place of (or
-// alongside) VulkanSPVLoader.h and call ::VKG::loadSPVRepo() with a path
+// alongside) VulkanSPVLoader.h and call ::Phantom::VKG::loadSPVRepo() with a path
 // relative to the module (exe or DLL) directory, e.g. "shaders/my.vert.spv".
 //
 // PostBuildEvent in each app's .vcxproj copies compiled .spv files to
@@ -59,7 +59,7 @@ inline std::filesystem::path detectModuleDir()
 
 // Load a SPIR-V file given a path relative to the module directory.
 //
-//   cfg.vertSpv = ::VKG::loadSPVRepo("shaders/gltf.vert.spv");
+//   cfg.vertSpv = ::Phantom::VKG::loadSPVRepo("shaders/gltf.vert.spv");
 //
 // The module directory is detected once per module and cached. On failure an
 // empty vector is returned and a diagnostic is printed to stderr.
@@ -79,6 +79,3 @@ inline std::vector<uint32_t> loadSPVRepo(const std::string& moduleRelativePath)
 
 } // namespace VKG
 
-namespace VKG {
-using namespace Phantom::VKG;
-}

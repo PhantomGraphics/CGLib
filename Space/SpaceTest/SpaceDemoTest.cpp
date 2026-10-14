@@ -9,7 +9,7 @@
 #include <limits>
 #include <vector>
 
-using namespace VKSpace;
+using namespace Phantom::VKSpace;
 
 namespace {
 	constexpr float kNaN = std::numeric_limits<float>::quiet_NaN();

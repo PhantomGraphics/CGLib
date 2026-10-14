@@ -15,11 +15,11 @@
 #include <memory>
 #include <vector>
 
-namespace VolumeView {
+namespace Phantom::VolumeView {
 
 // IVkSubRenderer that renders PolygonMesh overlays stored in VolumeWorld.
-// Wraps VKG::VkTriangleRenderer, which is an IVkRenderer (not IVkSubRenderer).
-class MeshOverlayRenderer : public ::VKG::IVkSubRenderer {
+// Wraps Phantom::VKG::VkTriangleRenderer, which is an IVkRenderer (not IVkSubRenderer).
+class MeshOverlayRenderer : public ::Phantom::VKG::IVkSubRenderer {
 public:
     struct Shaders {
         std::vector<uint32_t> vertSpv;

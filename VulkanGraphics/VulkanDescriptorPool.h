@@ -105,6 +105,3 @@ private:
 
 } // namespace VKG
 
-namespace VKG {
-using namespace Phantom::VKG;
-}

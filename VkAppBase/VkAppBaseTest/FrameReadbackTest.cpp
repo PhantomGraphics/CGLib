@@ -3,7 +3,7 @@
 #include "FrameReadback.h"
 #include "../../VulkanGraphics/VulkanContext.h"
 
-using VKG::FrameReadback;
+using Phantom::VKG::FrameReadback;
 
 TEST(FrameReadbackTest, InvalidCaptureDoesNotCompleteRequests) {
     FrameReadback r;

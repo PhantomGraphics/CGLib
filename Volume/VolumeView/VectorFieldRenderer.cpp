@@ -15,7 +15,7 @@
 #include <cstdint>
 #include <unordered_set>
 
-namespace VolumeView {
+namespace Phantom::VolumeView {
 
 namespace {
 

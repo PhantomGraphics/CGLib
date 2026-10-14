@@ -14,7 +14,7 @@
 namespace Phantom::Animation {
 
 // Applies CPU skinning to a SkinnedMesh and renders via VkTriangleRenderer.
-class SkinnedMeshRenderer : public ::VKG::IVkSubRenderer {
+class SkinnedMeshRenderer : public ::Phantom::VKG::IVkSubRenderer {
 public:
     struct Shaders {
         std::vector<uint32_t> vertSpv;
@@ -33,8 +33,8 @@ public:
                     const glm::mat4& mvp);
 
     // IVkSubRenderer
-    void onInit(::VKG::VulkanContext& ctx,
-                const ::VKG::VulkanCommandPool& pool,
+    void onInit(::Phantom::VKG::VulkanContext& ctx,
+                const ::Phantom::VKG::VulkanCommandPool& pool,
                 VkRenderPass renderPass,
                 uint32_t framesInFlight) override;
 
@@ -47,10 +47,10 @@ private:
     bool       visible_ = true;
     bool       dirty_   = false;
 
-    const ::VKG::VulkanContext*     ctx_  = nullptr;
-    const ::VKG::VulkanCommandPool* pool_ = nullptr;
+    const ::Phantom::VKG::VulkanContext*     ctx_  = nullptr;
+    const ::Phantom::VKG::VulkanCommandPool* pool_ = nullptr;
 
-    std::optional<VKG::VkTriangleRenderer> triRenderer_;
+    std::optional<Phantom::VKG::VkTriangleRenderer> triRenderer_;
 
     SkinnedMesh           mesh_;
     std::vector<glm::mat4> skinMatrices_;

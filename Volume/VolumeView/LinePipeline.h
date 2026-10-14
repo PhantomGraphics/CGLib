@@ -10,7 +10,7 @@
 
 #include <vector>
 
-namespace VolumeView {
+namespace Phantom::VolumeView {
 
 struct LineVertex {
     glm::vec3 pos;

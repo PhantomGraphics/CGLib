@@ -10,7 +10,7 @@
 #include <cstdio>
 #include <cstring>
 
-namespace VKRenderer {
+namespace Phantom::VKRenderer {
 
 void VkRendererSubRenderer::onInit(Phantom::VKG::VulkanContext& ctx,
                                    const Phantom::VKG::VulkanCommandPool& pool,

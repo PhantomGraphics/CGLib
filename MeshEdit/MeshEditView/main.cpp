@@ -34,7 +34,7 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    MeshView::VkMeshEditApp app(1280, 720, "Mesh Edit View");
+    Phantom::MeshView::VkMeshEditApp app(1280, 720, "Mesh Edit View");
 
     if (!scenarioPath.empty()) {
         if (!app.loadScenario(scenarioPath)) {

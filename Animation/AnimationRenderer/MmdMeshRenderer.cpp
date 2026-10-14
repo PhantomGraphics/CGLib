@@ -43,8 +43,8 @@ void MmdMeshRenderer::updatePose(const std::vector<glm::mat4>& skinMatrices,
 //  IVkSubRenderer
 // ============================================================
 
-void MmdMeshRenderer::onInit(::VKG::VulkanContext& ctx,
-                               const ::VKG::VulkanCommandPool& pool,
+void MmdMeshRenderer::onInit(::Phantom::VKG::VulkanContext& ctx,
+                               const ::Phantom::VKG::VulkanCommandPool& pool,
                                VkRenderPass renderPass,
                                uint32_t framesInFlight)
 {
@@ -106,7 +106,7 @@ void MmdMeshRenderer::onInit(::VKG::VulkanContext& ctx,
         { 5, 0, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(SkinVertex, boneWeights) },
     };
 
-    ::VKG::PipelineConfig pCfg{};
+    ::Phantom::VKG::PipelineConfig pCfg{};
     pCfg.vertSpv             = shaders_.vertSpv;
     pCfg.fragSpv             = shaders_.fragSpv;
     pCfg.bindingDescs        = bindings;

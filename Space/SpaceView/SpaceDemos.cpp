@@ -21,7 +21,7 @@ using Phantom::Math::Box3df;
 using Phantom::Math::Sphere3d;
 using Phantom::Math::Vector3df;
 
-namespace VKSpace {
+namespace Phantom::VKSpace {
 
 namespace {
 

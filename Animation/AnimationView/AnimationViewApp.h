@@ -25,7 +25,7 @@ namespace Phantom::Animation {
 // internal design notes Phase 8: MmdMeshRenderer/GpuSkinnedRenderer/
 // BoneWireRenderer/SkinnedMeshRenderer were all removed from this app; the underlying
 // Phantom::Animation::AnimationRenderer library they lived in has no other consumer left).
-class AnimationViewApp : public ::VKG::VkAppBase, public ::IScenarioHost {
+class AnimationViewApp : public ::Phantom::VKG::VkAppBase, public ::IScenarioHost {
 public:
     AnimationViewApp(int w, int h, const std::string& title);
 

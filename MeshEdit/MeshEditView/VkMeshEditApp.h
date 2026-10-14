@@ -13,9 +13,9 @@
 
 #include <string>
 
-namespace MeshView {
+namespace Phantom::MeshView {
 
-class VkMeshEditApp : public ::VKG::VkAppBase, public ::IScenarioHost {
+class VkMeshEditApp : public ::Phantom::VKG::VkAppBase, public ::IScenarioHost {
 public:
     VkMeshEditApp(int w, int h, const std::string& title);
 

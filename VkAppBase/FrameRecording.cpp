@@ -1,6 +1,6 @@
 #include "FrameRecording.h"
 
-namespace VKG {
+namespace Phantom::VKG {
 
 std::array<VkClearValue, 2> swapchainClearValues() {
     std::array<VkClearValue, 2> v{};

@@ -2,7 +2,7 @@
 
 #include "FrameSync.h"
 
-using VKG::FrameSync;
+using Phantom::VKG::FrameSync;
 
 namespace {
 VkFence fakeFence(uintptr_t v) { return reinterpret_cast<VkFence>(v); }

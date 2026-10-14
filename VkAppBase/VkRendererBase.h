@@ -8,7 +8,7 @@
 #include <array>
 #include <cstdint>
 
-namespace VKG {
+namespace Phantom::VKG {
 
 /// @brief Base class derived from VkAppBase that standardizes a 2-pass offscreen renderer.
 ///

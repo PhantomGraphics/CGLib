@@ -3,7 +3,7 @@
 #include "World.h"
 #include <functional>
 
-namespace VolumeView {
+namespace Phantom::VolumeView {
 
 class IVolumeProcessView {
 public:

@@ -19,7 +19,7 @@
 #include <crtdbg.h>
 #endif
 
-namespace VKG {
+namespace Phantom::VKG {
 
 VkAppBase::VkAppBase(int width, int height, const std::string& title,
                      VkSampleCountFlagBits msaaSamples)
@@ -48,7 +48,7 @@ VkAppBase::~VkAppBase() {
 }
 
 bool VkAppBase::run(int argc, char* argv[]) {
-    const ScreenshotArgs shot = VKG::parseScreenshotArgs(argc, argv);
+    const ScreenshotArgs shot = Phantom::VKG::parseScreenshotArgs(argc, argv);
     if (!shot.path.empty()) {
         readback_.setScreenshot(shot.path, shot.frame ? *shot.frame : readback_.screenshotFrame());
         readback_.setScreenshotDefaultFrame(5);

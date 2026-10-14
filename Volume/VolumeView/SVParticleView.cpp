@@ -12,7 +12,7 @@
 
 #include "imgui.h"
 
-namespace VolumeView {
+namespace Phantom::VolumeView {
 
 void SVParticleView::onImGui(World& /*world*/, int /*activeSceneId*/,
                               const std::function<void()>& /*onRebuild*/)

@@ -130,7 +130,7 @@ glm::vec3 PBVRRenderer::computeLightDir() const {
         std::cos(el) * std::cos(az)));
 }
 
-void PBVRRenderer::onInit(::VKG::VulkanContext& ctx, const ::VKG::VulkanCommandPool& pool,
+void PBVRRenderer::onInit(::Phantom::VKG::VulkanContext& ctx, const ::Phantom::VKG::VulkanCommandPool& pool,
                             VkRenderPass renderPass, uint32_t framesInFlight) {
     ctx_ = &ctx;
     pool_ = &pool;
@@ -145,7 +145,7 @@ void PBVRRenderer::onInit(::VKG::VulkanContext& ctx, const ::VKG::VulkanCommandP
     shadowMapPass_.create(ctx, shadowMapSize_, static_cast<uint32_t>(shadowLayers_));
     shadowDirty_ = false;
 
-    ::VKG::PipelineConfig depositCfg{};
+    ::Phantom::VKG::PipelineConfig depositCfg{};
     depositCfg.vertSpv = std::move(shaders_.depositVertSpv);
     depositCfg.fragSpv = std::move(shaders_.depositFragSpv);
     depositCfg.bindingDescs = { {0, sizeof(PBVRVertex), VK_VERTEX_INPUT_RATE_VERTEX} };

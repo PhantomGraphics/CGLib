@@ -4,7 +4,7 @@
 
 #include <string>
 
-namespace VKSpace {
+namespace Phantom::VKSpace {
 
 /// @file
 /// CPU side of the SpaceView demos: each function builds a synthetic sample, runs one Space algorithm and

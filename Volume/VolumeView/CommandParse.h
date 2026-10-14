@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-namespace VolumeView {
+namespace Phantom::VolumeView {
 
 // Command-text parsing for VolumeView's CommandDispatcher. Pure std (no Vulkan/ImGui/renderer
 // types), so unknown / malformed commands can be checked without a GPU; the dispatcher keeps

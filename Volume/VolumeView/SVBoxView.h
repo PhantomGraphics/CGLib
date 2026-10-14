@@ -2,7 +2,7 @@
 
 #include "IVolumeProcessView.h"
 
-namespace VolumeView {
+namespace Phantom::VolumeView {
 
 class SVBoxView : public IVolumeProcessView {
 public:

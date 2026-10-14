@@ -17,7 +17,7 @@
 #include <string>
 #include <vector>
 
-namespace MeshView {
+namespace Phantom::MeshView {
 
 enum class Shape { Box, Plane };
 

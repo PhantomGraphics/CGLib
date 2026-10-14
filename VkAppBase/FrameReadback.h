@@ -9,7 +9,7 @@
 
 namespace Phantom::VKG { class VulkanContext; }
 
-namespace VKG {
+namespace Phantom::VKG {
 
 // Request state and GPU readback buffers for VkAppBase's screenshot and single-pixel readback.
 // Per frame, VkAppBase asks beginFrame() what to capture, records the copies into the frame's

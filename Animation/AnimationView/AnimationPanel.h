@@ -12,7 +12,7 @@ namespace Phantom::Animation {
 
 class AnimationViewApp;
 
-class AnimationPanel : public ::VKG::IVkUIPanel {
+class AnimationPanel : public ::Phantom::VKG::IVkUIPanel {
 public:
     void init(World* world) { world_ = world; }
     // Non-owning; only needed for the Environment section's IBL checkbox and "Load HDRI..."/

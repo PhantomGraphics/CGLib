@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-namespace MeshView {
+namespace Phantom::MeshView {
 
 class Renderer;
 

@@ -7,7 +7,7 @@
 #include <limits>
 #include <string>
 
-namespace VKSpace {
+namespace Phantom::VKSpace {
 
 namespace {
 bool parseDouble(const std::string& s, double& out) {

@@ -4,7 +4,7 @@
 #include "SpaceDemos.h"
 #include "World.h"
 
-namespace VKSpace {
+namespace Phantom::VKSpace {
 
 /// @brief ImGui panel for the SignedDistance demo. The computation lives in SpaceDemos.cpp; this class only edits
 /// the parameters, requests a run (button or command) and shows the statistics of the last run.
