@@ -77,7 +77,7 @@ set(ANIMATIONRENDERER_ROOT ${ANIMATION_ROOT}/AnimationRenderer)
 
 add_library(AnimationRenderer STATIC
     ${ANIMATIONRENDERER_ROOT}/BoneWireRenderer.cpp
-    ${ANIMATIONRENDERER_ROOT}/GpuSkinnedRenderer.cpp
+    ${ANIMATIONRENDERER_ROOT}/SkinnedRendererGpu.cpp
     ${ANIMATIONRENDERER_ROOT}/MmdMeshRenderer.cpp
     ${ANIMATIONRENDERER_ROOT}/SkinnedMeshRenderer.cpp
     ${ANIMATIONRENDERER_ROOT}/VulkanTextureHelper.cpp

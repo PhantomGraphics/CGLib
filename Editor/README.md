@@ -23,7 +23,7 @@ functionality when multiple applications need a concrete shared implementation.
 
 ## Commands and selection
 
-`Commands/Registry.h`, `Response.h` and `References.h` use the
+`Commands/CommandRegistry.h`, `Response.h` and `References.h` use the
 `Phantom::Editor::CommandCore` namespace. Command behavior is unchanged. CGApp headers forward to these
 headers; Registry and reference helpers are compiled only into `EditorCore`.
 `Response.h` exposes nlohmann JSON. The bundled header-only JSON include directory

@@ -1,20 +1,20 @@
 #pragma once
 
 #include <filesystem>
-#include "GLTFFile.h"
+#include "GltfFile.h"
 
 namespace Phantom {
 	namespace File {
 
-class GLTFFileReader
+class GltfFileReader
 {
 public:
 	bool read(const std::filesystem::path& filename);
 
-	GLTFFile getGLTF() const { return gltf; }
+	GltfFile getGLTF() const { return gltf; }
 
 private:
- GLTFFile gltf;
+ GltfFile gltf;
 };
 
 	}

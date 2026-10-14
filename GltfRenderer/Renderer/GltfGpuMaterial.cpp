@@ -1,4 +1,4 @@
-﻿#include "GltfMaterial.h"
+﻿#include "GltfGpuMaterial.h"
 
 #include "../../../CGLib/VulkanGraphics/VulkanContext.h"
 #include "../../../CGLib/VulkanGraphics/VulkanCommandPool.h"

@@ -1,4 +1,4 @@
-#include "CGLib/Animation/AnimationRenderer/GpuSkinnedRenderer.h"
+#include "CGLib/Animation/AnimationRenderer/SkinnedRendererGpu.h"
 
 #include "CGLib/VulkanGraphics/VulkanContext.h"
 #include "CGLib/VulkanGraphics/VulkanCommandPool.h"
@@ -8,20 +8,20 @@
 
 namespace Phantom::Animation {
 
-void GpuSkinnedRenderer::setMesh(SkinnedMesh mesh)
+void SkinnedRendererGpu::setMesh(SkinnedMesh mesh)
 {
     mesh_      = std::move(mesh);
     meshDirty_ = true;
 }
 
-void GpuSkinnedRenderer::updatePose(const std::vector<glm::mat4>& skinMatrices,
+void SkinnedRendererGpu::updatePose(const std::vector<glm::mat4>& skinMatrices,
                                      const glm::mat4& mvp)
 {
     skinMatrices_ = skinMatrices;
     mvp_          = mvp;
 }
 
-void GpuSkinnedRenderer::onInit(::Phantom::VKG::VulkanContext& ctx,
+void SkinnedRendererGpu::onInit(::Phantom::VKG::VulkanContext& ctx,
                                   const ::Phantom::VKG::VulkanCommandPool& pool,
                                  VkRenderPass renderPass,
                                  uint32_t framesInFlight)
@@ -117,7 +117,7 @@ void GpuSkinnedRenderer::onInit(::Phantom::VKG::VulkanContext& ctx,
         uploadMesh();
 }
 
-void GpuSkinnedRenderer::uploadMesh()
+void SkinnedRendererGpu::uploadMesh()
 {
     if (mesh_.vertices.empty() || !ctx_ || !pool_) return;
 
@@ -140,7 +140,7 @@ void GpuSkinnedRenderer::uploadMesh()
     meshDirty_  = false;
 }
 
-void GpuSkinnedRenderer::onUpdate(uint32_t frameIndex)
+void SkinnedRendererGpu::onUpdate(uint32_t frameIndex)
 {
     if (meshDirty_) {
         vkDeviceWaitIdle(device_);
@@ -161,7 +161,7 @@ void GpuSkinnedRenderer::onUpdate(uint32_t frameIndex)
     boneUBOs_[frameIndex].write(&boneData, sizeof(boneData));
 }
 
-void GpuSkinnedRenderer::onRender(VkCommandBuffer cmd, uint32_t frameIndex)
+void SkinnedRendererGpu::onRender(VkCommandBuffer cmd, uint32_t frameIndex)
 {
     if (!visible_ || indexCount_ == 0) return;
     if (!vertexBuffer_.isValid() || !indexBuffer_.isValid()) return;
@@ -181,7 +181,7 @@ void GpuSkinnedRenderer::onRender(VkCommandBuffer cmd, uint32_t frameIndex)
     vkCmdDrawIndexed(cmd, indexCount_, 1, 0, 0, 0);
 }
 
-void GpuSkinnedRenderer::onCleanup(VkDevice device)
+void SkinnedRendererGpu::onCleanup(VkDevice device)
 {
     for (auto& b : cameraUBOs_) b.destroy(device);
     for (auto& b : boneUBOs_)   b.destroy(device);

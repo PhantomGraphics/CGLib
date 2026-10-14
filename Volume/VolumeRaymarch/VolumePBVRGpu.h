@@ -31,7 +31,7 @@ namespace Phantom::Volume {
  * A cell that would need more than maxPerCell particles gets larger discs instead of being cut
  * (statistically exact, only blurrier); running out of the global capacity is counted in stats().
  */
-class VolumePbvrGpu {
+class VolumePBVRGpu {
 public:
     struct Config {
         std::vector<uint32_t> generateCompSpv, pointVertSpv, pointFragSpv, accumulateCompSpv;
@@ -56,9 +56,9 @@ public:
         uint32_t generated = 0;    ///< Particles drawn (since reset).
     };
 
-    VolumePbvrGpu() = default;
-    VolumePbvrGpu(const VolumePbvrGpu&) = delete;
-    VolumePbvrGpu& operator=(const VolumePbvrGpu&) = delete;
+    VolumePBVRGpu() = default;
+    VolumePBVRGpu(const VolumePBVRGpu&) = delete;
+    VolumePBVRGpu& operator=(const VolumePBVRGpu&) = delete;
 
     bool create(const Phantom::VKG::VulkanContext& ctx, const Phantom::VKG::VulkanCommandPool& pool,
                 const Config& config);

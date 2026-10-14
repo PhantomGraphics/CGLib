@@ -1,6 +1,6 @@
 #include "gtest/gtest.h"
 
-#include "../../File/File/GLTFFileReader.h"
+#include "../../File/File/GltfFileReader.h"
 #include "../Gltf/GltfReader.h"
 
 #include <cstdio>
@@ -13,7 +13,7 @@ using namespace Phantom::Gltf;
 namespace {
 
 // Node 0 uses "matrix" (translation-only: move by (2,3,4)) instead of TRS -- glTF spec forbids
-// specifying both on the same node. Regression coverage for the bug where GLTFFileReader/
+// specifying both on the same node. Regression coverage for the bug where GltfFileReader/
 // GltfReader silently discarded "matrix" nodes (treating them as identity), which broke any
 // skinned model whose exporter emits joint transforms as raw matrices instead of decomposed TRS
 // (confirmed against real files: RiggedFigure.glb, CesiumMan.glb -- see
@@ -45,13 +45,13 @@ std::filesystem::path writeTempGltf(const char* name, const char* json) {
 
 } // namespace
 
-TEST(GLTFFileReaderNodeMatrixTest, FileLayerReadsMatrixNode)
+TEST(GltfFileReaderNodeMatrixTest, FileLayerReadsMatrixNode)
 {
-    const auto path = writeTempGltf("GLTFFileReaderNodeMatrixTest.gltf", kMatrixNodeGltf);
+    const auto path = writeTempGltf("GltfFileReaderNodeMatrixTest.gltf", kMatrixNodeGltf);
 
-    GLTFFileReader reader;
+    GltfFileReader reader;
     ASSERT_TRUE(reader.read(path));
-    const GLTFFile gltf = reader.getGLTF();
+    const GltfFile gltf = reader.getGLTF();
 
     ASSERT_EQ(1u, gltf.nodes.size());
     const GLTFNode& node = gltf.nodes[0];
@@ -64,9 +64,9 @@ TEST(GLTFFileReaderNodeMatrixTest, FileLayerReadsMatrixNode)
     std::remove(path.string().c_str());
 }
 
-TEST(GLTFFileReaderNodeMatrixTest, GltfLayerPropagatesMatrixToGlmMat4)
+TEST(GltfFileReaderNodeMatrixTest, GltfLayerPropagatesMatrixToGlmMat4)
 {
-    const auto path = writeTempGltf("GLTFFileReaderNodeMatrixTest2.gltf", kMatrixNodeGltf);
+    const auto path = writeTempGltf("GltfFileReaderNodeMatrixTest2.gltf", kMatrixNodeGltf);
 
     const auto doc = GltfReader::load(path);
     ASSERT_TRUE(doc.has_value());

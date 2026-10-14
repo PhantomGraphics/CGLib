@@ -7,7 +7,7 @@
 #include "../GltfRenderer/Gltf/GltfDocument.h"
 #include "../GltfRenderer/Gltf/GltfLightsCameras.h"
 #include "../GltfRenderer/Renderer/GltfSceneRenderer.h"
-#include "../GltfRenderer/IBL/GltfEnvironmentCubemap.h"
+#include "../GltfRenderer/IBL/GltfEnvironmentCubeMap.h"
 #include "CommandDispatcher.h"
 #include "ControlPanel.h"
 #include "SceneGraphPanel.h"
@@ -60,7 +60,7 @@ namespace Phantom::Gltf {
 
         // Real HDRI loading (2026-09-15): replaces envCubemap_'s flat placeholder tint with a
         // real environment cube baked from an equirectangular .hdr panorama
-        // (GltfEnvironmentCubemap::loadFromHDR(), shared with Universe -- see that class's
+        // (GltfEnvironmentCubeMap::loadFromHDR(), shared with Universe -- see that class's
         // header comment). Returns false (leaving the current environment, real or placeholder,
         // untouched) if the file can't be read or the GPU conversion fails.
         bool loadEnvironmentHDR(const std::string& path);
@@ -139,9 +139,9 @@ namespace Phantom::Gltf {
         int  exitCode_ = 0;
 
         // Environment cubemap: flat placeholder sky tint by default, or a real equirectangular
-        // .hdr panorama once loaded. Shared with Universe (2026-09-15, GltfEnvironmentCubemap.h's
+        // .hdr panorama once loaded. Shared with Universe (2026-09-15, GltfEnvironmentCubeMap.h's
         // comment) rather than this app's own duplicate of the same boilerplate.
-        GltfEnvironmentCubemap envCubemap_;
+        GltfEnvironmentCubeMap envCubemap_;
         // shaders/equirect_to_cube.{vert,frag}, loaded once in applyShaders() and copied into
         // each loadEnvironmentHDR() call (GltfIBLPrecomputer::computeEnvironmentCube() consumes
         // its shader vectors by value/move).

@@ -171,7 +171,7 @@ void VolumeRaymarchGpu::updateDescriptors(VkDevice device)
 }
 
 bool VolumeRaymarchGpu::uploadDensity(const Phantom::VKG::VulkanContext& ctx, const Phantom::VKG::VulkanCommandPool& pool,
-                                      const ScalarGrid3D& density) const
+                                      const ScalarGrid3d& density) const
 {
     if (!(density.desc() == desc_)) return false;
     return density_.upload(ctx, pool, density.data().data(), density.data().size());

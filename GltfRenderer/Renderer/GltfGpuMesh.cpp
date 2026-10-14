@@ -1,4 +1,4 @@
-﻿#include "GltfMesh.h"
+﻿#include "GltfGpuMesh.h"
 
 #include "../Gltf/GltfAccessorView.h"
 #include "../../../CGLib/VulkanGraphics/VulkanContext.h"

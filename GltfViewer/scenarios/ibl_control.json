@@ -8,7 +8,7 @@
     { "label": "IBL is back off",    "command": "GetUseIBL",   "expect": "Val:0" },
 
     { "label": "No real HDRI loaded by default", "command": "GetHasEnvironmentHDR", "expect": "Val:0" },
-    { "label": "Load a synthetic equirect HDRI (shared GltfEnvironmentCubemap, 2026-09-15)",
+    { "label": "Load a synthetic equirect HDRI (shared GltfEnvironmentCubeMap, 2026-09-15)",
       "command": "LoadEnvironmentHDR:scenarios/models/test_env.hdr", "expect": "OK" },
     { "label": "HDRI load round-trips", "command": "GetHasEnvironmentHDR", "expect": "Val:1" },
     { "label": "Enable IBL to actually sample it", "command": "SetUseIBL:1", "expect": "OK" },

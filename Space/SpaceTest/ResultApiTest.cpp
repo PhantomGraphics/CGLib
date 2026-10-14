@@ -8,7 +8,7 @@
 #include "../Space/CompactSpaceHash.h"
 #include "../Space/IndexedSortBasedSearcher.h"
 #include "../Space/KDTree.h"
-#include "../Space/NeighborList.h"
+#include "../Space/CSRNeighborList.h"
 
 #include <algorithm>
 #include <limits>

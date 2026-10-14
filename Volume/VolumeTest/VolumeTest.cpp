@@ -2,7 +2,7 @@
 
 #include "../Volume/LevelSet.h"
 #include "../Volume/SparseVolumeTree/SparseVolume.h"
-#include "../Volume/SparseVolumeTree/Interpolator.h"
+#include "../Volume/SparseVolumeTree/TrilinearInterpolator.h"
 
 #include "../../../CGLib/Math/Box3d.h"
 #include "../../../CGLib/Math/Triangle3d.h"

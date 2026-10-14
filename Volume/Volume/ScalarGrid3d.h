@@ -33,10 +33,10 @@ struct ScalarGridDesc {
  * outside the box (0 for density, 1 for a transmittance grid). This is the CPU
  * reference of the GPU 3D image that the raymarcher and the PBVR both read.
  */
-class ScalarGrid3D {
+class ScalarGrid3d {
 public:
-	ScalarGrid3D() = default;
-	explicit ScalarGrid3D(const ScalarGridDesc& d, float fill = 0.0f, float border = 0.0f)
+	ScalarGrid3d() = default;
+	explicit ScalarGrid3d(const ScalarGridDesc& d, float fill = 0.0f, float border = 0.0f)
 		: desc_(d), data_(d.cellCount(), fill), border_(border) {}
 
 	const ScalarGridDesc& desc() const { return desc_; }

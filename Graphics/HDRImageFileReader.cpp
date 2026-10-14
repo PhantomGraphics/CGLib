@@ -6,7 +6,7 @@
 // and GltfRenderer/Gltf/SkeletonGltfConverter.cpp already use for stbi_load_from_memory().
 //
 // Split out of ImageFileReader.cpp on 2026-09-15: HDRImageFileReader was unused anywhere in this
-// codebase until CGLib/GltfRenderer/IBL/GltfEnvironmentCubemap.cpp started calling it. That new
+// codebase until CGLib/GltfRenderer/IBL/GltfEnvironmentCubeMap.cpp started calling it. That new
 // reference to a symbol that only exists in ImageFileReader.cpp.obj (a C++ class method, not a
 // plain stbi_* function) forced the *entire* ImageFileReader.cpp.obj -- STB_IMAGE_IMPLEMENTATION
 // included -- into any executable that needed it. Apps that (like GltfViewer, via

@@ -1,7 +1,7 @@
 #include "MmdToGltfConverter.h"
 #include "MmdAnimationBaker.h"
 #include "SkeletonGltfConverter.h"
-#include "../Renderer/CameraUBO.h" // kMaxGltfBones
+#include "../Renderer/GltfUniformTypes.h" // kMaxGltfBones
 
 #include "../../File/File/PMXFileReader.h"
 #include "../../File/File/VMDFileReader.h"

@@ -1,6 +1,6 @@
 ﻿#include "VectorFieldRenderer.h"
 
-#include "../Volume/SparseVolumeTree/Interpolator.h"
+#include "../Volume/SparseVolumeTree/TrilinearInterpolator.h"
 
 #include "../../../CGLib/VulkanGraphics/VulkanContext.h"
 

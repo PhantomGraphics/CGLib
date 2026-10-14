@@ -36,7 +36,7 @@ public:
     // fallback Phantom::Animation::Animator::computeFK() already applies to bones with no
     // channel). Texture paths are resolved automatically from PMXFile::textures +
     // pmxPath.parent_path(). Returns false if the PMX fails to load/convert, or if its skeleton
-    // exceeds kMaxGltfBones (256, see Renderer/CameraUBO.h) -- GPU skinning can't address more
+    // exceeds kMaxGltfBones (256, see Renderer/GltfUniformTypes.h) -- GPU skinning can't address more
     // joints than that (this check is the one MmdCharacterModel::load() used to do itself).
     // outStats, if non-null, is filled in whenever convert() succeeds (left untouched on failure).
     static bool convert(const std::filesystem::path& pmxPath,

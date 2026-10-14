@@ -1,6 +1,6 @@
 #pragma once
 
-#include "UniverseSceneV2.h"
+#include "SceneV2.h"
 
 #include "json.hpp"
 

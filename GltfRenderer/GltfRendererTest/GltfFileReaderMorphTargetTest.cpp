@@ -1,6 +1,6 @@
 #include "gtest/gtest.h"
 
-#include "../../File/File/GLTFFileReader.h"
+#include "../../File/File/GltfFileReader.h"
 
 #include <cstdio>
 #include <filesystem>
@@ -14,7 +14,7 @@ namespace {
 // Single triangle, one morph target (a POSITION delta moving the third vertex up by 0.5, plus a
 // NORMAL delta on the same vertex), mesh.weights=[0.25], and a made-up unrecognized root
 // extension to exercise
-// GLTFFile::rootExtensionsJson passthrough (this layer must not know or care what "VRM" is --
+// GltfFile::rootExtensionsJson passthrough (this layer must not know or care what "VRM" is --
 // see GltfReader/VrmReader for the layers that interpret extension content).
 const char* kMorphTargetGltf = R"JSON(
 {
@@ -63,13 +63,13 @@ std::filesystem::path writeTempGltf(const char* name, const char* json) {
 
 } // namespace
 
-TEST(GLTFFileReaderMorphTargetTest, ParsesMorphTargetPositionDeltasAndWeights)
+TEST(GltfFileReaderMorphTargetTest, ParsesMorphTargetPositionDeltasAndWeights)
 {
-    const auto path = writeTempGltf("GLTFFileReaderMorphTargetTest_morph.gltf", kMorphTargetGltf);
+    const auto path = writeTempGltf("GltfFileReaderMorphTargetTest_morph.gltf", kMorphTargetGltf);
 
-    GLTFFileReader reader;
+    GltfFileReader reader;
     ASSERT_TRUE(reader.read(path));
-    const GLTFFile gltf = reader.getGLTF();
+    const GltfFile gltf = reader.getGLTF();
 
     ASSERT_EQ(1u, gltf.meshes.size());
     ASSERT_EQ(1u, gltf.meshes[0].primitives.size());

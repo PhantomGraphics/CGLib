@@ -14,7 +14,7 @@ add_library(EditorCore STATIC
     Selection/SelectionGeometry.cpp
     Commands/Tokenizer.cpp
     Commands/Script.cpp
-    Commands/Registry.cpp
+    Commands/CommandRegistry.cpp
     Commands/References.cpp
     Input/Input.cpp
     Input/Bindings.cpp

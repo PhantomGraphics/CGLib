@@ -11,7 +11,7 @@ using namespace Phantom::Gltf;
 namespace {
 
 // Two nodes (hips -> head), one mesh (on "head") with one morph target, one material. Buffer is
-// the same 72-byte base-position + morph-delta blob used by GLTFFileReaderMorphTargetTest (base
+// the same 72-byte base-position + morph-delta blob used by GltfFileReaderMorphTargetTest (base
 // triangle + a delta that moves vertex 2 up by 0.5 on Y).
 const char* kVrm0Gltf = R"JSON(
 {

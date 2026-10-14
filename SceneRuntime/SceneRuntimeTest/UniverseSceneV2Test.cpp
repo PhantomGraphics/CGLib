@@ -1,6 +1,6 @@
 #include "gtest/gtest.h"
 
-#include "../SceneRuntime/UniverseSceneV2.h"
+#include "../SceneRuntime/SceneV2.h"
 
 #include <algorithm>
 

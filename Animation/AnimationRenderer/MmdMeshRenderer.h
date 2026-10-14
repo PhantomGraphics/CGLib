@@ -18,7 +18,7 @@
 namespace Phantom::Animation {
 
 // Multi-material GPU-skinned renderer for MMD (PMX) models.
-// Replaces GpuSkinnedRenderer when submesh/texture data is available.
+// Replaces SkinnedRendererGpu when submesh/texture data is available.
 class MmdMeshRenderer : public ::Phantom::VKG::IVkSubRenderer {
 public:
     struct Shaders {

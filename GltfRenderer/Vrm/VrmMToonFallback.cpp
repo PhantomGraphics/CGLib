@@ -20,7 +20,7 @@ bool isMToonOrUnlitShader(const std::string& shader) {
 } // namespace
 
 void VrmMToonFallback::apply(GltfDocument& doc, const Json& vrmRoot, VrmSpecVersion ver,
-                              const Phantom::File::GLTFFile& src) {
+                              const Phantom::File::GltfFile& src) {
     // Malformed materialProperties/extension JSON degrades to "leave whatever materials were
     // already updated"; not fatal -- same tolerant-input convention as VrmExtensionParser.
     try {

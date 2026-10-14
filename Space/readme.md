@@ -122,7 +122,7 @@ Same radius semantics as `SpaceHash`, with cells identified by their grid index 
 - `find(...)` returns a whole cell without a distance filter; `remove(index)` takes a particle out of its cell.
 - Buffer/callback forms: `findNeighborIndices(..., out)`, `forEachNeighbor(..., visit)`. `clear()` keeps the buckets.
 
-### CSRNeighborList / IndexedSortBasedSearcher (`NeighborList.h`, `IndexedSortBasedSearcher.h`)
+### CSRNeighborList / IndexedSortBasedSearcher (`CSRNeighborList.h`, `IndexedSortBasedSearcher.h`)
 
 The SPH neighbor search used by Physics. `CSRNeighborList::build(positions, radius)` gives symmetric rows without the
 particle itself, strictly closer than `radius`; row order is part of the contract (solver determinism). Rebuilding every

@@ -1,4 +1,4 @@
-#include "Volume3DImage.h"
+#include "Volume3dImage.h"
 #include "VolumeGpuUtil.h"
 
 #include "../../VulkanGraphics/VulkanCommandPool.h"
@@ -21,7 +21,7 @@ inline void transition(VkCommandBuffer cmd, VkImage image, VkImageLayout from, V
 }
 }
 
-bool Volume3DImage::isSupported(const Phantom::VKG::VulkanContext& ctx)
+bool Volume3dImage::isSupported(const Phantom::VKG::VulkanContext& ctx)
 {
     VkFormatProperties props{};
     vkGetPhysicalDeviceFormatProperties(ctx.getPhysicalDevice(), kFormat, &props);
@@ -31,11 +31,11 @@ bool Volume3DImage::isSupported(const Phantom::VKG::VulkanContext& ctx)
     return (props.optimalTilingFeatures & need) == need;
 }
 
-bool Volume3DImage::create(const Phantom::VKG::VulkanContext& ctx, const Phantom::VKG::VulkanCommandPool& pool,
+bool Volume3dImage::create(const Phantom::VKG::VulkanContext& ctx, const Phantom::VKG::VulkanCommandPool& pool,
                            uint32_t nx, uint32_t ny, uint32_t nz)
 {
     if (nx == 0 || ny == 0 || nz == 0 || !isSupported(ctx)) {
-        std::fprintf(stderr, "[Volume] Volume3DImage: bad size or R32F 3D format unsupported\n");
+        std::fprintf(stderr, "[Volume] Volume3dImage: bad size or R32F 3D format unsupported\n");
         return false;
     }
     VkDevice device = ctx.getDevice();
@@ -89,7 +89,7 @@ bool Volume3DImage::create(const Phantom::VKG::VulkanContext& ctx, const Phantom
     return true;
 }
 
-void Volume3DImage::destroy(const Phantom::VKG::VulkanContext& ctx)
+void Volume3dImage::destroy(const Phantom::VKG::VulkanContext& ctx)
 {
     VkDevice device = ctx.getDevice();
     if (view_) vkDestroyImageView(device, view_, nullptr);
@@ -101,7 +101,7 @@ void Volume3DImage::destroy(const Phantom::VKG::VulkanContext& ctx)
     nx_ = ny_ = nz_ = 0;
 }
 
-bool Volume3DImage::upload(const Phantom::VKG::VulkanContext& ctx, const Phantom::VKG::VulkanCommandPool& pool,
+bool Volume3dImage::upload(const Phantom::VKG::VulkanContext& ctx, const Phantom::VKG::VulkanCommandPool& pool,
                            const float* data, size_t count) const
 {
     const size_t expected = static_cast<size_t>(nx_) * ny_ * nz_;
@@ -129,7 +129,7 @@ bool Volume3DImage::upload(const Phantom::VKG::VulkanContext& ctx, const Phantom
     return true;
 }
 
-bool Volume3DImage::download(const Phantom::VKG::VulkanContext& ctx, const Phantom::VKG::VulkanCommandPool& pool,
+bool Volume3dImage::download(const Phantom::VKG::VulkanContext& ctx, const Phantom::VKG::VulkanCommandPool& pool,
                              std::vector<float>& out) const
 {
     if (!isValid()) return false;
@@ -153,7 +153,7 @@ bool Volume3DImage::download(const Phantom::VKG::VulkanContext& ctx, const Phant
     return true;
 }
 
-void Volume3DImage::recordWriteToRead(VkCommandBuffer cmd) const
+void Volume3dImage::recordWriteToRead(VkCommandBuffer cmd) const
 {
     transition(cmd, image_, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_SHADER_WRITE_BIT,
                VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,

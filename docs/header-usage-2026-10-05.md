@@ -120,11 +120,11 @@ every header of the CPU modules; this table shows how much of that is actually u
 
 **AssetCore** public (2): `AssetCore/ContentHash.h`, `AssetCore/FileWatcher.h`
 
-**File** public (14): `File/GLTFFile.h`, `File/GLTFFileReader.h`, `File/GLTFFileWriter.h`, `File/MTLFile.h`, `File/MTLFileWriter.h`, `File/OBJFile.h`, `File/OBJFileReader.h`, `File/OBJFileWriter.h`, `File/PLYFile.h`, `File/PLYFileReader.h`, `File/PLYFileWriter.h`, `File/STLFile.h`, `File/STLFileReader.h`, `File/STLFileWriter.h`
+**File** public (14): `File/GltfFile.h`, `File/GltfFileReader.h`, `File/GltfFileWriter.h`, `File/MTLFile.h`, `File/MTLFileWriter.h`, `File/OBJFile.h`, `File/OBJFileReader.h`, `File/OBJFileWriter.h`, `File/PLYFile.h`, `File/PLYFileReader.h`, `File/PLYFileWriter.h`, `File/STLFile.h`, `File/STLFileReader.h`, `File/STLFileWriter.h`
 
 **Gizmo** public (1): `VkTransformGizmo.h`
 
-**GltfRenderer** public (17): `Gltf/GltfAccessorBuilder.h`, `Gltf/GltfAccessorView.h`, `Gltf/GltfAnimationEvaluator.h`, `Gltf/GltfBounds.h`, `Gltf/GltfDocument.h`, `Gltf/GltfLightsCameras.h`, `Gltf/GltfMorphApply.h`, `Gltf/GltfReader.h`, `Gltf/GltfTypes.h`, `Gltf/MmdToGltfConverter.h`, `Gltf/ObjToGltfConverter.h`, `Gltf/StlToGltfConverter.h`, `IBL/GltfEnvironmentCubemap.h`, `Renderer/GltfLightShadowState.h`, `Renderer/GltfSceneRenderer.h`, `Renderer/LightManager.h`, `Renderer/ShadowMapPass.h`
+**GltfRenderer** public (17): `Gltf/GltfAccessorBuilder.h`, `Gltf/GltfAccessorView.h`, `Gltf/GltfAnimationEvaluator.h`, `Gltf/GltfBounds.h`, `Gltf/GltfDocument.h`, `Gltf/GltfLightsCameras.h`, `Gltf/GltfMorphApply.h`, `Gltf/GltfReader.h`, `Gltf/GltfTypes.h`, `Gltf/MmdToGltfConverter.h`, `Gltf/ObjToGltfConverter.h`, `Gltf/StlToGltfConverter.h`, `IBL/GltfEnvironmentCubeMap.h`, `Renderer/GltfLightShadowState.h`, `Renderer/GltfSceneRenderer.h`, `Renderer/LightManager.h`, `Renderer/ShadowMapPass.h`
 
 **GltfViewer** public (1): `ControlPanel.h`
 
@@ -142,9 +142,9 @@ every header of the CPU modules; this table shows how much of that is actually u
 
 **Renderer** public (6): `VkRenderer/RenderBufferTypes.h`, `VkRenderer/VkLineRenderer.h`, `VkRenderer/VkPointBatchRenderer.h`, `VkRenderer/VkPointRenderer.h`, `VkRenderer/VkSkyBoxRenderer.h`, `VkRenderer/VkTriangleRenderer.h`
 
-**SceneRuntime** public (7): `SceneRuntime/AssetSidecar.h`, `SceneRuntime/ClipPlayback.h`, `SceneRuntime/ColliderDesc.h`, `SceneRuntime/PlaySession.h`, `SceneRuntime/SceneV2Editor.h`, `SceneRuntime/SceneV2Merge.h`, `SceneRuntime/UniverseSceneV2.h`
+**SceneRuntime** public (7): `SceneRuntime/AssetSidecar.h`, `SceneRuntime/ClipPlayback.h`, `SceneRuntime/ColliderDesc.h`, `SceneRuntime/PlaySession.h`, `SceneRuntime/SceneV2Editor.h`, `SceneRuntime/SceneV2Merge.h`, `SceneRuntime/SceneV2.h`
 
-**Space** public (9): `Space/BVH.h`, `Space/CompactSpaceHash.h`, `Space/IntersectionCalculator.h`, `Space/KDTree.h`, `Space/NeighborIndexView.h`, `Space/NeighborList.h`, `Space/Octree.h`, `Space/SignedDistanceCalculator.h`, `SpaceView/Renderer.h`
+**Space** public (9): `Space/BVH.h`, `Space/CompactSpaceHash.h`, `Space/IntersectionCalculator.h`, `Space/KDTree.h`, `Space/NeighborIndexView.h`, `Space/CSRNeighborList.h`, `Space/Octree.h`, `Space/SignedDistanceCalculator.h`, `SpaceView/Renderer.h`
 
 **Terrain** public (2): `Terrain/TerrainGenerator.h`, `Terrain/TerrainTypes.h`
 
@@ -154,7 +154,7 @@ every header of the CPU modules; this table shows how much of that is actually u
 
 **VkAppBase** public (6): `IVkSubRenderer.h`, `ScenarioRunner/IScenarioDispatcher.h`, `ScenarioRunner/IScenarioHost.h`, `ScenarioRunner/ScenarioBrowserPanel.h`, `ScenarioRunner/ScenarioRunner.h`, `VkAppBase.h`
 
-**Volume** public (12): `Volume/LevelSet.h`, `Volume/MCSurfaceBuilder.h`, `Volume/ScalarGrid3D.h`, `Volume/SparseVolumeTree/Interpolator.h`, `Volume/SparseVolumeTree/SparseVolume.h`, `Volume/SurfaceVoxelizer.h`, `VolumeRaymarch/VolumePbvrGpu.h`, `VolumeRaymarch/VolumeRaymarchGpu.h`, `VolumeRenderer/IPBVRDataSource.h`, `VolumeRenderer/PBVRRenderer.h`, `VolumeView/MenuPanel.h`, `VolumeView/SceneListPanel.h`
+**Volume** public (12): `Volume/LevelSet.h`, `Volume/MCSurfaceBuilder.h`, `Volume/ScalarGrid3d.h`, `Volume/SparseVolumeTree/TrilinearInterpolator.h`, `Volume/SparseVolumeTree/SparseVolume.h`, `Volume/SurfaceVoxelizer.h`, `VolumeRaymarch/VolumePBVRGpu.h`, `VolumeRaymarch/VolumeRaymarchGpu.h`, `VolumeRenderer/IPBVRDataSource.h`, `VolumeRenderer/PBVRRenderer.h`, `VolumeView/MenuPanel.h`, `VolumeView/SceneListPanel.h`
 
 **VulkanGraphics** public (14): `IGpuProfiler.h`, `VulkanBuffer.h`, `VulkanCommandPool.h`, `VulkanComputePipeline.h`, `VulkanContext.h`, `VulkanCubeMap.h`, `VulkanDescriptorPool.h`, `VulkanImage.h`, `VulkanOffscreen.h`, `VulkanPipeline.h`, `VulkanRenderPass.h`, `VulkanSPVResolver.h`, `VulkanSampler.h`, `VulkanSwapChain.h`
 

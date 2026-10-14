@@ -65,7 +65,7 @@ struct MaterialUBO {
     int       alphaMode;    // 0=Opaque, 1=Mask, 2=Blend (Phantom::Gltf::GltfAlphaMode)
     float     alphaCutoff;  // meaningful only when alphaMode == 1 (Mask)
     // Which UV set (0 or 1) each texture slot samples -- glTF's per-textureInfo texCoord, mirrored
-    // from GltfTextureInfo::texCoord (GltfMaterial.cpp). Meaningless when the matching hasXTex is 0.
+    // from GltfTextureInfo::texCoord (GltfGpuMaterial.cpp). Meaningless when the matching hasXTex is 0.
     int       baseColorTexCoord;
     int       metallicRoughnessTexCoord;
     int       normalTexCoord;

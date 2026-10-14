@@ -1,4 +1,4 @@
-#include "NeighborList.h"
+#include "CSRNeighborList.h"
 #include "SpaceValidation.h"
 
 #include <algorithm>

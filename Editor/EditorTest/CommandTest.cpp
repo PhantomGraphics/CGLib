@@ -2,7 +2,7 @@
 
 #include "../Input/Bindings.h"
 #include "../Input/Input.h"
-#include "../Commands/Registry.h"
+#include "../Commands/CommandRegistry.h"
 #include "../Commands/Response.h"
 #include "../Commands/Script.h"
 #include "../Commands/References.h"

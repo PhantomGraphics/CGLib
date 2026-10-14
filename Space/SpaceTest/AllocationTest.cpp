@@ -6,7 +6,7 @@
 #include "../Space/BVH.h"
 #include "../Space/CompactSpaceHash.h"
 #include "../Space/KDTree.h"
-#include "../Space/NeighborList.h"
+#include "../Space/CSRNeighborList.h"
 
 #include <atomic>
 #include <cstdio>

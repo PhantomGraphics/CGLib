@@ -23,7 +23,7 @@ CMake の link・vcxproj の `AdditionalDependencies` を `git grep` 相当で�
 |---|---|
 | `CGLib/Scene/SceneTest` | 自モジュールのテスト（`SceneBaseTest`・`SceneGroupTest`） |
 | `CGLib/tests/install_consumer` | `SceneBase.h` を include する install 検証 |
-| `CGLib/Volume/VolumeView`（link のみ） | **`Scene/` のヘッダーを 1 つも include していない**（`VolumeScene.h`・`SceneListPanel.h` は VolumeView 自身のクラス）。link は痕跡で、2026-10-06 に外した（ビルド・シナリオ通過） |
+| `CGLib/Volume/VolumeView`（link のみ） | **`Scene/` のヘッダーを 1 つも include していない**（`SparseVolumeScene.h`・`SceneListPanel.h` は VolumeView 自身のクラス）。link は痕跡で、2026-10-06 に外した（ビルド・シナリオ通過） |
 | `Physics`・`PointCloud`・`RayTracer`・`CGApp` | 使用なし（`Scene/Scene/*` の include 0 件） |
 
 `Scene/Scene/*Presenter.*`・`TriangleMeshScene.h` は `SceneCore` のビルド対象外（Renderer/Vulkan ヘッダーを引くため。

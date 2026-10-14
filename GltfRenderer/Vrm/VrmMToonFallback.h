@@ -2,7 +2,7 @@
 
 #include "VrmTypes.h"
 #include "../Gltf/GltfDocument.h"
-#include "../../File/File/GLTFFile.h"
+#include "../../File/File/GltfFile.h"
 #include "json.hpp"
 
 namespace Phantom::Gltf {
@@ -24,7 +24,7 @@ public:
     // detect VRM 1.0's MToon materials (doc.materials[i] <-> src.materials[i] by index, since
     // GltfReader maps them 1:1 in file order).
     static void apply(GltfDocument& doc, const nlohmann::json& vrmRoot, VrmSpecVersion ver,
-                       const Phantom::File::GLTFFile& src);
+                       const Phantom::File::GltfFile& src);
 };
 
 }

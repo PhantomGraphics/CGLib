@@ -15,21 +15,21 @@ namespace Phantom {
  * IView を継承し，原点（origin），U軸（uvec），V軸（vvec）の
  * 3つの Vector3dView を持つ．U/V 軸ベクトルの長さが矩形の各辺の長さに対応する．
  */
-class Rect3dView : public IView
+class Rectangle3dView : public IView
 {
 public:
 	/**
 	 * @brief コンストラクタ（初期値ゼロ）．
 	 * @param name ラベル文字列．
 	 */
-	explicit Rect3dView(const std::string& name);
+	explicit Rectangle3dView(const std::string& name);
 
 	/**
 	 * @brief コンストラクタ（初期値指定）．
 	 * @param name  ラベル文字列．
 	 * @param value 初期値（Rectangle3df）．
 	 */
-	Rect3dView(const std::string& name, const Math::Rectangle3df& value);
+	Rectangle3dView(const std::string& name, const Math::Rectangle3df& value);
 
 	/**
 	 * @brief 現在の Rectangle3df 値を返す．
