@@ -39,6 +39,22 @@ schema and tokenizer here without a dependency on CGApp or UI. The existing
 CommandCore include location can remain a compatibility facade. This migration
 does not add prompt metadata or change execution routes.
 
+## Selection geometry and group gizmo calculations
+
+`Selection/SelectionGeometry.h` exposes `meshSelectedInRectangle`: callers
+supply local vertex positions, triangle indices, the model/view/projection
+matrix and `SelectionRectangle` viewport/drag coordinates. It selects fully
+contained meshes on left-to-right drags and clipped triangle intersections on
+right-to-left drags. Clip depth is Vulkan's [0,w]; screen coordinates map
+NDC (-1,-1) to (0,0). The host supplies its rendering projection (including its
+Y convention), filters visibility/locks and resolves scene meshes and IDs.
+
+`Gizmo/MultiSelectionGizmo.h` computes the selection centroid and applies pivot
+deltas using `Phantom::Gizmo::GizmoTransform`. Translation and Euler degrees are
+added; scale is multiplied by per-axis ratios (zero pivot scale leaves that axis
+unchanged). Object positions are unchanged in rotate/scale modes. Hosts convert
+their transform types and own drag snapshots and Undo transactions.
+
 ## Console
 
 `Console/CommandConsoleModel.h` and `CommandInfo.h` provide header-only,
