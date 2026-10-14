@@ -8,7 +8,7 @@
 #include <memory>
 #include <string>
 
-namespace VolumeView {
+namespace Phantom::VolumeView {
 
 void SVBoxView::onImGui(World& world, int /*activeSceneId*/,
                          const std::function<void()>& onRebuild)

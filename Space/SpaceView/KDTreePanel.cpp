@@ -2,7 +2,7 @@
 
 #include "imgui.h"
 
-namespace VKSpace {
+namespace Phantom::VKSpace {
 
 void KDTreePanel::onImGui(World& world) {
     ImGui::SliderInt("k", &params_.k, KDTreeDemoParams::kMinK, 20);

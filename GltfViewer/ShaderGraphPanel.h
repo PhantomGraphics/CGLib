@@ -8,7 +8,7 @@
 namespace Phantom::Gltf {
 
 // Read-only source inspector. View state never changes the material graph.
-class ShaderGraphPanel : public ::VKG::IVkUIPanel {
+class ShaderGraphPanel : public ::Phantom::VKG::IVkUIPanel {
 public:
     void setVisible(bool value) { visible_ = value; }
     bool isVisible() const { return visible_; }

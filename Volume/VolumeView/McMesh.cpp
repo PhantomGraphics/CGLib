@@ -1,6 +1,6 @@
 #include "McMesh.h"
 
-namespace VolumeView {
+namespace Phantom::VolumeView {
 
 PolygonMesh trianglesToPolygonMesh(std::string name,
                                    const std::vector<Phantom::Math::Triangle3df>& tris,

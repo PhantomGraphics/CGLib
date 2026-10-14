@@ -22,7 +22,7 @@
 // Sparse-volume operations (CreateSphere / CreateBox / CSGCombine / Resample / MarchingCubes).
 // Argument parsing lives in CommandDispatcher::route(); these only act on the World.
 
-namespace VolumeView {
+namespace Phantom::VolumeView {
 
 std::string CommandDispatcher::cmdCreateSphere(
     float cx, float cy, float cz, float radius, float cell)

@@ -11,7 +11,7 @@
 namespace Phantom::Volume { class PBVRRenderer; }
 class ViewShell;
 
-namespace VolumeView {
+namespace Phantom::VolumeView {
 
 class SparseVolumeRenderer;
 class DenseVolumeRenderer;
@@ -19,7 +19,7 @@ class VectorFieldRenderer;
 
 enum class RenderMode { Points, PBVR, Both };
 
-class MenuPanel : public ::VKG::IVkUIPanel {
+class MenuPanel : public ::Phantom::VKG::IVkUIPanel {
 public:
 	// TODO 引数を整理する
     void init(World* world, int* pActiveSceneId, int* pActiveDenseSceneId,

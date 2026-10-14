@@ -36,15 +36,14 @@
 #include <string>
 #include <vector>
 
-namespace VKG {
+namespace Phantom::VKG {
 
-using namespace Phantom::VKG; // VulkanGraphics types migrated to Phantom::VKG
 
 // Base class for Vulkan applications built on GLFW + VulkanGraphics.
 //
 // Derived classes implement onRender() and may override other hooks as needed.
 //
-//   class MyApp : public ::VKG::VkAppBase {
+//   class MyApp : public ::Phantom::VKG::VkAppBase {
 //   public:
 //       MyApp() : VkAppBase(1280, 720, "My App") {}
 //   protected:

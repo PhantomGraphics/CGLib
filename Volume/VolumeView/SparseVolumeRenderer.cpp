@@ -11,7 +11,7 @@
 
 #include <algorithm>
 
-namespace VolumeView {
+namespace Phantom::VolumeView {
 
 void SparseVolumeRenderer::onInit(Phantom::VKG::VulkanContext& ctx, const Phantom::VKG::VulkanCommandPool& pool,
                                     VkRenderPass renderPass, uint32_t framesInFlight) {

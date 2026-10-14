@@ -2,7 +2,7 @@
 
 #include "imgui.h"
 
-namespace VKSpace {
+namespace Phantom::VKSpace {
 
 void SpaceHashPanel::onImGui(World& world) {
     ImGui::SliderFloat("Search Radius", &params_.searchRadius, 0.05f, 1.0f);

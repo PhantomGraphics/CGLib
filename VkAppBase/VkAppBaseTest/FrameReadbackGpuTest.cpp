@@ -8,7 +8,7 @@
 using FrameReadbackGpuTest = VulkanTestFixture;
 
 TEST_F(FrameReadbackGpuTest, RepeatedCaptureResizesBufferAndKeepsRecordedExtent) {
-    VKG::FrameReadback readback;
+    Phantom::VKG::FrameReadback readback;
     const auto path = std::filesystem::temp_directory_path() / "cglib_readback_regression.png";
     for (const uint32_t size : {2u, 8u, 1u}) {
         VkImage image = VK_NULL_HANDLE;

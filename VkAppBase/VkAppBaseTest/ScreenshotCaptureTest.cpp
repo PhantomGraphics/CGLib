@@ -1,11 +1,11 @@
 #include <gtest/gtest.h>
 
 #include "../ScreenshotCapture.h"
+using namespace Phantom::VKG;
 
 #include <filesystem>
 #include <vector>
 
-using namespace VKG;
 
 namespace {
 

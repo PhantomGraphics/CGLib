@@ -37,7 +37,7 @@ struct GizmoPushConstants {
 static_assert(sizeof(GizmoPushConstants) == 80, "GizmoPushConstants layout mismatch");
 
 
-class VkTransformGizmo : public ::VKG::IVkSubRenderer {
+class VkTransformGizmo : public ::Phantom::VKG::IVkSubRenderer {
 public:
     struct Shaders {
         std::vector<uint32_t> vertSpv;

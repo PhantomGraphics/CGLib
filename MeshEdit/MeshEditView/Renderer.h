@@ -13,13 +13,13 @@
 #include <optional>
 #include <vector>
 
-namespace MeshView {
+namespace Phantom::MeshView {
 
 /// @brief Draws the mesh of MeshWorld (faces, edges, vertex points) plus the world axes, and owns the orbit camera.
 ///
 /// When MeshWorld::draw() is dirty the buffers are uploaded to the GPU; the camera position is handed to the world each
 /// frame so the face-orientation colours follow it.
-class Renderer : public ::VKG::IVkSubRenderer {
+class Renderer : public ::Phantom::VKG::IVkSubRenderer {
 public:
     struct Shaders {
         std::vector<uint32_t> lineVert, lineFrag;

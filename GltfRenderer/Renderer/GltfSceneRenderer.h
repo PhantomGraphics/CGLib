@@ -47,7 +47,7 @@ namespace Phantom::Gltf
         float     fovDeg = 60.f;
     };
 
-    class GltfSceneRenderer : public ::VKG::IVkSubRenderer {
+    class GltfSceneRenderer : public ::Phantom::VKG::IVkSubRenderer {
     public:
         struct Shaders {
             std::vector<uint32_t> vertSpv;

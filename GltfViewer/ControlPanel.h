@@ -10,7 +10,7 @@
 
 namespace Phantom::Gltf {
 
-    class ControlPanel : public ::VKG::IVkUIPanel {
+    class ControlPanel : public ::Phantom::VKG::IVkUIPanel {
     public:
         ControlPanel();
         void setFilePath(const std::filesystem::path& p) { filePath_ = p; }

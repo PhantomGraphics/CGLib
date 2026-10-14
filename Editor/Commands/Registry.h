@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 
-namespace PG::CommandCore {
+namespace Phantom::Editor::CommandCore {
 
 enum class ArgumentType { String, Integer, Number, Boolean, Vector3, Color };
 
@@ -50,4 +50,4 @@ private:
     std::vector<CommandSchema> commands_;
 };
 
-} // namespace PG::CommandCore
+} // namespace Phantom::Editor::CommandCore

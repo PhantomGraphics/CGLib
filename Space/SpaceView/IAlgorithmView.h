@@ -3,7 +3,7 @@
 #include "World.h"
 #include <string>
 
-namespace VKSpace {
+namespace Phantom::VKSpace {
 
 class IAlgorithmView {
 public:

@@ -132,7 +132,7 @@ std::optional<GltfDocument> loadAsGltfDocument(const std::filesystem::path& path
 } // namespace
 
 App::App(const std::filesystem::path& gltfPath)
-    : ::VKG::VkAppBase(1280, 720, gltfPath.empty()
+    : ::Phantom::VKG::VkAppBase(1280, 720, gltfPath.empty()
           ? "glTF Viewer"
           : "glTF Viewer - " + gltfPath.filename().string())
 {
@@ -212,22 +212,22 @@ bool App::loadScenario(const std::string& jsonPath) {
 
 void App::applyShaders() {
     GltfSceneRenderer::Shaders s;
-    s.vertSpv            = ::VKG::loadSPVRepo("shaders/gltf.vert.spv");
-    s.fragSpv            = ::VKG::loadSPVRepo("shaders/gltf.frag.spv");
-    s.skyboxVertSpv      = ::VKG::loadSPVRepo("shaders/skybox.vert.spv");
-    s.skyboxFragSpv      = ::VKG::loadSPVRepo("shaders/skybox.frag.spv");
-    s.ibl.irradianceVert = ::VKG::loadSPVRepo("shaders/irradiance.vert.spv");
-    s.ibl.irradianceFrag = ::VKG::loadSPVRepo("shaders/irradiance.frag.spv");
-    s.ibl.prefilterVert  = ::VKG::loadSPVRepo("shaders/prefilter.vert.spv");
-    s.ibl.prefilterFrag  = ::VKG::loadSPVRepo("shaders/prefilter.frag.spv");
-    s.ibl.brdfVert       = ::VKG::loadSPVRepo("shaders/brdf_lut.vert.spv");
-    s.ibl.brdfFrag       = ::VKG::loadSPVRepo("shaders/brdf_lut.frag.spv");
+    s.vertSpv            = ::Phantom::VKG::loadSPVRepo("shaders/gltf.vert.spv");
+    s.fragSpv            = ::Phantom::VKG::loadSPVRepo("shaders/gltf.frag.spv");
+    s.skyboxVertSpv      = ::Phantom::VKG::loadSPVRepo("shaders/skybox.vert.spv");
+    s.skyboxFragSpv      = ::Phantom::VKG::loadSPVRepo("shaders/skybox.frag.spv");
+    s.ibl.irradianceVert = ::Phantom::VKG::loadSPVRepo("shaders/irradiance.vert.spv");
+    s.ibl.irradianceFrag = ::Phantom::VKG::loadSPVRepo("shaders/irradiance.frag.spv");
+    s.ibl.prefilterVert  = ::Phantom::VKG::loadSPVRepo("shaders/prefilter.vert.spv");
+    s.ibl.prefilterFrag  = ::Phantom::VKG::loadSPVRepo("shaders/prefilter.frag.spv");
+    s.ibl.brdfVert       = ::Phantom::VKG::loadSPVRepo("shaders/brdf_lut.vert.spv");
+    s.ibl.brdfFrag       = ::Phantom::VKG::loadSPVRepo("shaders/brdf_lut.frag.spv");
     renderer_.setShaders(std::move(s));
 
     // Real-HDRI loading (2026-09-15): shaders/equirect_to_cube.{vert,frag}, loaded once here and
     // copied into each loadEnvironmentHDR() call. See GltfEnvironmentCubemap::loadFromHDR()'s comment.
-    equirectVertSpv_ = ::VKG::loadSPVRepo("shaders/equirect_to_cube.vert.spv");
-    equirectFragSpv_ = ::VKG::loadSPVRepo("shaders/equirect_to_cube.frag.spv");
+    equirectVertSpv_ = ::Phantom::VKG::loadSPVRepo("shaders/equirect_to_cube.vert.spv");
+    equirectFragSpv_ = ::Phantom::VKG::loadSPVRepo("shaders/equirect_to_cube.frag.spv");
 }
 
 bool App::loadEnvironmentHDR(const std::string& path) {
@@ -350,7 +350,7 @@ void App::onInit() {
     auto& pool = getCommandPool();
     envCubemap_.create(ctx, pool);
     renderer_.setEnvironment(envCubemap_.getView(), envCubemap_.getSampler());
-    ::VKG::VkAppBase::onInit();
+    ::Phantom::VKG::VkAppBase::onInit();
     renderer_.setExtent(getExtent());
     // Default off: the environment cubemap above is a flat placeholder color, not a real
     // HDRI/skybox (see GltfEnvironmentCubemap::create()). Even heavily dimmed, full
@@ -414,7 +414,7 @@ void App::onUpdate(uint32_t frameIndex) {
         //console_.addResponses(dispatcher_.collectResponses());
     }
 
-    ::VKG::VkAppBase::onUpdate(frameIndex);
+    ::Phantom::VKG::VkAppBase::onUpdate(frameIndex);
 }
 
 void App::frameCameraToDocument() {
@@ -568,7 +568,7 @@ void App::onSwapChainCreated() {
 }
 
 void App::onCleanup() {
-    ::VKG::VkAppBase::onCleanup();
+    ::Phantom::VKG::VkAppBase::onCleanup();
     envCubemap_.destroy(getDevice());
 }
 
@@ -580,7 +580,7 @@ void App::onImGuiReady() {
 void App::onImGui() {
     drawMainMenuBar();           // may toggle panels / reset the layout this frame
     shell_.drawWindows();        // Command + Outliner, and syncs bound panel visibility
-    ::VKG::VkAppBase::onImGui(); // the panels draw themselves
+    ::Phantom::VKG::VkAppBase::onImGui(); // the panels draw themselves
     shell_.placeBoundPanels();
 }
 

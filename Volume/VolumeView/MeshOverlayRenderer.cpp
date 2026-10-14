@@ -4,7 +4,7 @@
 
 #include <glm/gtc/matrix_transform.hpp>
 
-namespace VolumeView {
+namespace Phantom::VolumeView {
 
 void MeshOverlayRenderer::onInit(Phantom::VKG::VulkanContext& ctx,
                                     const Phantom::VKG::VulkanCommandPool& pool,

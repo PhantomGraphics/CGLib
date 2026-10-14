@@ -4,9 +4,8 @@
 
 namespace Phantom::VKG { class VulkanContext; class VulkanCommandPool; }
 
-namespace VKG {
+namespace Phantom::VKG {
 
-using namespace Phantom::VKG;
 
 // Lifecycle-aware sub-renderer registered with VkAppBase::add().
 // All methods have empty default implementations; override only what is needed.

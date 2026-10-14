@@ -7,7 +7,7 @@
 #include <optional>
 #include <string>
 
-namespace VKG {
+namespace Phantom::VKG {
 
 // Pieces of VkAppBase's built-in screenshot / pixel readback that do not need the app: command-line
 // parsing, BGRA -> RGBA conversion, PNG writing and the swapchain-image copy recording. They are

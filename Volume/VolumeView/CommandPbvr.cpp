@@ -14,7 +14,7 @@
 // PBVR renderer commands. Name/arity/value kind of the single-value setters live in CommandParse
 // (testable without a GPU); only the call into the renderer is here.
 
-namespace VolumeView {
+namespace Phantom::VolumeView {
 
 namespace {
 

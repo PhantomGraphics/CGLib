@@ -9,7 +9,7 @@
 #include <cstdint>
 #include <string>
 
-namespace VolumeView {
+namespace Phantom::VolumeView {
 
 void DVMarchingCubesView::onImGui(World& world, int activeSceneId,
 								  const std::function<void()>& onRebuild)

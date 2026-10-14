@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 
-namespace VolumeView {
+namespace Phantom::VolumeView {
 
 // Flat-shaded triangle soup (3 unique vertices per triangle, sequential indices) with one RGBA
 // colour for every vertex. Shared by the sparse and dense marching-cubes commands.

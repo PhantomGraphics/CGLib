@@ -5,7 +5,7 @@
 #include <climits>
 #include <cstdlib>
 
-namespace PG::CommandCore {
+namespace Phantom::Editor::CommandCore {
 
 bool globMatch(const std::string& pattern, const std::string& name) {
     size_t p = 0, n = 0, star = std::string::npos, match = 0;
@@ -32,4 +32,4 @@ void appendUnique(std::vector<int>& out, int id) {
     if (std::find(out.begin(), out.end(), id) == out.end()) out.push_back(id);
 }
 
-} // namespace PG::CommandCore
+} // namespace Phantom::Editor::CommandCore

@@ -18,7 +18,7 @@ static_assert(offsetof(Phantom::Volume::PBVRVertex, color) == 12,
 
 namespace Phantom::Volume {
 
-void VolumeComputePBVR::create(const ::VKG::VulkanContext& ctx)
+void VolumeComputePBVR::create(const ::Phantom::VKG::VulkanContext& ctx)
 {
     VkDevice dev = ctx.getDevice();
 
@@ -42,8 +42,8 @@ void VolumeComputePBVR::create(const ::VKG::VulkanContext& ctx)
     auto sets = descPool_.allocateSets(dev, {dsl_.get()});
     descSet_ = sets.front();
 
-    ::VKG::ComputePipelineConfig cfg{};
-    cfg.compSpv             = ::VKG::loadSPVRepo("shaders/volume_pbvr_gen.comp.spv");
+    ::Phantom::VKG::ComputePipelineConfig cfg{};
+    cfg.compSpv             = ::Phantom::VKG::loadSPVRepo("shaders/volume_pbvr_gen.comp.spv");
     cfg.descriptorSetLayout = dsl_.get();
     cfg.pushConstantRange   = {VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConstants)};
     pipeline_.create(ctx, cfg);
@@ -62,8 +62,8 @@ void VolumeComputePBVR::destroy(VkDevice device)
     cachedVoxelCount_ = 0;
 }
 
-void VolumeComputePBVR::dispatch(const ::VKG::VulkanContext& ctx,
-                                    const ::VKG::VulkanCommandPool& pool,
+void VolumeComputePBVR::dispatch(const ::Phantom::VKG::VulkanContext& ctx,
+                                    const ::Phantom::VKG::VulkanCommandPool& pool,
                                     const std::vector<GpuVoxelEntry>& voxels,
                                     float voxelSize,
                                     const std::vector<TFSample>& tfLut)
@@ -118,8 +118,8 @@ void VolumeComputePBVR::dispatch(const ::VKG::VulkanContext& ctx,
     pool.endSingleTimeCommands(cmd);
 }
 
-void VolumeComputePBVR::rebuildVoxelBuf(const ::VKG::VulkanContext& ctx,
-                                            const ::VKG::VulkanCommandPool& pool,
+void VolumeComputePBVR::rebuildVoxelBuf(const ::Phantom::VKG::VulkanContext& ctx,
+                                            const ::Phantom::VKG::VulkanCommandPool& pool,
                                            const std::vector<GpuVoxelEntry>& voxels)
 {
     voxelBuf_.destroy(ctx.getDevice());
@@ -131,8 +131,8 @@ void VolumeComputePBVR::rebuildVoxelBuf(const ::VKG::VulkanContext& ctx,
     updateDescSet(ctx.getDevice());
 }
 
-void VolumeComputePBVR::rebuildTfBuf(const ::VKG::VulkanContext& ctx,
-                                         const ::VKG::VulkanCommandPool& pool,
+void VolumeComputePBVR::rebuildTfBuf(const ::Phantom::VKG::VulkanContext& ctx,
+                                         const ::Phantom::VKG::VulkanCommandPool& pool,
                                         const std::vector<TFSample>& tfLut)
 {
     tfBuf_.destroy(ctx.getDevice());
@@ -144,8 +144,8 @@ void VolumeComputePBVR::rebuildTfBuf(const ::VKG::VulkanContext& ctx,
     updateDescSet(ctx.getDevice());
 }
 
-void VolumeComputePBVR::rebuildOutputBuf(const ::VKG::VulkanContext& ctx,
-                                             const ::VKG::VulkanCommandPool& pool,
+void VolumeComputePBVR::rebuildOutputBuf(const ::Phantom::VKG::VulkanContext& ctx,
+                                             const ::Phantom::VKG::VulkanCommandPool& pool,
                                             uint32_t numVoxels)
 {
     outputBuf_.destroy(ctx.getDevice());

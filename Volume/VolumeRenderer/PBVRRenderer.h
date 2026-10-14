@@ -26,7 +26,7 @@
 
 namespace Phantom::Volume {
 
-class PBVRRenderer : public ::VKG::IVkSubRenderer {
+class PBVRRenderer : public ::Phantom::VKG::IVkSubRenderer {
 public:
     struct Shaders {
         std::vector<uint32_t> vertSpv;
@@ -179,7 +179,7 @@ public:
     glm::mat4   getShadowMapLightVP()    const { return shadowMapPass_.getLightVP(); } // of the deposited contents
     uint32_t    getShadowMapLayerCount() const { return shadowMapPass_.getLayerCount(); }
 
-    void onInit(::VKG::VulkanContext& ctx, const ::VKG::VulkanCommandPool& pool,
+    void onInit(::Phantom::VKG::VulkanContext& ctx, const ::Phantom::VKG::VulkanCommandPool& pool,
                 VkRenderPass renderPass, uint32_t framesInFlight) override;
     void onUpdate(uint32_t frameIndex) override;
     void onRender(VkCommandBuffer cmd, uint32_t frameIndex) override;
@@ -249,8 +249,8 @@ private:
     bool getActiveBuffer(VkBuffer& vbuf, uint32_t& vtxCount) const;
 
     IPBVRDataSource* dataSource_ = nullptr;
-    const ::VKG::VulkanContext* ctx_ = nullptr;
-    const ::VKG::VulkanCommandPool* pool_ = nullptr;
+    const ::Phantom::VKG::VulkanContext* ctx_ = nullptr;
+    const ::Phantom::VKG::VulkanCommandPool* pool_ = nullptr;
     VkExtent2D extent_{1280, 720};
     uint32_t framesInFlight_ = 2;
 
@@ -309,7 +309,7 @@ private:
     Phantom::Math::Box3df lightBounds_ = Phantom::Math::Box3df::createDegeneratedBox();
 
     OpacityShadowMapPass  shadowMapPass_;
-    ::VKG::VulkanPipeline depositPipeline_;
+    ::Phantom::VKG::VulkanPipeline depositPipeline_;
 
     TransferFunction tf_;
     int tfPreset_ = 0;
@@ -318,7 +318,7 @@ private:
     Shaders shaders_;
     std::vector<PBVRVertex> vertices_;
     PBVRPipeline pipeline_;
-    ::VKG::VulkanBuffer vertexBuffer_;
+    ::Phantom::VKG::VulkanBuffer vertexBuffer_;
 
     VolumeComputePBVR computePBVR_;
     uint32_t gpuVertexCount_ = 0;

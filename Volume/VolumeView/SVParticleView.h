@@ -2,7 +2,7 @@
 
 #include "IVolumeProcessView.h"
 
-namespace VolumeView {
+namespace Phantom::VolumeView {
 
 /**
  * @brief Placeholder IVolumeProcessView that explains the new SPH-to-volume

@@ -18,7 +18,7 @@
 // A name that matches with the wrong field count is "unknown command", which is also what
 // CheckCommandCatalog relies on to detect unrouted catalog entries.
 
-namespace VolumeView {
+namespace Phantom::VolumeView {
 
 namespace {
 

@@ -7,7 +7,7 @@
 #include <cassert>
 #include <cstring>
 
-namespace VKG {
+namespace Phantom::VKG {
 
 // -----------------------------------------------------------------
 //  onSwapChainCreated

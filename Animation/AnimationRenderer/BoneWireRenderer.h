@@ -15,7 +15,7 @@ namespace Phantom::Animation {
 
 // Draws bone wireframe (parent-to-child lines) using VkLineRenderer.
 // Also draws X/Y/Z axis lines at origin.
-class BoneWireRenderer : public ::VKG::IVkSubRenderer {
+class BoneWireRenderer : public ::Phantom::VKG::IVkSubRenderer {
 public:
     struct Shaders {
         std::vector<uint32_t> vertSpv;
@@ -33,8 +33,8 @@ public:
                     const glm::mat4& mvp);
 
     // IVkSubRenderer
-    void onInit(::VKG::VulkanContext& ctx,
-                const ::VKG::VulkanCommandPool& pool,
+    void onInit(::Phantom::VKG::VulkanContext& ctx,
+                const ::Phantom::VKG::VulkanCommandPool& pool,
                 VkRenderPass renderPass,
                 uint32_t framesInFlight) override;
 
@@ -48,10 +48,10 @@ private:
     bool       visible_ = true;
     bool       dirty_   = false;
 
-    const ::VKG::VulkanContext*     ctx_  = nullptr;
-    const ::VKG::VulkanCommandPool* pool_ = nullptr;
+    const ::Phantom::VKG::VulkanContext*     ctx_  = nullptr;
+    const ::Phantom::VKG::VulkanCommandPool* pool_ = nullptr;
 
-    std::optional<VKG::VkLineRenderer> lineRenderer_;
+    std::optional<Phantom::VKG::VkLineRenderer> lineRenderer_;
 
     std::vector<float>    positions_;
     std::vector<float>    colors_;

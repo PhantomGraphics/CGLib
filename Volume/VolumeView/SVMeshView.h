@@ -5,7 +5,7 @@
 #include <functional>
 #include <string>
 
-namespace VolumeView {
+namespace Phantom::VolumeView {
 
 // Generate a signed-distance field from an STL triangle mesh.
 class SVMeshView : public IVolumeProcessView {

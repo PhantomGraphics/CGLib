@@ -7,7 +7,7 @@
 #include <cstdio>
 #include <cstring>
 
-namespace VKG {
+namespace Phantom::VKG {
 
 void FrameReadback::setScreenshot(const std::string& path, int frame) {
     screenshotPath_    = path;

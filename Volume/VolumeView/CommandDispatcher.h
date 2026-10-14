@@ -17,10 +17,10 @@
 #include <string>
 #include <vector>
 
-namespace VKG { class VkAppBase; }
+namespace Phantom::VKG { class VkAppBase; }
 namespace Phantom::Volume { class PBVRRenderer; }
 
-namespace VolumeView {
+namespace Phantom::VolumeView {
 
 class CommandDispatcher : public IScenarioDispatcher {
 public:
@@ -34,7 +34,7 @@ public:
     void setMenuPanel(MenuPanel* p)            { menuPanel_      = p; }
     void setOnCameraReset(std::function<void()> cb)  { onCameraReset_  = std::move(cb); }
     void setPbvrRenderer(Phantom::Volume::PBVRRenderer* r) { pbvrRenderer_ = r; }
-    void setApp(::VKG::VkAppBase* app)               { app_            = app; }
+    void setApp(::Phantom::VKG::VkAppBase* app)               { app_            = app; }
 
     // Call once per frame from onUpdate() to drain the input queue on the render thread.
     void processQueue();
@@ -82,7 +82,7 @@ private:
     MenuPanel*        menuPanel_      = nullptr;
     std::function<void()>   onCameraReset_;
     Phantom::Volume::PBVRRenderer* pbvrRenderer_ = nullptr;
-    ::VKG::VkAppBase*              app_          = nullptr;
+    ::Phantom::VKG::VkAppBase*              app_          = nullptr;
 
     int opCount_ = 0;
 

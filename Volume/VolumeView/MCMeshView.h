@@ -4,7 +4,7 @@
 
 #include <string>
 
-namespace VolumeView {
+namespace Phantom::VolumeView {
 
 // Runs Marching Cubes on the active scene's SparseVolumef and adds the
 // resulting mesh as a PolygonMesh overlay in VolumeWorld.

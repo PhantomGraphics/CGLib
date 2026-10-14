@@ -8,7 +8,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace MeshView {
+namespace Phantom::MeshView {
 
 Renderer::Renderer(MeshWorld* world) : world_(world) { buildAxisGeometry(); }
 

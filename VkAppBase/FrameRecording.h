@@ -4,7 +4,7 @@
 
 #include <array>
 
-namespace VKG {
+namespace Phantom::VKG {
 
 // Command-recording pieces of VkAppBase::drawFrame that depend only on the swapchain extent, so
 // the pure parts can be unit-tested without a GPU.

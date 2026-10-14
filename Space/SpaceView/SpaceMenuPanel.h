@@ -12,12 +12,12 @@
 
 class ViewShell;
 
-namespace VKSpace {
+namespace Phantom::VKSpace {
 
 class World;
 class Renderer;
 
-class SpaceMenuPanel : public ::VKG::IVkUIPanel {
+class SpaceMenuPanel : public ::Phantom::VKG::IVkUIPanel {
 public:
     void init(World* world, Renderer* renderer);
 

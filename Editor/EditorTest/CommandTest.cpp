@@ -9,7 +9,7 @@
 #include "../Selection/SelectionSet.h"
 #include "../Commands/Tokenizer.h"
 
-using namespace PG::CommandCore;
+using namespace Phantom::Editor::CommandCore;
 using namespace Phantom::Editor;
 using IntSelectionSet = Phantom::Editor::SelectionSet<int>;
 

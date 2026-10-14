@@ -4,7 +4,7 @@
 
 #include <string>
 
-namespace VolumeView {
+namespace Phantom::VolumeView {
 
 class DVCreateBoxView : public IVolumeProcessView {
 public:

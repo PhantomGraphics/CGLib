@@ -7,7 +7,7 @@
 
 #include "CGLib/VkAppBase/ScenarioRunner/ViewShell.h"
 
-namespace VKSpace {
+namespace Phantom::VKSpace {
 
 void SpaceMenuPanel::init(World* world, Renderer* renderer) {
     world_ = world;

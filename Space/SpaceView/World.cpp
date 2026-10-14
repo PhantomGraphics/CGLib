@@ -1,6 +1,6 @@
 #include "World.h"
 
-namespace VKSpace {
+namespace Phantom::VKSpace {
 
 void SpaceResult::addLine(const glm::vec3& a, const glm::vec3& b, const glm::vec4& color) {
     const uint32_t base = static_cast<uint32_t>(linePositions.size() / 3);

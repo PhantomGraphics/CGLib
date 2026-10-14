@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <vector>
 
-namespace VKG {
+namespace Phantom::VKG {
 
 // Per-frame synchronization objects of VkAppBase's frame loop: one image-available semaphore and
 // one in-flight fence per frame in flight, one render-finished semaphore per swapchain image, and

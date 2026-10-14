@@ -12,7 +12,7 @@
 #include <string>
 #include <vector>
 
-namespace VKSpace {
+namespace Phantom::VKSpace {
 
 class CommandDispatcher : public IScenarioDispatcher {
 public:

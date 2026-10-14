@@ -2,7 +2,7 @@
 
 #include "../../../CGLib/VulkanGraphics/VulkanContext.h"
 
-namespace VolumeView {
+namespace Phantom::VolumeView {
 
 void VolumePipeline::create(const Phantom::VKG::VulkanContext& ctx, VkRenderPass renderPass, uint32_t framesInFlight,
                                std::vector<uint32_t> vertSpv, std::vector<uint32_t> fragSpv) {

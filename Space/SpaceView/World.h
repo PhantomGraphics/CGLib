@@ -7,7 +7,7 @@
 #include <cstdint>
 #include <vector>
 
-namespace VKSpace {
+namespace Phantom::VKSpace {
 
 /// @brief Holds algorithm output buffers (wireframe lines and sample points).
 struct SpaceResult {

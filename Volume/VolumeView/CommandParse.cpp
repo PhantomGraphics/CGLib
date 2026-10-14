@@ -3,7 +3,7 @@
 #include <charconv>
 #include <cstring>
 
-namespace VolumeView {
+namespace Phantom::VolumeView {
 
 namespace {
 

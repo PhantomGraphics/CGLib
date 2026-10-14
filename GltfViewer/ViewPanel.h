@@ -10,7 +10,7 @@ namespace Phantom::Gltf {
 class GltfSceneRenderer;
 class App;
 
-class ViewPanel : public ::VKG::IVkUIPanel {
+class ViewPanel : public ::Phantom::VKG::IVkUIPanel {
 public:
     void setRenderer(GltfSceneRenderer* renderer) { renderer_ = renderer; }
     // Non-owning; only needed for the "Load HDRI..."/"Clear HDRI" buttons (real-HDRI loading

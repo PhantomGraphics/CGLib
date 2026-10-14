@@ -2,7 +2,7 @@
 
 #include "imgui.h"
 
-namespace VKSpace {
+namespace Phantom::VKSpace {
 
 void OctreePanel::onImGui(World& world) {
     ImGui::SliderInt("Max Depth", &params_.maxDepth, OctreeDemoParams::kMinDepth, OctreeDemoParams::kMaxDepth);

@@ -13,9 +13,9 @@
 
 #include <string>
 
-namespace VKSpace {
+namespace Phantom::VKSpace {
 
-class VkSpaceApp : public ::VKG::VkAppBase, public ::IScenarioHost {
+class VkSpaceApp : public ::Phantom::VKG::VkAppBase, public ::IScenarioHost {
 public:
     VkSpaceApp(int w, int h, const std::string& title);
 

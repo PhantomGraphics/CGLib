@@ -9,7 +9,7 @@
 #include <algorithm>
 #include <limits>
 
-namespace VolumeView {
+namespace Phantom::VolumeView {
 
 namespace {
 

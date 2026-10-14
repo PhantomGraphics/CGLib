@@ -1,13 +1,13 @@
 ﻿#include "VolumeViewApp.h"
 
-namespace VolumeView {
+namespace Phantom::VolumeView {
 
 namespace {
 constexpr uint64_t kDenseIdBase = 0x100000000ull;  // outliner id space: sparse = scene id, dense = base + id
 }
 
 VolumeViewApp::VolumeViewApp()
-    : ::VKG::VkAppBase(1280, 720, "VolumeView")
+    : ::Phantom::VKG::VkAppBase(1280, 720, "VolumeView")
 {
     dispatcher_.setWorld(&world_);
     dispatcher_.setActiveSceneId(&activeSceneId_);
@@ -78,38 +78,38 @@ void VolumeViewApp::onInit() {
     static constexpr auto kSh = "shaders/";
     {
         SparseVolumeRenderer::Shaders s;
-        s.vertSpv = ::VKG::loadSPVRepo(std::string(kSh) + "volume_point.vert.spv");
-        s.fragSpv = ::VKG::loadSPVRepo(std::string(kSh) + "volume_point.frag.spv");
+        s.vertSpv = ::Phantom::VKG::loadSPVRepo(std::string(kSh) + "volume_point.vert.spv");
+        s.fragSpv = ::Phantom::VKG::loadSPVRepo(std::string(kSh) + "volume_point.frag.spv");
         pointRenderer_.setShaders(std::move(s));
     }
     {
         DenseVolumeRenderer::Shaders s;
-        s.vertSpv = ::VKG::loadSPVRepo(std::string(kSh) + "volume_point.vert.spv");
-        s.fragSpv = ::VKG::loadSPVRepo(std::string(kSh) + "volume_point.frag.spv");
+        s.vertSpv = ::Phantom::VKG::loadSPVRepo(std::string(kSh) + "volume_point.vert.spv");
+        s.fragSpv = ::Phantom::VKG::loadSPVRepo(std::string(kSh) + "volume_point.frag.spv");
         denseRenderer_.setShaders(std::move(s));
     }
     {
         VectorFieldRenderer::Shaders s;
-        s.vertSpv = ::VKG::loadSPVRepo(std::string(kSh) + "volume_line.vert.spv");
-        s.fragSpv = ::VKG::loadSPVRepo(std::string(kSh) + "volume_line.frag.spv");
+        s.vertSpv = ::Phantom::VKG::loadSPVRepo(std::string(kSh) + "volume_line.vert.spv");
+        s.fragSpv = ::Phantom::VKG::loadSPVRepo(std::string(kSh) + "volume_line.frag.spv");
         lineRenderer_.setShaders(std::move(s));
     }
     {
         Phantom::Volume::PBVRRenderer::Shaders s;
-        s.vertSpv = ::VKG::loadSPVRepo(std::string(kSh) + "pbvr_render.vert.spv");
-        s.fragSpv = ::VKG::loadSPVRepo(std::string(kSh) + "pbvr_render.frag.spv");
-        s.depositVertSpv = ::VKG::loadSPVRepo(std::string(kSh) + "opacity_shadow_deposit.vert.spv");
-        s.depositFragSpv = ::VKG::loadSPVRepo(std::string(kSh) + "opacity_shadow_deposit.frag.spv");
+        s.vertSpv = ::Phantom::VKG::loadSPVRepo(std::string(kSh) + "pbvr_render.vert.spv");
+        s.fragSpv = ::Phantom::VKG::loadSPVRepo(std::string(kSh) + "pbvr_render.frag.spv");
+        s.depositVertSpv = ::Phantom::VKG::loadSPVRepo(std::string(kSh) + "opacity_shadow_deposit.vert.spv");
+        s.depositFragSpv = ::Phantom::VKG::loadSPVRepo(std::string(kSh) + "opacity_shadow_deposit.frag.spv");
         pbvrRenderer_.setShaders(std::move(s));
     }
     {
         MeshOverlayRenderer::Shaders s;
-        s.vertSpv = ::VKG::loadSPVRepo(std::string(kSh) + "triangle.vert.spv");
-        s.fragSpv = ::VKG::loadSPVRepo(std::string(kSh) + "triangle.frag.spv");
+        s.vertSpv = ::Phantom::VKG::loadSPVRepo(std::string(kSh) + "triangle.vert.spv");
+        s.fragSpv = ::Phantom::VKG::loadSPVRepo(std::string(kSh) + "triangle.frag.spv");
         meshRenderer_.setShaders(std::move(s));
     }
 
-    ::VKG::VkAppBase::onInit();
+    ::Phantom::VKG::VkAppBase::onInit();
 
     pointRenderer_.setWorld(&world_);
     denseRenderer_.setWorld(&world_);
@@ -186,7 +186,7 @@ void VolumeViewApp::onUpdate(uint32_t frameIndex) {
     } else {
     }
 
-    ::VKG::VkAppBase::onUpdate(frameIndex);
+    ::Phantom::VKG::VkAppBase::onUpdate(frameIndex);
 }
 
 void VolumeViewApp::onPreRender(VkCommandBuffer cmd, uint32_t frameIndex) {
@@ -206,7 +206,7 @@ void VolumeViewApp::onImGui() {
         ImGui::EndMainMenuBar();
     }
     shell_.drawWindows();
-    ::VKG::VkAppBase::onImGui();
+    ::Phantom::VKG::VkAppBase::onImGui();
     scenarioBrowser_.pumpQueue();
     if (shell_.beginPanel("Scenario Browser")) {
         scenarioBrowser_.drawEmbedded();
@@ -215,7 +215,7 @@ void VolumeViewApp::onImGui() {
 }
 
 void VolumeViewApp::onCleanup() {
-    ::VKG::VkAppBase::onCleanup();
+    ::Phantom::VKG::VkAppBase::onCleanup();
 }
 
 void VolumeViewApp::notifyAll() {

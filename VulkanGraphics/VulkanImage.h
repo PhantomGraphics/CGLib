@@ -102,6 +102,3 @@ struct VulkanImage {
 
 } // namespace VKG
 
-namespace VKG {
-using namespace Phantom::VKG;
-}

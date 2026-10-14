@@ -47,7 +47,7 @@ namespace Phantom {
             //                      frame in flight before the first draw once enabled (see
             //                      PBVRRenderer::onInit()) -- Vulkan validation requires every
             //                      declared binding to be written at least once before use.
-            void create(const ::VKG::VulkanContext& ctx, VkRenderPass renderPass, uint32_t framesInFlight,
+            void create(const ::Phantom::VKG::VulkanContext& ctx, VkRenderPass renderPass, uint32_t framesInFlight,
                 std::vector<uint32_t> vertSpv, std::vector<uint32_t> fragSpv,
                 bool enableAlphaBlend = false, bool enableShadowSampler = false);
             void destroy(VkDevice device);
@@ -61,11 +61,11 @@ namespace Phantom {
         private:
             VkDevice device_ = VK_NULL_HANDLE;
             bool shadowSamplerEnabled_ = false;
-            ::VKG::VulkanDescriptorSetLayout dsl_;
-            ::VKG::VulkanDescriptorPool pool_;
+            ::Phantom::VKG::VulkanDescriptorSetLayout dsl_;
+            ::Phantom::VKG::VulkanDescriptorPool pool_;
             std::vector<VkDescriptorSet> sets_;
-            ::VKG::VulkanPipeline pipeline_;
-            std::vector<::VKG::VulkanBuffer> ubos_;
+            ::Phantom::VKG::VulkanPipeline pipeline_;
+            std::vector<::Phantom::VKG::VulkanBuffer> ubos_;
         };
 
     }

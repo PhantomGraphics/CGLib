@@ -5,7 +5,7 @@
 #include <functional>
 #include <string>
 
-namespace VolumeView {
+namespace Phantom::VolumeView {
 
 // CSG Union / Intersection / Difference of two SDF volumes.
 class SVCombineView : public IVolumeProcessView {

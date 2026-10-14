@@ -10,7 +10,7 @@
 
 #include <string>
 
-namespace VolumeView {
+namespace Phantom::VolumeView {
 
 void MCMeshView::onImGui(World& world, int activeSceneId,
                           const std::function<void()>& onRebuild)

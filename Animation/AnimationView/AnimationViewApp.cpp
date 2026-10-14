@@ -39,7 +39,7 @@ static std::string baseName(const std::string& utf8)
 // ============================================================
 
 AnimationViewApp::AnimationViewApp(int w, int h, const std::string& title)
-    : ::VKG::VkAppBase(w, h, title)
+    : ::Phantom::VKG::VkAppBase(w, h, title)
 {
     dispatcher_.setWorld(&world_);
     dispatcher_.setApp(this);
@@ -91,26 +91,26 @@ void AnimationViewApp::onInit()
 {
     {
         GltfSceneRenderer::Shaders s;
-        s.vertSpv = ::VKG::loadSPVRepo("shaders/gltf.vert.spv");
-        s.fragSpv = ::VKG::loadSPVRepo("shaders/gltf.frag.spv");
+        s.vertSpv = ::Phantom::VKG::loadSPVRepo("shaders/gltf.vert.spv");
+        s.fragSpv = ::Phantom::VKG::loadSPVRepo("shaders/gltf.frag.spv");
         // Skybox/shadow shaders left empty on purpose: AnimationView is a plain model/motion
         // viewer, not a lighting testbed (GltfSceneRenderer treats empty = skip, see its Shaders
         // struct comment). IBL precompute shaders ARE loaded (2026-09-15) so the optional
         // real-HDRI toggle (off by default, see setUseIBL()'s comment) runs the real
         // GltfIBLPrecomputer path rather than the simplified raw-cubemap fallback.
-        s.ibl.irradianceVert = ::VKG::loadSPVRepo("shaders/irradiance.vert.spv");
-        s.ibl.irradianceFrag = ::VKG::loadSPVRepo("shaders/irradiance.frag.spv");
-        s.ibl.prefilterVert  = ::VKG::loadSPVRepo("shaders/prefilter.vert.spv");
-        s.ibl.prefilterFrag  = ::VKG::loadSPVRepo("shaders/prefilter.frag.spv");
-        s.ibl.brdfVert       = ::VKG::loadSPVRepo("shaders/brdf_lut.vert.spv");
-        s.ibl.brdfFrag       = ::VKG::loadSPVRepo("shaders/brdf_lut.frag.spv");
+        s.ibl.irradianceVert = ::Phantom::VKG::loadSPVRepo("shaders/irradiance.vert.spv");
+        s.ibl.irradianceFrag = ::Phantom::VKG::loadSPVRepo("shaders/irradiance.frag.spv");
+        s.ibl.prefilterVert  = ::Phantom::VKG::loadSPVRepo("shaders/prefilter.vert.spv");
+        s.ibl.prefilterFrag  = ::Phantom::VKG::loadSPVRepo("shaders/prefilter.frag.spv");
+        s.ibl.brdfVert       = ::Phantom::VKG::loadSPVRepo("shaders/brdf_lut.vert.spv");
+        s.ibl.brdfFrag       = ::Phantom::VKG::loadSPVRepo("shaders/brdf_lut.frag.spv");
         sceneRenderer_.setShaders(std::move(s));
 
-        equirectVertSpv_ = ::VKG::loadSPVRepo("shaders/equirect_to_cube.vert.spv");
-        equirectFragSpv_ = ::VKG::loadSPVRepo("shaders/equirect_to_cube.frag.spv");
+        equirectVertSpv_ = ::Phantom::VKG::loadSPVRepo("shaders/equirect_to_cube.vert.spv");
+        equirectFragSpv_ = ::Phantom::VKG::loadSPVRepo("shaders/equirect_to_cube.frag.spv");
     }
 
-    ::VKG::VkAppBase::onInit();
+    ::Phantom::VKG::VkAppBase::onInit();
     sceneRenderer_.setExtent(getExtent());
     sceneRenderer_.onInit(getContext(), getCommandPool(), getRenderPass(), MAX_FRAMES_IN_FLIGHT);
     envCubemap_.create(getContext(), getCommandPool());
@@ -179,7 +179,7 @@ void AnimationViewApp::onUpdate(uint32_t frameIndex)
 
     tickAnimation(dt);
 
-    ::VKG::VkAppBase::onUpdate(frameIndex);
+    ::Phantom::VKG::VkAppBase::onUpdate(frameIndex);
 }
 
 void AnimationViewApp::onImGui()
@@ -193,7 +193,7 @@ void AnimationViewApp::onImGui()
         ImGui::EndMainMenuBar();
     }
     shell_.drawWindows();
-    ::VKG::VkAppBase::onImGui();
+    ::Phantom::VKG::VkAppBase::onImGui();
     scenarioBrowser_.pumpQueue();
     if (shell_.beginPanel("Scenario Browser")) {
         scenarioBrowser_.drawEmbedded();
@@ -205,7 +205,7 @@ void AnimationViewApp::onCleanup()
 {
     sceneRenderer_.onCleanup(getDevice());
     envCubemap_.destroy(getDevice());
-    ::VKG::VkAppBase::onCleanup();
+    ::Phantom::VKG::VkAppBase::onCleanup();
 }
 
 // ============================================================

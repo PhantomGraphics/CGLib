@@ -2,7 +2,7 @@
 
 #include <cstdio>
 
-namespace VKG {
+namespace Phantom::VKG {
 
 bool FrameSync::create(VkDevice device, uint32_t framesInFlight, uint32_t swapChainImageCount) {
     destroy(device);

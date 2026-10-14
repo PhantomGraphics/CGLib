@@ -4,7 +4,7 @@
 
 namespace Phantom::Volume {
 
-void PBVRPipeline::create(const ::VKG::VulkanContext& ctx, VkRenderPass renderPass, uint32_t framesInFlight,
+void PBVRPipeline::create(const ::Phantom::VKG::VulkanContext& ctx, VkRenderPass renderPass, uint32_t framesInFlight,
                              std::vector<uint32_t> vertSpv, std::vector<uint32_t> fragSpv,
                              bool enableAlphaBlend, bool enableShadowSampler) {
     const VkDevice device = ctx.getDevice();
@@ -70,7 +70,7 @@ void PBVRPipeline::create(const ::VKG::VulkanContext& ctx, VkRenderPass renderPa
         {1, 0, VK_FORMAT_R32G32B32A32_SFLOAT, static_cast<uint32_t>(offsetof(PBVRVertex, color))},
     };
 
-    ::VKG::PipelineConfig cfg{};
+    ::Phantom::VKG::PipelineConfig cfg{};
     cfg.vertSpv = std::move(vertSpv);
     cfg.fragSpv = std::move(fragSpv);
     cfg.bindingDescs = vtxBindings;

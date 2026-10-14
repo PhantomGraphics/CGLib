@@ -2,6 +2,14 @@
 
 This reference summarizes CGLib's first-party modules and principal APIs.
 
+First-party named namespaces belong under `Phantom` (`Phantom::<Module>` or
+`Phantom::<Module>::<Feature>`). VulkanGraphics and VkAppBase share `Phantom::VKG`;
+the former global `VKG` compatibility declarations have been removed. Editor's
+shared command infrastructure uses `Phantom::Editor::CommandCore`. Viewers also
+use the `Phantom` prefix, for example `Phantom::VolumeView` and `Phantom::MeshView`.
+Anonymous implementation namespaces and standard-library specializations are
+excluded from this convention.
+
 ## Dependency overview
 
 ```text
@@ -61,7 +69,7 @@ Math ──┬── Graphics ──┬── File
   `PostProcess/` owns bloom, SSAO, FXAA, tone mapping and the post-process chain.
   Target: `EffectsCore` / `CGLib::Effects`; namespaces: `Phantom::Effects::Particles` and
   `Phantom::Effects::PostProcess`.
-- **Editor:** generic snapshot history (`Editor/History/UndoStack<T>`, host-owned capture/restore), CPU rectangle mesh selection (`Editor/Selection`, Vulkan clip-space convention without a Vulkan dependency), selection-centroid/pivot-delta maths (`Editor/Gizmo`, `GizmoTransform`), UI-independent header-only console state/catalog (`Editor/Console`, `Phantom::Editor`), ordered `SelectionSet<Id>` plus command registry/JSON responses/reference helpers (legacy `PG::CommandCore` namespace; header-only nlohmann JSON dependency), and shared editing functionality, including UI/device-independent input notation, keymaps, command/action resolution and named action state (`Phantom::Editor`). Device polling and concrete game actions belong to the host. `Editor/Gizmo` provides transform gizmo types and geometry (`EditorCore`) plus the optional Vulkan backend (`EditorVulkanCore`). See `Editor/README.md`.
+- **Editor:** generic snapshot history (`Editor/History/UndoStack<T>`, host-owned capture/restore), CPU rectangle mesh selection (`Editor/Selection`, Vulkan clip-space convention without a Vulkan dependency), selection-centroid/pivot-delta maths (`Editor/Gizmo`, `GizmoTransform`), UI-independent header-only console state/catalog (`Editor/Console`, `Phantom::Editor`), ordered `SelectionSet<Id>` plus command registry/JSON responses/reference helpers (`Phantom::Editor::CommandCore` namespace; header-only nlohmann JSON dependency), and shared editing functionality, including UI/device-independent input notation, keymaps, command/action resolution and named action state (`Phantom::Editor`). Device polling and concrete game actions belong to the host. `Editor/Gizmo` provides transform gizmo types and geometry (`EditorCore`) plus the optional Vulkan backend (`EditorVulkanCore`). See `Editor/README.md`.
 
 ## Design conventions
 

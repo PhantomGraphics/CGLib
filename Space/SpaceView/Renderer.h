@@ -12,14 +12,14 @@
 #include <optional>
 #include <vector>
 
-namespace VKSpace {
+namespace Phantom::VKSpace {
 
 /// @brief Sub-renderer that draws line wireframes and point clouds from World.
 ///
 /// Owns a VkLineRenderer (for spatial structure wireframes) and a VkPointRenderer
 /// (for SignedDistance sample points).  On each frame, if World::SpaceResult::dirty
 /// is set the buffers are uploaded to the GPU.
-class Renderer : public ::VKG::IVkSubRenderer {
+class Renderer : public ::Phantom::VKG::IVkSubRenderer {
 public:
     struct Shaders {
         std::vector<uint32_t> lineVert;
