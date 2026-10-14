@@ -34,6 +34,7 @@ if(PHANTOM_GTEST_FOUND)
     cglib_add_test(EditorTest
         SOURCES EditorTest/InputTest.cpp EditorTest/InputResolverTest.cpp
             EditorTest/CommandTest.cpp EditorTest/SelectionSetTest.cpp
+            EditorTest/CommandConsoleModelTest.cpp
         LINK EditorCore)
 endif()
 
