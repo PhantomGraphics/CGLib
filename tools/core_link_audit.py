@@ -20,7 +20,7 @@ CMAKE = (ROOT / "cmake" / "PhantomCoreLibs.cmake").read_text(encoding="utf-8")
 TARGETS = {
     "MathCore": ("Math", "Math"), "GraphicsCore": ("Graphics", "Graphics"),
     "NumericsCore": ("Numerics", "Numerics/Numerics"), "SpaceCore": ("Space", "Space/Space"),
-    "SceneCore": ("Scene", "Scene/Scene"), "VolumeCore": ("Volume", "Volume/Volume"),
+    "VolumeCore": ("Volume", "Volume/Volume"),
     "FileCore": ("File", "File/File"), "GeometryNodeCore": ("GeometryNode", "GeometryNode/GeometryNode"),
     "ShaderGraphCore": ("ShaderGraph", "ShaderGraph/ShaderGraph"),
     "AssetCore": ("AssetCore", "AssetCore/AssetCore"), "SceneRuntimeCore": ("SceneRuntime", "SceneRuntime/SceneRuntime"),

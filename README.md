@@ -17,7 +17,6 @@ glTF/VRM/MMD rendering, animation, particles, and Eigen adapters.
 | `Numerics` | `Phantom::Numerics` | Eigenvalue decomposition and SVD | No |
 | `File` | `Phantom::File` | OBJ, glTF, PLY, and STL I/O | No |
 | `Space` | `Phantom::Space` | Spatial indexing and geometric queries | No |
-| `Scene` | `Phantom::Scene` | Scene graph and Presenter pattern (legacy) | No |
 | `GeometryNode` | `Phantom::GeometryNode` | Node-graph geometry evaluation | No |
 | `AssetCore` | `Phantom::Asset` | Asset ids, URIs and manifests | No |
 | `SceneRuntime` | `Phantom::SceneRuntime` | UUID node hierarchy, components, play sessions | No |

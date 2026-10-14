@@ -47,7 +47,7 @@ jobs:
         working-directory: build/linux-cpu-debug
         run: |
           ctest -N
-          for t in MathTest GraphicsTest NumericsTest SpaceTest SceneTest FileTest AnimationTest VolumeTest \
+          for t in MathTest GraphicsTest NumericsTest SpaceTest FileTest AnimationTest VolumeTest \
                    GeometryNodeTest AssetCoreTest SceneRuntimeTest; do
             find . \( -name "$t" -o -name "$t.exe" \) -type f | grep -q . \
               || { echo "::error::expected test executable '$t' was not built (implicit skip)"; exit 1; }
@@ -80,7 +80,7 @@ jobs:
         shell: bash
         run: |
           ctest -N
-          for t in MathTest GraphicsTest NumericsTest SpaceTest SceneTest FileTest AnimationTest VolumeTest \
+          for t in MathTest GraphicsTest NumericsTest SpaceTest FileTest AnimationTest VolumeTest \
                    GeometryNodeTest AssetCoreTest SceneRuntimeTest; do
             find . \( -name "$t" -o -name "$t.exe" \) -type f | grep -q . \
               || { echo "::error::expected test executable '$t' was not built (implicit skip)"; exit 1; }

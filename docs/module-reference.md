@@ -9,7 +9,6 @@ Math ──┬── Graphics ──┬── File
        │              └── UIWidgets ──┐
        ├── Numerics                   │
        ├── Space ──── Volume          │
-       ├── Scene                      │   (legacy, no external users: docs/scene-usage-2026-10-06.md)
        ├── GeometryNode               │
        ├── AssetCore ── SceneRuntime  │
        └── VulkanGraphics ──┬─────────┴── VkAppBase ──┬── GltfRenderer
@@ -27,9 +26,6 @@ Math ──┬── Graphics ──┬── File
 - **File:** OBJ, glTF/GLB, PLY, and STL readers and writers.
 - **Space:** octrees, KD-trees, BVHs, spatial hashes, Morton curves,
   intersections, closest-point queries, and distances.
-- **Scene:** scene graphs and the Presenter pattern. Legacy: nothing outside the module's own tests and
-  the install consumer uses it; new code uses SceneRuntime
-  (`docs/scene-usage-2026-10-06.md`).
 - **GeometryNode:** CPU evaluation of node-graph geometry (fields, attribute domains, terrain nodes).
 - **MeshEdit:** polygon mesh editing (`Phantom::MeshEdit`, CPU only): `EditableMesh` (logical topology, persistent vertex/edge/face
   ids, per-corner UV and normals), shape operations (extrude, inset, bevel, loop cut, merge, delete, shading), the modifier

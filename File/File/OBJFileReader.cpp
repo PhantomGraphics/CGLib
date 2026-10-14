@@ -7,7 +7,6 @@
 #include <cstdio>
 
 #include "CGLib/Math/Vector3d.h"
-//#include "../Scene/PolygonMesh.h"
 
 #include "OBJSyntaxParser.h"
 #include "MTLFileReader.h"

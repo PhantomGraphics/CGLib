@@ -97,36 +97,6 @@ function(phantom_add_space_core)
     endif()
 endfunction()
 
-function(phantom_add_scene_core)
-    if(TARGET SceneCore)
-        return()
-    endif()
-    phantom_add_math_core()
-    # NOTE on Scene's on-disk source list: Scene/Scene/ also contains
-    # ParticleSystemIdPresenter.cpp/.h, ParticleSystemPresenter.cpp/.h,
-    # TriangleMeshPresenter.cpp/.h and WireFramePresenter.cpp/.h -- these are
-    # deliberately NOT part of Scene.vcxproj's <ClCompile> list (Scene.vcxproj.
-    # filters is stale and still lists them) because they pull in
-    # CGLib/Renderer/Renderer/PointRenderer.h, a GUI/Vulkan-facing header outside
-    # this Vulkan-free module's real dependency set. Do NOT file(GLOB) this
-    # directory -- the explicit list below matches Scene.vcxproj exactly.
-    add_library(SceneCore STATIC
-        ${CGLIB_ROOT}/Scene/Scene/ParticleSystem.cpp
-        ${CGLIB_ROOT}/Scene/Scene/ParticleSystemBuilder.cpp
-        ${CGLIB_ROOT}/Scene/Scene/ParticleSystemScene.cpp
-        ${CGLIB_ROOT}/Scene/Scene/SceneBase.cpp
-        ${CGLIB_ROOT}/Scene/Scene/SceneGroup.cpp
-        ${CGLIB_ROOT}/Scene/Scene/TriangleMesh.cpp
-        ${CGLIB_ROOT}/Scene/Scene/TriangleMeshBuilder.cpp
-        ${CGLIB_ROOT}/Scene/Scene/WireFrame.cpp
-        ${CGLIB_ROOT}/Scene/Scene/WireFrameBuilder.cpp
-        ${CGLIB_ROOT}/Scene/Scene/WireFrameScene.cpp
-    )
-    target_include_directories(SceneCore PUBLIC ${REPO_ROOT})
-    target_link_libraries(SceneCore PUBLIC MathCore)
-    target_compile_options(SceneCore PRIVATE ${PHANTOM_WARN_FLAGS})
-    target_compile_features(SceneCore PUBLIC cxx_std_20)
-endfunction()
 
 function(phantom_add_volume_core)
     if(TARGET VolumeCore)

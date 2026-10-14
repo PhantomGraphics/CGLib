@@ -76,7 +76,6 @@ phantom_find_glfw_loader()
 if(PHANTOM_VULKAN_LIBRARY AND PHANTOM_GLFW_LIBRARY)
 
 phantom_add_numerics_core()
-phantom_add_scene_core()
 phantom_add_file_core()
 phantom_add_vkappbase_core()
 phantom_add_vkrenderer_core()
