@@ -1,8 +1,8 @@
 #include "Camera.h"
 
-#include "../Math/pi.h"
+#include "../../Math/pi.h"
 
-#include "../ThirdParty/glm/glm/gtc/matrix_transform.hpp"
+#include "../../ThirdParty/glm/glm/gtc/matrix_transform.hpp"
 
 #include <cmath>
 

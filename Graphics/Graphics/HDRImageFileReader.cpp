@@ -19,7 +19,7 @@
 // (VulkanCubeMap.cpp.obj's in that combined case, or ImageFileReader.cpp.obj's own -- same
 // GraphicsCore.lib archive -- in a GraphicsCore-only/CPU-only build), so no second copy of the
 // implementation needs to be pulled in either way.
-#include "../ThirdParty/stb/stb_image.h"
+#include "../../ThirdParty/stb/stb_image.h"
 
 using namespace Phantom::Graphics;
 

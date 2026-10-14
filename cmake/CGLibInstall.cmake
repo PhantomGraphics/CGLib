@@ -106,12 +106,12 @@ set(CGLIB_PACKAGE_VULKAN_COMPONENTS "${_cglib_vulkan_components}")
 # Tests, viewers, *.cpp and Vulkan-facing code are deliberately not installed.
 set(_hdr_dest ${CMAKE_INSTALL_INCLUDEDIR}/CGLib)
 
-foreach(_dir Math Graphics Util)
+foreach(_dir Math Util)
     install(DIRECTORY ${CGLIB_ROOT}/${_dir}/ DESTINATION ${_hdr_dest}/${_dir}
         FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp" PATTERN "*.inl" PATTERN "*.hxx"
         PATTERN "pch.h" EXCLUDE)
 endforeach()
-foreach(_dir Numerics Space File Animation Volume GeometryNode MeshEdit ShaderGraph AssetCore SceneRuntime)
+foreach(_dir Graphics Numerics Space File Animation Volume GeometryNode MeshEdit ShaderGraph AssetCore SceneRuntime)
     install(DIRECTORY ${CGLIB_ROOT}/${_dir}/${_dir}/ DESTINATION ${_hdr_dest}/${_dir}/${_dir}
         FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp" PATTERN "*.inl" PATTERN "*.hxx"
         PATTERN "pch.h" EXCLUDE

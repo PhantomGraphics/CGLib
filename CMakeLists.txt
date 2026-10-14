@@ -104,11 +104,8 @@ target_link_libraries(MathHeaderCheck PRIVATE MathCore)
 set_target_properties(MathHeaderCheck PROPERTIES DISABLE_PRECOMPILE_HEADERS ON)
 target_compile_options(MathHeaderCheck PRIVATE ${PHANTOM_WARN_FLAGS})
 
-# Graphics (Phantom::Graphics)
-phantom_add_graphics_core()
-file(GLOB GRAPHICSTEST_SOURCES CONFIGURE_DEPENDS ${CGLIB_ROOT}/GraphicsTest/*.cpp)
-list(FILTER GRAPHICSTEST_SOURCES EXCLUDE REGEX "pch\\.cpp$")
-cglib_add_test(GraphicsTest SOURCES ${GRAPHICSTEST_SOURCES} INCLUDES ${CGLIB_ROOT}/GraphicsTest LINK GraphicsCore MathCore)
+# Graphics (Phantom::Graphics) -- owns its CMakeLists.txt (GraphicsCore + GraphicsTest)
+add_subdirectory(Graphics)
 
 # Pugixml (ThirdParty/pugixml) -- XML parser, no external deps.
 add_library(PugixmlCore STATIC ${CGLIB_ROOT}/ThirdParty/pugixml/pugixml.cpp)

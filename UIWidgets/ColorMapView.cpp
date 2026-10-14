@@ -1,7 +1,7 @@
 #include "ColorMapView.h"
 
-#include "../Graphics/ColorHSV.h"
-#include "../Graphics/ColorConverter.h"
+#include "../Graphics/Graphics/ColorHSV.h"
+#include "../Graphics/Graphics/ColorConverter.h"
 
 #include "imgui.h"
 

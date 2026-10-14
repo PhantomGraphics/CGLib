@@ -4,8 +4,8 @@
 
 #include "../../../CGLib/VulkanGraphics/VulkanContext.h"
 
-#include "../../../CGLib/Graphics/ColorMap.h"
-#include "../../../CGLib/Graphics/ColorTable.h"
+#include "../../../CGLib/Graphics/Graphics/ColorMap.h"
+#include "../../../CGLib/Graphics/Graphics/ColorTable.h"
 
 #include <glm/gtc/matrix_transform.hpp>
 
