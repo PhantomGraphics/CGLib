@@ -162,7 +162,7 @@ target_link_libraries(VolumeView PRIVATE
 target_compile_options(VolumeView PRIVATE ${PHANTOM_WARN_FLAGS})
 target_compile_features(VolumeView PRIVATE cxx_std_20)
 
-# loadSPVRepo() (VulkanSPVResolver.h) resolves "shaders/*.spv" relative to the
+# loadSPVRepo() (SpvResolver.h) resolves "shaders/*.spv" relative to the
 # running binary's directory on Windows, and to the current working directory
 # on other platforms -- mirror Windows' PostBuildEvent xcopy so the binary
 # finds its shaders either way.

@@ -20,7 +20,7 @@
 #include "../VulkanOffscreen.h"
 #include "../VulkanPipeline.h"
 #include "../VulkanRenderPass.h"
-#include "../VulkanSPVLoader.h"
+#include "../SpvLoader.h"
 #include "../VulkanSampler.h"
 #include "../VulkanSwapChain.h"
 

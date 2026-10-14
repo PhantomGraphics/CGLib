@@ -14,7 +14,7 @@
 #include "World.h"
 #include "CommandDispatcher.h"
 #include "../VolumeRenderer/PBVRRenderer.h"
-#include "../../../CGLib/VulkanGraphics/VulkanSPVResolver.h"
+#include "../../../CGLib/VulkanGraphics/SpvResolver.h"
 
 #include <string>
 

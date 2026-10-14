@@ -5,7 +5,7 @@
 #include "../../CGLib/VkAppBase/ScenarioRunner/IScenarioHost.h"
 #include "../../CGLib/VkAppBase/ScenarioRunner/ScenarioBrowserPanel.h"
 #include "../../CGLib/VkAppBase/ScenarioRunner/ViewShell.h"
-#include "CGLib/VulkanGraphics/VulkanSPVResolver.h"
+#include "CGLib/VulkanGraphics/SpvResolver.h"
 #include "Renderer.h"
 #include "CommandDispatcher.h"
 #include "World.h"
@@ -15,9 +15,9 @@
 
 namespace Phantom::VKSpace {
 
-class VkSpaceApp : public ::Phantom::VKG::VkAppBase, public ::IScenarioHost {
+class SpaceApp : public ::Phantom::VKG::VkAppBase, public ::IScenarioHost {
 public:
-    VkSpaceApp(int w, int h, const std::string& title);
+    SpaceApp(int w, int h, const std::string& title);
 
     World&           getWorld()    { return world_; }
     Renderer& getRenderer() { return renderer_; }

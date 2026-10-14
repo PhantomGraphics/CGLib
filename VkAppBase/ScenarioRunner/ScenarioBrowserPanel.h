@@ -8,7 +8,7 @@
 // user run one, a checked subset, or all of them consecutively without
 // closing the app. Driven purely through IScenarioHost so it has no
 // dependency on any concrete app type.
-class ScenarioBrowserPanel : public ::Phantom::VKG::IVkUIPanel {
+class ScenarioBrowserPanel : public ::Phantom::VKG::IUIPanel {
 public:
     void setHost(IScenarioHost* host) { host_ = host; }
     void setDefaultFolder(const std::string& folder);

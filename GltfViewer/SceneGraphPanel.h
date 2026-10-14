@@ -6,7 +6,7 @@
 
 namespace Phantom::Gltf {
 
-class SceneGraphPanel : public ::Phantom::VKG::IVkUIPanel {
+class SceneGraphPanel : public ::Phantom::VKG::IUIPanel {
 public:
     void setDocument(const GltfDocument* document) { document_ = document; }
     void setSelectedNode(int* nodeIndex) { selectedNode_ = nodeIndex; }

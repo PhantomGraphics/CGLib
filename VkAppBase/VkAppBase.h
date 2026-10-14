@@ -95,7 +95,7 @@ public:
     // onInit / onUpdate / onRender / onCleanup / onImGui implementations.
     // Pointers must remain valid for the lifetime of the application.
     void add(IVkSubRenderer* renderer) { subRenderers_.push_back(renderer); }
-    void add(IVkUIPanel*     panel)    { uiPanels_.push_back(panel); }
+    void add(IUIPanel*     panel)    { uiPanels_.push_back(panel); }
 
 protected:
     // Hooks for derived classes
@@ -135,7 +135,7 @@ protected:
     virtual void onCleanup();
 
     // Draw ImGui widgets. Called every frame after ImGui::NewFrame().
-    // Default: calls IVkSubRenderer::onImGui() and IVkUIPanel::onImGui().
+    // Default: calls IVkSubRenderer::onImGui() and IUIPanel::onImGui().
     virtual void onImGui();
 
     // Called once right after ImGui initialization completes.
@@ -162,7 +162,7 @@ protected:
 
 private:
     std::vector<IVkSubRenderer*> subRenderers_;
-    std::vector<IVkUIPanel*>     uiPanels_;
+    std::vector<IUIPanel*>     uiPanels_;
 
     int                   width_, height_;
     std::string           title_;

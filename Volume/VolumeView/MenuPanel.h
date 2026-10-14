@@ -19,7 +19,7 @@ class VectorFieldRenderer;
 
 enum class RenderMode { Points, PBVR, Both };
 
-class MenuPanel : public ::Phantom::VKG::IVkUIPanel {
+class MenuPanel : public ::Phantom::VKG::IUIPanel {
 public:
 	// TODO 引数を整理する
     void init(World* world, int* pActiveSceneId, int* pActiveDenseSceneId,

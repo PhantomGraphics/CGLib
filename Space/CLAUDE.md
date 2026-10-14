@@ -63,7 +63,7 @@ cmake --build --preset windows-debug
 
 ### SpaceView（`SpaceView/`）— スタンドアロン ImGui + Vulkan アプリ
 
-`VkSpaceApp : VkAppBase` 直下。**`VKSpace` 名前空間**（`Phantom::Space` ではない点に注意）。
+`SpaceApp : VkAppBase` 直下。**`VKSpace` 名前空間**（`Phantom::Space` ではない点に注意）。
 
 - `World`（`World.h`）— OpenGL に依存しない軽量な状態保持クラス。パネルが `SpaceResult`（ワイヤーフレーム線・サンプル点のバッファ）へ書き込み、`markDirty()` でレンダラーへ再アップロードを伝える。
 - `SpaceDemos.h/.cpp`（`SpaceDemoCore`）— 各アルゴリズムのデモの CPU 側（パラメータ構造体 → 合成サンプル → 実行 → `SpaceResult` 書き込み）。`SetParam` は全文が有限の数値であることを要求し、範囲外はクランプする。

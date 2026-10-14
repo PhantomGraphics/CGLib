@@ -29,9 +29,9 @@ public:
 };
 
 // UI panel registered with VkAppBase::add(); onImGui() is called once per frame.
-class IVkUIPanel {
+class IUIPanel {
 public:
-    virtual ~IVkUIPanel() = default;
+    virtual ~IUIPanel() = default;
     virtual void onImGui() = 0;
 };
 

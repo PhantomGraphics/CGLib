@@ -1,14 +1,14 @@
 ﻿#pragma once
 
-// VulkanSPVResolver.h
+// SpvResolver.h
 // Exe-directory-relative SPIR-V loader. Include this header in place of (or
-// alongside) VulkanSPVLoader.h and call ::Phantom::VKG::loadSPVRepo() with a path
+// alongside) SpvLoader.h and call ::Phantom::VKG::loadSPVRepo() with a path
 // relative to the module (exe or DLL) directory, e.g. "shaders/my.vert.spv".
 //
 // PostBuildEvent in each app's .vcxproj copies compiled .spv files to
 // $(OutDir)shaders\ so that the loader finds them next to the binary.
 
-#include "VulkanSPVLoader.h"
+#include "SpvLoader.h"
 
 #include <cstdio>
 #include <filesystem>

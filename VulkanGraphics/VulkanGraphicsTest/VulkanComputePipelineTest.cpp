@@ -1,6 +1,6 @@
 #include "VulkanTestFixture.h"
 #include "../VulkanComputePipeline.h"
-#include "../VulkanSPVLoader.h"
+#include "../SpvLoader.h"
 
 using Phantom::VKG::ComputePipelineConfig;
 using Phantom::VKG::VulkanComputePipeline;

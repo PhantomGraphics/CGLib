@@ -5,7 +5,7 @@
 
 #include "../VolumeRaymarchGpu.h"
 #include "../VolumePbvrGpu.h"
-#include "../../../VulkanGraphics/VulkanSPVResolver.h"
+#include "../../../VulkanGraphics/SpvResolver.h"
 
 #include <glm/gtc/matrix_transform.hpp>
 

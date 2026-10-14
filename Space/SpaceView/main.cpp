@@ -10,7 +10,7 @@
 //   Exit code: 0=passed / 1=failed
 //
 
-#include "VkSpaceApp.h"
+#include "SpaceApp.h"
 
 #include <cstdio>
 #include <string>
@@ -29,7 +29,7 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    Phantom::VKSpace::VkSpaceApp app(1280, 720, "Vk Space View");
+    Phantom::VKSpace::SpaceApp app(1280, 720, "Vk Space View");
 
     if (!scenarioPath.empty()) {
         if (!app.loadScenario(scenarioPath)) {
