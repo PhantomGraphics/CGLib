@@ -1,5 +1,6 @@
 #include "MeshEditOperations.h"
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <cmath>
 #include <map>
@@ -706,6 +707,136 @@ bool loopCut(const EditableMesh& in, uint32_t edgeId, float factor, EditableMesh
 	out = std::move(work);
 	if (newVertices) *newVertices = created;
 	if (splitFaces) *splitFaces = split;
+	return true;
+}
+
+bool unwrapFaces(const EditableMesh& in, const std::vector<uint32_t>& faceIds, float angleDeg, float margin, EditableMesh& out,
+                 std::string* error, size_t* charts) {
+	if (faceIds.empty()) { fail(error, "no faces selected"); return false; }
+	if (!std::isfinite(angleDeg) || angleDeg <= 0.f || angleDeg > 180.f) { fail(error, "the chart angle must be between 0 and 180 degrees"); return false; }
+	if (!std::isfinite(margin) || margin < 0.f || margin > 0.25f) { fail(error, "the margin must be between 0 and 0.25"); return false; }
+	const std::set<uint32_t> selected(faceIds.begin(), faceIds.end());
+	for (uint32_t id : selected)
+		if (!in.findFace(id)) { fail(error, "face " + std::to_string(id) + " does not exist"); return false; }
+
+	struct Info { std::array<double, 3> n{ 0, 0, 0 }; double area = 0; };  // unit normal and area
+	std::map<uint32_t, Info> info;
+	std::map<std::pair<uint32_t, uint32_t>, std::vector<uint32_t>> edgeFaces;
+	for (const auto& f : in.faces) {
+		if (!selected.count(f.id)) continue;
+		float n[3];
+		const float twice = newellNormal(in, f, n);
+		if (!(twice > 1e-12f)) { fail(error, "face " + std::to_string(f.id) + " has no area"); return false; }
+		info[f.id] = { { n[0] / twice, n[1] / twice, n[2] / twice }, 0.5 * twice };
+		for (size_t i = 0; i < f.loop.size(); ++i) {
+			uint32_t a = f.loop[i].vertex, b = f.loop[(i + 1) % f.loop.size()].vertex;
+			if (a > b) std::swap(a, b);
+			edgeFaces[{ a, b }].push_back(f.id);
+		}
+	}
+	std::map<uint32_t, std::vector<uint32_t>> neighbours;
+	for (const auto& e : edgeFaces)
+		for (uint32_t x : e.second) for (uint32_t y : e.second) if (x != y) neighbours[x].push_back(y);
+
+	// Charts: flood fill, comparing each candidate with the chart's running average normal.
+	const double kPi = 3.14159265358979323846;
+	const double limit = std::cos(double(angleDeg) * kPi / 180.0) - 1e-9;
+	struct Chart {
+		std::vector<uint32_t> faces;
+		std::array<double, 3> n{ 0, 0, 0 };
+		double u[3]{}, v[3]{};
+		double w = 0, h = 0, x = 0, y = 0, minU = 0, minV = 0;
+	};
+	std::vector<Chart> list;
+	std::set<uint32_t> done;
+	for (const auto& f : in.faces) {
+		if (!selected.count(f.id) || done.count(f.id)) continue;
+		Chart chart;
+		std::vector<uint32_t> stack{ f.id };
+		done.insert(f.id);
+		while (!stack.empty()) {
+			const uint32_t cur = stack.back(); stack.pop_back();
+			chart.faces.push_back(cur);
+			const Info& ci = info[cur];
+			for (int k = 0; k < 3; ++k) chart.n[k] += ci.n[k] * ci.area;
+			for (uint32_t nb : neighbours[cur]) {
+				if (done.count(nb)) continue;
+				const double len = std::sqrt(chart.n[0] * chart.n[0] + chart.n[1] * chart.n[1] + chart.n[2] * chart.n[2]);
+				const Info& ni = info[nb];
+				const double d = len > 1e-12 ? (chart.n[0] * ni.n[0] + chart.n[1] * ni.n[1] + chart.n[2] * ni.n[2]) / len : 1.0;
+				if (d < limit) continue;
+				done.insert(nb);
+				stack.push_back(nb);
+			}
+		}
+		list.push_back(std::move(chart));
+	}
+
+	// Planar projection per chart. u = ref x n, v = n x u (u x v = n: the chart reads upright and unmirrored from outside).
+	for (auto& c : list) {
+		double len = std::sqrt(c.n[0] * c.n[0] + c.n[1] * c.n[1] + c.n[2] * c.n[2]);
+		if (!(len > 1e-12)) { c.n = info[c.faces[0]].n; len = 1.0; }
+		for (int k = 0; k < 3; ++k) c.n[k] /= len;
+		double ref[3] = { 0, 1, 0 };
+		if (std::fabs(c.n[1]) > 0.9) { ref[1] = 0; ref[2] = 1; }
+		double u[3] = { ref[1] * c.n[2] - ref[2] * c.n[1], ref[2] * c.n[0] - ref[0] * c.n[2], ref[0] * c.n[1] - ref[1] * c.n[0] };
+		const double ul = std::sqrt(u[0] * u[0] + u[1] * u[1] + u[2] * u[2]);
+		for (int k = 0; k < 3; ++k) c.u[k] = u[k] / ul;
+		c.v[0] = c.n[1] * c.u[2] - c.n[2] * c.u[1];
+		c.v[1] = c.n[2] * c.u[0] - c.n[0] * c.u[2];
+		c.v[2] = c.n[0] * c.u[1] - c.n[1] * c.u[0];
+		double lo[2] = { 1e300, 1e300 }, hi[2] = { -1e300, -1e300 };
+		for (uint32_t fid : c.faces)
+			for (const auto& corner : in.findFace(fid)->loop) {
+				const EditableVertex* p = in.findVertex(corner.vertex);
+				const double s = p->pos[0] * c.u[0] + p->pos[1] * c.u[1] + p->pos[2] * c.u[2];
+				const double t = p->pos[0] * c.v[0] + p->pos[1] * c.v[1] + p->pos[2] * c.v[2];
+				lo[0] = std::min(lo[0], s); hi[0] = std::max(hi[0], s);
+				lo[1] = std::min(lo[1], t); hi[1] = std::max(hi[1], t);
+			}
+		c.minU = lo[0]; c.minV = lo[1];
+		c.w = hi[0] - lo[0]; c.h = hi[1] - lo[1];
+	}
+
+	// Shelf packing in model units; the gap is a fraction of the packed size so it survives the final scale.
+	double totalArea = 0, maxW = 0;
+	for (const auto& c : list) { totalArea += std::max(c.w, 1e-6) * std::max(c.h, 1e-6); maxW = std::max(maxW, c.w); }
+	const double gap = double(margin) * std::sqrt(totalArea);
+	std::vector<size_t> order(list.size());
+	for (size_t i = 0; i < order.size(); ++i) order[i] = i;
+	std::stable_sort(order.begin(), order.end(), [&](size_t a, size_t b) { return list[a].h > list[b].h; });
+	const double shelfWidth = std::max(maxW + gap, std::sqrt(totalArea) * 1.15 + gap);
+	double cx = gap * 0.5, cy = gap * 0.5, rowH = 0, usedW = 0;
+	for (size_t i : order) {
+		Chart& c = list[i];
+		if (cx > gap * 0.5 && cx + c.w + gap > shelfWidth) { cx = gap * 0.5; cy += rowH + gap; rowH = 0; }
+		c.x = cx; c.y = cy;
+		cx += c.w + gap;
+		rowH = std::max(rowH, c.h);
+		usedW = std::max(usedW, cx);
+	}
+	const double usedH = cy + rowH + gap * 0.5;
+	const double scale = 1.0 / std::max({ usedW, usedH, 1e-9 });
+
+	EditableMesh work = in;
+	std::map<uint32_t, const Chart*> chartOf;
+	for (const auto& c : list) for (uint32_t fid : c.faces) chartOf[fid] = &c;
+	for (auto& f : work.faces) {
+		auto it = chartOf.find(f.id);
+		if (it == chartOf.end()) continue;
+		const Chart& c = *it->second;
+		for (auto& corner : f.loop) {
+			const EditableVertex* p = in.findVertex(corner.vertex);
+			const double s = p->pos[0] * c.u[0] + p->pos[1] * c.u[1] + p->pos[2] * c.u[2];
+			const double t = p->pos[0] * c.v[0] + p->pos[1] * c.v[1] + p->pos[2] * c.v[2];
+			corner.uv[0] = float((c.x + (s - c.minU)) * scale);
+			corner.uv[1] = float((c.y + (t - c.minV)) * scale);
+		}
+	}
+	if (!work.validate(error)) return false;
+	work.revision = nextEditableRevision();
+	out = std::move(work);
+	if (charts) *charts = list.size();
 	return true;
 }
 

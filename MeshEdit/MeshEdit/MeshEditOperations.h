@@ -78,6 +78,15 @@ namespace Phantom::MeshEdit {
 	bool shadeFaces(const EditableMesh& in, const std::vector<uint32_t>& faceIds, bool smooth, float angleDeg, EditableMesh& out,
 	                std::string* error = nullptr, size_t* changedCorners = nullptr);
 
+	// Automatic UV unwrap of the selected faces. The faces are split into charts (connected through shared edges while each
+	// face stays within `angleDeg` of the chart's average normal), each chart is projected flat onto its average plane
+	// (u runs along the world axis most perpendicular to the normal, so a box face comes out upright), and all charts are
+	// packed into the unit square with one common scale (equal texel density) and a gap of `margin` (fraction of the packed
+	// size). Only the selected faces' corner UVs change; geometry and topology do not. UV seams appear between charts.
+	// *charts (optional) receives the number of charts.
+	bool unwrapFaces(const EditableMesh& in, const std::vector<uint32_t>& faceIds, float angleDeg, float margin, EditableMesh& out,
+	                 std::string* error = nullptr, size_t* charts = nullptr);
+
 	// Deletes the selected elements together with the faces that depend on them: a face deletes itself; an edge deletes the
 	// faces using it; a vertex deletes the faces around it. Vertices left without any face are removed too (a face delete
 	// never leaves isolated vertices behind that it created). The result may be empty. Ids are never reused.
