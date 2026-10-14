@@ -13,12 +13,16 @@ add_library(EditorCore STATIC
     Gizmo/GizmoGeometry.cpp
     Commands/Tokenizer.cpp
     Commands/Script.cpp
+    Commands/Registry.cpp
+    Commands/References.cpp
     Input/Input.cpp
     Input/Bindings.cpp
     Input/InputResolver.cpp)
 target_compile_features(EditorCore PUBLIC cxx_std_20)
 target_include_directories(EditorCore PUBLIC ${REPO_ROOT} ${CMAKE_CURRENT_SOURCE_DIR}/Gizmo)
 phantom_add_math_core()
+# Response exposes nlohmann::json; header-only, no binary JSON library required.
+target_include_directories(EditorCore PUBLIC ${CGLIB_ROOT}/ThirdParty/nlohmann)
 target_link_libraries(EditorCore PUBLIC MathCore)
 target_compile_options(EditorCore PRIVATE ${PHANTOM_WARN_FLAGS})
 add_library(CGLib::Editor ALIAS EditorCore)
@@ -29,6 +33,7 @@ if(PHANTOM_GTEST_FOUND)
     enable_testing()
     cglib_add_test(EditorTest
         SOURCES EditorTest/InputTest.cpp EditorTest/InputResolverTest.cpp
+            EditorTest/CommandTest.cpp EditorTest/SelectionSetTest.cpp
         LINK EditorCore)
 endif()
 
