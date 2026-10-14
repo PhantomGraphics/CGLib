@@ -364,7 +364,9 @@ bool GLTFFileWriter::write(std::ostream& stream, const GLTFFile& gltf)
 
 			if (mat.normalTextureIndex >= 0) {
 				sep();
-				ss << "\"normalTexture\": {\"index\": " << mat.normalTextureIndex << "}";
+				ss << "\"normalTexture\": {\"index\": " << mat.normalTextureIndex;
+				if (mat.normalTextureScale != 1.0f) ss << ", \"scale\": " << mat.normalTextureScale;
+				ss << "}";
 			}
 			if (mat.emissiveTextureIndex >= 0) {
 				sep();
