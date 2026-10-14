@@ -298,6 +298,11 @@ bool GltfFileWriter::write(std::ostream& stream, const GltfFile& gltf)
 
 			if (!node.name.empty()) { sep(); ss << "\"name\": " << quoted(node.name); }
 			if (node.meshIndex >= 0) { sep(); ss << "\"mesh\": " << node.meshIndex; }
+			if (node.cameraIndex >= 0) { sep(); ss << "\"camera\": " << node.cameraIndex; }
+			if (node.lightIndex >= 0) {
+				sep();
+				ss << "\"extensions\": {\"KHR_lights_punctual\": {\"light\": " << node.lightIndex << "}}";
+			}
 
 			const bool hasT = (node.translation[0] != 0.0f || node.translation[1] != 0.0f || node.translation[2] != 0.0f);
 			if (hasT) { sep(); ss << "\"translation\": " << floatArray(node.translation.data(), 3); }
@@ -323,6 +328,54 @@ bool GltfFileWriter::write(std::ostream& stream, const GltfFile& gltf)
 		}
 		ss << "  ]";
 		sections.push_back({ "nodes", ss.str() });
+	}
+
+	// cameras
+	if (!gltf.cameras.empty()) {
+		std::ostringstream ss;
+		ss << "[\n";
+		for (size_t ci = 0; ci < gltf.cameras.size(); ++ci) {
+			const GLTFCamera& cam = gltf.cameras[ci];
+			ss << "    {";
+			if (!cam.name.empty()) ss << "\"name\": " << quoted(cam.name) << ", ";
+			if (cam.type == "Orthographic") {
+				ss << "\"type\": \"orthographic\", \"orthographic\": {\"xmag\": " << cam.xmag << ", \"ymag\": " << cam.ymag
+				   << ", \"znear\": " << cam.znear << ", \"zfar\": " << (cam.zfar > 0.0f ? cam.zfar : 1000.0f) << "}";
+			} else {
+				ss << "\"type\": \"perspective\", \"perspective\": {\"yfov\": " << cam.yfov;
+				if (cam.aspectRatio > 0.0f) ss << ", \"aspectRatio\": " << cam.aspectRatio;
+				ss << ", \"znear\": " << cam.znear;
+				if (cam.zfar > 0.0f) ss << ", \"zfar\": " << cam.zfar;
+				ss << "}";
+			}
+			ss << "}";
+			if (ci + 1 < gltf.cameras.size()) ss << ",";
+			ss << "\n";
+		}
+		ss << "  ]";
+		sections.push_back({ "cameras", ss.str() });
+	}
+
+	// KHR_lights_punctual (root extension)
+	if (!gltf.lights.empty()) {
+		std::ostringstream ss;
+		ss << "{\"KHR_lights_punctual\": {\"lights\": [";
+		for (size_t li = 0; li < gltf.lights.size(); ++li) {
+			const GLTFLight& l = gltf.lights[li];
+			if (li > 0) ss << ", ";
+			ss << "{";
+			if (!l.name.empty()) ss << "\"name\": " << quoted(l.name) << ", ";
+			const char* type = l.type == "Point" ? "point" : l.type == "Spot" ? "spot" : "directional";
+			ss << "\"type\": \"" << type << "\", \"color\": " << floatArray(l.color.data(), 3)
+			   << ", \"intensity\": " << l.intensity;
+			if (l.type != "Directional" && l.range > 0.0f) ss << ", \"range\": " << l.range;
+			if (l.type == "Spot")
+				ss << ", \"spot\": {\"innerConeAngle\": " << l.innerConeAngle << ", \"outerConeAngle\": " << l.outerConeAngle << "}";
+			ss << "}";
+		}
+		ss << "]}}";
+		sections.push_back({ "extensions", ss.str() });
+		sections.push_back({ "extensionsUsed", "[\"KHR_lights_punctual\"]" });
 	}
 
 	// meshes
