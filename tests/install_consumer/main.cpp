@@ -9,7 +9,6 @@
 #include "CGLib/File/File/OBJFileReader.h"
 #include "CGLib/Animation/Animation/Animator.h"
 #include "CGLib/GeometryNode/GeometryNode/GeometryOps.h"
-#include "CGLib/Scene/Scene/SceneBase.h"
 #include "CGLib/SceneRuntime/SceneRuntime/SceneGraph.h"
 
 #include <cstdio>

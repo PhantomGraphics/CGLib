@@ -1,5 +1,7 @@
 # Scene / SceneRuntime 利用表（2026-10-06）
 
+> 2026-10-14 更新: リポジトリ内の実アプリ利用者がないことを再確認し、ユーザー指示により旧 Scene モジュールと専用テスト・ビルド・配布設定を削除した。以下は削除前の調査記録。別途配布された外部コードの利用状況はこの調査の対象外。
+
 `docs/todo/PLAN_cglib_refactoring.md` Phase 5 の「Scene と SceneRuntime の利用表」。ソースの `#include`・
 CMake の link・vcxproj の `AdditionalDependencies` を `git grep` 相当で照合した静的調査で、実行結果ではない。
 対象は `Phantom/`（CGLib/Physics/PointCloud/RayTracer）と親リポジトリの `CGApp/`。

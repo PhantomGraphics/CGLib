@@ -58,7 +58,7 @@ endfunction()
 # component name = target name
 set(_cglib_install_components
     Math=MathCore Graphics=GraphicsCore Numerics=NumericsCore Space=SpaceCore
-    Scene=SceneCore Volume=VolumeCore File=FileCore Animation=AnimationCore
+    Volume=VolumeCore File=FileCore Animation=AnimationCore
     GeometryNode=GeometryNodeCore MeshEdit=MeshEditCore ShaderGraph=ShaderGraphCore Asset=AssetCore SceneRuntime=SceneRuntimeCore)
 
 set(_cglib_install_targets "")
@@ -111,15 +111,12 @@ foreach(_dir Math Graphics Util)
         FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp" PATTERN "*.inl" PATTERN "*.hxx"
         PATTERN "pch.h" EXCLUDE)
 endforeach()
-foreach(_dir Numerics Space Scene File Animation Volume GeometryNode MeshEdit ShaderGraph AssetCore SceneRuntime)
-    # Scene/Scene presenters pull Renderer (Vulkan) headers and are not in SceneCore.
+foreach(_dir Numerics Space File Animation Volume GeometryNode MeshEdit ShaderGraph AssetCore SceneRuntime)
     install(DIRECTORY ${CGLIB_ROOT}/${_dir}/${_dir}/ DESTINATION ${_hdr_dest}/${_dir}/${_dir}
         FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp" PATTERN "*.inl" PATTERN "*.hxx"
         PATTERN "pch.h" EXCLUDE
         PATTERN "*Presenter.h" EXCLUDE)
 endforeach()
-# IPresenter.h is part of SceneBase's interface and has no Vulkan dependency.
-install(FILES ${CGLIB_ROOT}/Scene/Scene/IPresenter.h DESTINATION ${_hdr_dest}/Scene/Scene)
 
 # Vendored header-only dependencies reached by relative or <angle> includes.
 install(DIRECTORY ${CGLIB_ROOT}/ThirdParty/glm/glm DESTINATION ${_hdr_dest}/ThirdParty/glm)

@@ -16,7 +16,7 @@ installable while preserving its use as a Phantom submodule.
 ## Current constraints
 
 - Only the CPU components are installable (`CGLIB_INSTALL`, default ON when CGLib is the
-  top-level project): Math, Graphics, Numerics, Space, Scene, Volume, File, Animation, Terrain,
+  top-level project): Math, Graphics, Numerics, Space, Volume, File, Animation, Terrain,
   Asset, SceneRuntime, exported as `CGLib::<Component>`. Headers keep the source-relative
   layout under `include/CGLib/` and bundle glm, nlohmann/json, Eigen and cgltf, because public
   headers reach them by relative path. `VulkanGraphics` is exported separately
