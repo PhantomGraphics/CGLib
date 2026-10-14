@@ -11,6 +11,7 @@ include(${CGLIB_ROOT}/cmake/PhantomCoreLibs.cmake)
 
 add_library(EditorCore STATIC
     Gizmo/GizmoGeometry.cpp
+    Selection/SelectionGeometry.cpp
     Commands/Tokenizer.cpp
     Commands/Script.cpp
     Commands/Registry.cpp
@@ -35,6 +36,7 @@ if(PHANTOM_GTEST_FOUND)
         SOURCES EditorTest/InputTest.cpp EditorTest/InputResolverTest.cpp
             EditorTest/CommandTest.cpp EditorTest/SelectionSetTest.cpp
             EditorTest/CommandConsoleModelTest.cpp
+            EditorTest/MultiSelectionGizmoTest.cpp EditorTest/SelectionGeometryTest.cpp
         LINK EditorCore)
 endif()
 
