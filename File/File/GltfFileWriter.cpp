@@ -83,6 +83,11 @@ namespace {
 		int tex  = -1;
 		int tan  = -1;
 		int idx  = -1;
+		int tex1 = -1;
+		int joints = -1;
+		int weights = -1;
+		int color = -1;
+		std::vector<std::pair<int, int>> targets; // (POSITION, NORMAL or -1) per morph target
 	};
 
 } // anonymous namespace
@@ -205,6 +210,84 @@ bool GltfFileWriter::write(std::ostream& stream, const GltfFile& gltf)
 				accessors.push_back(acc);
 			}
 
+			// TEXCOORD_1 (VEC2 FLOAT)
+			if (!prim.texCoords1.empty()) {
+				AccessorRec acc;
+				acc.bufferViewIndex = addBufferView(prim.texCoords1.data(), prim.texCoords1.size() * sizeof(Math::Vector2df), 34962);
+				acc.componentType = 5126;
+				acc.count = prim.texCoords1.size();
+				acc.type = "VEC2";
+				pa.tex1 = static_cast<int>(accessors.size());
+				accessors.push_back(acc);
+			}
+
+			// COLOR_0 (VEC4 FLOAT)
+			if (!prim.colors.empty()) {
+				AccessorRec acc;
+				acc.bufferViewIndex = addBufferView(prim.colors.data(), prim.colors.size() * sizeof(Math::Vector4df), 34962);
+				acc.componentType = 5126;
+				acc.count = prim.colors.size();
+				acc.type = "VEC4";
+				pa.color = static_cast<int>(accessors.size());
+				accessors.push_back(acc);
+			}
+
+			// JOINTS_0 (VEC4 UNSIGNED_SHORT) / WEIGHTS_0 (VEC4 FLOAT)
+			if (!prim.joints.empty() && prim.weights.size() == prim.joints.size()) {
+				std::vector<uint16_t> packed;
+				packed.reserve(prim.joints.size() * 4);
+				for (const auto& j : prim.joints)
+					for (int c = 0; c < 4; ++c) packed.push_back(static_cast<uint16_t>(j[c]));
+				AccessorRec acc;
+				acc.bufferViewIndex = addBufferView(packed.data(), packed.size() * sizeof(uint16_t), 34962);
+				acc.componentType = 5123; // UNSIGNED_SHORT
+				acc.count = prim.joints.size();
+				acc.type = "VEC4";
+				pa.joints = static_cast<int>(accessors.size());
+				accessors.push_back(acc);
+
+				AccessorRec wacc;
+				wacc.bufferViewIndex = addBufferView(prim.weights.data(), prim.weights.size() * sizeof(Math::Vector4df), 34962);
+				wacc.componentType = 5126;
+				wacc.count = prim.weights.size();
+				wacc.type = "VEC4";
+				pa.weights = static_cast<int>(accessors.size());
+				accessors.push_back(wacc);
+			}
+
+			// Morph targets: POSITION deltas (min/max required) and optional NORMAL deltas.
+			for (const GLTFMorphTarget& tgt : prim.targets) {
+				int posAcc = -1, nrmAcc = -1;
+				if (!tgt.positionDeltas.empty()) {
+					AccessorRec acc;
+					acc.bufferViewIndex = addBufferView(tgt.positionDeltas.data(), tgt.positionDeltas.size() * sizeof(Math::Vector3df), 34962);
+					acc.componentType = 5126;
+					acc.count = tgt.positionDeltas.size();
+					acc.type = "VEC3";
+					acc.hasMinMax = true;
+					acc.minMaxCount = 3;
+					for (int c = 0; c < 3; ++c) {
+						acc.minVal[c] = acc.maxVal[c] = tgt.positionDeltas[0][c];
+						for (const auto& v : tgt.positionDeltas) {
+							acc.minVal[c] = std::min(acc.minVal[c], v[c]);
+							acc.maxVal[c] = std::max(acc.maxVal[c], v[c]);
+						}
+					}
+					posAcc = static_cast<int>(accessors.size());
+					accessors.push_back(acc);
+				}
+				if (!tgt.normalDeltas.empty()) {
+					AccessorRec acc;
+					acc.bufferViewIndex = addBufferView(tgt.normalDeltas.data(), tgt.normalDeltas.size() * sizeof(Math::Vector3df), 34962);
+					acc.componentType = 5126;
+					acc.count = tgt.normalDeltas.size();
+					acc.type = "VEC3";
+					nrmAcc = static_cast<int>(accessors.size());
+					accessors.push_back(acc);
+				}
+				pa.targets.push_back({ posAcc, nrmAcc });
+			}
+
 			// INDICES (SCALAR UNSIGNED_INT)
 			if (!prim.indices.empty()) {
 				const int bvIdx = addBufferView(
@@ -220,6 +303,20 @@ bool GltfFileWriter::write(std::ostream& stream, const GltfFile& gltf)
 				accessors.push_back(acc);
 			}
 		}
+	}
+
+	// Skins: one MAT4 accessor of inverse bind matrices per skin (column-major, as stored).
+	std::vector<int> skinIbmAcc(gltf.skins.size(), -1);
+	for (size_t si = 0; si < gltf.skins.size(); ++si) {
+		const GLTFSkin& skin = gltf.skins[si];
+		if (skin.inverseBindMatrices.empty()) continue;
+		AccessorRec acc;
+		acc.bufferViewIndex = addBufferView(skin.inverseBindMatrices.data(), skin.inverseBindMatrices.size() * sizeof(std::array<float, 16>), 0);
+		acc.componentType = 5126;
+		acc.count = skin.inverseBindMatrices.size();
+		acc.type = "MAT4";
+		skinIbmAcc[si] = static_cast<int>(accessors.size());
+		accessors.push_back(acc);
 	}
 
 	// Animations: per sampler one time accessor (SCALAR, min/max required by the spec) and one value accessor.
@@ -246,8 +343,12 @@ bool GltfFileWriter::write(std::ostream& stream, const GltfFile& gltf)
 			AccessorRec out;
 			out.bufferViewIndex = addBufferView(smp.values.data(), smp.values.size() * sizeof(float), 0);
 			out.componentType = 5126;
-			out.type = smp.components == 3 ? "VEC3" : smp.components == 4 ? "VEC4" : "SCALAR";
-			const size_t stride = (smp.components == 3 || smp.components == 4) ? static_cast<size_t>(smp.components) : 1u;
+			bool isWeights = false;   // a weights output is a flat SCALAR array whatever the target count is
+			for (const auto& ch : anim.channels)
+				if (ch.sampler == static_cast<int>(si) && ch.path == GLTFAnimationPath::Weights) isWeights = true;
+			const bool vec = !isWeights && (smp.components == 3 || smp.components == 4);
+			out.type = vec ? (smp.components == 3 ? "VEC3" : "VEC4") : "SCALAR";
+			const size_t stride = vec ? static_cast<size_t>(smp.components) : 1u;
 			out.count = smp.values.size() / stride;
 			animAcc[ai][si].output = static_cast<int>(accessors.size());
 			accessors.push_back(out);
@@ -298,19 +399,28 @@ bool GltfFileWriter::write(std::ostream& stream, const GltfFile& gltf)
 
 			if (!node.name.empty()) { sep(); ss << "\"name\": " << quoted(node.name); }
 			if (node.meshIndex >= 0) { sep(); ss << "\"mesh\": " << node.meshIndex; }
+			if (node.skin >= 0) { sep(); ss << "\"skin\": " << node.skin; }
 			if (node.cameraIndex >= 0) { sep(); ss << "\"camera\": " << node.cameraIndex; }
+			if (!node.morphWeights.empty()) {
+				sep();
+				ss << "\"weights\": " << floatArray(node.morphWeights.data(), node.morphWeights.size());
+			}
 			if (node.lightIndex >= 0) {
 				sep();
 				ss << "\"extensions\": {\"KHR_lights_punctual\": {\"light\": " << node.lightIndex << "}}";
 			}
 
-			const bool hasT = (node.translation[0] != 0.0f || node.translation[1] != 0.0f || node.translation[2] != 0.0f);
+			if (node.hasMatrix) {
+				sep();
+				ss << "\"matrix\": " << floatArray(node.matrix.data(), 16);
+			}
+			const bool hasT = !node.hasMatrix && (node.translation[0] != 0.0f || node.translation[1] != 0.0f || node.translation[2] != 0.0f);
 			if (hasT) { sep(); ss << "\"translation\": " << floatArray(node.translation.data(), 3); }
 
-			const bool hasR = (node.rotation[0] != 0.0f || node.rotation[1] != 0.0f || node.rotation[2] != 0.0f || node.rotation[3] != 1.0f);
+			const bool hasR = !node.hasMatrix && (node.rotation[0] != 0.0f || node.rotation[1] != 0.0f || node.rotation[2] != 0.0f || node.rotation[3] != 1.0f);
 			if (hasR) { sep(); ss << "\"rotation\": " << floatArray(node.rotation.data(), 4); }
 
-			const bool hasS = (node.scale[0] != 1.0f || node.scale[1] != 1.0f || node.scale[2] != 1.0f);
+			const bool hasS = !node.hasMatrix && (node.scale[0] != 1.0f || node.scale[1] != 1.0f || node.scale[2] != 1.0f);
 			if (hasS) { sep(); ss << "\"scale\": " << floatArray(node.scale.data(), 3); }
 
 			if (!node.children.empty()) {
@@ -397,7 +507,22 @@ bool GltfFileWriter::write(std::ostream& stream, const GltfFile& gltf)
 				if (pa.norm >= 0) { attrSep(); ss << "\"NORMAL\": "     << pa.norm; }
 				if (pa.tex  >= 0) { attrSep(); ss << "\"TEXCOORD_0\": " << pa.tex; }
 				if (pa.tan  >= 0) { attrSep(); ss << "\"TANGENT\": "    << pa.tan; }
+				if (pa.tex1 >= 0) { attrSep(); ss << "\"TEXCOORD_1\": " << pa.tex1; }
+				if (pa.color >= 0) { attrSep(); ss << "\"COLOR_0\": "   << pa.color; }
+				if (pa.joints >= 0) { attrSep(); ss << "\"JOINTS_0\": " << pa.joints; }
+				if (pa.weights >= 0) { attrSep(); ss << "\"WEIGHTS_0\": " << pa.weights; }
 				ss << "}";
+				if (!pa.targets.empty()) {
+					ss << ", \"targets\": [";
+					for (size_t ti = 0; ti < pa.targets.size(); ++ti) {
+						if (ti > 0) ss << ", ";
+						ss << "{";
+						if (pa.targets[ti].first >= 0) ss << "\"POSITION\": " << pa.targets[ti].first;
+						if (pa.targets[ti].second >= 0) ss << (pa.targets[ti].first >= 0 ? ", " : "") << "\"NORMAL\": " << pa.targets[ti].second;
+						ss << "}";
+					}
+					ss << "]";
+				}
 				if (pa.idx >= 0) ss << ", \"indices\": " << pa.idx;
 				if (prim.materialIndex >= 0) ss << ", \"material\": " << prim.materialIndex;
 				ss << ", \"mode\": " << static_cast<int>(prim.mode);
@@ -405,7 +530,10 @@ bool GltfFileWriter::write(std::ostream& stream, const GltfFile& gltf)
 				if (pi + 1 < mesh.primitives.size()) ss << ",";
 				ss << "\n";
 			}
-			ss << "    ]}";
+			ss << "    ]";
+			if (!mesh.morphWeights.empty())
+				ss << ", \"weights\": " << floatArray(mesh.morphWeights.data(), mesh.morphWeights.size());
+			ss << "}";
 			if (mi + 1 < gltf.meshes.size()) ss << ",";
 			ss << "\n";
 		}
@@ -442,6 +570,11 @@ bool GltfFileWriter::write(std::ostream& stream, const GltfFile& gltf)
 				ss << "}";
 			}
 
+			if (mat.alphaMode == GLTFAlphaMode::Blend) { sep(); ss << "\"alphaMode\": \"BLEND\""; }
+			if (mat.alphaMode == GLTFAlphaMode::Mask) {
+				sep();
+				ss << "\"alphaMode\": \"MASK\", \"alphaCutoff\": " << mat.alphaCutoff;
+			}
 			if (mat.doubleSided) { sep(); ss << "\"doubleSided\": true"; }
 
 			const bool hasEmissive = (mat.emissiveFactor[0] != 0.0f || mat.emissiveFactor[1] != 0.0f || mat.emissiveFactor[2] != 0.0f);
@@ -505,6 +638,29 @@ bool GltfFileWriter::write(std::ostream& stream, const GltfFile& gltf)
 		}
 		ss << "  ]";
 		sections.push_back({ "images", ss.str() });
+	}
+
+	// skins
+	if (!gltf.skins.empty()) {
+		std::ostringstream ss;
+		ss << "[\n";
+		for (size_t si = 0; si < gltf.skins.size(); ++si) {
+			const GLTFSkin& skin = gltf.skins[si];
+			ss << "    {";
+			if (!skin.name.empty()) ss << "\"name\": " << quoted(skin.name) << ", ";
+			if (skinIbmAcc[si] >= 0) ss << "\"inverseBindMatrices\": " << skinIbmAcc[si] << ", ";
+			if (skin.skeletonRoot >= 0) ss << "\"skeleton\": " << skin.skeletonRoot << ", ";
+			ss << "\"joints\": [";
+			for (size_t ji = 0; ji < skin.joints.size(); ++ji) {
+				if (ji > 0) ss << ", ";
+				ss << skin.joints[ji];
+			}
+			ss << "]}";
+			if (si + 1 < gltf.skins.size()) ss << ",";
+			ss << "\n";
+		}
+		ss << "  ]";
+		sections.push_back({ "skins", ss.str() });
 	}
 
 	// animations
