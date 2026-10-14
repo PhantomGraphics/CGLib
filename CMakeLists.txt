@@ -176,7 +176,6 @@ if(PHANTOM_VULKAN_INCLUDE_DIR)
     # Peripheral Vulkan modules -- each owns a CMakeLists.txt.
     add_subdirectory(Renderer)
     add_subdirectory(GltfRenderer)
-    add_subdirectory(Input)
     add_subdirectory(Particles)
     add_subdirectory(PostProcess)
 endif()
@@ -219,7 +218,7 @@ set(CGLIB_ALIAS_MAP
     Pugixml=PugixmlCore
     VulkanGraphics=VulkanGraphicsCore  UI=UIWidgetsCore  VkAppBase=VkAppBaseCore
     VkRenderer=VkRendererCore  GltfRenderer=GltfRendererCore  VolumeRenderer=VolumeRenderer
-    Editor=EditorCore  EditorVulkan=EditorVulkanCore  Input=InputCore  Particles=ParticlesCore  PostProcess=PostProcessCore)
+    Editor=EditorCore  EditorVulkan=EditorVulkanCore  Particles=ParticlesCore  PostProcess=PostProcessCore)
 foreach(_pair IN LISTS CGLIB_ALIAS_MAP)
     string(REPLACE "=" ";" _pair "${_pair}")
     list(GET _pair 0 _name)

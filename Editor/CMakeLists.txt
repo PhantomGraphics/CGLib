@@ -9,13 +9,28 @@ endif()
 include(${CGLIB_ROOT}/cmake/CGLibCommon.cmake)
 include(${CGLIB_ROOT}/cmake/PhantomCoreLibs.cmake)
 
-add_library(EditorCore STATIC Gizmo/GizmoGeometry.cpp)
+add_library(EditorCore STATIC
+    Gizmo/GizmoGeometry.cpp
+    Commands/Tokenizer.cpp
+    Commands/Script.cpp
+    Input/Input.cpp
+    Input/Bindings.cpp
+    Input/InputResolver.cpp)
 target_compile_features(EditorCore PUBLIC cxx_std_20)
 target_include_directories(EditorCore PUBLIC ${REPO_ROOT} ${CMAKE_CURRENT_SOURCE_DIR}/Gizmo)
 phantom_add_math_core()
 target_link_libraries(EditorCore PUBLIC MathCore)
 target_compile_options(EditorCore PRIVATE ${PHANTOM_WARN_FLAGS})
 add_library(CGLib::Editor ALIAS EditorCore)
+
+include(${CGLIB_ROOT}/cmake/PhantomGTest.cmake)
+phantom_find_gtest()
+if(PHANTOM_GTEST_FOUND)
+    enable_testing()
+    cglib_add_test(EditorTest
+        SOURCES EditorTest/InputTest.cpp EditorTest/InputResolverTest.cpp
+        LINK EditorCore)
+endif()
 
 if(NOT DEFINED CGLIB_ENABLE_VULKAN)
     find_package(Vulkan QUIET)

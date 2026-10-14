@@ -63,8 +63,7 @@ Math ──┬── Graphics ──┬── File
 - **Animation:** skeletal clips, poses, interpolation, and playback.
 - **Particles:** GPU simulation and billboard rendering.
 - **PostProcess:** bloom, SSAO, FXAA, and tone mapping.
-- **Editor:** shared editing functionality. `Editor/Gizmo` provides transform gizmo types and geometry (`EditorCore`) plus the optional Vulkan backend (`EditorVulkanCore`). See `Editor/README.md`.
-- **Input:** device-to-action input mapping.
+- **Editor:** shared editing functionality, including UI/device-independent input notation, keymaps, command/action resolution and named action state (`Phantom::Editor`). Device polling and concrete game actions belong to the host. `Editor/Gizmo` provides transform gizmo types and geometry (`EditorCore`) plus the optional Vulkan backend (`EditorVulkanCore`). See `Editor/README.md`.
 
 ## Design conventions
 
