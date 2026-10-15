@@ -370,6 +370,37 @@ void GltfSceneRenderer::createShadowPipeline(VkRenderPass shadowRenderPass)
     shadowPipeline_.create(*ctx_, shadowRenderPass, cfg);
 }
 
+void GltfSceneRenderer::createSkinnedShadowPipeline(VkRenderPass shadowRenderPass)
+{
+    if (!ctx_ || shaders_.skinnedShadowVertSpv.empty() || shaders_.shadowFragSpv.empty())
+        return;
+    skinnedShadowPipeline_.destroy(ctx_->getDevice());
+
+    Phantom::VKG::PipelineConfig cfg;
+    cfg.vertSpv = shaders_.skinnedShadowVertSpv;
+    cfg.fragSpv = shaders_.shadowFragSpv;
+    cfg.bindingDescs = { GltfGpuMesh::Vertex::getBindingDescription() };
+    // position (0), joint indices (4), joint weights (5)
+    auto allAttrs = GltfGpuMesh::Vertex::getAttributeDescriptions();
+    cfg.attrDescs = { allAttrs[0], allAttrs[4], allAttrs[5] };
+    cfg.descriptorSetLayouts = { descriptors_.globalLayout() };
+    cfg.cullMode    = VK_CULL_MODE_NONE;
+    cfg.blendEnable = false;
+    cfg.pushConstantRanges = { VkPushConstantRange{
+        VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4) * 2 } };
+    skinnedShadowPipeline_.create(*ctx_, shadowRenderPass, cfg);
+}
+
+void GltfSceneRenderer::renderSkinnedShadowCasters(VkCommandBuffer cmd, const glm::mat4& lightVP, uint32_t frameIndex)
+{
+    if (!ready_ || skinnedShadowPipeline_.getPipeline() == VK_NULL_HANDLE || primitives_.empty())
+        return;
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, skinnedShadowPipeline_.getPipeline());
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, skinnedShadowPipeline_.getLayout(),
+                            0, 1, descriptors_.globalSet(frameIndex), 0, nullptr);
+    renderShadowCastersWithModel(cmd, lightVP, modelMatrix_, skinnedShadowPipeline_.getLayout());
+}
+
 void GltfSceneRenderer::renderShadowCasters(VkCommandBuffer cmd, const glm::mat4& lightVP)
 {
     if (!ready_ || shadowPipeline_.getPipeline() == VK_NULL_HANDLE || primitives_.empty())
@@ -388,10 +419,11 @@ void GltfSceneRenderer::renderShadowCasterInstances(VkCommandBuffer cmd, const g
         renderShadowCastersWithModel(cmd, lightVP, model);
 }
 
-void GltfSceneRenderer::renderShadowCastersWithModel(VkCommandBuffer cmd, const glm::mat4& lightVP, const glm::mat4& model)
+void GltfSceneRenderer::renderShadowCastersWithModel(VkCommandBuffer cmd, const glm::mat4& lightVP, const glm::mat4& model, VkPipelineLayout layout)
 {
     const std::array<glm::mat4, 2> push{ lightVP, model };
-    vkCmdPushConstants(cmd, shadowPipeline_.getLayout(), VK_SHADER_STAGE_VERTEX_BIT,
+    if (layout == VK_NULL_HANDLE) layout = shadowPipeline_.getLayout();
+    vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_VERTEX_BIT,
                        0, sizeof(push), push.data());
 
     for (auto& entry : primitives_) {
@@ -935,6 +967,7 @@ void GltfSceneRenderer::onCleanup(VkDevice device) {
     sampledLightLayout_.destroy(device);
     sampledLightReady_=false;
     shadowPipeline_.destroy(device);
+    skinnedShadowPipeline_.destroy(device);
     if (skybox_) { skybox_->destroy(device); skybox_.reset(); }
 
     for (auto& entry : primitives_) entry->mesh.destroy(device);

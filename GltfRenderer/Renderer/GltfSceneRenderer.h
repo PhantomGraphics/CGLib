@@ -57,6 +57,7 @@ namespace Phantom::Gltf
             GltfIBLPrecomputer::Shaders ibl;           // Phase 3: IBL (empty = skip)
             std::vector<uint32_t> shadowVertSpv;       // Phase C: depth-only shadow-caster pass
             std::vector<uint32_t> shadowFragSpv;       // (either empty = shadow casting disabled)
+            std::vector<uint32_t> skinnedShadowVertSpv; // optional: shadow caster that applies the BoneUBO (set 0 binding 5)
             std::vector<uint32_t> sampledLightFragSpv; // optional ensemble surface-light variant
         };
 
@@ -304,6 +305,14 @@ namespace Phantom::Gltf
         void createShadowPipeline(VkRenderPass shadowRenderPass);
         bool hasShadowPipeline() const { return shadowPipeline_.getPipeline() != VK_NULL_HANDLE; }
 
+        // Skinned variant of the above (GPU skinning): needs Shaders::skinnedShadowVertSpv + shadowFragSpv. The vertex
+        // shader reads the same BoneUBO as the main pass (set 0 binding 5), which this binds from the frame's global
+        // descriptor set, so the caster matches the skinned/morphed pose drawn in the main pass. Push constants are
+        // {lightVP, model} like renderShadowCasters(). Call between a ShadowMapPass's begin()/end().
+        void createSkinnedShadowPipeline(VkRenderPass shadowRenderPass);
+        bool hasSkinnedShadowPipeline() const { return skinnedShadowPipeline_.getPipeline() != VK_NULL_HANDLE; }
+        void renderSkinnedShadowCasters(VkCommandBuffer cmd, const glm::mat4& lightVP, uint32_t frameIndex);
+
         // Draws every primitive's position-only geometry through the shadow-caster
         // pipeline using the same per-instance model matrix as the PBR pass. Must be
         // called between a ShadowMapPass's begin()/end(). No-op if
@@ -455,6 +464,7 @@ namespace Phantom::Gltf
 
         // Shadow mapping (Phase C)
         Phantom::VKG::VulkanPipeline shadowPipeline_; // depth-only, push-constant lightVP only
+        Phantom::VKG::VulkanPipeline skinnedShadowPipeline_; // see createSkinnedShadowPipeline()
         VkImageView shadowView_     = VK_NULL_HANDLE;
         VkSampler   shadowSampler_  = VK_NULL_HANDLE;
         glm::mat4   shadowVP_       = glm::mat4(1.f);
@@ -557,7 +567,8 @@ namespace Phantom::Gltf
 
         // Shared body of renderShadowCasters()/renderShadowCasterInstances(): pushes {lightVP,
         // model} and draws every primitive's position-only geometry through shadowPipeline_.
-        void renderShadowCastersWithModel(VkCommandBuffer cmd, const glm::mat4& lightVP, const glm::mat4& model);
+        void renderShadowCastersWithModel(VkCommandBuffer cmd, const glm::mat4& lightVP, const glm::mat4& model,
+                                          VkPipelineLayout layout = VK_NULL_HANDLE);
 
         // Descriptor layout helpers (document-independent, called once in onInit)
         void updateGlobalDescriptorSets(VkDevice device);
