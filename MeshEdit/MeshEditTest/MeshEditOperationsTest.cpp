@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <map>
 #include <set>
 #include <string>
 
@@ -539,6 +540,115 @@ TEST(MergeByDistance, OnlyTheGivenVerticesAreCandidatesAndNothingToMergeFails) {
     EXPECT_FALSE(mergeByDistance(thick, {}, -1.f, out, &error));
     // A large distance welds the whole box into a point: refused rather than producing an invalid mesh.
     EXPECT_FALSE(mergeByDistance(box, {}, 5.f, out, &error));
+}
+
+// ---- bridge ----
+
+namespace {
+
+// Two unit boxes stacked with a gap: A centred at y = 0, B at y = 2.
+EditableMesh twoBoxes() {
+    EditableMesh m = makeEditableBox(0.5f);
+    const EditableMesh other = makeEditableBox(0.5f);
+    std::map<uint32_t, uint32_t> remap;
+    for (const auto& v : other.vertices) remap[v.id] = m.addVertex(v.pos[0], v.pos[1] + 2.f, v.pos[2]);
+    for (const auto& f : other.faces) {
+        std::vector<EditableCorner> loop = f.loop;
+        for (auto& c : loop) c.vertex = remap[c.vertex];
+        m.addFace(loop);
+    }
+    m.rebuildEdges();
+    return m;
+}
+
+// The face whose vertices all lie at height y (within 0.01).
+uint32_t faceAtHeight(const EditableMesh& m, float y) {
+    for (const auto& f : m.faces) {
+        bool all = true;
+        for (const auto& c : f.loop) all = all && std::fabs(m.findVertex(c.vertex)->pos[1] - y) < 0.01f;
+        if (all) return f.id;
+    }
+    return ~0u;
+}
+
+// Every edge of a closed manifold is used by exactly two faces.
+bool isClosed(const EditableMesh& m) {
+    std::map<std::pair<uint32_t, uint32_t>, int> uses;
+    for (const auto& f : m.faces)
+        for (size_t i = 0; i < f.loop.size(); ++i) {
+            const uint32_t p = f.loop[i].vertex, q = f.loop[(i + 1) % f.loop.size()].vertex;
+            ++uses[{ std::min(p, q), std::max(p, q) }];
+        }
+    for (const auto& u : uses) if (u.second != 2) return false;
+    return true;
+}
+
+}  // namespace
+
+TEST(BridgeFaces, JoinsTwoBoxesIntoOneClosedSolid) {
+    const EditableMesh boxes = twoBoxes();
+    ASSERT_TRUE(isClosed(boxes));
+    EditableMesh out;
+    std::vector<uint32_t> created;
+    std::string error;
+    ASSERT_TRUE(bridgeFaces(boxes, { faceAtHeight(boxes, 0.5f), faceAtHeight(boxes, 1.5f) }, out, &error, &created)) << error;
+    EXPECT_EQ(12u - 2u + 4u, out.faces.size());
+    EXPECT_EQ(4u, created.size());
+    for (uint32_t id : created) EXPECT_EQ(4u, out.findFace(id)->loop.size());
+    EXPECT_EQ(boxes.vertices.size(), out.vertices.size());
+    EXPECT_TRUE(isClosed(out));
+    EXPECT_TRUE(out.validate(&error)) << error;
+    // Each wall faces away from the neck axis (x = z = 0).
+    for (uint32_t id : created) {
+        const EditableFace& f = *out.findFace(id);
+        float n[3];
+        ASSERT_GT(newellNormal(out, f, n), 0.f);
+        float mid[2] = { 0.f, 0.f };
+        for (const auto& c : f.loop) { mid[0] += out.findVertex(c.vertex)->pos[0] / 4.f; mid[1] += out.findVertex(c.vertex)->pos[2] / 4.f; }
+        EXPECT_GT(n[0] * mid[0] + n[2] * mid[1], 0.f) << "wall " << id;
+    }
+}
+
+TEST(BridgeFaces, RejectsBadFaceSelections) {
+    const EditableMesh boxes = twoBoxes();
+    EditableMesh out;
+    std::string error;
+    const uint32_t top = faceAtHeight(boxes, 0.5f);
+    EXPECT_FALSE(bridgeFaces(boxes, { top }, out, &error));                                       // one face
+    EXPECT_FALSE(bridgeFaces(boxes, { top, 9999 }, out, &error));                                 // missing face
+    // Top and bottom of the same box: the new walls would double the box's own sides (three faces on one edge).
+    EXPECT_FALSE(bridgeFaces(boxes, { top, faceAtHeight(boxes, -0.5f) }, out, &error));
+    EXPECT_FALSE(error.empty());
+}
+
+TEST(BridgeEdges, JoinsTwoOpenLoopsAndRejectsMismatches) {
+    EditableMesh boxes = twoBoxes();
+    // Remove the facing faces so both rims become boundary loops.
+    EditableMesh holes;
+    ASSERT_TRUE(deleteElements(boxes, ElementKind::Face, { faceAtHeight(boxes, 0.5f), faceAtHeight(boxes, 1.5f) }, holes));
+    std::vector<uint32_t> rim;
+    for (const auto& e : holes.edges) {
+        const float ya = holes.findVertex(e.a)->pos[1], yb = holes.findVertex(e.b)->pos[1];
+        if (std::fabs(ya - yb) < 1e-6f && (std::fabs(ya - 0.5f) < 1e-6f || std::fabs(ya - 1.5f) < 1e-6f)) rim.push_back(e.id);
+    }
+    ASSERT_EQ(8u, rim.size());
+    EditableMesh out;
+    std::string error;
+    ASSERT_TRUE(bridgeEdges(holes, rim, out, &error)) << error;
+    EXPECT_TRUE(isClosed(out));
+
+    // One loop only, an interior edge, and unequal chains are refused.
+    std::vector<uint32_t> oneLoop(rim.begin(), rim.begin() + 4);
+    EXPECT_FALSE(bridgeEdges(holes, oneLoop, out, &error));
+    // Two edges that are not on the boundary (the box's vertical edges).
+    std::vector<uint32_t> interior;
+    for (const auto& e : holes.edges)
+        if (std::fabs(holes.findVertex(e.a)->pos[1] - holes.findVertex(e.b)->pos[1]) > 0.5f && interior.size() < 2) interior.push_back(e.id);
+    EXPECT_FALSE(bridgeEdges(holes, interior, out, &error));
+    std::vector<uint32_t> unequal(rim.begin(), rim.begin() + 7);
+    EXPECT_FALSE(bridgeEdges(holes, unequal, out, &error));
+    EXPECT_FALSE(error.empty());
+    EXPECT_FALSE(bridgeEdges(holes, { 99999, 99998 }, out, &error));
 }
 
 // ---- knife ----

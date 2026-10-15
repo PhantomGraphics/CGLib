@@ -1432,6 +1432,145 @@ bool mergeByDistance(const EditableMesh& in, const std::vector<uint32_t>& vertic
 	return true;
 }
 
+bool bridgeEdges(const EditableMesh& in, const std::vector<uint32_t>& edgeIds, EditableMesh& out, std::string* error,
+                 std::vector<uint32_t>* newFaces) {
+	const std::set<uint32_t> ids(edgeIds.begin(), edgeIds.end());
+	if (ids.size() < 2) { fail(error, "bridge needs the edges of two loops (select more edges)"); return false; }
+
+	// Every directed use of an edge by a face, keyed by the unordered vertex pair.
+	struct Use { size_t face, corner; };
+	std::map<std::pair<uint32_t, uint32_t>, std::vector<Use>> uses;
+	for (size_t fi = 0; fi < in.faces.size(); ++fi) {
+		const auto& loop = in.faces[fi].loop;
+		for (size_t ci = 0; ci < loop.size(); ++ci) {
+			const uint32_t p = loop[ci].vertex, q = loop[(ci + 1) % loop.size()].vertex;
+			uses[{ std::min(p, q), std::max(p, q) }].push_back({ fi, ci });
+		}
+	}
+
+	// The selected boundary edges, directed the way their owning face runs.
+	std::map<uint32_t, uint32_t> next, prev;
+	std::map<uint32_t, EditableCorner> cornerOut, cornerIn;
+	for (uint32_t id : ids) {
+		const EditableEdge* edge = nullptr;
+		for (const auto& e : in.edges) if (e.id == id) { edge = &e; break; }
+		if (!edge) { fail(error, "edge " + std::to_string(id) + " does not exist"); return false; }
+		const auto it = uses.find({ edge->a, edge->b });
+		if (it == uses.end() || it->second.size() != 1) { fail(error, "edge " + std::to_string(id) + " is not a boundary edge (bridge joins open edges)"); return false; }
+		const auto& loop = in.faces[it->second[0].face].loop;
+		const size_t ci = it->second[0].corner;
+		const EditableCorner& from = loop[ci];
+		const EditableCorner& to = loop[(ci + 1) % loop.size()];
+		if (next.count(from.vertex) || prev.count(to.vertex)) { fail(error, "the selected edges branch at a vertex; select two simple loops"); return false; }
+		next[from.vertex] = to.vertex;
+		prev[to.vertex] = from.vertex;
+		cornerOut[from.vertex] = from;
+		cornerIn[to.vertex] = to;
+	}
+	auto cornerAt = [&](uint32_t vertex) {
+		const auto o = cornerOut.find(vertex);
+		EditableCorner c = o != cornerOut.end() ? o->second : cornerIn.at(vertex);
+		c.hasNormal = false;
+		c.normal[0] = c.normal[1] = c.normal[2] = 0.f;
+		return c;
+	};
+
+	struct Chain { std::vector<uint32_t> verts; bool closed = false; };
+	std::vector<Chain> chains;
+	std::set<uint32_t> visited;
+	for (const auto& entry : next) {
+		if (prev.count(entry.first)) continue;                 // not the start of an open chain
+		Chain chain;
+		for (uint32_t v = entry.first;; v = next.at(v)) {
+			chain.verts.push_back(v);
+			visited.insert(v);
+			if (!next.count(v)) break;
+		}
+		chains.push_back(std::move(chain));
+	}
+	for (const auto& entry : next) {
+		if (visited.count(entry.first)) continue;              // what remains are closed loops
+		Chain chain;
+		chain.closed = true;
+		uint32_t v = entry.first;
+		do { chain.verts.push_back(v); visited.insert(v); v = next.at(v); } while (v != entry.first);
+		chains.push_back(std::move(chain));
+	}
+	if (chains.size() != 2) { fail(error, "the selected edges form " + std::to_string(chains.size()) + " chain(s); bridge needs exactly two"); return false; }
+	if (chains[0].closed != chains[1].closed) { fail(error, "bridge needs two closed loops or two open chains, not one of each"); return false; }
+	if (chains[0].verts.size() != chains[1].verts.size()) {
+		fail(error, "the two chains have different lengths (" + std::to_string(chains[0].verts.size()) + " and " + std::to_string(chains[1].verts.size()) + " vertices)");
+		return false;
+	}
+	for (uint32_t v : chains[0].verts)
+		if (std::find(chains[1].verts.begin(), chains[1].verts.end(), v) != chains[1].verts.end()) { fail(error, "the two chains share a vertex"); return false; }
+
+	const std::vector<uint32_t>& a = chains[0].verts;
+	std::vector<uint32_t> b = chains[1].verts;
+	std::reverse(b.begin(), b.end());                           // the new quads run against the owning faces, so one side is reversed
+	const size_t count = a.size();
+	size_t shift = 0;
+	if (chains[0].closed) {
+		double best = 1e300;
+		for (size_t s = 0; s < count; ++s) {
+			double sum = 0;
+			for (size_t i = 0; i < count; ++i) {
+				const EditableVertex* p = in.findVertex(a[i]);
+				const EditableVertex* q = in.findVertex(b[(i + s) % count]);
+				for (int k = 0; k < 3; ++k) { const double d = double(p->pos[k]) - q->pos[k]; sum += d * d; }
+			}
+			if (sum < best) { best = sum; shift = s; }
+		}
+	}
+
+	EditableMesh work = in;
+	std::vector<uint32_t> created;
+	const size_t quads = chains[0].closed ? count : count - 1;
+	for (size_t i = 0; i < quads; ++i) {
+		const uint32_t a0 = a[i], a1 = a[(i + 1) % count];
+		const uint32_t b0 = b[(i + shift) % count], b1 = b[(i + shift + 1) % count];
+		created.push_back(work.addFace({ cornerAt(a1), cornerAt(a0), cornerAt(b0), cornerAt(b1) }));
+	}
+	work.rebuildEdges();
+	if (!work.validate(error)) {
+		if (error) *error = "the bridge would produce an invalid mesh: " + *error;
+		return false;
+	}
+	work.revision = nextEditableRevision();
+	out = std::move(work);
+	if (newFaces) *newFaces = std::move(created);
+	return true;
+}
+
+bool bridgeFaces(const EditableMesh& in, const std::vector<uint32_t>& faceIds, EditableMesh& out, std::string* error,
+                 std::vector<uint32_t>* newFaces) {
+	const std::set<uint32_t> ids(faceIds.begin(), faceIds.end());
+	if (ids.size() != 2) { fail(error, "bridge between faces needs exactly two faces"); return false; }
+	std::vector<const EditableFace*> faces;
+	for (uint32_t id : ids) {
+		const EditableFace* f = in.findFace(id);
+		if (!f) { fail(error, "face " + std::to_string(id) + " does not exist"); return false; }
+		faces.push_back(f);
+	}
+	if (faces[0]->loop.size() != faces[1]->loop.size()) { fail(error, "the two faces have different corner counts"); return false; }
+	for (const auto& c : faces[0]->loop)
+		for (const auto& d : faces[1]->loop)
+			if (c.vertex == d.vertex) { fail(error, "the two faces share a vertex"); return false; }
+
+	EditableMesh holes = in;
+	holes.faces.erase(std::remove_if(holes.faces.begin(), holes.faces.end(),
+		[&](const EditableFace& f) { return ids.count(f.id) != 0; }), holes.faces.end());
+	holes.rebuildEdges();
+	std::vector<uint32_t> edges;
+	for (const EditableFace* f : faces)
+		for (size_t i = 0; i < f->loop.size(); ++i) {
+			const EditableEdge* e = holes.findEdge(f->loop[i].vertex, f->loop[(i + 1) % f->loop.size()].vertex);
+			if (!e) { fail(error, "every edge of the faces needs a neighbouring face, so that the hole has an edge to bridge"); return false; }
+			edges.push_back(e->id);
+		}
+	return bridgeEdges(holes, edges, out, error, newFaces);
+}
+
 bool worldVectorToLocal(const std::array<float, 3>& rotationEulerDeg, const std::array<float, 3>& scale,
                         const std::array<float, 3>& world, std::array<float, 3>& local, std::string* error) {
 	for (float s : scale)
