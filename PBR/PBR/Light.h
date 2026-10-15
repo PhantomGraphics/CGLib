@@ -21,7 +21,7 @@ namespace Phantom::PBR {
 		LightType type = LightType::Directional;
 		glm::vec3 position{ 0.f };                 // Point / Spot / Area (ignored by Directional)
 		glm::vec3 direction{ 0.f, -1.f, 0.f };     // the way the light travels; Directional / Spot / Area
-		glm::vec3 up{ 0.f, 1.f, 0.f };             // Area: the rectangle's height axis (the width axis is direction x up)
+		glm::vec3 up{ 0.f, 1.f, 0.f };             // Area: preferred height axis; packLights orthogonalizes it (parallel/zero uses a fallback)
 		glm::vec3 color{ 1.f };                    // linear RGB
 		float intensity = 1.f;
 		float spotAngleRad = 0.785398163f;         // Spot: cone half-angle
