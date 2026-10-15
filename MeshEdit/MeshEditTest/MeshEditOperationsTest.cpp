@@ -651,6 +651,74 @@ TEST(BridgeEdges, JoinsTwoOpenLoopsAndRejectsMismatches) {
     EXPECT_FALSE(bridgeEdges(holes, { 99999, 99998 }, out, &error));
 }
 
+// ---- dissolve ----
+
+namespace {
+
+EditableCorner cornerOf(uint32_t v) { EditableCorner c; c.vertex = v; return c; }
+
+// A unit square in the XZ plane split into two triangles along the diagonal 0-2.
+EditableMesh twoTriangles() {
+    EditableMesh m;
+    const uint32_t a = m.addVertex(0, 0, 0), b = m.addVertex(1, 0, 0), c = m.addVertex(1, 0, 1), d = m.addVertex(0, 0, 1);
+    m.addFace({ cornerOf(a), cornerOf(c), cornerOf(b) });
+    m.addFace({ cornerOf(a), cornerOf(d), cornerOf(c) });
+    m.rebuildEdges();
+    return m;
+}
+
+}  // namespace
+
+TEST(DissolveElements, DissolvingTheDiagonalMakesAQuad) {
+    const EditableMesh m = twoTriangles();
+    ASSERT_TRUE(m.validate());
+    const EditableEdge* diagonal = m.findEdge(0, 2);
+    ASSERT_NE(nullptr, diagonal);
+    EditableMesh out;
+    std::vector<uint32_t> merged;
+    std::string error;
+    ASSERT_TRUE(dissolveElements(m, ElementKind::Edge, { diagonal->id }, out, &error, &merged)) << error;
+    ASSERT_EQ(1u, out.faces.size());
+    EXPECT_EQ(4u, out.faces[0].loop.size());
+    EXPECT_EQ(1u, merged.size());
+    EXPECT_EQ(4u, out.edges.size());
+    EXPECT_TRUE(out.validate(&error)) << error;
+    // A border edge cannot be dissolved.
+    const EditableEdge* border = m.findEdge(0, 1);
+    ASSERT_NE(nullptr, border);
+    EXPECT_FALSE(dissolveElements(m, ElementKind::Edge, { border->id }, out, &error));
+}
+
+TEST(DissolveElements, BoxEdgesWouldMakeSixCornersAndAreRefused) {
+    const EditableMesh box = makeEditableBox(0.5f);
+    EditableMesh out;
+    std::string error;
+    size_t skipped = 0;
+    EXPECT_FALSE(dissolveElements(box, ElementKind::Edge, { box.edges.front().id }, out, &error, nullptr, &skipped));
+    EXPECT_FALSE(error.empty());
+    EXPECT_FALSE(dissolveElements(box, ElementKind::Vertex, { box.vertices.front().id }, out, &error));   // three quads -> six corners
+    EXPECT_FALSE(dissolveElements(box, ElementKind::Face, { box.faces.front().id }, out, &error));
+}
+
+TEST(DissolveElements, ATriangleFanVertexIsRemoved) {
+    EditableMesh m;
+    const uint32_t c = m.addVertex(0, 0, 0);
+    const uint32_t a = m.addVertex(1, 0, 0), b = m.addVertex(-0.5f, 0, 1), d = m.addVertex(-0.5f, 0, -1);
+    m.addFace({ cornerOf(c), cornerOf(b), cornerOf(a) });
+    m.addFace({ cornerOf(c), cornerOf(d), cornerOf(b) });
+    m.addFace({ cornerOf(c), cornerOf(a), cornerOf(d) });
+    m.rebuildEdges();
+    std::string error;
+    ASSERT_TRUE(m.validate(&error)) << error;
+    EditableMesh out;
+    ASSERT_TRUE(dissolveElements(m, ElementKind::Vertex, { c }, out, &error)) << error;
+    EXPECT_EQ(3u, out.vertices.size());
+    ASSERT_EQ(1u, out.faces.size());
+    EXPECT_EQ(3u, out.faces[0].loop.size());
+    EXPECT_EQ(nullptr, out.findVertex(c));
+    EXPECT_TRUE(out.validate(&error)) << error;
+}
+
 // ---- knife ----
 
 TEST(KnifePlane, HorizontalCutSplitsTheFourSidesIntoQuads) {

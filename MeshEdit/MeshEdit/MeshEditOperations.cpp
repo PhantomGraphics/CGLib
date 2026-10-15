@@ -1571,6 +1571,122 @@ bool bridgeFaces(const EditableMesh& in, const std::vector<uint32_t>& faceIds, E
 	return bridgeEdges(holes, edges, out, error, newFaces);
 }
 
+bool dissolveElements(const EditableMesh& in, ElementKind kind, const std::vector<uint32_t>& ids, EditableMesh& out,
+                      std::string* error, std::vector<uint32_t>* mergedFaces, size_t* skipped) {
+	if (kind == ElementKind::Face) { fail(error, "dissolve works on edges or vertices (faces: use delete)"); return false; }
+	if (ids.empty()) { fail(error, "no elements selected"); return false; }
+	EditableMesh work = in;
+	std::set<uint32_t> merged;
+	size_t skippedCount = 0, done = 0;
+
+	// Rotates a face's loop so that it starts at the corner of `vertex`.
+	auto rotated = [](const EditableFace& f, uint32_t vertex, std::vector<EditableCorner>& loop) {
+		loop.clear();
+		size_t start = f.loop.size();
+		for (size_t i = 0; i < f.loop.size(); ++i) if (f.loop[i].vertex == vertex) start = i;
+		if (start == f.loop.size()) return false;
+		for (size_t i = 0; i < f.loop.size(); ++i) loop.push_back(f.loop[(start + i) % f.loop.size()]);
+		return true;
+	};
+	auto eraseFace = [&](uint32_t id) {
+		work.faces.erase(std::remove_if(work.faces.begin(), work.faces.end(), [&](const EditableFace& f) { return f.id == id; }), work.faces.end());
+		merged.erase(id);
+	};
+	auto findFace = [&](uint32_t id) -> EditableFace* {
+		for (auto& f : work.faces) if (f.id == id) return &f;
+		return nullptr;
+	};
+
+	std::vector<std::pair<uint32_t, uint32_t>> pairs;   // edges as vertex pairs (face ids change, vertex ids do not)
+	if (kind == ElementKind::Edge) {
+		for (uint32_t id : std::set<uint32_t>(ids.begin(), ids.end())) {
+			const EditableEdge* e = nullptr;
+			for (const auto& c : in.edges) if (c.id == id) { e = &c; break; }
+			if (!e) { fail(error, "edge " + std::to_string(id) + " does not exist"); return false; }
+			pairs.push_back({ e->a, e->b });
+		}
+		for (const auto& p : pairs) {
+			std::vector<uint32_t> users;
+			for (const auto& f : work.faces)
+				for (size_t i = 0; i < f.loop.size(); ++i) {
+					const uint32_t a = f.loop[i].vertex, b = f.loop[(i + 1) % f.loop.size()].vertex;
+					if ((a == p.first && b == p.second) || (a == p.second && b == p.first)) users.push_back(f.id);
+				}
+			if (users.size() != 2) { ++skippedCount; continue; }
+			EditableFace* f = findFace(users[0]);
+			EditableFace* g = findFace(users[1]);
+			if (f->loop.size() + g->loop.size() - 2 > 4) { ++skippedCount; continue; }
+			// f runs a->b, g runs b->a (opposite, as validated): f rotated to start at b, g rotated to start at a.
+			uint32_t a = p.first, b = p.second;
+			for (size_t i = 0; i < f->loop.size(); ++i)
+				if (f->loop[i].vertex == p.first && f->loop[(i + 1) % f->loop.size()].vertex == p.second) { a = p.first; b = p.second; break; }
+				else if (f->loop[i].vertex == p.second && f->loop[(i + 1) % f->loop.size()].vertex == p.first) { a = p.second; b = p.first; break; }
+			std::vector<EditableCorner> fl, gl;
+			if (!rotated(*f, b, fl) || !rotated(*g, a, gl)) { ++skippedCount; continue; }
+			// fl = [b, ..., a]; gl = [a, ..., b]: keep fl whole, then gl without its first (a) and last (b) corner.
+			std::vector<EditableCorner> loop = fl;
+			for (size_t i = 1; i + 1 < gl.size(); ++i) loop.push_back(gl[i]);
+			const uint32_t keep = f->id;
+			f->loop = std::move(loop);
+			eraseFace(users[1]);
+			merged.insert(keep);
+			++done;
+		}
+	} else {
+		for (uint32_t id : std::set<uint32_t>(ids.begin(), ids.end())) {
+			if (!work.findVertex(id)) {
+				if (!in.findVertex(id)) { fail(error, "vertex " + std::to_string(id) + " does not exist"); return false; }
+				++skippedCount;   // already removed by an earlier dissolve
+				continue;
+			}
+			// The fan of faces around the vertex, each as [v, p1, ..., pm].
+			std::vector<std::pair<uint32_t, std::vector<EditableCorner>>> fan;
+			for (const auto& f : work.faces) {
+				std::vector<EditableCorner> loop;
+				if (rotated(f, id, loop)) fan.push_back({ f.id, std::move(loop) });
+			}
+			if (fan.size() < 3) { ++skippedCount; continue; }   // a border vertex, or a vertex of just two faces
+			// Chain the faces: the face after `i` starts its first neighbour where face i ends.
+			std::vector<size_t> order{ 0 };
+			std::set<size_t> used{ 0 };
+			bool closed = false;
+			while (true) {
+				const uint32_t tail = fan[order.back()].second.back().vertex;
+				size_t nextFace = fan.size();
+				for (size_t j = 0; j < fan.size(); ++j)
+					if (!used.count(j) && fan[j].second[1].vertex == tail) { nextFace = j; break; }
+				if (nextFace == fan.size()) { closed = fan[order.front()].second[1].vertex == tail; break; }
+				order.push_back(nextFace);
+				used.insert(nextFace);
+			}
+			if (!closed || order.size() != fan.size()) { ++skippedCount; continue; }
+			std::vector<EditableCorner> loop;
+			for (size_t i : order) {
+				const auto& l = fan[i].second;
+				for (size_t k = 1; k + 1 < l.size(); ++k) loop.push_back(l[k]);
+			}
+			if (loop.size() < 3 || loop.size() > 4) { ++skippedCount; continue; }
+			const uint32_t keep = fan[order.front()].first;
+			findFace(keep)->loop = std::move(loop);
+			for (size_t i = 1; i < order.size(); ++i) eraseFace(fan[order[i]].first);
+			merged.insert(keep);
+			work.vertices.erase(std::remove_if(work.vertices.begin(), work.vertices.end(), [&](const EditableVertex& v) { return v.id == id; }), work.vertices.end());
+			++done;
+		}
+	}
+	if (done == 0) { fail(error, "nothing could be dissolved (border elements, or the merged face would have more than four corners)"); return false; }
+	work.rebuildEdges();
+	if (!work.validate(error)) {
+		if (error) *error = "the dissolve would produce an invalid mesh: " + *error;
+		return false;
+	}
+	work.revision = nextEditableRevision();
+	out = std::move(work);
+	if (mergedFaces) mergedFaces->assign(merged.begin(), merged.end());
+	if (skipped) *skipped = skippedCount;
+	return true;
+}
+
 bool worldVectorToLocal(const std::array<float, 3>& rotationEulerDeg, const std::array<float, 3>& scale,
                         const std::array<float, 3>& world, std::array<float, 3>& local, std::string* error) {
 	for (float s : scale)

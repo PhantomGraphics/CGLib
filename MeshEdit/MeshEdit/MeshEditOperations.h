@@ -132,6 +132,15 @@ namespace Phantom::MeshEdit {
 	bool bridgeFaces(const EditableMesh& in, const std::vector<uint32_t>& faceIds, EditableMesh& out, std::string* error = nullptr,
 	                 std::vector<uint32_t>* newFaces = nullptr);
 
+	// Dissolve: removes edges or vertices by merging the faces around them into one, keeping the surface shape. Faces are limited
+	// to 3..4 corners, so only merges whose result fits are done: an edge joins its two faces (two triangles -> a quad); an
+	// interior vertex joins the whole fan of faces around it (a fan of triangles of up to four faces, or a mix that still ends
+	// with <= 4 outer corners). Edges / vertices that cannot be dissolved (border, too many corners, non-manifold) are skipped
+	// and counted in *skipped. The merged face keeps the id of its first face and that face's corner attributes.
+	// Fails -- `out` untouched -- when nothing could be dissolved. *mergedFaces receives the ids of the resulting faces.
+	bool dissolveElements(const EditableMesh& in, ElementKind kind, const std::vector<uint32_t>& ids, EditableMesh& out,
+	                      std::string* error = nullptr, std::vector<uint32_t>* mergedFaces = nullptr, size_t* skipped = nullptr);
+
 	// ---- non-destructive modifiers (docs/todo/PLAN_phantomstudio_mesh_editing.md Phase 7) ----
 	// A stack on an EditableMesh object: the editing master stays untouched, the evaluated mesh is what renders and exports.
 	struct MeshModifier {
