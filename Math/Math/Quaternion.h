@@ -1,7 +1,7 @@
 #pragma once
 
 #include "glm.h"
-#include "../ThirdParty/glm/glm/gtc/quaternion.hpp"
+#include "../../ThirdParty/glm/glm/gtc/quaternion.hpp"
 
 namespace Phantom {
 	namespace Math {

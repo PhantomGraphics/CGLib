@@ -4,7 +4,7 @@
 
 #include "Vector3dView.h"
 
-#include "../Math/Line3d.h"
+#include "../Math/Math/Line3d.h"
 
 namespace Phantom {
 	namespace UI {

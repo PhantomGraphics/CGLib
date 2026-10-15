@@ -7,8 +7,8 @@
 #include "../Math/Vector3d.h"
 #include "PrimitiveTestSupport.h"
 
-#include "../ThirdParty/glm/glm/ext/matrix_transform.hpp"
-#include "../ThirdParty/glm/glm/gtc/quaternion.hpp"
+#include "../../ThirdParty/glm/glm/ext/matrix_transform.hpp"
+#include "../../ThirdParty/glm/glm/gtc/quaternion.hpp"
 
 using namespace Phantom::Math;
 

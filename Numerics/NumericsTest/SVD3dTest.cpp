@@ -2,7 +2,7 @@
 
 #include "../Numerics/SVD3d.h"
 
-#include "CGLib/Math/pi.h"
+#include "CGLib/Math/Math/pi.h"
 
 using namespace Phantom::Math;
 using namespace Phantom::Numerics;

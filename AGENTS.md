@@ -72,11 +72,11 @@ Vulkan/ImGui 非依存、AssetCore の `AssetId` をノード ID として再利
 
 ```powershell
 # ルートから一括ビルドした場合（build\windows-debug\CGLib\ 配下）
-.\build\windows-debug\CGLib\MathTest.exe
-.\build\windows-debug\CGLib\GraphicsTest.exe
+.\build\windows-debug\Math\MathTest.exe
+.\build\windows-debug\Graphics\GraphicsTest.exe
 
 # フィルター例
-.\build\windows-debug\CGLib\MathTest.exe --gtest_filter=Vector3dTest.*
+.\build\windows-debug\Math\MathTest.exe --gtest_filter=Vector3dTest.*
 
 # ctest 経由（リポジトリルートから）
 ctest --preset windows-debug -R "MathTest|GraphicsTest"

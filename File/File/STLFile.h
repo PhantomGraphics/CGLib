@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 
-#include "CGLib/Math/Triangle3d.h"
+#include "CGLib/Math/Math/Triangle3d.h"
 
 namespace Phantom {
 	namespace File {

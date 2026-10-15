@@ -1,6 +1,6 @@
 #include "gtest/gtest.h"
 
-#include "../Volume/VolumeRenderer/ParticleProbeScattering.h"
+#include "../../Volume/VolumeRenderer/ParticleProbeScattering.h"
 
 #include <atomic>
 #include <cmath>

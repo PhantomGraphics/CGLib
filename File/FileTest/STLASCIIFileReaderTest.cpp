@@ -1,6 +1,6 @@
 #include "gtest/gtest.h"
 
-#include "CGLib/Math/Vector3d.h"
+#include "CGLib/Math/Math/Vector3d.h"
 #include "../File/STLFileReader.h"
 #include "../File/STLFileWriter.h"
 

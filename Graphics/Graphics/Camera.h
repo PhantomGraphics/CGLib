@@ -1,8 +1,8 @@
 ﻿#pragma once
 
-#include "../../Math/Vector3d.h"
-#include "../../Math/Matrix3d.h"
-#include "../../Math/Matrix4d.h"
+#include "../../Math/Math/Vector3d.h"
+#include "../../Math/Math/Matrix3d.h"
+#include "../../Math/Math/Matrix4d.h"
 
 namespace Phantom {
 	namespace Graphics {

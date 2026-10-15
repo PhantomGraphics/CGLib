@@ -18,7 +18,7 @@ CMAKE = (ROOT / "cmake" / "PhantomCoreLibs.cmake").read_text(encoding="utf-8")
 
 # target -> (module name seen in includes, source dir)
 TARGETS = {
-    "MathCore": ("Math", "Math"), "GraphicsCore": ("Graphics", "Graphics"),
+    "MathCore": ("Math", "Math/Math"), "GraphicsCore": ("Graphics", "Graphics"),
     "NumericsCore": ("Numerics", "Numerics/Numerics"), "SpaceCore": ("Space", "Space/Space"),
     "VolumeCore": ("Volume", "Volume/Volume"),
     "FileCore": ("File", "File/File"), "GeometryNodeCore": ("GeometryNode", "GeometryNode/GeometryNode"),

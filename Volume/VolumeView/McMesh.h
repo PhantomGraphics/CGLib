@@ -2,7 +2,7 @@
 
 #include "World.h"
 
-#include "../../Math/Triangle3d.h"
+#include "../../Math/Math/Triangle3d.h"
 
 #include <array>
 #include <string>

@@ -1,7 +1,7 @@
 #pragma once
 #include <string>
 #include <vector>
-#include "CGLib/Math/Vector3d.h"
+#include "CGLib/Math/Math/Vector3d.h"
 
 // BVH (Biovision Hierarchy) motion-capture format raw structures.
 // NOTE: unrelated to Phantom::Space::BVH (bounding-volume-hierarchy spatial

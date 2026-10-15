@@ -1,9 +1,9 @@
 #include "pch.h"
 
 #include "../Space/Intersection2d.h"
-#include "CGLib/Math/Line2d.h"
-#include "CGLib/Math/Circle2d.h"
-#include "CGLib/Math/Vector2d.h"
+#include "CGLib/Math/Math/Line2d.h"
+#include "CGLib/Math/Math/Circle2d.h"
+#include "CGLib/Math/Math/Vector2d.h"
 
 using namespace Phantom::Math;
 using namespace Phantom::Space;

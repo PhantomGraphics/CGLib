@@ -1,5 +1,8 @@
 # Math Module — File Layout
 
+Sources and public headers live in `Math/`, tests in `MathTest/`.
+`CMakeLists.txt` builds this module standalone or from the CGLib root.
+
 The module uses the `Phantom::Math` namespace. Its types are thin GLM aliases
 defined as `float` / `double` templates. See
 [`../docs/module-reference.md`](../docs/module-reference.md) for API details.

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../../Math/SphericalHarmonics.h"
+#include "../../Math/Math/SphericalHarmonics.h"
 
 #include <algorithm>
 #include <atomic>

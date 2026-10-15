@@ -4,7 +4,7 @@
 #include "Vector3dView.h"
 #include "FloatView.h"
 
-#include "../Math/Sphere3d.h"
+#include "../Math/Math/Sphere3d.h"
 
 namespace Phantom {
 	namespace UI {

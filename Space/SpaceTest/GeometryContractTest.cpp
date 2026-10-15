@@ -11,15 +11,15 @@
 #include "../Space/IntersectionCalculator.h"
 #include "../Space/SignedDistanceCalculator.h"
 
-#include "CGLib/Math/Box3d.h"
-#include "CGLib/Math/Circle2d.h"
-#include "CGLib/Math/Line2d.h"
-#include "CGLib/Math/Line3d.h"
-#include "CGLib/Math/Plane3d.h"
-#include "CGLib/Math/Ray3d.h"
-#include "CGLib/Math/Rectangle3d.h"
-#include "CGLib/Math/Sphere3d.h"
-#include "CGLib/Math/Triangle3d.h"
+#include "CGLib/Math/Math/Box3d.h"
+#include "CGLib/Math/Math/Circle2d.h"
+#include "CGLib/Math/Math/Line2d.h"
+#include "CGLib/Math/Math/Line3d.h"
+#include "CGLib/Math/Math/Plane3d.h"
+#include "CGLib/Math/Math/Ray3d.h"
+#include "CGLib/Math/Math/Rectangle3d.h"
+#include "CGLib/Math/Math/Sphere3d.h"
+#include "CGLib/Math/Math/Triangle3d.h"
 
 #include <cmath>
 #include <limits>

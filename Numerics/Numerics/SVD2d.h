@@ -1,8 +1,8 @@
 ﻿
 #pragma once
 
-#include "CGLib/Math/Vector2d.h"
-#include "CGLib/Math/Matrix2d.h"
+#include "CGLib/Math/Math/Vector2d.h"
+#include "CGLib/Math/Math/Matrix2d.h"
 
 namespace Phantom {
 	namespace Numerics {
