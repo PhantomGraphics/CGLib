@@ -21,8 +21,12 @@ const char* kPrefixHead =
     "    vec3 camPos;\n"
     "    float _pad;\n";
 const char* kPrefixMid =
+    "    vec4 envInfo;\n"  // x = environment intensity (0 = none), y = highest prefilter mip; see PhantomStudioRenderer.h
     "} cam;\n"
-    "layout(set = 0, binding = 1) uniform sampler2D shadowMap;\n";
+    "layout(set = 0, binding = 1) uniform sampler2D shadowMap;\n"
+    "layout(set = 0, binding = 2) uniform samplerCube envIrradiance;\n"
+    "layout(set = 0, binding = 3) uniform samplerCube envPrefilter;\n"
+    "layout(set = 0, binding = 4) uniform sampler2D envBrdf;\n";
 const char* kPrefixTail =
     "layout(push_constant) uniform PushConstants {\n"
     "    mat4 model;\n"
@@ -92,6 +96,14 @@ const char* kSuffix =
     "    float sky = n.y * 0.5 + 0.5;\n"
     "    vec3 envSpec = F0 * mix(0.25, 0.9, sky) * (1.0 - 0.6 * rough);\n"  // cheap hemispherical environment
     "    vec3 ambient = cam.ambient.rgb * (1.0 - metallic) * base + (cam.ambient.rgb / 0.15) * 0.5 * envSpec;\n"
+    "    if (cam.envInfo.x > 0.0) {\n"  // environment lighting replaces the hemisphere approximation
+    "        float r2 = clamp(rough, 0.04, 1.0);\n"
+    "        vec3 Fi = F0 + (max(vec3(1.0 - r2), F0) - F0) * pow(1.0 - ndv, 5.0);\n"
+    "        vec3 kDi = (vec3(1.0) - Fi) * (1.0 - metallic);\n"
+    "        vec2 brdf = texture(envBrdf, vec2(ndv, r2)).rg;\n"
+    "        vec3 spec = textureLod(envPrefilter, reflect(-V, n), r2 * cam.envInfo.y).rgb * (Fi * brdf.x + brdf.y);\n"
+    "        ambient = (kDi * texture(envIrradiance, n).rgb * base + spec) * cam.envInfo.x;\n"
+    "    }\n"
     "    vec3 color = ambient + lit;\n"
     "    outColor = vec4(pow(clamp(color, 0.0, 1.0), vec3(1.0 / 2.2)), 1.0);\n"
     "}\n";
