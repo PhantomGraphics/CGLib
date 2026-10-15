@@ -542,6 +542,36 @@ TEST(MergeByDistance, OnlyTheGivenVerticesAreCandidatesAndNothingToMergeFails) {
     EXPECT_FALSE(mergeByDistance(box, {}, 5.f, out, &error));
 }
 
+// ---- proportional editing ----
+
+TEST(TranslateProportional, NearbyVerticesFollowWithTheFalloffWeight) {
+    const EditableMesh box = makeEditableBox(0.5f);
+    const uint32_t picked = box.vertices.front().id;
+    EditableMesh out;
+    std::string error;
+    size_t affected = 0;
+    // Edge neighbours are 1 away: with radius 1.25 and a linear falloff they follow with weight 1 - 1/1.25 = 0.2.
+    ASSERT_TRUE(translateVerticesProportional(box, { picked }, { 0.f, 1.f, 0.f }, 1.25f, Falloff::Linear, out, &error, &affected)) << error;
+    EXPECT_EQ(3u, affected);
+    const EditableVertex* p0 = box.findVertex(picked);
+    EXPECT_NEAR(p0->pos[1] + 1.f, out.findVertex(picked)->pos[1], 1e-6f);
+    int followers = 0;
+    for (const auto& v : box.vertices) {
+        if (v.id == picked) continue;
+        const float dy = out.findVertex(v.id)->pos[1] - v.pos[1];
+        if (dy != 0.f) { EXPECT_NEAR(0.2f, dy, 1e-5f); ++followers; }
+    }
+    EXPECT_EQ(3, followers);
+    // Constant falloff moves everything in range equally; a bad radius or a missing vertex is refused.
+    ASSERT_TRUE(translateVerticesProportional(box, { picked }, { 0.f, 1.f, 0.f }, 5.f, Falloff::Constant, out, &error, &affected));
+    EXPECT_EQ(7u, affected);
+    EXPECT_FALSE(translateVerticesProportional(box, { picked }, { 0.f, 1.f, 0.f }, 0.f, Falloff::Smooth, out, &error));
+    EXPECT_FALSE(translateVerticesProportional(box, { 9999 }, { 0.f, 1.f, 0.f }, 1.f, Falloff::Smooth, out, &error));
+    Falloff f;
+    EXPECT_TRUE(falloffFromName("Sharp", f));
+    EXPECT_FALSE(falloffFromName("bogus", f));
+}
+
 // ---- bridge ----
 
 namespace {
