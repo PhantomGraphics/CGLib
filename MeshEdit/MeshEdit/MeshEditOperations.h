@@ -104,6 +104,12 @@ namespace Phantom::MeshEdit {
 	bool mergeVertices(const EditableMesh& in, const std::vector<uint32_t>& vertices, MergeTarget target, EditableMesh& out,
 	                   std::string* error = nullptr, size_t* removedFaces = nullptr);
 
+	// Merges vertices that lie within `distance` of each other (grouped transitively, each group merged at its centre, like
+	// mergeVertices). `vertices` limits the candidates; empty = every vertex. A group that would make the mesh invalid is left
+	// alone (counted in *skippedGroups). False -- `out` untouched -- when nothing could be merged.
+	bool mergeByDistance(const EditableMesh& in, const std::vector<uint32_t>& vertices, float distance, EditableMesh& out,
+	                     std::string* error = nullptr, size_t* mergedVertices = nullptr, size_t* skippedGroups = nullptr);
+
 	// ---- non-destructive modifiers (docs/todo/PLAN_phantomstudio_mesh_editing.md Phase 7) ----
 	// A stack on an EditableMesh object: the editing master stays untouched, the evaluated mesh is what renders and exports.
 	struct MeshModifier {

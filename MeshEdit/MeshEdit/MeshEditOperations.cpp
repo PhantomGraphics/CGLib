@@ -1276,6 +1276,63 @@ bool mergeVertices(const EditableMesh& in, const std::vector<uint32_t>& vertices
 	return true;
 }
 
+bool mergeByDistance(const EditableMesh& in, const std::vector<uint32_t>& vertices, float distance, EditableMesh& out,
+                     std::string* error, size_t* mergedVertices, size_t* skippedGroups) {
+	if (!std::isfinite(distance) || distance < 0.f) { fail(error, "distance must be a non-negative number"); return false; }
+	std::vector<const EditableVertex*> candidates;
+	if (vertices.empty()) {
+		for (const auto& v : in.vertices) candidates.push_back(&v);
+	} else {
+		for (uint32_t id : std::set<uint32_t>(vertices.begin(), vertices.end())) {
+			const EditableVertex* v = in.findVertex(id);
+			if (!v) { fail(error, "vertex " + std::to_string(id) + " does not exist"); return false; }
+			candidates.push_back(v);
+		}
+	}
+	// Union-find over candidates closer than `distance` (a grid of cells `distance` wide limits the comparisons to neighbours).
+	std::vector<size_t> parent(candidates.size());
+	for (size_t i = 0; i < parent.size(); ++i) parent[i] = i;
+	auto root = [&](size_t i) { while (parent[i] != i) { parent[i] = parent[parent[i]]; i = parent[i]; } return i; };
+	const float cell = std::max(distance, 1.0e-6f);
+	using Cell = std::array<long long, 3>;
+	std::map<Cell, std::vector<size_t>> grid;
+	auto cellOf = [&](const EditableVertex& v) { return Cell{ (long long)std::floor(v.pos[0] / cell), (long long)std::floor(v.pos[1] / cell), (long long)std::floor(v.pos[2] / cell) }; };
+	for (size_t i = 0; i < candidates.size(); ++i) {
+		const Cell c = cellOf(*candidates[i]);
+		for (long long dx = -1; dx <= 1; ++dx) for (long long dy = -1; dy <= 1; ++dy) for (long long dz = -1; dz <= 1; ++dz) {
+			const auto it = grid.find(Cell{ c[0] + dx, c[1] + dy, c[2] + dz });
+			if (it == grid.end()) continue;
+			for (size_t j : it->second) {
+				const float ex = candidates[i]->pos[0] - candidates[j]->pos[0], ey = candidates[i]->pos[1] - candidates[j]->pos[1], ez = candidates[i]->pos[2] - candidates[j]->pos[2];
+				if (ex * ex + ey * ey + ez * ez <= distance * distance) parent[root(i)] = root(j);
+			}
+		}
+		grid[c].push_back(i);
+	}
+	std::map<size_t, std::vector<uint32_t>> groups;
+	for (size_t i = 0; i < candidates.size(); ++i) groups[root(i)].push_back(candidates[i]->id);
+
+	EditableMesh work = in;
+	size_t merged = 0, skipped = 0;
+	for (auto& entry : groups) {
+		if (entry.second.size() < 2) continue;
+		EditableMesh next;
+		std::string why;
+		// A group whose merge would make the mesh invalid (e.g. non-manifold) is left alone.
+		if (mergeVertices(work, entry.second, MergeTarget::Center, next, &why)) { work = std::move(next); merged += entry.second.size(); }
+		else ++skipped;
+	}
+	if (merged > 0 && work.faces.empty()) { fail(error, "merging that many vertices would leave no faces"); return false; }
+	if (merged == 0) {
+		fail(error, skipped ? "the vertices within the distance cannot be merged without making the mesh invalid" : "no vertices are within that distance of each other");
+		return false;
+	}
+	out = std::move(work);
+	if (mergedVertices) *mergedVertices = merged;
+	if (skippedGroups) *skippedGroups = skipped;
+	return true;
+}
+
 bool worldVectorToLocal(const std::array<float, 3>& rotationEulerDeg, const std::array<float, 3>& scale,
                         const std::array<float, 3>& world, std::array<float, 3>& local, std::string* error) {
 	for (float s : scale)

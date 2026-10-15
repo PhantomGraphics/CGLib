@@ -506,3 +506,37 @@ TEST(MeshSubdivisionOperation, LevelsOpenBordersAndRejections) {
     ASSERT_TRUE(subdivideMesh(tri, 1, false, out, &error)) << error;
     EXPECT_EQ(3u, out.faces.size());
 }
+
+// ---- merge by distance ----
+
+TEST(MergeByDistance, WeldsAThinExtrusionBackIntoTheBox) {
+    EditableMesh box = makeEditableBox(0.5f);
+    EditableMesh thick;
+    ASSERT_TRUE(extrudeFaces(box, { topFaceId(box) }, 0.0005f, thick));
+    ASSERT_GT(thick.vertices.size(), box.vertices.size());
+    EditableMesh welded;
+    size_t merged = 0, skipped = 0;
+    std::string error;
+    ASSERT_TRUE(mergeByDistance(thick, {}, 0.001f, welded, &error, &merged, &skipped)) << error;
+    EXPECT_EQ(box.vertices.size(), welded.vertices.size());
+    EXPECT_EQ(box.faces.size(), welded.faces.size());
+    EXPECT_EQ(0u, skipped);
+    EXPECT_GE(merged, 8u);
+    EXPECT_TRUE(welded.validate(&error)) << error;
+}
+
+TEST(MergeByDistance, OnlyTheGivenVerticesAreCandidatesAndNothingToMergeFails) {
+    EditableMesh box = makeEditableBox(0.5f);
+    EditableMesh thick;
+    ASSERT_TRUE(extrudeFaces(box, { topFaceId(box) }, 0.0005f, thick));
+    std::string error;
+    EditableMesh out;
+    // A box corner pair is 1 apart: a tiny distance finds nothing.
+    EXPECT_FALSE(mergeByDistance(box, {}, 0.001f, out, &error));
+    EXPECT_FALSE(error.empty());
+    // Restricted to one original vertex only, there is no partner among the candidates.
+    EXPECT_FALSE(mergeByDistance(thick, { thick.vertices.front().id }, 0.001f, out, &error));
+    EXPECT_FALSE(mergeByDistance(thick, {}, -1.f, out, &error));
+    // A large distance welds the whole box into a point: refused rather than producing an invalid mesh.
+    EXPECT_FALSE(mergeByDistance(box, {}, 5.f, out, &error));
+}
