@@ -21,6 +21,8 @@ const char* kPrefix =
     "    vec4 lightDir[4];\n"    // spot: xyz = direction the light travels, w = cos(outer cone); w <= -1.5 = not a spot
     "    mat4 shadowVP;\n"       // world -> clip space of the shadow-casting light
     "    vec4 shadowInfo;\n"     // x = slot of the light that casts (-1 none), y + w * distance = texel size, z = depth bias
+    "    vec4 areaU[4];\n"      // area lights: xyz = half-width axis (w = 1); w = 0 for every other light
+    "    vec4 areaV[4];\n"      // area lights: xyz = half-height axis
     "} cam;\n"
     "layout(set = 0, binding = 1) uniform sampler2D shadowMap;\n"
     "float shadowVisibility(vec3 pos, vec3 n, int slot) {\n"  // 3x3 PCF, normal-offset bias (same as cgstudio.frag)
@@ -95,6 +97,20 @@ const char* kSuffix =
     "                float cosA = dot(normalize(cam.lightDir[i].xyz), -L);\n"
     "                radiance *= smoothstep(cam.lightDir[i].w, max(cam.lightColor[i].w, cam.lightDir[i].w + 1e-4), cosA);\n"
     "            }\n"
+    "        }\n"
+    "        if (cam.areaU[i].w > 0.5) {\n"
+    "            vec3 U = cam.areaU[i].xyz, Vv = cam.areaV[i].xyz;\n"
+    "            vec3 travel = normalize(cross(Vv, U));\n"
+    "            float avg = 0.0;\n"
+    "            for (int iy = 0; iy < 4; ++iy)\n"
+    "                for (int ix = 0; ix < 4; ++ix) {\n"
+    "                    vec2 sp = (vec2(ix, iy) + 0.5) / 4.0 * 2.0 - 1.0;\n"
+    "                    vec3 d = cam.lightVec[i].xyz + U * sp.x + Vv * sp.y - fragPos;\n"
+    "                    float dist2 = max(dot(d, d), 1e-4);\n"
+    "                    avg += max(dot(travel, -d * inversesqrt(dist2)), 0.0) / dist2;\n"
+    "                }\n"
+    "            L = cam.lightVec[i].xyz - fragPos;\n"
+    "            radiance = cam.lightColor[i].rgb * (avg / 16.0);\n"
     "        }\n"
     "        L = normalize(L);\n"
     "        vec3 H = normalize(V + L);\n"
