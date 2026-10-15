@@ -101,6 +101,29 @@ TEST(LightBlockTest, ExtraLightsAreIgnoredAndOldSlotsAreCleared) {
 	EXPECT_EQ(1.f, block.lightInfo.x);
 }
 
+TEST(LightBlockTest, AreaBasisStaysFiniteAndFacesTheLightDirection) {
+	Light area;
+	area.type = LightType::Area;
+	area.areaWidth = 4.f;
+	area.areaHeight = 2.f;
+	// Default, almost parallel, non-orthogonal and missing height axes.
+	for (const glm::vec3 up : {glm::vec3(0.f, 1.f, 0.f), glm::vec3(1.0e-7f, 1.f, 0.f),
+		glm::vec3(0.f, 1.f, 1.f), glm::vec3(0.f)}) {
+		area.up = up;
+		LightBlock block;
+		packLights(block, {area}, glm::vec3(0.f));
+		const glm::vec3 u(block.areaU[0]), v(block.areaV[0]);
+		for (int i = 0; i < 3; ++i) {
+			EXPECT_TRUE(std::isfinite(u[i]));
+			EXPECT_TRUE(std::isfinite(v[i]));
+		}
+		EXPECT_NEAR(2.f, glm::length(u), kEps);
+		EXPECT_NEAR(1.f, glm::length(v), kEps);
+		EXPECT_NEAR(0.f, glm::dot(u, v), kEps);
+		expectNear(glm::normalize(glm::cross(v, u)), area.direction);
+	}
+}
+
 TEST(LightBlockTest, DefaultSunMatchesTheFormerFixedLight) {
 	const Light sun = defaultSun();
 	LightBlock block;

@@ -84,3 +84,51 @@ TEST(ShadowTest, ACastlessLightLeavesTheOutputAndTheBlockCarriesTheSetup) {
 	EXPECT_EQ(0.02f, block.shadowInfo.w);
 	EXPECT_EQ(2.f, block.shadowVP[0][0]);
 }
+
+TEST(ShadowTest, DistantCastersDoNotClipNearbySpotCasters) {
+	Light spot;
+	spot.type = LightType::Spot;
+	spot.direction = {0.f, 0.f, -1.f};
+	ShadowSetup setup;
+	ASSERT_TRUE(computeShadowSetup(spot, {-1.f, -1.f, -1000.f}, {1.f, 1.f, -0.01f}, 2048.f, setup));
+	for (float distance : {0.01f, 0.02f, 1.f, 1000.f}) {
+		const glm::vec3 ndc = project(setup.viewProj, {0.f, 0.f, -distance});
+		EXPECT_GE(ndc.z, 0.f) << distance;
+		EXPECT_LE(ndc.z, 1.f) << distance;
+	}
+}
+
+TEST(ShadowTest, SpotBoundsCrossingTheLightPlaneKeepForwardCasters) {
+	Light spot;
+	spot.type = LightType::Spot;
+	spot.position = {2.f, 3.f, 4.f};
+	spot.direction = glm::normalize(glm::vec3(1.f, -2.f, -3.f));
+	ShadowSetup setup;
+	ASSERT_TRUE(computeShadowSetup(spot, {-1000.f, -1000.f, -1000.f}, {1000.f, 1000.f, 1000.f}, 2048.f, setup));
+	for (float distance : {0.01f, 1.f, 100.f}) {
+		const glm::vec3 ndc = project(setup.viewProj, spot.position + spot.direction * distance);
+		EXPECT_TRUE(std::isfinite(ndc.z));
+		EXPECT_GE(ndc.z, 0.f);
+		EXPECT_LE(ndc.z, 1.f);
+	}
+}
+
+TEST(ShadowTest, WideSpotMapContainsTheEntireCone) {
+	Light spot;
+	spot.type = LightType::Spot;
+	spot.direction = {0.f, 0.f, -1.f};
+	for (float degrees : {85.f, 89.f, 89.9f}) {
+		spot.spotAngleRad = glm::radians(degrees);
+		ShadowSetup setup;
+		ASSERT_TRUE(computeShadowSetup(spot, {-1000.f, -1000.f, -10.f}, {1000.f, 1000.f, -1.f}, 2048.f, setup));
+		const float edge = std::tan(spot.spotAngleRad);
+		for (const glm::vec3 p : {glm::vec3(edge, 0.f, -1.f), glm::vec3(-edge, 0.f, -1.f),
+			glm::vec3(0.f, edge, -1.f), glm::vec3(0.f, -edge, -1.f)}) {
+			const glm::vec3 ndc = project(setup.viewProj, p);
+			EXPECT_LE(std::abs(ndc.x), 1.f) << degrees;
+			EXPECT_LE(std::abs(ndc.y), 1.f) << degrees;
+			EXPECT_GE(ndc.z, 0.f);
+			EXPECT_LE(ndc.z, 1.f);
+		}
+	}
+}

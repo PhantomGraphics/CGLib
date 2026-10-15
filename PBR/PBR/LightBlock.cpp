@@ -24,8 +24,17 @@ namespace Phantom::PBR {
 				block.lightDir[i] = glm::vec4(l.direction, std::cos(l.spotAngleRad));
 				block.lightColor[i].w = std::cos(l.spotAngleRad * (1.f - l.spotBlend));
 			} else if (l.type == LightType::Area) {
-				const glm::vec3 up = glm::normalize(l.up);
-				const glm::vec3 right = glm::normalize(glm::cross(l.direction, up));
+				const glm::vec3 dir = glm::normalize(l.direction);
+				glm::vec3 right = glm::cross(dir, l.up);
+				// The default up is parallel to the default direction. Pick a stable
+				// alternative also for nearly parallel or zero height axes.
+				if (glm::dot(right, right) < 1.0e-8f) {
+					const glm::vec3 fallback = std::abs(dir.y) > 0.99f
+						? glm::vec3(0.f, 0.f, 1.f) : glm::vec3(0.f, 1.f, 0.f);
+					right = glm::cross(dir, fallback);
+				}
+				right = glm::normalize(right);
+				const glm::vec3 up = glm::normalize(glm::cross(right, dir));
 				block.areaU[i] = glm::vec4(right * (0.5f * l.areaWidth), 1.f);
 				block.areaV[i] = glm::vec4(up * (0.5f * l.areaHeight), 0.f);
 			}

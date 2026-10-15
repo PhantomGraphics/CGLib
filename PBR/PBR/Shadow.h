@@ -26,6 +26,8 @@ namespace Phantom::PBR {
 
 	// Fits the shadow map of `l` around the casters' world-space box [boundsMin, boundsMax]. `mapSize` is the map's resolution in
 	// texels. Returns false (out untouched) when `l` cannot cast.
+	// Spot half-angle must be in (0, pi/2). The near plane includes the nearest box depth,
+	// with a 1e-4 world-unit floor for bounds touching/crossing the light plane.
 	bool computeShadowSetup(const Light& l, const glm::vec3& boundsMin, const glm::vec3& boundsMax, float mapSize, ShadowSetup& out);
 
 	// Writes the setup into the block's shadowVP / shadowInfo for light slot `slot` (shadowInfo.x = slot).

@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 
 namespace Phantom::PBR {
 
@@ -31,12 +32,23 @@ namespace Phantom::PBR {
 		} else {
 			const glm::vec3 eye = l.position;
 			float farZ = 1.f;
-			for (int c = 0; c < 8; ++c)
-				farZ = std::max(farZ, glm::length(glm::vec3((c & 1) ? hi.x : lo.x, (c & 2) ? hi.y : lo.y, (c & 4) ? hi.z : lo.z) - eye));
+			float minDepth = std::numeric_limits<float>::max();
+			for (int c = 0; c < 8; ++c) {
+				const glm::vec3 delta = glm::vec3((c & 1) ? hi.x : lo.x,
+					(c & 2) ? hi.y : lo.y, (c & 4) ? hi.z : lo.z) - eye;
+				farZ = std::max(farZ, glm::length(delta));
+				minDepth = std::min(minDepth, glm::dot(delta, dir));
+			}
 			farZ *= 1.05f;
-			const float fov = std::min(2.f * l.spotAngleRad + 0.1f, glm::radians(170.f));
+			// Keep the full cone even above 85 degrees. Reduce only the extra
+			// margin as the half-angle approaches 90, keeping perspective below pi.
+			const float fov = std::min(2.f * l.spotAngleRad + 0.1f,
+				l.spotAngleRad + glm::radians(90.f));
 			const glm::mat4 view = glm::lookAt(eye, eye + dir, up);
-			s.viewProj = glm::perspective(fov, 1.f, std::max(0.05f, farZ * 0.002f), farZ) * view;
+			// A distant caster must not push the near plane past a nearby one.
+			// If the box crosses the light plane, use the small positive floor.
+			const float nearZ = std::max(1.0e-4f, std::min(0.05f, minDepth * 0.5f));
+			s.viewProj = glm::perspective(fov, 1.f, nearZ, farZ) * view;
 			s.texelPerDistance = 2.f * std::tan(fov * 0.5f) / mapSize;
 		}
 		out = s;
