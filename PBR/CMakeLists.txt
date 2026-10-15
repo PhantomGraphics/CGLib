@@ -42,6 +42,7 @@ if(PHANTOM_GTEST_FOUND)
             ${PBR_ROOT}/PBRTest/LightBlockTest.cpp
             ${PBR_ROOT}/PBRTest/GltfLightTest.cpp
             ${PBR_ROOT}/PBRTest/ShadowTest.cpp
+            ${PBR_ROOT}/PBRTest/GlslSyncTest.cpp
         INCLUDES ${PBR_ROOT}/PBRTest
         LINK PBRCore
     )
