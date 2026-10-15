@@ -118,6 +118,20 @@ namespace Phantom::MeshEdit {
 	bool mergeByDistance(const EditableMesh& in, const std::vector<uint32_t>& vertices, float distance, EditableMesh& out,
 	                     std::string* error = nullptr, size_t* mergedVertices = nullptr, size_t* skippedGroups = nullptr);
 
+	// Bridge: joins two boundary edge loops (or two open boundary chains) of the same length with one quad per edge pair.
+	// Every selected edge must be a boundary edge (used by one face). The selection must form exactly two chains that are both
+	// closed or both open, with the same edge count, and that share no vertex. The new quads run opposite to the faces that own
+	// the boundary edges, so the result stays consistently oriented; closed loops are matched at the rotation that minimises
+	// the total distance between paired vertices. Each new corner takes its UV from the adjacent face's corner at that vertex.
+	// *newFaces (optional) receives the ids of the created quads.
+	bool bridgeEdges(const EditableMesh& in, const std::vector<uint32_t>& edgeIds, EditableMesh& out, std::string* error = nullptr,
+	                 std::vector<uint32_t>* newFaces = nullptr);
+
+	// Bridge between two faces: removes both (they need the same corner count and must not share a vertex) and bridges the
+	// holes they leave. Every edge of both faces must have a neighbouring face, so that it becomes a boundary edge.
+	bool bridgeFaces(const EditableMesh& in, const std::vector<uint32_t>& faceIds, EditableMesh& out, std::string* error = nullptr,
+	                 std::vector<uint32_t>* newFaces = nullptr);
+
 	// ---- non-destructive modifiers (docs/todo/PLAN_phantomstudio_mesh_editing.md Phase 7) ----
 	// A stack on an EditableMesh object: the editing master stays untouched, the evaluated mesh is what renders and exports.
 	struct MeshModifier {
