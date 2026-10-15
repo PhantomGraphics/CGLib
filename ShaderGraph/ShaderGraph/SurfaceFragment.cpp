@@ -1,5 +1,9 @@
 #include "RuntimeCompiler.h"
 
+#include "PBR/LightGlslSource.h"
+
+#include <string>
+
 namespace Phantom::ShaderGraph {
 
 namespace {
@@ -7,38 +11,19 @@ namespace {
 // Everything before the generated graph code. Must stay in sync with
 // CGApp/PhantomStudio/shaders/cgstudio.vert (outputs), PhantomStudioRenderer.h
 // (StudioCameraUBO, StudioPushConstants).
-const char* kPrefix =
+// Pieces of the fragment prefix; the uniform block members and the light functions come from CGLib/PBR/Shaders (the
+// same text cgstudio.frag includes), embedded through the header PBRCore generates.
+const char* kPrefixHead =
     "#version 450\n"
     "layout(set = 0, binding = 0) uniform CameraUBO {\n"
     "    mat4 view;\n"
     "    mat4 proj;\n"
     "    vec3 camPos;\n"
-    "    float _pad;\n"
-    "    vec4 ambient;\n"        // rgb = colour * intensity
-    "    vec4 lightInfo;\n"      // x = light count
-    "    vec4 lightVec[4];\n"    // xyz = direction to the light (w = 0) or position (w = 1)
-    "    vec4 lightColor[4];\n"  // rgb = colour * intensity; w = cos(inner cone) for spot lights
-    "    vec4 lightDir[4];\n"    // spot: xyz = direction the light travels, w = cos(outer cone); w <= -1.5 = not a spot
-    "    mat4 shadowVP;\n"       // world -> clip space of the shadow-casting light
-    "    vec4 shadowInfo;\n"     // x = slot of the light that casts (-1 none), y + w * distance = texel size, z = depth bias
-    "    vec4 areaU[4];\n"      // area lights: xyz = half-width axis (w = 1); w = 0 for every other light
-    "    vec4 areaV[4];\n"      // area lights: xyz = half-height axis
+    "    float _pad;\n";
+const char* kPrefixMid =
     "} cam;\n"
-    "layout(set = 0, binding = 1) uniform sampler2D shadowMap;\n"
-    "float shadowVisibility(vec3 pos, vec3 n, int slot) {\n"  // 3x3 PCF, normal-offset bias (same as cgstudio.frag)
-    "    if (cam.shadowInfo.x < -0.5 || int(cam.shadowInfo.x + 0.5) != slot) return 1.0;\n"
-    "    float dist = cam.lightVec[slot].w > 0.5 ? distance(pos, cam.lightVec[slot].xyz) : 0.0;\n"
-    "    float texel = cam.shadowInfo.y + cam.shadowInfo.w * dist;\n"
-    "    vec4 p = cam.shadowVP * vec4(pos + n * texel * 1.5, 1.0);\n"
-    "    vec3 c = p.xyz / p.w;\n"
-    "    vec2 uv = c.xy * 0.5 + 0.5;\n"
-    "    if (c.z >= 1.0 || c.z < 0.0 || uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) return 1.0;\n"
-    "    float lit = 0.0;\n"
-    "    for (int y = -1; y <= 1; ++y)\n"
-    "        for (int x = -1; x <= 1; ++x)\n"
-    "            lit += (c.z - cam.shadowInfo.z <= texture(shadowMap, uv + vec2(x, y) / 2048.0).r) ? 1.0 : 0.0;\n"
-    "    return lit / 9.0;\n"
-    "}\n"
+    "layout(set = 0, binding = 1) uniform sampler2D shadowMap;\n";
+const char* kPrefixTail =
     "layout(push_constant) uniform PushConstants {\n"
     "    mat4 model;\n"
     "    vec4 baseColor;\n"  // unused by graphs
@@ -50,6 +35,12 @@ const char* kPrefix =
     "layout(location = 3) in vec2 fragNormalUV;\n"
     "layout(location = 4) in vec4 fragTangent;\n"
     "layout(location = 0) out vec4 outColor;\n";
+
+const std::string& prefix() {
+    static const std::string text = std::string(kPrefixHead) + Phantom::PBR::kLightBlockMembersGlsl + kPrefixMid +
+        Phantom::PBR::kLightEvalGlsl + kPrefixTail;
+    return text;
+}
 
 // Tangent frame (same derivation as cgstudio.frag), the surface evaluation, then one directional
 // light + ambient through a metallic-roughness GGX model (Schlick Fresnel, Smith-Schlick
@@ -86,33 +77,8 @@ const char* kSuffix =
     "    int nLights = int(cam.lightInfo.x + 0.5);\n"
     "    for (int i = 0; i < 4; ++i) {\n"
     "        if (i >= nLights) break;\n"
-    "        vec3 L = cam.lightVec[i].xyz;\n"
-    "        vec3 radiance = cam.lightColor[i].rgb;\n"
-    "        if (cam.lightVec[i].w > 0.5) {\n"  // point light: inverse-square falloff
-    "            vec3 d = L - fragPos;\n"
-    "            float dist2 = max(dot(d, d), 1e-4);\n"
-    "            L = d * inversesqrt(dist2);\n"
-    "            radiance /= dist2;\n"
-    "            if (cam.lightDir[i].w > -1.5) {\n"  // spot cone
-    "                float cosA = dot(normalize(cam.lightDir[i].xyz), -L);\n"
-    "                radiance *= smoothstep(cam.lightDir[i].w, max(cam.lightColor[i].w, cam.lightDir[i].w + 1e-4), cosA);\n"
-    "            }\n"
-    "        }\n"
-    "        if (cam.areaU[i].w > 0.5) {\n"
-    "            vec3 U = cam.areaU[i].xyz, Vv = cam.areaV[i].xyz;\n"
-    "            vec3 travel = normalize(cross(Vv, U));\n"
-    "            float avg = 0.0;\n"
-    "            for (int iy = 0; iy < 4; ++iy)\n"
-    "                for (int ix = 0; ix < 4; ++ix) {\n"
-    "                    vec2 sp = (vec2(ix, iy) + 0.5) / 4.0 * 2.0 - 1.0;\n"
-    "                    vec3 d = cam.lightVec[i].xyz + U * sp.x + Vv * sp.y - fragPos;\n"
-    "                    float dist2 = max(dot(d, d), 1e-4);\n"
-    "                    avg += max(dot(travel, -d * inversesqrt(dist2)), 0.0) / dist2;\n"
-    "                }\n"
-    "            L = cam.lightVec[i].xyz - fragPos;\n"
-    "            radiance = cam.lightColor[i].rgb * (avg / 16.0);\n"
-    "        }\n"
-    "        L = normalize(L);\n"
+    "        vec3 L, radiance;\n"
+    "        evalLight(i, fragPos, L, radiance);\n"
     "        vec3 H = normalize(V + L);\n"
     "        float ndl = max(dot(n, L), 0.0), ndh = max(dot(n, H), 0.0), vdh = max(dot(V, H), 0.0);\n"
     "        vec3 F = F0 + (1.0 - F0) * pow(1.0 - vdh, 5.0);\n"
@@ -130,7 +96,8 @@ const char* kSuffix =
     "    outColor = vec4(pow(clamp(color, 0.0, 1.0), vec3(1.0 / 2.2)), 1.0);\n"
     "}\n";
 
-int countLines(const char* s) {
+int countLines(const std::string& text) {
+    const char* s = text.c_str();
     int n = 0;
     for (; *s; ++s) n += (*s == '\n');
     return n;
@@ -140,8 +107,8 @@ int countLines(const char* s) {
 
 SurfaceFragment buildSurfaceFragment(const CompileResult& graph) {
     SurfaceFragment f;
-    f.graphLineOffset = countLines(kPrefix);
-    f.source = std::string(kPrefix) + graph.glsl + kSuffix;
+    f.graphLineOffset = countLines(prefix());
+    f.source = prefix() + graph.glsl + kSuffix;
     return f;
 }
 
