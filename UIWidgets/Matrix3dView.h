@@ -2,7 +2,7 @@
 
 #include "IWindow.h"
 
-#include "../Math/Matrix3d.h"
+#include "../Math/Math/Matrix3d.h"
 
 namespace Phantom {
 	namespace UI {

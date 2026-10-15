@@ -1,9 +1,9 @@
 #pragma once
 
-#include "CGLib/Math/Line3d.h"
-#include "CGLib/Math/Ray3d.h"
-#include "CGLib/Math/Sphere3d.h"
-#include "CGLib/Math/Vector3d.h"
+#include "CGLib/Math/Math/Line3d.h"
+#include "CGLib/Math/Math/Ray3d.h"
+#include "CGLib/Math/Math/Sphere3d.h"
+#include "CGLib/Math/Math/Vector3d.h"
 
 #include <cmath>
 #include <limits>

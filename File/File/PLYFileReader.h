@@ -3,7 +3,7 @@
 #include <string>
 #include <filesystem>
 
-#include "CGLib/Math/Vector3d.h"
+#include "CGLib/Math/Math/Vector3d.h"
 #include "PLYFile.h"
 
 namespace Phantom {

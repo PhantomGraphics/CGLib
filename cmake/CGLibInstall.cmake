@@ -11,7 +11,7 @@
 #   lib/cmake/CGLib/CGLibConfig.cmake, CGLibConfigVersion.cmake, CGLibTargets*.cmake
 #
 # Public headers keep the source tree's relative layout because they reach vendored
-# headers by relative path (Math/glm.h -> ../ThirdParty/glm/glm/glm.hpp,
+# headers by relative path (Math/Math/glm.h -> ../../ThirdParty/glm/glm/glm.hpp,
 # Numerics/Converter.h -> ../ThirdParty/eigen-3.4.0/Eigen/Eigen). The install therefore
 # bundles glm, nlohmann/json, Eigen and cgltf headers under include/CGLib/. CGLib's own
 # LICENSE is installed under share/licenses/CGLib; the vendored libraries keep their
@@ -106,12 +106,12 @@ set(CGLIB_PACKAGE_VULKAN_COMPONENTS "${_cglib_vulkan_components}")
 # Tests, viewers, *.cpp and Vulkan-facing code are deliberately not installed.
 set(_hdr_dest ${CMAKE_INSTALL_INCLUDEDIR}/CGLib)
 
-foreach(_dir Math Util)
+foreach(_dir Util)
     install(DIRECTORY ${CGLIB_ROOT}/${_dir}/ DESTINATION ${_hdr_dest}/${_dir}
         FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp" PATTERN "*.inl" PATTERN "*.hxx"
         PATTERN "pch.h" EXCLUDE)
 endforeach()
-foreach(_dir Graphics Numerics Space File Animation Volume GeometryNode MeshEdit ShaderGraph AssetCore SceneRuntime)
+foreach(_dir Math Graphics Numerics Space File Animation Volume GeometryNode MeshEdit ShaderGraph AssetCore SceneRuntime)
     install(DIRECTORY ${CGLIB_ROOT}/${_dir}/${_dir}/ DESTINATION ${_hdr_dest}/${_dir}/${_dir}
         FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp" PATTERN "*.inl" PATTERN "*.hxx"
         PATTERN "pch.h" EXCLUDE

@@ -6,7 +6,7 @@
 #include <charconv>
 #include <cstdio>
 
-#include "CGLib/Math/Vector3d.h"
+#include "CGLib/Math/Math/Vector3d.h"
 
 #include "OBJSyntaxParser.h"
 #include "MTLFileReader.h"

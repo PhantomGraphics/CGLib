@@ -6,7 +6,7 @@
 #include <array>
 #include <utility>
 #include <vector>
-#include "CGLib/Math/Box3d.h"
+#include "CGLib/Math/Math/Box3d.h"
 
 
 namespace Phantom {

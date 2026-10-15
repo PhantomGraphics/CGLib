@@ -2,7 +2,7 @@
 
 #include "IWindow.h"
 
-#include "../Math/Vector3d.h"
+#include "../Math/Math/Vector3d.h"
 
 namespace Phantom {
 	namespace UI {

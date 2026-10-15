@@ -2,7 +2,7 @@
 
 #include "IView.h"
 
-#include "../Math/Matrix4d.h"
+#include "../Math/Math/Matrix4d.h"
 #include "Float4View.h"
 
 namespace Phantom {

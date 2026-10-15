@@ -7,7 +7,7 @@
 #include "../../../CGLib/Graphics/Graphics/ColorMap.h"
 #include "../../../CGLib/Graphics/Graphics/ColorTable.h"
 
-#include "../../../CGLib/Math/Box3d.h"
+#include "../../../CGLib/Math/Math/Box3d.h"
 
 #include <glm/gtc/matrix_transform.hpp>
 

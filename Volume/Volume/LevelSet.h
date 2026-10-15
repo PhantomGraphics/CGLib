@@ -1,8 +1,8 @@
 #pragma once
 
 #include <vector>
-#include "CGLib/Math/Triangle3d.h"
-#include "CGLib/Math/Rectangle3d.h"
+#include "CGLib/Math/Math/Triangle3d.h"
+#include "CGLib/Math/Math/Rectangle3d.h"
 #include "../Volume/SparseVolumeTree/SparseVolume.h"
 
 namespace Phantom

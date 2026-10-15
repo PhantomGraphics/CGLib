@@ -1,8 +1,8 @@
 // Uses only the installed package: headers via "CGLib/...", libraries via CGLib::<Component>.
-#include "CGLib/Math/Ellipse3d.h"
-#include "CGLib/Math/SafeNormalize.h"
-#include "CGLib/Math/Statistics.h"
-#include "CGLib/Math/Vector3d.h"
+#include "CGLib/Math/Math/Ellipse3d.h"
+#include "CGLib/Math/Math/SafeNormalize.h"
+#include "CGLib/Math/Math/Statistics.h"
+#include "CGLib/Math/Math/Vector3d.h"
 #include "CGLib/Numerics/Numerics/SVD3d.h"
 #include "CGLib/Space/Space/BVH.h"
 #include "CGLib/Volume/Volume/Volume.h"

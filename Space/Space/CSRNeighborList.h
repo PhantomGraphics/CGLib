@@ -3,7 +3,7 @@
 #include "IndexedSortBasedSearcher.h"
 #include "NeighborIndexView.h"
 
-#include "CGLib/Math/Vector3d.h"
+#include "CGLib/Math/Math/Vector3d.h"
 #include <cstddef>
 #include <vector>
 

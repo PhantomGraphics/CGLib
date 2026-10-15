@@ -1,7 +1,7 @@
 #pragma once
 
-#include "CGLib/Math/Vector2d.h"
-#include "CGLib/Math/Vector3d.h"
+#include "CGLib/Math/Math/Vector2d.h"
+#include "CGLib/Math/Math/Vector3d.h"
 #include "MTLFile.h"
 #include <string>
 #include <vector>

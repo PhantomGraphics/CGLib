@@ -1,12 +1,12 @@
 #pragma once
 
-#include "CGLib/Math/Matrix2d.h"
-#include "CGLib/Math/Matrix3d.h"
-#include "CGLib/Math/Matrix4d.h"
+#include "CGLib/Math/Math/Matrix2d.h"
+#include "CGLib/Math/Math/Matrix3d.h"
+#include "CGLib/Math/Math/Matrix4d.h"
 
-#include "CGLib/Math/Vector2d.h"
-#include "CGLib/Math/Vector3d.h"
-#include "CGLib/Math/Vector4d.h"
+#include "CGLib/Math/Math/Vector2d.h"
+#include "CGLib/Math/Math/Vector3d.h"
+#include "CGLib/Math/Math/Vector4d.h"
 
 #include "../ThirdParty/eigen-3.4.0/Eigen/Eigen"
 

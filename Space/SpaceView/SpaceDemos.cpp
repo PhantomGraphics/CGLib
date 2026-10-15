@@ -5,9 +5,9 @@
 #include "../Space/Octree.h"
 #include "../Space/SignedDistanceCalculator.h"
 #include "../Space/SpaceHash.h"
-#include "CGLib/Math/Box3d.h"
-#include "CGLib/Math/Sphere3d.h"
-#include "CGLib/Math/Vector3d.h"
+#include "CGLib/Math/Math/Box3d.h"
+#include "CGLib/Math/Math/Sphere3d.h"
+#include "CGLib/Math/Math/Vector3d.h"
 
 #include <algorithm>
 #include <charconv>

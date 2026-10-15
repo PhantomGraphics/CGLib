@@ -3,7 +3,7 @@
 #include "IView.h"
 #include "Vector3dView.h"
 
-#include "../Math/Ellipse3d.h"
+#include "../Math/Math/Ellipse3d.h"
 
 namespace Phantom {
 	namespace UI {

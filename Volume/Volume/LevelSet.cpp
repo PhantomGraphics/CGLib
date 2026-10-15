@@ -1,6 +1,6 @@
 #include "LevelSet.h"
 
-#include "CGLib/Math/Ray3d.h"
+#include "CGLib/Math/Math/Ray3d.h"
 #include "CGLib/Space/Space/DistanceCalculator.h"
 #include "CGLib/Space/Space/IntersectionCalculator.h"
 

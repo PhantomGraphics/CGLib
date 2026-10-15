@@ -1,8 +1,8 @@
 #include "SignedDistanceCalculator.h"
 
-#include "CGLib/Math/Sphere3d.h"
-#include "CGLib/Math/Plane3d.h"
-#include "CGLib/Math/Box3d.h"
+#include "CGLib/Math/Math/Sphere3d.h"
+#include "CGLib/Math/Math/Plane3d.h"
+#include "CGLib/Math/Math/Box3d.h"
 
 using namespace Phantom::Math;
 using namespace Phantom::Space;

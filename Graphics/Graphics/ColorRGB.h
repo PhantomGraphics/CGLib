@@ -1,6 +1,6 @@
 ﻿#pragma once
 
-#include "../../Math/glm.h"
+#include "../../Math/Math/glm.h"
 
 namespace Phantom {
 	namespace Graphics {

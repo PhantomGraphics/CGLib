@@ -1,6 +1,6 @@
 //from http://paulbourke.net/geometry/polygonise/
 
-#include "CGLib/Math/Vector3d.h"
+#include "CGLib/Math/Math/Vector3d.h"
 #include "MCSurfaceBuilder.h"
 #include "MarchingCubesTable.h"
 #include <unordered_set>

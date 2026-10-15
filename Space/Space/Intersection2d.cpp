@@ -1,7 +1,7 @@
 #include "Intersection2d.h"
 
-#include "CGLib/Math/Line2d.h"
-#include "CGLib/Math/Circle2d.h"
+#include "CGLib/Math/Math/Line2d.h"
+#include "CGLib/Math/Math/Circle2d.h"
 
 #include <cmath>
 #include <limits>

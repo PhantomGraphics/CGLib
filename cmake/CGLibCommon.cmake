@@ -1,7 +1,7 @@
 # CGLibCommon.cmake -- shared setup for CGLib's standalone CMake build.
 #
 # Included by the top-level CGLib/CMakeLists.txt and by every module
-# CMakeLists.txt (Math has none; Space/File/Numerics/Animation/Volume/
+# CMakeLists.txt (Math/Graphics/Space/File/Numerics/Animation/Volume/
 # Renderer/GltfRenderer/Editor/Effects each do, and each is
 # usable standalone as `cmake -S CGLib/<Module> -B ...`). This file has no
 # dependency on anything outside the CGLib directory -- that self-containment
@@ -52,7 +52,7 @@ endif()
 set(CGLIB_WARN_FLAGS ${PHANTOM_WARN_FLAGS})
 
 # --- Header-prefix shim: expose "<dir>/CGLib/..." so that the repo-wide
-# `#include "CGLib/Math/Vector3d.h"` convention resolves with only CGLib's own
+# `#include "CGLib/Math/Math/Vector3d.h"` convention resolves with only CGLib's own
 # directory in play (a standalone checkout has no parent directory to put on
 # the include path).
 #

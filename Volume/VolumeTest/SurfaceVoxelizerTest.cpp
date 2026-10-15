@@ -2,7 +2,7 @@
 
 #include "../Volume/SurfaceVoxelizer.h"
 
-#include "../../../CGLib/Math/Triangle3d.h"
+#include "../../../CGLib/Math/Math/Triangle3d.h"
 
 #include <array>
 #include <cmath>
