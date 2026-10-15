@@ -19,7 +19,24 @@ const char* kPrefix =
     "    vec4 lightVec[4];\n"    // xyz = direction to the light (w = 0) or position (w = 1)
     "    vec4 lightColor[4];\n"  // rgb = colour * intensity; w = cos(inner cone) for spot lights
     "    vec4 lightDir[4];\n"    // spot: xyz = direction the light travels, w = cos(outer cone); w <= -1.5 = not a spot
+    "    mat4 shadowVP;\n"       // world -> clip space of the shadow-casting light
+    "    vec4 shadowInfo;\n"     // x = slot of the light that casts (-1 none), y + w * distance = texel size, z = depth bias
     "} cam;\n"
+    "layout(set = 0, binding = 1) uniform sampler2D shadowMap;\n"
+    "float shadowVisibility(vec3 pos, vec3 n, int slot) {\n"  // 3x3 PCF, normal-offset bias (same as cgstudio.frag)
+    "    if (cam.shadowInfo.x < -0.5 || int(cam.shadowInfo.x + 0.5) != slot) return 1.0;\n"
+    "    float dist = cam.lightVec[slot].w > 0.5 ? distance(pos, cam.lightVec[slot].xyz) : 0.0;\n"
+    "    float texel = cam.shadowInfo.y + cam.shadowInfo.w * dist;\n"
+    "    vec4 p = cam.shadowVP * vec4(pos + n * texel * 1.5, 1.0);\n"
+    "    vec3 c = p.xyz / p.w;\n"
+    "    vec2 uv = c.xy * 0.5 + 0.5;\n"
+    "    if (c.z >= 1.0 || c.z < 0.0 || uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) return 1.0;\n"
+    "    float lit = 0.0;\n"
+    "    for (int y = -1; y <= 1; ++y)\n"
+    "        for (int x = -1; x <= 1; ++x)\n"
+    "            lit += (c.z - cam.shadowInfo.z <= texture(shadowMap, uv + vec2(x, y) / 2048.0).r) ? 1.0 : 0.0;\n"
+    "    return lit / 9.0;\n"
+    "}\n"
     "layout(push_constant) uniform PushConstants {\n"
     "    mat4 model;\n"
     "    vec4 baseColor;\n"  // unused by graphs
@@ -88,7 +105,7 @@ const char* kSuffix =
     "        float G = (ndl / (ndl * (1.0 - k) + k)) * (ndv / (ndv * (1.0 - k) + k));\n"
     "        vec3 spec = D * G * F / max(4.0 * ndl * ndv, 1e-4);\n"
     "        vec3 diffuse = (1.0 - F) * (1.0 - metallic) * base / 3.14159265;\n"
-    "        lit += (diffuse + spec) * 3.14159265 * ndl * radiance;\n"
+    "        lit += (diffuse + spec) * 3.14159265 * ndl * radiance * shadowVisibility(fragPos, normalize(fragNormal), i);\n"
     "    }\n"
     "    float sky = n.y * 0.5 + 0.5;\n"
     "    vec3 envSpec = F0 * mix(0.25, 0.9, sky) * (1.0 - 0.6 * rough);\n"  // cheap hemispherical environment
