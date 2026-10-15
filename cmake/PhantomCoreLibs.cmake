@@ -199,6 +199,21 @@ function(phantom_add_meshedit_core)
     target_compile_features(MeshEditCore PUBLIC cxx_std_20)
 endfunction()
 
+function(phantom_add_pbr_core)
+    if(TARGET PBRCore)
+        return()
+    endif()
+    # Physically based shading parts shared by the renderers (Phantom::PBR -- CPU-only): the light description and the
+    # viewport's lighting uniform block. No Vulkan / scene dependency; uses the vendored header-only GLM.
+    add_library(PBRCore STATIC
+        ${CGLIB_ROOT}/PBR/PBR/Light.cpp
+        ${CGLIB_ROOT}/PBR/PBR/LightBlock.cpp
+    )
+    target_include_directories(PBRCore PUBLIC ${REPO_ROOT} ${CGLIB_ROOT}/ThirdParty/glm)
+    target_compile_options(PBRCore PRIVATE ${PHANTOM_WARN_FLAGS})
+    target_compile_features(PBRCore PUBLIC cxx_std_20)
+endfunction()
+
 function(phantom_add_shadergraph_core)
     if(TARGET ShaderGraphCore)
         return()
