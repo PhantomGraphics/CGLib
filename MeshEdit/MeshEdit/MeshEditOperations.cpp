@@ -710,6 +710,105 @@ bool loopCut(const EditableMesh& in, uint32_t edgeId, float factor, EditableMesh
 	return true;
 }
 
+bool knifePlane(const EditableMesh& in, const std::array<float, 3>& point, const std::array<float, 3>& normal, EditableMesh& out,
+                std::string* error, std::vector<uint32_t>* cutVertices, size_t* splitFaces) {
+	using Key = std::pair<uint32_t, uint32_t>;
+	auto key = [](uint32_t a, uint32_t b) { return a < b ? Key{ a, b } : Key{ b, a }; };
+	double len = 0;
+	for (float c : normal) { if (!std::isfinite(c)) { fail(error, "the plane normal must be finite"); return false; } len += double(c) * c; }
+	for (float c : point) if (!std::isfinite(c)) { fail(error, "the plane point must be finite"); return false; }
+	if (len < 1e-18) { fail(error, "the plane normal must not be zero"); return false; }
+	len = std::sqrt(len);
+	const double n[3] = { normal[0] / len, normal[1] / len, normal[2] / len };
+	constexpr double kEps = 1.0e-5;
+	std::map<uint32_t, double> dist;
+	for (const auto& v : in.vertices)
+		dist[v.id] = n[0] * (v.pos[0] - point[0]) + n[1] * (v.pos[1] - point[1]) + n[2] * (v.pos[2] - point[2]);
+	auto side = [&](uint32_t id) { const double d = dist[id]; return d > kEps ? 1 : d < -kEps ? -1 : 0; };
+
+	EditableMesh work = in;
+	std::map<Key, uint32_t> crossing;   // undirected edge -> the vertex inserted where the plane crosses it
+	auto crossVertex = [&](uint32_t a, uint32_t b) {
+		const Key k = key(a, b);
+		const auto it = crossing.find(k);
+		if (it != crossing.end()) return it->second;
+		const EditableVertex* va = in.findVertex(a);
+		const EditableVertex* vb = in.findVertex(b);
+		const double t = dist[a] / (dist[a] - dist[b]);   // measured from a
+		const uint32_t id = work.addVertex(float(va->pos[0] + (vb->pos[0] - va->pos[0]) * t), float(va->pos[1] + (vb->pos[1] - va->pos[1]) * t),
+		                                  float(va->pos[2] + (vb->pos[2] - va->pos[2]) * t));
+		crossing[k] = id;
+		return id;
+	};
+
+	struct Node { EditableCorner corner; bool onPlane = false; };
+	std::set<uint32_t> cut;
+	size_t split = 0;
+	std::vector<std::vector<EditableCorner>> extra;
+	for (auto& face : work.faces) {
+		const EditableFace* orig = in.findFace(face.id);
+		if (!orig) continue;   // (only original faces are in `work.faces` at this point)
+		bool anyPlus = false, anyMinus = false;
+		for (const auto& c : orig->loop) { const int s = side(c.vertex); anyPlus = anyPlus || s > 0; anyMinus = anyMinus || s < 0; }
+		if (!anyPlus || !anyMinus) continue;
+
+		// The loop with a corner inserted wherever the plane crosses an edge.
+		std::vector<Node> ring;
+		const auto& loop = orig->loop;
+		for (size_t i = 0; i < loop.size(); ++i) {
+			const EditableCorner& from = loop[i];
+			const EditableCorner& to = loop[(i + 1) % loop.size()];
+			ring.push_back({ from, side(from.vertex) == 0 });
+			if (side(from.vertex) * side(to.vertex) < 0) {
+				const double t = dist[from.vertex] / (dist[from.vertex] - dist[to.vertex]);
+				EditableCorner c = from;
+				c.vertex = crossVertex(from.vertex, to.vertex);
+				c.uv[0] = float(from.uv[0] + (to.uv[0] - from.uv[0]) * t);
+				c.uv[1] = float(from.uv[1] + (to.uv[1] - from.uv[1]) * t);
+				if (from.hasNormal && to.hasNormal) {
+					double m[3], l = 0;
+					for (int k = 0; k < 3; ++k) { m[k] = from.normal[k] + (to.normal[k] - from.normal[k]) * t; l += m[k] * m[k]; }
+					l = std::sqrt(l);
+					if (l > 1e-12) for (int k = 0; k < 3; ++k) c.normal[k] = float(m[k] / l); else c.hasNormal = false;
+				} else c.hasNormal = false;
+				ring.push_back({ c, true });
+			}
+		}
+		std::vector<size_t> onPlane;
+		for (size_t i = 0; i < ring.size(); ++i) if (ring[i].onPlane) onPlane.push_back(i);
+		if (onPlane.size() != 2) { fail(error, "the plane meets face " + std::to_string(face.id) + " in " + std::to_string(onPlane.size()) + " places; only convex faces can be cut"); return false; }
+
+		auto piece = [&](size_t from, size_t to) {
+			std::vector<EditableCorner> p;
+			for (size_t i = from;; i = (i + 1) % ring.size()) { p.push_back(ring[i].corner); if (i == to) break; }
+			return p;
+		};
+		std::vector<std::vector<EditableCorner>> pieces;
+		for (auto& p : { piece(onPlane[0], onPlane[1]), piece(onPlane[1], onPlane[0]) }) {
+			// Faces stay triangles or quads: a five-corner piece becomes a quad and a triangle.
+			std::vector<EditableCorner> rest = p;
+			while (rest.size() > 4) {
+				pieces.push_back({ rest[0], rest[1], rest[2], rest[3] });
+				rest.erase(rest.begin() + 1, rest.begin() + 3);   // [0, 3, 4, ...]
+			}
+			pieces.push_back(rest);
+		}
+		face.loop = pieces[0];
+		for (size_t i = 1; i < pieces.size(); ++i) extra.push_back(pieces[i]);
+		for (const Node& node : ring) if (node.onPlane) cut.insert(node.corner.vertex);
+		++split;
+	}
+	if (split == 0) { fail(error, "the plane does not cross any face"); return false; }
+	for (const auto& loop : extra) work.addFace(loop);
+	work.rebuildEdges();
+	if (!work.validate(error)) { if (error) *error = "the cut would produce an invalid mesh: " + *error; return false; }
+	work.revision = nextEditableRevision();
+	out = std::move(work);
+	if (cutVertices) cutVertices->assign(cut.begin(), cut.end());
+	if (splitFaces) *splitFaces = split;
+	return true;
+}
+
 bool unwrapFaces(const EditableMesh& in, const std::vector<uint32_t>& faceIds, float angleDeg, float margin, EditableMesh& out,
                  std::string* error, size_t* charts) {
 	if (faceIds.empty()) { fail(error, "no faces selected"); return false; }
