@@ -49,3 +49,36 @@ if(PHANTOM_GTEST_FOUND)
 else()
     message(STATUS "GTest unavailable or tests disabled -- skipping PBRTest target")
 endif()
+
+# Optional interactive PBR test view (CPU-only builds keep PBRCore/PBRTest).
+if(NOT DEFINED CGLIB_BUILD_VIEWERS OR CGLIB_BUILD_VIEWERS)
+    include(PhantomVulkanApp)
+    phantom_find_vulkan_headers()
+    if(PHANTOM_VULKAN_INCLUDE_DIR)
+        phantom_find_vulkan_loader()
+        phantom_find_glfw_loader()
+        if(PHANTOM_VULKAN_LIBRARY AND PHANTOM_GLFW_LIBRARY)
+            phantom_add_vkappbase_core()
+            phantom_add_gltfrenderer_core()
+            add_executable(PBRView ${CMAKE_CURRENT_SOURCE_DIR}/PBRView/main.cpp)
+            target_link_libraries(PBRView PRIVATE PBRCore GltfRendererCore VkAppBaseCore
+                ${PHANTOM_VULKAN_LIBRARY} ${PHANTOM_GLFW_LIBRARY})
+            target_compile_options(PBRView PRIVATE ${PHANTOM_WARN_FLAGS})
+            target_compile_features(PBRView PRIVATE cxx_std_20)
+            set_property(TARGET PBRView APPEND PROPERTY LINK_DEPENDS
+                ${PBR_ROOT}/PBRView/shaders/pbr.frag.spv
+                ${CGLIB_ROOT}/GltfViewer/shaders/gltf.vert.spv)
+            add_custom_command(TARGET PBRView POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:PBRView>/shaders
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    ${CGLIB_ROOT}/GltfViewer/shaders/gltf.vert.spv
+                    ${PBR_ROOT}/PBRView/shaders/pbr.frag.spv
+                    $<TARGET_FILE_DIR:PBRView>/shaders
+                VERBATIM)
+        else()
+            phantom_gpu_target_skipped("PBRView: Vulkan or GLFW loader unavailable")
+        endif()
+    elseif(NOT DEFINED CGLIB_ENABLE_VULKAN OR CGLIB_ENABLE_VULKAN)
+        phantom_gpu_target_skipped("PBRView: Vulkan headers unavailable")
+    endif()
+endif()

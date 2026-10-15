@@ -1,0 +1,25 @@
+{
+  "steps": [
+    {"command":"Unknown","expect":"Error:unknown command"},
+    {"command":"SetLightType 3","expect":"Error:invalid argument"},
+    {"command":"SetLightType 1.5","expect":"Error:invalid argument"},
+    {"command":"SetIntensity -1","expect":"Error:invalid argument"},
+    {"command":"SetIntensity 101","expect":"Error:invalid argument"},
+    {"command":"SetIntensity nan","expect":"Error:invalid argument"},
+    {"command":"SetIntensity 3 extra","expect":"Error:invalid argument"},
+    {"command":"SetCone 9","expect":"Error:invalid argument"},
+    {"command":"SetCone 81","expect":"Error:invalid argument"},
+    {"command":"SetDistance 0","expect":"Error:invalid argument"},
+    {"command":"SetDistance 31","expect":"Error:invalid argument"},
+    {"command":"SetPosition 0 5 7","expect":"Error:invalid argument"},
+    {"command":"SetPosition 4 6","expect":"Error:invalid argument"},
+    {"command":"SetColor 1 0 -0.1","expect":"Error:invalid argument"},
+    {"command":"SetColor 1.1 0 0","expect":"Error:invalid argument"},
+    {"command":"GetState","expect_ok":true,"path":"result.lightType","expect":"0"},
+    {"command":"GetState","expect_ok":true,"path":"result.intensity","expect_range":"3,3"},
+    {"command":"GetState","expect_ok":true,"path":"result.cone","expect_range":"45,45"},
+    {"command":"GetState","expect_ok":true,"path":"result.distance","expect_range":"19,19"},
+    {"command":"GetState","expect_ok":true,"path":"result.position","expect":"[4.0,6.0,8.0]"},
+    {"command":"GetState","expect_ok":true,"path":"result.color","expect":"[1.0,1.0,1.0]"}
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "steps": [
+    {"command":"GetState","expect_ok":true,"path":"result.sphereCount","expect":"25"},
+    {"command":"GetState","expect_ok":true,"path":"result.materialCount","expect":"25"},
+    {"command":"GetState","expect_ok":true,"path":"result.shadersLoaded","expect":"true"},
+    {"command":"GetState","expect_ok":true,"path":"result.lightType","expect":"0"},
+    {"command":"GetState","expect_ok":true,"path":"result.intensity","expect_range":"3,3"},
+    {"command":"GetState","expect_ok":true,"path":"result.distance","expect_range":"19,19"},
+    {"command":"ReadCenterBrightness","expect_range":"20,700"}
+  ]
+}
