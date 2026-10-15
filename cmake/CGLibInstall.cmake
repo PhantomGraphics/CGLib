@@ -59,7 +59,7 @@ endfunction()
 set(_cglib_install_components
     Math=MathCore Graphics=GraphicsCore Numerics=NumericsCore Space=SpaceCore
     Volume=VolumeCore File=FileCore Animation=AnimationCore
-    GeometryNode=GeometryNodeCore MeshEdit=MeshEditCore ShaderGraph=ShaderGraphCore Asset=AssetCore SceneRuntime=SceneRuntimeCore)
+    GeometryNode=GeometryNodeCore MeshEdit=MeshEditCore PBR=PBRCore ShaderGraph=ShaderGraphCore Asset=AssetCore SceneRuntime=SceneRuntimeCore)
 
 set(_cglib_install_targets "")
 set(_cglib_install_component_names "")
@@ -111,7 +111,7 @@ foreach(_dir Util)
         FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp" PATTERN "*.inl" PATTERN "*.hxx"
         PATTERN "pch.h" EXCLUDE)
 endforeach()
-foreach(_dir Math Graphics Numerics Space File Animation Volume GeometryNode MeshEdit ShaderGraph AssetCore SceneRuntime)
+foreach(_dir Math Graphics Numerics Space File Animation Volume GeometryNode MeshEdit PBR ShaderGraph AssetCore SceneRuntime)
     install(DIRECTORY ${CGLIB_ROOT}/${_dir}/${_dir}/ DESTINATION ${_hdr_dest}/${_dir}/${_dir}
         FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp" PATTERN "*.inl" PATTERN "*.hxx"
         PATTERN "pch.h" EXCLUDE
