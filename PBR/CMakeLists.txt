@@ -40,6 +40,7 @@ if(PHANTOM_GTEST_FOUND)
     cglib_add_test(PBRTest
         SOURCES
             ${PBR_ROOT}/PBRTest/LightBlockTest.cpp
+            ${PBR_ROOT}/PBRTest/GltfLightTest.cpp
         INCLUDES ${PBR_ROOT}/PBRTest
         LINK PBRCore
     )
