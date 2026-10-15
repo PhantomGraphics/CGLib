@@ -1,0 +1,31 @@
+{
+  "steps": [
+    {"command":"SetLightType 1","expect":"OK"},
+    {"command":"GetState","expect_ok":true,"path":"result.lightType","expect":"1"},
+    {"command":"SetIntensity 70","expect":"OK"},
+    {"command":"GetState","expect_ok":true,"path":"result.intensity","expect_range":"70,70"},
+    {"command":"SetPosition 3 5 7","expect":"OK"},
+    {"command":"GetState","expect_ok":true,"path":"result.position.0","expect_range":"3,3"},
+    {"command":"GetState","expect_ok":true,"path":"result.position.1","expect_range":"5,5"},
+    {"command":"GetState","expect_ok":true,"path":"result.position.2","expect_range":"7,7"},
+    {"command":"ReadCenterBrightness","expect_range":"20,700"},
+    {"command":"SetLightType 2","expect":"OK"},
+    {"command":"GetState","expect_ok":true,"path":"result.lightType","expect":"2"},
+    {"command":"SetCone 60","expect":"OK"},
+    {"command":"GetState","expect_ok":true,"path":"result.cone","expect_range":"60,60"},
+    {"command":"ReadCenterBrightness","expect_range":"20,700"},
+    {"command":"SetColor 0.25 0.5 0.75","expect":"OK"},
+    {"command":"GetState","expect_ok":true,"path":"result.color.0","expect_range":"0.25,0.25"},
+    {"command":"GetState","expect_ok":true,"path":"result.color.1","expect_range":"0.5,0.5"},
+    {"command":"GetState","expect_ok":true,"path":"result.color.2","expect_range":"0.75,0.75"},
+    {"command":"SetDistance 25","expect":"OK"},
+    {"command":"GetState","expect_ok":true,"path":"result.distance","expect_range":"25,25"},
+    {"command":"Reset","expect":"OK"},
+    {"command":"GetState","expect_ok":true,"path":"result.lightType","expect":"0"},
+    {"command":"GetState","expect_ok":true,"path":"result.intensity","expect_range":"3,3"},
+    {"command":"GetState","expect_ok":true,"path":"result.cone","expect_range":"45,45"},
+    {"command":"GetState","expect_ok":true,"path":"result.distance","expect_range":"19,19"},
+    {"command":"GetState","expect_ok":true,"path":"result.position","expect":"[4.0,6.0,8.0]"},
+    {"command":"GetState","expect_ok":true,"path":"result.color","expect":"[1.0,1.0,1.0]"}
+  ]
+}
