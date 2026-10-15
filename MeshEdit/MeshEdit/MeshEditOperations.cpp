@@ -148,6 +148,58 @@ bool translateVertices(const EditableMesh& in, const std::vector<uint32_t>& vert
 	return editVertices(in, vertices, out, error, [&](float* p) { for (int k = 0; k < 3; ++k) p[k] += delta[k]; });
 }
 
+bool falloffFromName(const std::string& name, Falloff& out) {
+	std::string l = name;
+	for (auto& c : l) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+	if (l == "smooth")   { out = Falloff::Smooth;   return true; }
+	if (l == "linear")   { out = Falloff::Linear;   return true; }
+	if (l == "sharp")    { out = Falloff::Sharp;    return true; }
+	if (l == "constant") { out = Falloff::Constant; return true; }
+	return false;
+}
+
+bool translateVerticesProportional(const EditableMesh& in, const std::vector<uint32_t>& vertices, const std::array<float, 3>& delta,
+                                   float radius, Falloff falloff, EditableMesh& out, std::string* error, size_t* affected) {
+	if (vertices.empty()) { fail(error, "no vertices selected"); return false; }
+	if (!std::isfinite(radius) || radius <= 0.f) { fail(error, "radius must be a positive number"); return false; }
+	if (!finite3(delta)) { fail(error, "the offset has a non-finite component"); return false; }
+	const std::set<uint32_t> selected(vertices.begin(), vertices.end());
+	std::vector<const EditableVertex*> sources;
+	for (uint32_t id : selected) {
+		const EditableVertex* v = in.findVertex(id);
+		if (!v) { fail(error, "vertex " + std::to_string(id) + " does not exist"); return false; }
+		sources.push_back(v);
+	}
+	EditableMesh work = in;
+	size_t moved = 0;
+	for (auto& v : work.vertices) {
+		double w = 1.0;
+		if (!selected.count(v.id)) {
+			double best = 1e300;
+			for (const EditableVertex* s : sources) {
+				const double dx = double(v.pos[0]) - s->pos[0], dy = double(v.pos[1]) - s->pos[1], dz = double(v.pos[2]) - s->pos[2];
+				best = std::min(best, dx * dx + dy * dy + dz * dz);
+			}
+			const double t = std::sqrt(best) / radius;
+			if (t >= 1.0) continue;
+			switch (falloff) {
+			case Falloff::Smooth:   w = 1.0 - (3.0 * t * t - 2.0 * t * t * t); break;
+			case Falloff::Linear:   w = 1.0 - t; break;
+			case Falloff::Sharp:    w = (1.0 - t) * (1.0 - t); break;
+			case Falloff::Constant: w = 1.0; break;
+			}
+			if (w <= 0.0) continue;
+			++moved;
+		}
+		for (int k = 0; k < 3; ++k) v.pos[k] += static_cast<float>(delta[k] * w);
+	}
+	if (!work.validateGeometry(error)) return false;
+	work.revision = nextEditableRevision();
+	out = std::move(work);
+	if (affected) *affected = moved;
+	return true;
+}
+
 bool rotateVertices(const EditableMesh& in, const std::vector<uint32_t>& vertices, const std::array<float, 3>& eulerDeg,
                     const std::array<float, 3>& pivot, EditableMesh& out, std::string* error) {
 	if (!finite3(eulerDeg) || !finite3(pivot)) { fail(error, "the rotation is not finite"); return false; }

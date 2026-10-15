@@ -29,6 +29,14 @@ namespace Phantom::MeshEdit {
 	// Moves the vertices by `delta` (object-local). Topology, ids and attributes are unchanged.
 	bool translateVertices(const EditableMesh& in, const std::vector<uint32_t>& vertices, const std::array<float, 3>& delta,
 	                       EditableMesh& out, std::string* error = nullptr);
+	// Proportional editing: moves the vertices by `delta` and every other vertex within `radius` (straight-line distance to the
+	// nearest moved vertex) by `delta` times a falloff weight that is 1 at the selection and 0 at the radius.
+	enum class Falloff { Smooth, Linear, Sharp, Constant };
+	bool falloffFromName(const std::string& name, Falloff& out);   // smooth|linear|sharp|constant (case-insensitive)
+	// *affected (optional) receives how many vertices outside the selection moved.
+	bool translateVerticesProportional(const EditableMesh& in, const std::vector<uint32_t>& vertices, const std::array<float, 3>& delta,
+	                                   float radius, Falloff falloff, EditableMesh& out, std::string* error = nullptr,
+	                                   size_t* affected = nullptr);
 	// Rotates the vertices about `pivot` by Euler angles in degrees (applied Y, then X, then Z like object rotation: R = Ry*Rx*Rz).
 	bool rotateVertices(const EditableMesh& in, const std::vector<uint32_t>& vertices, const std::array<float, 3>& eulerDeg,
 	                    const std::array<float, 3>& pivot, EditableMesh& out, std::string* error = nullptr);
