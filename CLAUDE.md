@@ -59,7 +59,7 @@ MSVC ランタイムは Debug `/MDd`、その他 `/MD`。オフラインでは
 `SpaceCore`, `FileCore`, `AnimationCore`, `VolumeCore`,
 `GeometryNodeCore`（`Phantom::GeometryNode` -- ノードグラフの CPU 評価、Field/属性 domain/seed 契約を含む、`docs/todo/PLAN_geometry_node.md`）, `GeometryNodeTest`,
 `MeshEditCore`（`Phantom::MeshEdit` -- ポリゴンメッシュ編集: 永続 id を持つ論理トポロジ `EditableMesh`、押し出し/Inset/ベベル/ループカット/結合/削除/シェーディング、Mirror・Subdivision モディファイア、画面空間ピッキング、編集選択ステート。CPU のみ、Vulkan/シーン/描画メッシュ型に非依存）, `MeshEditTest`,
-`PBRCore`（`Phantom::PBR` -- 描画に依存しない PBR シェーディングの共通部品。Phase 1: ライト記述 `Light`・ビューポートのライト UBO ブロック `LightBlock`/`packLights`。GLSL 側の宣言（PhantomStudio `cgstudio.frag`・ShaderGraph `SurfaceFragment.cpp`）は `LightBlock` と同じ順・同じ並びで保つ。以降のフェーズでシャドウ行列・他レンダラ用ライト型への変換・共有 GLSL を追加）, `PBRTest`,
+`PBRCore`（`Phantom::PBR` -- 描画に依存しない PBR シェーディングの共通部品。Phase 1: ライト記述 `Light`・ビューポートのライト UBO ブロック `LightBlock`/`packLights`。Phase 2: glTF 側への変換 `GltfLight.h`（`toLightEntry`・`toGltfPunctual`、ヘッダのみ。`LightEntry` は `GltfRenderer/Renderer/LightEntry.h` へ切り出し済みで Vulkan 非依存）。RayTracer の `RtLight` への変換は RayTracer 側の `RayTracer/PBRLight.h`（CGLib は RayTracer に依存しない向き）。GLSL 側の宣言（PhantomStudio `cgstudio.frag`・ShaderGraph `SurfaceFragment.cpp`）は `LightBlock` と同じ順・同じ並びで保つ。以降のフェーズでシャドウ行列・他レンダラ用ライト型への変換・共有 GLSL を追加）, `PBRTest`,
 `AssetCore`, `AssetCoreTest`, `SceneRuntimeCore`, `SceneRuntimeTest`, `PugixmlCore`,
 `VulkanGraphicsCore`, `VulkanGraphicsTest`, `UIWidgetsCore`。`AssetCore`（`Phantom::Asset` --
 project-relative asset id/URI/manifest、Vulkan/Math 非依存）は `docs/spec/phantom_asset_manifest.md`
