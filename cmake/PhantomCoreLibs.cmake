@@ -208,6 +208,7 @@ function(phantom_add_pbr_core)
     add_library(PBRCore STATIC
         ${CGLIB_ROOT}/PBR/PBR/Light.cpp
         ${CGLIB_ROOT}/PBR/PBR/LightBlock.cpp
+        ${CGLIB_ROOT}/PBR/PBR/Shadow.cpp
     )
     target_include_directories(PBRCore PUBLIC ${REPO_ROOT} ${CGLIB_ROOT}/ThirdParty/glm)
     target_compile_options(PBRCore PRIVATE ${PHANTOM_WARN_FLAGS})
