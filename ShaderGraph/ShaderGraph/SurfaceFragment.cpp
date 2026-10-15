@@ -17,7 +17,8 @@ const char* kPrefix =
     "    vec4 ambient;\n"        // rgb = colour * intensity
     "    vec4 lightInfo;\n"      // x = light count
     "    vec4 lightVec[4];\n"    // xyz = direction to the light (w = 0) or position (w = 1)
-    "    vec4 lightColor[4];\n"  // rgb = colour * intensity
+    "    vec4 lightColor[4];\n"  // rgb = colour * intensity; w = cos(inner cone) for spot lights
+    "    vec4 lightDir[4];\n"    // spot: xyz = direction the light travels, w = cos(outer cone); w <= -1.5 = not a spot
     "} cam;\n"
     "layout(push_constant) uniform PushConstants {\n"
     "    mat4 model;\n"
@@ -73,6 +74,10 @@ const char* kSuffix =
     "            float dist2 = max(dot(d, d), 1e-4);\n"
     "            L = d * inversesqrt(dist2);\n"
     "            radiance /= dist2;\n"
+    "            if (cam.lightDir[i].w > -1.5) {\n"  // spot cone
+    "                float cosA = dot(normalize(cam.lightDir[i].xyz), -L);\n"
+    "                radiance *= smoothstep(cam.lightDir[i].w, max(cam.lightColor[i].w, cam.lightDir[i].w + 1e-4), cosA);\n"
+    "            }\n"
     "        }\n"
     "        L = normalize(L);\n"
     "        vec3 H = normalize(V + L);\n"
