@@ -540,3 +540,62 @@ TEST(MergeByDistance, OnlyTheGivenVerticesAreCandidatesAndNothingToMergeFails) {
     // A large distance welds the whole box into a point: refused rather than producing an invalid mesh.
     EXPECT_FALSE(mergeByDistance(box, {}, 5.f, out, &error));
 }
+
+// ---- knife ----
+
+TEST(KnifePlane, HorizontalCutSplitsTheFourSidesIntoQuads) {
+    const EditableMesh box = makeEditableBox(0.5f);
+    EditableMesh out;
+    std::vector<uint32_t> cut;
+    size_t split = 0;
+    std::string error;
+    ASSERT_TRUE(knifePlane(box, { 0.f, 0.f, 0.f }, { 0.f, 1.f, 0.f }, out, &error, &cut, &split)) << error;
+    EXPECT_EQ(12u, out.vertices.size());
+    EXPECT_EQ(10u, out.faces.size());
+    EXPECT_EQ(4u, split);
+    EXPECT_EQ(4u, cut.size());
+    for (uint32_t id : cut) EXPECT_NEAR(0.f, out.findVertex(id)->pos[1], 1.0e-6f);
+    for (const auto& f : out.faces) EXPECT_EQ(4u, f.loop.size());
+    EXPECT_TRUE(out.validate(&error)) << error;
+}
+
+TEST(KnifePlane, ADiagonalThroughCornersMakesTrianglesWithoutNewVertices) {
+    const EditableMesh box = makeEditableBox(0.5f);
+    EditableMesh out;
+    std::string error;
+    size_t split = 0;
+    ASSERT_TRUE(knifePlane(box, { 0.f, 0.f, 0.f }, { 1.f, 1.f, 0.f }, out, &error, nullptr, &split)) << error;
+    EXPECT_EQ(8u, out.vertices.size()) << "the plane passes through existing vertices";
+    EXPECT_EQ(2u, split);
+    EXPECT_EQ(8u, out.faces.size());
+    EXPECT_TRUE(out.validate(&error)) << error;
+}
+
+TEST(KnifePlane, ACornerCutKeepsEveryFaceATriangleOrQuad) {
+    const EditableMesh box = makeEditableBox(0.5f);
+    EditableMesh out;
+    std::string error;
+    ASSERT_TRUE(knifePlane(box, { 0.3f, 0.3f, 0.3f }, { 1.f, 1.f, 1.f }, out, &error)) << error;
+    EXPECT_EQ(11u, out.vertices.size());
+    EXPECT_EQ(12u, out.faces.size());
+    for (const auto& f : out.faces) EXPECT_TRUE(f.loop.size() == 3 || f.loop.size() == 4);
+    EXPECT_TRUE(out.validate(&error)) << error;
+    // Euler's formula for a closed surface still holds.
+    EXPECT_EQ(2, int(out.vertices.size()) - int(out.edges.size()) + int(out.faces.size()));
+}
+
+TEST(KnifePlane, UvIsInterpolatedAndNothingToCutIsRefused) {
+    const EditableMesh box = makeEditableBox(0.5f);
+    EditableMesh out;
+    std::string error;
+    ASSERT_TRUE(knifePlane(box, { 0.f, 0.f, 0.f }, { 0.f, 1.f, 0.f }, out, &error)) << error;
+    // Every corner on the cut lies between its neighbours' UVs: all UVs stay inside the box's UV range.
+    float lo = 1e9f, hi = -1e9f;
+    for (const auto& f : box.faces) for (const auto& c : f.loop) { lo = std::min({ lo, c.uv[0], c.uv[1] }); hi = std::max({ hi, c.uv[0], c.uv[1] }); }
+    for (const auto& f : out.faces) for (const auto& c : f.loop) { EXPECT_GE(c.uv[0], lo - 1e-5f); EXPECT_LE(c.uv[0], hi + 1e-5f); EXPECT_GE(c.uv[1], lo - 1e-5f); EXPECT_LE(c.uv[1], hi + 1e-5f); }
+
+    EditableMesh untouched;
+    EXPECT_FALSE(knifePlane(box, { 0.f, 5.f, 0.f }, { 0.f, 1.f, 0.f }, untouched, &error)) << "a plane that misses the mesh";
+    EXPECT_FALSE(knifePlane(box, { 0.f, 0.f, 0.f }, { 0.f, 0.f, 0.f }, untouched, &error)) << "a zero normal";
+    EXPECT_FALSE(knifePlane(box, { 0.f, 0.5f, 0.f }, { 0.f, 1.f, 0.f }, untouched, &error)) << "a plane along the top face touches no face on both sides";
+}

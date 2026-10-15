@@ -70,6 +70,14 @@ namespace Phantom::MeshEdit {
 	bool loopCut(const EditableMesh& in, uint32_t edgeId, float factor, EditableMesh& out, std::string* error = nullptr,
 	             std::vector<uint32_t>* newVertices = nullptr, size_t* splitFaces = nullptr);
 
+	// Knife: cuts the whole mesh along the plane through `point` with `normal` (object-local). Every edge the plane crosses gets
+	// a vertex (shared by the faces on both sides, with UV and normal interpolated per corner) and every face it crosses is
+	// split along the cut into two pieces; a piece with five corners becomes a quad and a triangle, so faces stay 3..4 corners.
+	// Vertices that already lie on the plane are used as they are. *cutVertices receives every vertex on the cut.
+	// Fails -- `out` untouched -- when the plane crosses nothing or meets a face in more than two places (a non-convex face).
+	bool knifePlane(const EditableMesh& in, const std::array<float, 3>& point, const std::array<float, 3>& normal, EditableMesh& out,
+	                std::string* error = nullptr, std::vector<uint32_t>* cutVertices = nullptr, size_t* splitFaces = nullptr);
+
 	// Sets the shading of the selected faces' corners. flat: drops the stored normals so the face normal is derived (and
 	// follows later vertex edits). smooth: stores at every corner the area-weighted average normal of the faces around that
 	// vertex whose normal is within `angleDeg` of this face's own (180 = fully smooth, smaller keeps creases). Smooth normals
