@@ -120,7 +120,7 @@ bool GltfGpuMesh::build(const Phantom::VKG::VulkanContext& ctx, const Phantom::V
         }
 
         if (hasJoints) {
-            vertices[i].jointIndices = jointsView.get<glm::ivec4>(i);
+            vertices[i].jointIndices = glm::ivec4(readJointIndices(jointsView, doc.accessors[prim.jointsAccessor], i));
             vertices[i].jointWeights = weightsView.get<glm::vec4>(i);
         } else {
             // Unskinned primitive: bind to joint 0 with full weight. GltfSceneRenderer keeps

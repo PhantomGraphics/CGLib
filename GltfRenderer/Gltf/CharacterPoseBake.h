@@ -18,7 +18,7 @@ namespace Phantom::Gltf {
 	// One entry per mesh primitive that has positions and triangles, in meshes[] / primitives[] order. Positions and normals
 	// are in the document's local (root-transform-relative) space; callers apply their own object transform on top.
 	// Morph weights use the same priority as the viewport (clip, then manual override, then keys); skinning uses
-	// doc.skins[0] when the primitive has joints. Returns empty without a document.
+    // doc.skins[0] when the primitive has joints. Returns empty without a document or for an out-of-range weighted joint.
 	std::vector<BakedPrimitive> bakeSkinnedPose(const CharacterPoseSource& src, double framePosition, double fps);
 
 } // namespace Phantom::Gltf

@@ -51,7 +51,7 @@ std::shared_ptr<GltfDocument> buildRiggedQuadDoc() {
     };
     const std::vector<glm::vec3> normals(4, glm::vec3(0.f, 1.f, 0.f));
     const std::vector<glm::vec3> morphDelta(4, glm::vec3(0.f, 1.f, 0.f));
-    std::vector<uint32_t> jointsFlat;
+    std::vector<uint16_t> jointsFlat;
     std::vector<float> weightsFlat;
     for (int i = 0; i < 4; ++i) {
         jointsFlat.insert(jointsFlat.end(), { 0u, 0u, 0u, 0u });
@@ -69,7 +69,7 @@ std::shared_ptr<GltfDocument> buildRiggedQuadDoc() {
     const int posAcc = addAccessor(*doc, 0, posOff, 4, GltfAccessorType::Vec3, GltfComponentType::Float);
     const int nrmAcc = addAccessor(*doc, 0, nrmOff, 4, GltfAccessorType::Vec3, GltfComponentType::Float);
     const int morphAcc = addAccessor(*doc, 0, morphOff, 4, GltfAccessorType::Vec3, GltfComponentType::Float);
-    const int jointAcc = addAccessor(*doc, 0, jointOff, 4, GltfAccessorType::Vec4, GltfComponentType::UnsignedInt);
+    const int jointAcc = addAccessor(*doc, 0, jointOff, 4, GltfAccessorType::Vec4, GltfComponentType::UnsignedShort);
     const int weightAcc = addAccessor(*doc, 0, weightOff, 4, GltfAccessorType::Vec4, GltfComponentType::Float);
     const int idxAcc = addAccessor(*doc, 0, idxOff, 6, GltfAccessorType::Scalar, GltfComponentType::UnsignedShort);
 
@@ -106,11 +106,67 @@ std::shared_ptr<GltfDocument> buildRiggedQuadDoc() {
     return doc;
 }
 
+template <typename T>
+void setJointData(GltfDocument& doc, GltfComponentType type, const std::vector<T>& joints) {
+    auto& prim = doc.meshes[0].primitives[0];
+    const size_t offset = appendData(doc.buffers[0].data, joints);
+    prim.jointsAccessor = addAccessor(doc, 0, offset, 4, GltfAccessorType::Vec4, type);
+}
+
+template <typename T>
+void checkPackedJointBake(GltfComponentType type) {
+    auto doc = buildRiggedQuadDoc();
+    std::vector<T> joints;
+    for (int i = 0; i < 4; ++i) joints.insert(joints.end(), {T(0), T(1), T(255), T(255)});
+    setJointData(*doc, type, joints);
+    const std::vector<float> weights = { .25f, .75f, 0.f, 0.f, .25f, .75f, 0.f, 0.f,
+                                        .25f, .75f, 0.f, 0.f, .25f, .75f, 0.f, 0.f };
+    const size_t offset = appendData(doc->buffers[0].data, weights);
+    doc->meshes[0].primitives[0].weightsAccessor =
+        addAccessor(*doc, 0, offset, 4, GltfAccessorType::Vec4, GltfComponentType::Float);
+    GltfNode secondJoint;
+    secondJoint.translation = {6.f, 0.f, 0.f};
+    doc->nodes.push_back(secondJoint);
+    doc->scenes[0].nodes.push_back(2);
+    doc->skins[0].joints.push_back(2);
+    doc->skins[0].inverseBindMatrices.push_back(glm::mat4(1.f));
+    CharacterPoseSource src;
+    src.doc = doc.get();
+    const auto baked = bakeSkinnedPose(src, 0.0, 30.0);
+    ASSERT_EQ(1u, baked.size());
+    ASSERT_EQ(4u, baked[0].mesh.vertices.size());
+    const float expectedX[] = {4.5f, 5.5f, 5.5f, 4.5f};
+    for (size_t i = 0; i < 4; ++i) {
+        EXPECT_NEAR(expectedX[i], baked[0].mesh.vertices[i].pos[0], 1e-5f);
+        EXPECT_NEAR(1.f, baked[0].mesh.vertices[i].nrm[1], 1e-5f);
+    }
+}
+
 } // namespace
 
 TEST(CharacterPoseBake, MissingDocumentReturnsEmpty)
 {
     CharacterPoseSource src;
+    EXPECT_TRUE(bakeSkinnedPose(src, 0.0, 30.0).empty());
+}
+
+TEST(CharacterPoseBake, UnsignedByteJointsBlendAndIgnoreUnusedOutOfRangeSlots) {
+    checkPackedJointBake<uint8_t>(GltfComponentType::UnsignedByte);
+}
+
+TEST(CharacterPoseBake, UnsignedShortJointsBlendAndIgnoreUnusedOutOfRangeSlots) {
+    checkPackedJointBake<uint16_t>(GltfComponentType::UnsignedShort);
+}
+
+TEST(CharacterPoseBake, LegacyUnsignedIntJointsRemainSupported) {
+    checkPackedJointBake<uint32_t>(GltfComponentType::UnsignedInt);
+}
+
+TEST(CharacterPoseBake, OutOfRangeWeightedJointReturnsEmpty) {
+    auto doc = buildRiggedQuadDoc();
+    setJointData(*doc, GltfComponentType::UnsignedByte, std::vector<uint8_t>(16, 1));
+    CharacterPoseSource src;
+    src.doc = doc.get();
     EXPECT_TRUE(bakeSkinnedPose(src, 0.0, 30.0).empty());
 }
 
