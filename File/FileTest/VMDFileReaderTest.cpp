@@ -1,5 +1,5 @@
-﻿#include "gtest/gtest.h"
-#include "../File/VMDFileReader.h"
+#include "gtest/gtest.h"
+#include "../Core/VMDFileReader.h"
 
 #include <cstring>
 #include <sstream>

@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include "../PBR/LightBlock.h"
+#include "../Core/LightBlock.h"
 #include "PBR/LightGlslSource.h"   // generated from PBR/Shaders/*.glsl
 
 #include <string>

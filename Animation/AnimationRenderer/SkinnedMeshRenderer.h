@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -6,7 +6,7 @@
 
 #include "CGLib/VkAppBase/IVkSubRenderer.h"
 #include "CGLib/Renderer/VkRenderer/VkTriangleRenderer.h"
-#include "CGLib/Animation/Animation/SkinnedMesh.h"
+#include "CGLib/Animation/Core/SkinnedMesh.h"
 
 #include <optional>
 #include <vector>

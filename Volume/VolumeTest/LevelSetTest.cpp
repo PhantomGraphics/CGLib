@@ -1,10 +1,10 @@
-﻿#include "pch.h"
+#include "pch.h"
 
-#include "../Volume/LevelSet.h"
-#include "../Volume/SparseVolumeTree/SparseVolume.h"
+#include "../Core/LevelSet.h"
+#include "../Core/SparseVolumeTree/SparseVolume.h"
 
-#include "../../../CGLib/Math/Math/Box3d.h"
-#include "../../../CGLib/Math/Math/Triangle3d.h"
+#include "../../../CGLib/Math/Core/Box3d.h"
+#include "../../../CGLib/Math/Core/Triangle3d.h"
 
 #include <array>
 #include <cmath>

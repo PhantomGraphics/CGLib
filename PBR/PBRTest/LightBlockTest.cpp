@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include "../PBR/LightBlock.h"
+#include "../Core/LightBlock.h"
 
 #include <cmath>
 

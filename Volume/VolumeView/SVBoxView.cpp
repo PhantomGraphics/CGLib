@@ -1,6 +1,6 @@
-﻿#include "SVBoxView.h"
+#include "SVBoxView.h"
 
-#include "../Volume/LevelSet.h"
+#include "../Core/LevelSet.h"
 
 #include "imgui.h"
 

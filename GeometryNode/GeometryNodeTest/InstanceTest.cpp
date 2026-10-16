@@ -2,9 +2,9 @@
 
 #include <cmath>
 
-#include "../GeometryNode/GeometryOps.h"
-#include "../GeometryNode/GraphEvaluator.h"
-#include "../GeometryNode/GraphJson.h"
+#include "../Core/GeometryOps.h"
+#include "../Core/GraphEvaluator.h"
+#include "../Core/GraphJson.h"
 
 using namespace Phantom::GeometryNode;
 

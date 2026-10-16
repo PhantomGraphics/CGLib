@@ -1,6 +1,6 @@
 #include "gtest/gtest.h"
 
-#include "../Space/IndexedSortBasedSearcher.h"
+#include "../Core/IndexedSortBasedSearcher.h"
 
 #include <algorithm>
 #include <random>

@@ -1,7 +1,7 @@
 #pragma once
 
 #include <array>
-#include "CGLib/Math/Math/Vector2d.h"
+#include "CGLib/Math/Core/Vector2d.h"
 
 namespace Phantom::Gizmo {
 

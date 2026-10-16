@@ -1,10 +1,10 @@
-﻿#pragma once
+#pragma once
 
 #include "IView.h"
 
 #include "Vector3dView.h"
 
-#include "../Math/Math/Rectangle3d.h"
+#include "../Math/Core/Rectangle3d.h"
 
 namespace Phantom {
 	namespace UI {

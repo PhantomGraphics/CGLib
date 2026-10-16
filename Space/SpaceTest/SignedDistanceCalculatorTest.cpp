@@ -1,8 +1,8 @@
 #include "gtest/gtest.h"
-#include "../Space/SignedDistanceCalculator.h"
+#include "../Core/SignedDistanceCalculator.h"
 
-#include "CGLib/Math/Math/Sphere3d.h"
-#include "CGLib/Math/Math/Plane3d.h"
+#include "CGLib/Math/Core/Sphere3d.h"
+#include "CGLib/Math/Core/Plane3d.h"
 
 using namespace Phantom::Math;
 using namespace Phantom::Space;

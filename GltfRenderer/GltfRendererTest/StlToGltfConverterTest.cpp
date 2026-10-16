@@ -2,7 +2,7 @@
 
 #include "../Gltf/StlToGltfConverter.h"
 #include "../Gltf/GltfAccessorView.h"
-#include "../../File/File/STLFileReader.h"
+#include "../../File/Core/STLFileReader.h"
 
 #include <sstream>
 

@@ -3,10 +3,10 @@
 #include "SkeletonGltfConverter.h"
 #include "../Renderer/GltfUniformTypes.h" // kMaxGltfBones
 
-#include "../../File/File/PMXFileReader.h"
-#include "../../File/File/VMDFileReader.h"
-#include "../../Animation/Animation/PMXConverter.h"
-#include "../../Animation/Animation/VMDConverter.h"
+#include "../../File/Core/PMXFileReader.h"
+#include "../../File/Core/VMDFileReader.h"
+#include "../../Animation/Core/PMXConverter.h"
+#include "../../Animation/Core/VMDConverter.h"
 
 #include <cstdio>
 #include <map>

@@ -1,8 +1,8 @@
-﻿#include "pch.h"
+#include "pch.h"
 
-#include "../Volume/SurfaceVoxelizer.h"
+#include "../Core/SurfaceVoxelizer.h"
 
-#include "../../../CGLib/Math/Math/Triangle3d.h"
+#include "../../../CGLib/Math/Core/Triangle3d.h"
 
 #include <array>
 #include <cmath>

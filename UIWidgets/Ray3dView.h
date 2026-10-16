@@ -1,9 +1,9 @@
-﻿
+
 #pragma once
 
 #include "IView.h"
 #include "Vector3dView.h"
-#include "../Math/Math/Ray3d.h"
+#include "../Math/Core/Ray3d.h"
 
 namespace Phantom {
 	namespace UI {

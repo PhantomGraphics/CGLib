@@ -1,7 +1,7 @@
-﻿#include "pch.h"
+#include "pch.h"
 #include "gtest/gtest.h"
 
-#include "../Graphics/FastPng.h"
+#include "../Core/FastPng.h"
 #include "../../ThirdParty/stb/stb_image.h"  // declarations only: the implementation lives in ImageFileReader.cpp
 
 #include <chrono>

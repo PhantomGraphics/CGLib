@@ -3,7 +3,7 @@
 #include "ParticleSet.h"
 #include "TransferFunction.h"
 
-#include "../Volume/SparseVolumeTree/SparseVolume.h"
+#include "../Core/SparseVolumeTree/SparseVolume.h"
 
 #include <cstdint>
 #include <random>

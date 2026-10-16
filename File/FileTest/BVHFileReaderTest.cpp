@@ -1,7 +1,7 @@
 #include "gtest/gtest.h"
 
 #include <sstream>
-#include "../File/BVHFileReader.h"
+#include "../Core/BVHFileReader.h"
 
 using namespace Phantom::File;
 

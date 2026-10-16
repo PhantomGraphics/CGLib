@@ -1,12 +1,12 @@
 #include "pch.h"
 
-#include "../Math/ICurve3d.h"
-#include "../Math/ISurface3d.h"
-#include "../Math/IVolume3d.h"
-#include "../Math/Line2d.h"
-#include "../Math/Quaternion.h"
-#include "../Math/Statistics.h"
-#include "../Math/Vector4d.h"
+#include "../Core/ICurve3d.h"
+#include "../Core/ISurface3d.h"
+#include "../Core/IVolume3d.h"
+#include "../Core/Line2d.h"
+#include "../Core/Quaternion.h"
+#include "../Core/Statistics.h"
+#include "../Core/Vector4d.h"
 
 using namespace Phantom::Math;
 

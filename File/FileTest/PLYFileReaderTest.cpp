@@ -1,7 +1,7 @@
 #include "gtest/gtest.h"
 
-#include "../File/PLYFileReader.h"
-#include "../File/PLYFileWriter.h"
+#include "../Core/PLYFileReader.h"
+#include "../Core/PLYFileWriter.h"
 
 using namespace Phantom::Math;
 using namespace Phantom::File;

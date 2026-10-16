@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include "../PBR/Shadow.h"
+#include "../Core/Shadow.h"
 
 #include <cmath>
 

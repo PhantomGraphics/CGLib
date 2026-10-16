@@ -2,9 +2,9 @@
 
 #include "SparseVolumeScene.h"
 
-#include "../Volume/SparseVolumeTree/Coord.h"
-#include "../Volume/SparseVolumeTree/SparseVolume.h"
-#include "../Volume/Volume.h"
+#include "../Core/SparseVolumeTree/Coord.h"
+#include "../Core/SparseVolumeTree/SparseVolume.h"
+#include "../Core/Volume.h"
 
 #include "imgui.h"
 

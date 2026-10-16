@@ -2,8 +2,8 @@
 // ZOrderCurve3d packs 10 bits per axis into 30 bits; LinearOctreeIndex is the cumulative-level numbering.
 #include "gtest/gtest.h"
 
-#include "../Space/LinearOctreeIndex.h"
-#include "../Space/ZOrderCurve3d.h"
+#include "../Core/LinearOctreeIndex.h"
+#include "../Core/ZOrderCurve3d.h"
 
 #include <random>
 

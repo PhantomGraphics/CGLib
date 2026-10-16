@@ -2,7 +2,7 @@
 
 #include "../Gltf/GltfAnimationEvaluator.h"
 #include "../Gltf/MmdToGltfConverter.h"
-#include "../../File/File/VMDFile.h"
+#include "../../File/Core/VMDFile.h"
 
 #include <cstring>
 #include <filesystem>

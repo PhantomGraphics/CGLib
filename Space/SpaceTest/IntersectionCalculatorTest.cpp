@@ -1,12 +1,12 @@
 #include "gtest/gtest.h"
-#include "../Space/IntersectionCalculator.h"
+#include "../Core/IntersectionCalculator.h"
 
-#include "CGLib/Math/Math/Ray3d.h"
-#include "CGLib/Math/Math/Sphere3d.h"
-#include "CGLib/Math/Math/Plane3d.h"
-#include "CGLib/Math/Math/Triangle3d.h"
-#include "CGLib/Math/Math/Box3d.h"
-#include "CGLib/Math/Math/Line3d.h"
+#include "CGLib/Math/Core/Ray3d.h"
+#include "CGLib/Math/Core/Sphere3d.h"
+#include "CGLib/Math/Core/Plane3d.h"
+#include "CGLib/Math/Core/Triangle3d.h"
+#include "CGLib/Math/Core/Box3d.h"
+#include "CGLib/Math/Core/Line3d.h"
 
 using namespace Phantom::Math;
 using namespace Phantom::Space;

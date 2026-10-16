@@ -1,7 +1,7 @@
-﻿#include "SVSphereView.h"
+#include "SVSphereView.h"
 
-#include "../Volume/SparseVolumeTree/SparseVolume.h"
-#include "../Volume/SparseVolumeTree/Coord.h"
+#include "../Core/SparseVolumeTree/SparseVolume.h"
+#include "../Core/SparseVolumeTree/Coord.h"
 
 #include "imgui.h"
 

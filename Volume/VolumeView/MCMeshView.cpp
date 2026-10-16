@@ -1,10 +1,10 @@
-﻿#include "MCMeshView.h"
+#include "MCMeshView.h"
 
 #include "World.h"
 #include "SparseVolumeScene.h"
 
-#include "../Volume/MCSurfaceBuilder.h"
-#include "../Volume/SparseVolumeTree/SparseVolume.h"
+#include "../Core/MCSurfaceBuilder.h"
+#include "../Core/SparseVolumeTree/SparseVolume.h"
 
 #include "imgui.h"
 

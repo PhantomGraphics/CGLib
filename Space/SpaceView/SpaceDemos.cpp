@@ -1,13 +1,13 @@
 #include "SpaceDemos.h"
 
-#include "../Space/CompactSpaceHash.h"
-#include "../Space/KDTree.h"
-#include "../Space/Octree.h"
-#include "../Space/SignedDistanceCalculator.h"
-#include "../Space/SpaceHash.h"
-#include "CGLib/Math/Math/Box3d.h"
-#include "CGLib/Math/Math/Sphere3d.h"
-#include "CGLib/Math/Math/Vector3d.h"
+#include "../Core/CompactSpaceHash.h"
+#include "../Core/KDTree.h"
+#include "../Core/Octree.h"
+#include "../Core/SignedDistanceCalculator.h"
+#include "../Core/SpaceHash.h"
+#include "CGLib/Math/Core/Box3d.h"
+#include "CGLib/Math/Core/Sphere3d.h"
+#include "CGLib/Math/Core/Vector3d.h"
 
 #include <algorithm>
 #include <charconv>

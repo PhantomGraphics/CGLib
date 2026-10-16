@@ -99,13 +99,13 @@ every header of the CPU modules; this table shows how much of that is actually u
 - VulkanGraphics/VulkanSPVResolver.h: 17 (CGApp/FluidStudio:1, CGApp/PhantomStudio:4, CGApp/PointCloudStudio:1, CGApp/Universe:4, Phantom/Physics:2, Phantom/PointCloud:4, Phantom/RayTracer:1)
 - VulkanGraphics/VulkanPipeline.h: 16 (CGApp/FluidStudio:3, CGApp/PhantomStudio:2, CGApp/Universe:3, Phantom/Physics:3, Phantom/PointCloud:5)
 - Math/Matrix3d.h: 15 (CGApp/blender:1, Phantom/Physics:9, Phantom/PointCloud:5)
-- Volume/Volume/SparseVolumeTree/SparseVolume.h: 12 (CGApp/FluidStudio:2, CGApp/Universe:1, CGApp/VDBIO:3, Phantom/Physics:6)
+- Volume/Core/SparseVolumeTree/SparseVolume.h: 12 (CGApp/FluidStudio:2, CGApp/Universe:1, CGApp/VDBIO:3, Phantom/Physics:6)
 - UIWidgets/Button.h: 12 (Phantom/Physics:6, Phantom/PointCloud:6)
 - GltfRenderer/Renderer/GltfSceneRenderer.h: 12 (CGApp/FluidStudio:1, CGApp/PhantomStudio:1, CGApp/Universe:2, Phantom/Physics:5, Phantom/RayTracer:3)
 - UIWidgets/Label.h: 11 (Phantom/Physics:11)
-- Space/Space/CompactSpaceHash.h: 11 (Phantom/Physics:3, Phantom/PointCloud:8)
+- Space/Core/CompactSpaceHash.h: 11 (Phantom/Physics:3, Phantom/PointCloud:8)
 - UIWidgets/IView.h: 9 (Phantom/Physics:9)
-- Space/Space/KDTree.h: 9 (Phantom/PointCloud:9)
+- Space/Core/KDTree.h: 9 (Phantom/PointCloud:9)
 - Math/Quaternion.h: 9 (CGApp/blender:1, Phantom/Physics:8)
 - VulkanGraphics/VulkanSampler.h: 8 (CGApp/FluidStudio:1, CGApp/Universe:2, Phantom/Physics:4, Phantom/RayTracer:1)
 - VulkanGraphics/VulkanOffscreen.h: 8 (CGApp/FluidStudio:2, CGApp/Universe:1, Phantom/Physics:5)
@@ -166,4 +166,4 @@ every header of the CPU modules; this table shows how much of that is actually u
 - `Scene/Scene/IAnimator.h`
 - `Space/SpaceView/PanelHelpers.h`
 - `UIWidgets/IOkCancelView.h`
-- `Volume/Volume/VolumeCell.h`
+- `Volume/Core/VolumeCell.h`

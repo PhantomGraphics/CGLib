@@ -1,6 +1,6 @@
-﻿#include "gtest/gtest.h"
+#include "gtest/gtest.h"
 
-#include "../Space/BVH.h"
+#include "../Core/BVH.h"
 #include <algorithm>
 #include <vector>
 

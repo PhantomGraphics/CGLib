@@ -1,10 +1,10 @@
 #pragma once
 
-#include "../../Animation/Animation/AnimationClip.h"
-#include "../../Animation/Animation/IKSolver.h"
-#include "../../Animation/Animation/MorphAnimator.h"
-#include "../../Animation/Animation/MorphTarget.h"
-#include "../../Animation/Animation/Skeleton.h"
+#include "../../Animation/Core/AnimationClip.h"
+#include "../../Animation/Core/IKSolver.h"
+#include "../../Animation/Core/MorphAnimator.h"
+#include "../../Animation/Core/MorphTarget.h"
+#include "../../Animation/Core/Skeleton.h"
 
 #include <utility>
 #include <vector>

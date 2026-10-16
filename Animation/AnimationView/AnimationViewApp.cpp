@@ -6,7 +6,7 @@
 
 #include "imgui.h"
 
-#include "CGLib/File/File/PMXFileReader.h"
+#include "CGLib/File/Core/PMXFileReader.h"
 #include "CGLib/GltfRenderer/Gltf/GltfAnimationEvaluator.h"
 #include "CGLib/GltfRenderer/Gltf/GltfMorphApply.h"
 #include "CGLib/GltfRenderer/Gltf/MmdToGltfConverter.h"

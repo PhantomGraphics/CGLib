@@ -1,14 +1,14 @@
-﻿// Phase 3: the buffer-reusing / callback query APIs and the neighbor-search workspace must return exactly
+// Phase 3: the buffer-reusing / callback query APIs and the neighbor-search workspace must return exactly
 // what the original value-returning APIs return -- same elements in the same order, not just the same set
 // (SPH solvers sum over neighbor rows in order, so row order is part of the contract). Result-lifetime
 // rules are exercised too: stale buffer contents, shared scratch across calls, copies, concurrent readers.
 #include "gtest/gtest.h"
 
-#include "../Space/BVH.h"
-#include "../Space/CompactSpaceHash.h"
-#include "../Space/IndexedSortBasedSearcher.h"
-#include "../Space/KDTree.h"
-#include "../Space/CSRNeighborList.h"
+#include "../Core/BVH.h"
+#include "../Core/CompactSpaceHash.h"
+#include "../Core/IndexedSortBasedSearcher.h"
+#include "../Core/KDTree.h"
+#include "../Core/CSRNeighborList.h"
 
 #include <algorithm>
 #include <limits>

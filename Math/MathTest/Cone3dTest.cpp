@@ -1,6 +1,6 @@
 #include "gtest/gtest.h"
 
-#include "../Math/Cone3d.h"
+#include "../Core/Cone3d.h"
 
 #include "PrimitiveTestSupport.h"
 

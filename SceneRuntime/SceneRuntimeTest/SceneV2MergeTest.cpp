@@ -1,8 +1,8 @@
 #include "gtest/gtest.h"
 
-#include "../SceneRuntime/SceneV2Merge.h"
+#include "../Core/SceneV2Merge.h"
 
-#include "CGLib/AssetCore/AssetCore/ContentHash.h"
+#include "CGLib/AssetCore/Core/ContentHash.h"
 
 #include <fstream>
 

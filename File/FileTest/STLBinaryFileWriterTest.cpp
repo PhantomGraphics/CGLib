@@ -2,7 +2,7 @@
 
 #include <cstdint>
 #include <sstream>
-#include "../File/STLFileWriter.h"
+#include "../Core/STLFileWriter.h"
 
 using namespace Phantom::Math;
 using namespace Phantom::File;

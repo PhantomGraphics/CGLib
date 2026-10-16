@@ -1,7 +1,7 @@
-﻿#include "DenseVolumeRenderer.h"
+#include "DenseVolumeRenderer.h"
 
-#include "../../../CGLib/Graphics/Graphics/ColorMap.h"
-#include "../../../CGLib/Graphics/Graphics/ColorTable.h"
+#include "../../../CGLib/Graphics/Core/ColorMap.h"
+#include "../../../CGLib/Graphics/Core/ColorTable.h"
 #include "../../../CGLib/VulkanGraphics/VulkanContext.h"
 
 #include <glm/gtc/matrix_transform.hpp>

@@ -1,6 +1,6 @@
 #include "gtest/gtest.h"
 
-#include "../Math/Cylinder3d.h"
+#include "../Core/Cylinder3d.h"
 #include "PrimitiveTestSupport.h"
 
 using namespace Phantom::Math;

@@ -6,20 +6,20 @@
 // still pin it).
 #include "gtest/gtest.h"
 
-#include "../Space/DistanceCalculator.h"
-#include "../Space/Intersection2d.h"
-#include "../Space/IntersectionCalculator.h"
-#include "../Space/SignedDistanceCalculator.h"
+#include "../Core/DistanceCalculator.h"
+#include "../Core/Intersection2d.h"
+#include "../Core/IntersectionCalculator.h"
+#include "../Core/SignedDistanceCalculator.h"
 
-#include "CGLib/Math/Math/Box3d.h"
-#include "CGLib/Math/Math/Circle2d.h"
-#include "CGLib/Math/Math/Line2d.h"
-#include "CGLib/Math/Math/Line3d.h"
-#include "CGLib/Math/Math/Plane3d.h"
-#include "CGLib/Math/Math/Ray3d.h"
-#include "CGLib/Math/Math/Rectangle3d.h"
-#include "CGLib/Math/Math/Sphere3d.h"
-#include "CGLib/Math/Math/Triangle3d.h"
+#include "CGLib/Math/Core/Box3d.h"
+#include "CGLib/Math/Core/Circle2d.h"
+#include "CGLib/Math/Core/Line2d.h"
+#include "CGLib/Math/Core/Line3d.h"
+#include "CGLib/Math/Core/Plane3d.h"
+#include "CGLib/Math/Core/Ray3d.h"
+#include "CGLib/Math/Core/Rectangle3d.h"
+#include "CGLib/Math/Core/Sphere3d.h"
+#include "CGLib/Math/Core/Triangle3d.h"
 
 #include <cmath>
 #include <limits>

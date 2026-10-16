@@ -1,6 +1,6 @@
 #include "MmdAnimationBaker.h"
 
-#include "../../Animation/Animation/Animator.h"
+#include "../../Animation/Core/Animator.h"
 
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE

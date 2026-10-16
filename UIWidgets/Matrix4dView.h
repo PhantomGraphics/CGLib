@@ -1,8 +1,8 @@
-﻿#pragma once
+#pragma once
 
 #include "IView.h"
 
-#include "../Math/Math/Matrix4d.h"
+#include "../Math/Core/Matrix4d.h"
 #include "Float4View.h"
 
 namespace Phantom {

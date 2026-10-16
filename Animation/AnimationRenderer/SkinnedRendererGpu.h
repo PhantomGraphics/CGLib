@@ -5,7 +5,7 @@
 #include <glm/glm.hpp>
 
 #include "CGLib/VkAppBase/IVkSubRenderer.h"
-#include "CGLib/Animation/Animation/SkinnedMesh.h"
+#include "CGLib/Animation/Core/SkinnedMesh.h"
 #include "CGLib/VulkanGraphics/VulkanBuffer.h"
 #include "CGLib/VulkanGraphics/VulkanDescriptorPool.h"
 #include "CGLib/VulkanGraphics/VulkanPipeline.h"

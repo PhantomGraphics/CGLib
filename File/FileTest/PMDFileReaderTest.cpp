@@ -1,5 +1,5 @@
-﻿#include "gtest/gtest.h"
-#include "../File/PMDFileReader.h"
+#include "gtest/gtest.h"
+#include "../Core/PMDFileReader.h"
 
 #include <cstring>
 #include <sstream>

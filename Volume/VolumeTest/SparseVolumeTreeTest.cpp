@@ -1,8 +1,8 @@
-﻿#include "pch.h"
+#include "pch.h"
 
-#include "../Volume/SparseVolumeTree/SparseVolume.h"
-#include "../Volume/SparseVolumeTree/TrilinearInterpolator.h"
-#include "../Volume/SparseVolumeTree/ValueAccessor.h"
+#include "../Core/SparseVolumeTree/SparseVolume.h"
+#include "../Core/SparseVolumeTree/TrilinearInterpolator.h"
+#include "../Core/SparseVolumeTree/ValueAccessor.h"
 
 using namespace Phantom::Math;
 using namespace Phantom::Volume;

@@ -1,8 +1,8 @@
 #include "CGLib/VkAppBase/VkAppBase.h"
 #include "CGLib/VulkanGraphics/SpvResolver.h"
 #include "CGLib/GltfRenderer/Renderer/GltfSceneRenderer.h"
-#include "CGLib/PBR/PBR/GltfLight.h"
-#include "CGLib/Math/Math/Vector3d.h"
+#include "CGLib/PBR/Core/GltfLight.h"
+#include "CGLib/Math/Core/Vector3d.h"
 #include "CGLib/VkAppBase/ScenarioRunner/ScenarioRunner.h"
 #include "CGLib/VkAppBase/ScenarioRunner/CommandQueue.h"
 #include <nlohmann/json.hpp>

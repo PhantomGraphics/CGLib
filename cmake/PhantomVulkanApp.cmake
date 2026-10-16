@@ -191,7 +191,7 @@ function(phantom_add_uiwidgets_core)
     )
     target_include_directories(UIWidgetsCore PUBLIC
         ${CGLIB_ROOT}
-        ${CGLIB_ROOT}/Graphics/Graphics
+        ${CGLIB_ROOT}/Graphics/Core
         ${_imgui_dir}
         ${CGLIB_ROOT}/ThirdParty/glfw-3.3.8/include
         ${PHANTOM_VULKAN_INCLUDE_DIR}

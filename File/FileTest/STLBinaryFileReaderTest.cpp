@@ -2,8 +2,8 @@
 
 #include <cstdint>
 #include <sstream>
-#include "../File/STLFileReader.h"
-#include "../File/STLFileWriter.h"
+#include "../Core/STLFileReader.h"
+#include "../Core/STLFileWriter.h"
 
 using namespace Phantom::Math;
 using namespace Phantom::File;

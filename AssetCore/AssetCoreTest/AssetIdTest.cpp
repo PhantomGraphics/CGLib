@@ -1,6 +1,6 @@
 #include "gtest/gtest.h"
 
-#include "../AssetCore/AssetId.h"
+#include "../Core/AssetId.h"
 
 #include <unordered_set>
 

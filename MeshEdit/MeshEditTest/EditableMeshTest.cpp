@@ -3,7 +3,7 @@
 #include <cmath>
 #include <set>
 
-#include "../MeshEdit/EditableMesh.h"
+#include "../Core/EditableMesh.h"
 
 // Logical topology of the EditableMesh (the MeshData conversions and scene round trips are tested in PhantomStudio).
 using namespace Phantom::MeshEdit;

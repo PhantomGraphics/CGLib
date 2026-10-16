@@ -1,7 +1,7 @@
 #include "SelectionGeometry.h"
 
-#include "CGLib/Math/Math/Vector2d.h"
-#include "CGLib/Math/Math/Vector4d.h"
+#include "CGLib/Math/Core/Vector2d.h"
+#include "CGLib/Math/Core/Vector4d.h"
 #include <algorithm>
 #include <utility>
 #include <vector>

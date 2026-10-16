@@ -3,14 +3,14 @@
 // even when the count happens to match. Contracts under test: docs/spec/space_api_contracts.md.
 #include "gtest/gtest.h"
 
-#include "../Space/BVH.h"
-#include "../Space/CompactSpaceHash.h"
-#include "../Space/IndexedSortBasedSearcher.h"
-#include "../Space/KDTree.h"
-#include "../Space/CSRNeighborList.h"
-#include "../Space/Octree.h"
-#include "../Space/SpaceHash.h"
-#include "../Space/ZIndexedSearcher.h"
+#include "../Core/BVH.h"
+#include "../Core/CompactSpaceHash.h"
+#include "../Core/IndexedSortBasedSearcher.h"
+#include "../Core/KDTree.h"
+#include "../Core/CSRNeighborList.h"
+#include "../Core/Octree.h"
+#include "../Core/SpaceHash.h"
+#include "../Core/ZIndexedSearcher.h"
 
 #include <algorithm>
 #include <memory>

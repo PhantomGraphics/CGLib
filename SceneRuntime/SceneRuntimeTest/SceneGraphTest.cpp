@@ -1,6 +1,6 @@
 #include "gtest/gtest.h"
 
-#include "../SceneRuntime/SceneGraph.h"
+#include "../Core/SceneGraph.h"
 
 #include <filesystem>
 #include <random>

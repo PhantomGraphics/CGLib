@@ -1,13 +1,13 @@
-﻿#include "CommandDispatcher.h"
+#include "CommandDispatcher.h"
 #include "CommandParse.h"
 #include "McMesh.h"
 
 #include "SparseVolumeScene.h"
 
-#include "../Volume/SparseVolumeTree/SparseVolume.h"
-#include "../Volume/SparseVolumeTree/Coord.h"
-#include "../Volume/MCSurfaceBuilder.h"
-#include "../Volume/Volume.h"
+#include "../Core/SparseVolumeTree/SparseVolume.h"
+#include "../Core/SparseVolumeTree/Coord.h"
+#include "../Core/MCSurfaceBuilder.h"
+#include "../Core/Volume.h"
 
 #include <algorithm>
 #include <array>

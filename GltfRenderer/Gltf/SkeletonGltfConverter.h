@@ -1,11 +1,11 @@
 #pragma once
 
 #include "GltfDocument.h"
-#include "../../Animation/Animation/AnimationClip.h"
-#include "../../Animation/Animation/MmdMaterial.h"
-#include "../../Animation/Animation/MorphTarget.h"
-#include "../../Animation/Animation/Skeleton.h"
-#include "../../Animation/Animation/SkinnedMesh.h"
+#include "../../Animation/Core/AnimationClip.h"
+#include "../../Animation/Core/MmdMaterial.h"
+#include "../../Animation/Core/MorphTarget.h"
+#include "../../Animation/Core/Skeleton.h"
+#include "../../Animation/Core/SkinnedMesh.h"
 
 #include <string>
 #include <utility>

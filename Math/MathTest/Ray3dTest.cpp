@@ -1,5 +1,5 @@
 #include "gtest/gtest.h"
-#include "../Math/Ray3d.h"
+#include "../Core/Ray3d.h"
 
 using namespace Phantom::Math;
 

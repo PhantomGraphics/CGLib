@@ -1,7 +1,7 @@
 #pragma once
 
 #include "GltfDocument.h"
-#include "../../File/File/OBJFile.h"
+#include "../../File/Core/OBJFile.h"
 
 namespace Phantom::Gltf {
 

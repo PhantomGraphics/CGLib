@@ -1,6 +1,6 @@
 #include "gtest/gtest.h"
 
-#include "../Math/Box3d.h"
+#include "../Core/Box3d.h"
 
 using namespace Phantom::Math;
 

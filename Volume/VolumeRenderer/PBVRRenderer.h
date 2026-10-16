@@ -9,7 +9,7 @@
 
 #include "../../VkAppBase/IVkSubRenderer.h"
 #include "../../../CGLib/VulkanGraphics/VulkanBuffer.h"
-#include "../../../CGLib/Math/Math/Box3d.h"
+#include "../../../CGLib/Math/Core/Box3d.h"
 
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE

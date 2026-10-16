@@ -4,7 +4,7 @@
 
 #include "Vector3dView.h"
 
-#include "../Math/Math/Box3d.h"
+#include "../Math/Core/Box3d.h"
 
 #include <functional>
 

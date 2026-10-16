@@ -1,6 +1,6 @@
 #include "gtest/gtest.h"
 
-#include "../SceneRuntime/SceneV2.h"
+#include "../Core/SceneV2.h"
 
 #include <algorithm>
 

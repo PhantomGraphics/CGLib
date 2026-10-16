@@ -52,7 +52,7 @@ endif()
 set(CGLIB_WARN_FLAGS ${PHANTOM_WARN_FLAGS})
 
 # --- Header-prefix shim: expose "<dir>/CGLib/..." so that the repo-wide
-# `#include "CGLib/Math/Math/Vector3d.h"` convention resolves with only CGLib's own
+# `#include "CGLib/Math/Core/Vector3d.h"` convention resolves with only CGLib's own
 # directory in play (a standalone checkout has no parent directory to put on
 # the include path).
 #

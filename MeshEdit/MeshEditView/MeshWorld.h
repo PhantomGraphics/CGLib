@@ -8,11 +8,11 @@
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
-#include "CGLib/Math/Math/Vector3d.h"
+#include "CGLib/Math/Core/Vector3d.h"
 
-#include "../MeshEdit/MeshEditPicking.h"
-#include "../MeshEdit/MeshEditState.h"
-#include "../MeshEdit/MeshBoolean.h"
+#include "../Core/MeshEditPicking.h"
+#include "../Core/MeshEditState.h"
+#include "../Core/MeshBoolean.h"
 
 #include <array>
 #include <memory>

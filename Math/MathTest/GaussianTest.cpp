@@ -1,6 +1,6 @@
 #include "gtest/gtest.h"
 
-#include "../Math/Gaussian.h"
+#include "../Core/Gaussian.h"
 
 using namespace Phantom::Math;
 

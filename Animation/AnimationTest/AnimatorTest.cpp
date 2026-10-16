@@ -1,4 +1,4 @@
-﻿#include "gtest/gtest.h"
+#include "gtest/gtest.h"
 
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -6,10 +6,10 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp>
 
-#include "../Animation/Bone.h"
-#include "../Animation/Skeleton.h"
-#include "../Animation/AnimationClip.h"
-#include "../Animation/Animator.h"
+#include "../Core/Bone.h"
+#include "../Core/Skeleton.h"
+#include "../Core/AnimationClip.h"
+#include "../Core/Animator.h"
 
 using namespace Phantom::Animation;
 

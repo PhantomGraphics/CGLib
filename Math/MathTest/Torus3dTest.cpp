@@ -1,6 +1,6 @@
 #include "gtest/gtest.h"
 
-#include "../Math/Torus3d.h"
+#include "../Core/Torus3d.h"
 
 #include "PrimitiveTestSupport.h"
 

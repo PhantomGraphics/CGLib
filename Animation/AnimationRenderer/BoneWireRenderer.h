@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -6,7 +6,7 @@
 
 #include "CGLib/VkAppBase/IVkSubRenderer.h"
 #include "CGLib/Renderer/VkRenderer/VkLineRenderer.h"
-#include "CGLib/Animation/Animation/Skeleton.h"
+#include "CGLib/Animation/Core/Skeleton.h"
 
 #include <optional>
 #include <vector>

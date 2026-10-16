@@ -1,7 +1,7 @@
 #include "gtest/gtest.h"
 
-#include "../AssetCore/AssetManifest.h"
-#include "../AssetCore/ContentHash.h"
+#include "../Core/AssetManifest.h"
+#include "../Core/ContentHash.h"
 
 #include <filesystem>
 #include <random>

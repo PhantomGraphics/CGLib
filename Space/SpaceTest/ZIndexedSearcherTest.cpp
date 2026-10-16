@@ -1,6 +1,6 @@
 #include "gtest/gtest.h"
 
-#include "../Space/ZIndexedSearcher.h"
+#include "../Core/ZIndexedSearcher.h"
 
 using namespace Phantom::Math;
 using namespace Phantom::Space;

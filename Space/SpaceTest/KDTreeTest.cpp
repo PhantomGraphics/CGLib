@@ -1,5 +1,5 @@
 #include "gtest/gtest.h"
-#include "../Space/KDTree.h"
+#include "../Core/KDTree.h"
 
 #include <algorithm>
 #include <limits>

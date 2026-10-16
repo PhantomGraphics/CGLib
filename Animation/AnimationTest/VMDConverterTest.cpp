@@ -1,7 +1,7 @@
-﻿#include "gtest/gtest.h"
+#include "gtest/gtest.h"
 
-#include "CGLib/Animation/Animation/VMDConverter.h"
-#include "CGLib/File/File/VMDFile.h"
+#include "CGLib/Animation/Core/VMDConverter.h"
+#include "CGLib/File/Core/VMDFile.h"
 
 #include <cstring>
 #include <map>

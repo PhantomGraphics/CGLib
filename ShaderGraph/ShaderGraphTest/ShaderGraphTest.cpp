@@ -1,6 +1,6 @@
-﻿#include <gtest/gtest.h>
+#include <gtest/gtest.h>
 
-#include "../ShaderGraph/ShaderGraph.h"
+#include "../Core/ShaderGraph.h"
 
 using namespace Phantom::ShaderGraph;
 
@@ -397,7 +397,7 @@ TEST(ShaderGraphJson, RejectsBadInput) {
 
 // ---- Phase 0: runtime compile + mesh surface fragment ABI ------------------------
 
-#include "../ShaderGraph/RuntimeCompiler.h"
+#include "../Core/RuntimeCompiler.h"
 
 namespace {
 

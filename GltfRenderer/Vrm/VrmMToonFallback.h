@@ -2,7 +2,7 @@
 
 #include "VrmTypes.h"
 #include "../Gltf/GltfDocument.h"
-#include "../../File/File/GltfFile.h"
+#include "../../File/Core/GltfFile.h"
 #include "json.hpp"
 
 namespace Phantom::Gltf {

@@ -1,7 +1,7 @@
 #include "gtest/gtest.h"
 
-#include "../File/MTLFileReader.h"
-#include "../File/MTLFileWriter.h"
+#include "../Core/MTLFileReader.h"
+#include "../Core/MTLFileWriter.h"
 
 using namespace Phantom::Graphics;
 using namespace Phantom::File;

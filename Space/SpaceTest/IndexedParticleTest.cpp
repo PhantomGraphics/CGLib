@@ -1,6 +1,6 @@
 #include "gtest/gtest.h"
 
-#include "../Space/IndexedParticle.h"
+#include "../Core/IndexedParticle.h"
 
 using namespace Phantom::Math;
 using namespace Phantom::Space;

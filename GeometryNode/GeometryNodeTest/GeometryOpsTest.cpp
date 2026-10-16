@@ -3,7 +3,7 @@
 #include <cmath>
 #include <limits>
 
-#include "../GeometryNode/GeometryOps.h"
+#include "../Core/GeometryOps.h"
 
 using namespace Phantom::GeometryNode;
 

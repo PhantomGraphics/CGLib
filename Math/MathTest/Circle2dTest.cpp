@@ -1,6 +1,6 @@
 #include "gtest/gtest.h"
 
-#include "../Math/Circle2d.h"
+#include "../Core/Circle2d.h"
 
 using namespace Phantom::Math;
 

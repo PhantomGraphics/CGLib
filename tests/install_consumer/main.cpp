@@ -1,15 +1,15 @@
 // Uses only the installed package: headers via "CGLib/...", libraries via CGLib::<Component>.
-#include "CGLib/Math/Math/Ellipse3d.h"
-#include "CGLib/Math/Math/SafeNormalize.h"
-#include "CGLib/Math/Math/Statistics.h"
-#include "CGLib/Math/Math/Vector3d.h"
-#include "CGLib/Numerics/Numerics/SVD3d.h"
-#include "CGLib/Space/Space/BVH.h"
-#include "CGLib/Volume/Volume/Volume.h"
-#include "CGLib/File/File/OBJFileReader.h"
-#include "CGLib/Animation/Animation/Animator.h"
-#include "CGLib/GeometryNode/GeometryNode/GeometryOps.h"
-#include "CGLib/SceneRuntime/SceneRuntime/SceneGraph.h"
+#include "CGLib/Math/Core/Ellipse3d.h"
+#include "CGLib/Math/Core/SafeNormalize.h"
+#include "CGLib/Math/Core/Statistics.h"
+#include "CGLib/Math/Core/Vector3d.h"
+#include "CGLib/Numerics/Core/SVD3d.h"
+#include "CGLib/Space/Core/BVH.h"
+#include "CGLib/Volume/Core/Volume.h"
+#include "CGLib/File/Core/OBJFileReader.h"
+#include "CGLib/Animation/Core/Animator.h"
+#include "CGLib/GeometryNode/Core/GeometryOps.h"
+#include "CGLib/SceneRuntime/Core/SceneGraph.h"
 
 #include <cstdio>
 #include <sstream>

@@ -1,8 +1,8 @@
-﻿#pragma once
+#pragma once
 
 #include "IWindow.h"
 
-#include "../Math/Math/Vector4d.h"
+#include "../Math/Core/Vector4d.h"
 #include <array>
 
 namespace Phantom {

@@ -1,6 +1,6 @@
 #include "pch.h"
-#include "../Math/Box2d.h"
-#include "../Math/Vector2d.h"
+#include "../Core/Box2d.h"
+#include "../Core/Vector2d.h"
 
 using namespace Phantom::Math;
 

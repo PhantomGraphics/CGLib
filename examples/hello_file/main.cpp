@@ -1,6 +1,6 @@
 // Minimal CGLib::File consumer -- parses a tiny in-memory OBJ and checks the
 // vertex count, exercising a target that pulls in Math + Graphics transitively.
-#include "CGLib/File/File/OBJFileReader.h"
+#include "CGLib/File/Core/OBJFileReader.h"
 
 #include <sstream>
 #include <cstdio>

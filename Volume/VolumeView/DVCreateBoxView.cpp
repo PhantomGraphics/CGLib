@@ -2,7 +2,7 @@
 
 #include "imgui.h"
 
-#include "../Volume/Volume.h"
+#include "../Core/Volume.h"
 
 #include <algorithm>
 #include <memory>
