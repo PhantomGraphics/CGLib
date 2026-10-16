@@ -19,12 +19,12 @@ set(_vk_components "")
 if(CGLIB_CONSUMER_VULKAN)
     set(_vk_components VulkanGraphics)
 endif()
-find_package(CGLib CONFIG REQUIRED COMPONENTS Math Graphics Numerics Space Volume File Animation GeometryNode Asset SceneRuntime ${_vk_components})
+find_package(CGLib CONFIG REQUIRED COMPONENTS Math Graphics Numerics Space Volume File Animation GeometryNode MeshEdit Gltf Asset SceneRuntime ${_vk_components})
 
 add_executable(cglib_install_consumer main.cpp)
 target_link_libraries(cglib_install_consumer PRIVATE
     CGLib::Math CGLib::Numerics CGLib::Space CGLib::Volume CGLib::File
-    CGLib::Animation CGLib::GeometryNode CGLib::SceneRuntime)
+    CGLib::Animation CGLib::GeometryNode CGLib::MeshEdit CGLib::Gltf CGLib::Graphics CGLib::SceneRuntime)
 
 # Self-containment of every installed public header: one TU per header that includes only
 # that header (syntax-checked, never linked). Headers are discovered from the install
@@ -49,7 +49,7 @@ endforeach()
 add_library(cglib_header_check OBJECT ${_hdr_tus})
 target_link_libraries(cglib_header_check PRIVATE
     CGLib::Math CGLib::Graphics CGLib::Numerics CGLib::Space CGLib::Volume CGLib::File
-    CGLib::Animation CGLib::GeometryNode CGLib::SceneRuntime CGLib::Asset)
+    CGLib::Animation CGLib::GeometryNode CGLib::MeshEdit CGLib::Gltf CGLib::SceneRuntime CGLib::Asset)
 if(CGLIB_CONSUMER_VULKAN)
     target_link_libraries(cglib_header_check PRIVATE CGLib::VulkanGraphics)
 endif()
