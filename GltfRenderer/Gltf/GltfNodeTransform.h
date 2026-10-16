@@ -11,4 +11,8 @@ namespace Phantom::Gltf {
     // Vulkan-free, so scenario/CPU-only code can use it too.
     glm::mat4 nodeLocalMatrix(const GltfNode& node);
 
+    // First node whose meshIndex references `meshIndex` (a mesh instanced by more than one node is an edge case a
+    // single-character import never hits). Returns -1 if unreferenced.
+    int findNodeForMesh(const GltfDocument& doc, int meshIndex);
+
 }

@@ -308,21 +308,18 @@ function(phantom_add_gltfrenderer_core)
     endif()
     phantom_add_file_core()
     phantom_add_animation_core()
+    phantom_add_gltf_core()       # CPU glTF evaluation + character pose (no Vulkan)
     phantom_add_vulkangraphics_core()
     phantom_add_vkappbase_core()
     phantom_add_vkrenderer_core() # VkSkyBoxRenderer, reused for GltfSceneRenderer's skybox
     set(_gltfr_root ${CGLIB_ROOT}/GltfRenderer)
     add_library(GltfRendererCore STATIC
         ${_gltfr_root}/Gltf/GltfReader.cpp
-        ${_gltfr_root}/Gltf/GltfAccessorView.cpp
         ${_gltfr_root}/Gltf/GltfBounds.cpp
-        ${_gltfr_root}/Gltf/GltfNodeTransform.cpp
         ${_gltfr_root}/Gltf/GltfLightsCameras.cpp
         ${_gltfr_root}/Gltf/SkeletonGltfConverter.cpp
         ${_gltfr_root}/Gltf/MmdAnimationBaker.cpp
-        ${_gltfr_root}/Gltf/GltfAnimationEvaluator.cpp
         ${_gltfr_root}/Gltf/MmdToGltfConverter.cpp
-        ${_gltfr_root}/Gltf/GltfMorphApply.cpp
         ${_gltfr_root}/Gltf/ObjToGltfConverter.cpp
         ${_gltfr_root}/Gltf/StlToGltfConverter.cpp
         ${_gltfr_root}/Vrm/VrmExtensionParser.cpp
@@ -356,6 +353,7 @@ function(phantom_add_gltfrenderer_core)
         ${PHANTOM_VULKAN_INCLUDE_DIR}
     )
     target_link_libraries(GltfRendererCore PUBLIC
+        GltfCore
         FileCore
         AnimationCore
         VulkanGraphicsCore
