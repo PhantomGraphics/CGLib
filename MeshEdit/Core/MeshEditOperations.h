@@ -63,8 +63,9 @@ namespace Phantom::MeshEdit {
 
 	// Bevels interior edges with one flat segment: each edge is replaced by a quad of the given `width` measured on the two
 	// adjacent faces (the new edges slide along the faces' other boundary edges, so a cube edge gets a flat chamfer).
-	// Limited form: both endpoints of every edge must have exactly three faces (a cube-like corner), no two selected edges
-	// may share a vertex, and the slides along a shared edge must fit inside it. The third face at an endpoint gains a corner
+	// Supports separate edges, or ALL edges of a closed convex mesh with exactly three faces per vertex (box-like corners).
+	// The all-edge form creates an inset face, edge strips and triangular corner caps; the width must fit every face.
+	// For separate edges both endpoints must have three faces and slides along a shared edge must fit. The third face gains a corner
 	// and is split into quads/triangles when it would exceed four. The old endpoints are removed; ids are never reused.
 	// *bevelFaces (optional) receives the ids of the new bevel quads.
 	bool bevelEdges(const EditableMesh& in, const std::vector<uint32_t>& edgeIds, float width, EditableMesh& out,
