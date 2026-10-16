@@ -2,7 +2,7 @@
 
 #include <limits>
 
-#include "../Math/Ellipse3d.h"
+#include "../Core/Ellipse3d.h"
 #include "PrimitiveTestSupport.h"
 
 using namespace Phantom::Math;

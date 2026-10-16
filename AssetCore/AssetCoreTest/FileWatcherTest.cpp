@@ -1,6 +1,6 @@
 #include "gtest/gtest.h"
 
-#include "../AssetCore/FileWatcher.h"
+#include "../Core/FileWatcher.h"
 
 #include <filesystem>
 #include <fstream>

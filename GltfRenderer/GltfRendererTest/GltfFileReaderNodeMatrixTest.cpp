@@ -1,6 +1,6 @@
 #include "gtest/gtest.h"
 
-#include "../../File/File/GltfFileReader.h"
+#include "../../File/Core/GltfFileReader.h"
 #include "../Gltf/GltfReader.h"
 
 #include <cstdio>

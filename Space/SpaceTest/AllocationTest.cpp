@@ -3,10 +3,10 @@
 // delta around the code under test.
 #include "gtest/gtest.h"
 
-#include "../Space/BVH.h"
-#include "../Space/CompactSpaceHash.h"
-#include "../Space/KDTree.h"
-#include "../Space/CSRNeighborList.h"
+#include "../Core/BVH.h"
+#include "../Core/CompactSpaceHash.h"
+#include "../Core/KDTree.h"
+#include "../Core/CSRNeighborList.h"
 
 #include <atomic>
 #include <cstdio>

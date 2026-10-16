@@ -3,9 +3,9 @@
 // id uniqueness, and repeated move -> refit / rebuild cycles checked against brute force.
 #include "gtest/gtest.h"
 
-#include "../Space/BVH.h"
-#include "../Space/KDTree.h"
-#include "../Space/Octree.h"
+#include "../Core/BVH.h"
+#include "../Core/KDTree.h"
+#include "../Core/Octree.h"
 
 #include <algorithm>
 #include <limits>

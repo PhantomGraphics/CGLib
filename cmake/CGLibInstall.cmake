@@ -11,7 +11,7 @@
 #   lib/cmake/CGLib/CGLibConfig.cmake, CGLibConfigVersion.cmake, CGLibTargets*.cmake
 #
 # Public headers keep the source tree's relative layout because they reach vendored
-# headers by relative path (Math/Math/glm.h -> ../../ThirdParty/glm/glm/glm.hpp,
+# headers by relative path (Math/Core/glm.h -> ../../ThirdParty/glm/glm/glm.hpp,
 # Numerics/Converter.h -> ../ThirdParty/eigen-3.4.0/Eigen/Eigen). The install therefore
 # bundles glm, nlohmann/json, Eigen and cgltf headers under include/CGLib/. CGLib's own
 # LICENSE is installed under share/licenses/CGLib; the vendored libraries keep their
@@ -112,12 +112,16 @@ foreach(_dir Util)
         PATTERN "pch.h" EXCLUDE)
 endforeach()
 foreach(_dir Math Graphics Numerics Space File Animation Volume GeometryNode MeshEdit PBR ShaderGraph AssetCore SceneRuntime)
-    install(DIRECTORY ${CGLIB_ROOT}/${_dir}/${_dir}/ DESTINATION ${_hdr_dest}/${_dir}/${_dir}
+    install(DIRECTORY ${CGLIB_ROOT}/${_dir}/Core/ DESTINATION ${_hdr_dest}/${_dir}/Core
         FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp" PATTERN "*.inl" PATTERN "*.hxx"
         PATTERN "pch.h" EXCLUDE
         PATTERN "*Presenter.h" EXCLUDE)
 endforeach()
 
+# PBR/Core/GltfLight.h exposes the CPU-only glTF light description. Ship that
+# dependency without exporting the Vulkan renderer component.
+install(FILES ${CGLIB_ROOT}/GltfRenderer/Renderer/LightEntry.h
+        DESTINATION ${_hdr_dest}/GltfRenderer/Renderer)
 # Vendored header-only dependencies reached by relative or <angle> includes.
 install(DIRECTORY ${CGLIB_ROOT}/ThirdParty/glm/glm DESTINATION ${_hdr_dest}/ThirdParty/glm)
 install(DIRECTORY ${CGLIB_ROOT}/ThirdParty/nlohmann DESTINATION ${_hdr_dest}/ThirdParty)

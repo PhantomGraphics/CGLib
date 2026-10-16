@@ -1,6 +1,6 @@
 #include "gtest/gtest.h"
 
-#include "../Math/Sphere3d.h"
+#include "../Core/Sphere3d.h"
 
 #include "PrimitiveTestSupport.h"
 

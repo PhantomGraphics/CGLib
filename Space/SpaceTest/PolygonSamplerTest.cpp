@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "pch.h"
 
-#include "../Space/PolygonSampler.h"
+#include "../Core/PolygonSampler.h"
 
 using namespace Phantom::Math;
 using namespace Phantom::Space;

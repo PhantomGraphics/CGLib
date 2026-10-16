@@ -1,11 +1,11 @@
-﻿#include "SparseVolumeRenderer.h"
+#include "SparseVolumeRenderer.h"
 
 #include "imgui.h"
 
 #include "../../../CGLib/VulkanGraphics/VulkanContext.h"
 
-#include "../../../CGLib/Graphics/Graphics/ColorMap.h"
-#include "../../../CGLib/Graphics/Graphics/ColorTable.h"
+#include "../../../CGLib/Graphics/Core/ColorMap.h"
+#include "../../../CGLib/Graphics/Core/ColorTable.h"
 
 #include <glm/gtc/matrix_transform.hpp>
 

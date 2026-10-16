@@ -1,7 +1,7 @@
 #include "gtest/gtest.h"
 
-#include "../File/OBJFileWriter.h"
-#include "../File/OBJFileReader.h"
+#include "../Core/OBJFileWriter.h"
+#include "../Core/OBJFileReader.h"
 
 #include <filesystem>
 

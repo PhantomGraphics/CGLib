@@ -1,13 +1,13 @@
-﻿#include "VectorFieldRenderer.h"
+#include "VectorFieldRenderer.h"
 
-#include "../Volume/SparseVolumeTree/TrilinearInterpolator.h"
+#include "../Core/SparseVolumeTree/TrilinearInterpolator.h"
 
 #include "../../../CGLib/VulkanGraphics/VulkanContext.h"
 
-#include "../../../CGLib/Graphics/Graphics/ColorMap.h"
-#include "../../../CGLib/Graphics/Graphics/ColorTable.h"
+#include "../../../CGLib/Graphics/Core/ColorMap.h"
+#include "../../../CGLib/Graphics/Core/ColorTable.h"
 
-#include "../../../CGLib/Math/Math/Box3d.h"
+#include "../../../CGLib/Math/Core/Box3d.h"
 
 #include <glm/gtc/matrix_transform.hpp>
 

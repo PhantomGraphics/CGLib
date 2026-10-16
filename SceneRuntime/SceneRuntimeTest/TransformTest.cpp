@@ -1,6 +1,6 @@
 #include "gtest/gtest.h"
 
-#include "../SceneRuntime/Transform.h"
+#include "../Core/Transform.h"
 
 #include <glm/gtc/quaternion.hpp>
 

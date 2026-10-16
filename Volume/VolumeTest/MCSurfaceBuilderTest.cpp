@@ -1,8 +1,8 @@
 #include "pch.h"
 
-#include "../Volume/MCSurfaceBuilder.h"
-#include "../Volume/MCCell.h"
-#include "../Volume/SparseVolumeTree/SparseVolume.h"
+#include "../Core/MCSurfaceBuilder.h"
+#include "../Core/MCCell.h"
+#include "../Core/SparseVolumeTree/SparseVolume.h"
 
 using namespace Phantom::Math;
 using namespace Phantom::Volume;

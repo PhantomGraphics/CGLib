@@ -19,7 +19,7 @@ CGLib/Space/
 ```
 
 Build: CMake only (`SpaceCore`, `SpaceDemoCore`, `SpaceTest`, `SpaceView` targets). Public headers are included as
-`CGLib/Space/Space/<Header>.h` (or relative to this directory inside the module); they include Math headers as
+`CGLib/Space/Core/<Header>.h` (or relative to this directory inside the module); they include Math headers as
 `CGLib/Math/...`, so the include root must be the directory that contains `CGLib/`.
 
 ---

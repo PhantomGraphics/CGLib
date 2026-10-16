@@ -1,6 +1,6 @@
 #include "gtest/gtest.h"
 
-#include "../Space/ZOrderCurve3d.h"
+#include "../Core/ZOrderCurve3d.h"
 
 using namespace Phantom::Space;
 

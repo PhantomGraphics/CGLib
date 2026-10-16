@@ -2,7 +2,7 @@
 
 #include "../Gltf/ObjToGltfConverter.h"
 #include "../Gltf/GltfAccessorView.h"
-#include "../../File/File/OBJFileReader.h"
+#include "../../File/Core/OBJFileReader.h"
 
 #include <sstream>
 

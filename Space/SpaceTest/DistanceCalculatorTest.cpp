@@ -1,10 +1,10 @@
-﻿#include "gtest/gtest.h"
-#include "../Space/DistanceCalculator.h"
+#include "gtest/gtest.h"
+#include "../Core/DistanceCalculator.h"
 
-#include "CGLib/Math/Math/Ray3d.h"
-#include "CGLib/Math/Math/Sphere3d.h"
-#include "CGLib/Math/Math/Triangle3d.h"
-#include "CGLib/Math/Math/Vector3d.h"
+#include "CGLib/Math/Core/Ray3d.h"
+#include "CGLib/Math/Core/Sphere3d.h"
+#include "CGLib/Math/Core/Triangle3d.h"
+#include "CGLib/Math/Core/Vector3d.h"
 
 using namespace Phantom::Math;
 using namespace Phantom::Space;

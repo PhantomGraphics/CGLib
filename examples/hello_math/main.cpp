@@ -1,6 +1,6 @@
 // Minimal CGLib::Math consumer -- verifies the public include convention
 // (`#include "CGLib/..."`) and the namespaced link target resolve.
-#include "CGLib/Math/Math/Vector3d.h"
+#include "CGLib/Math/Core/Vector3d.h"
 
 #include <cstdio>
 

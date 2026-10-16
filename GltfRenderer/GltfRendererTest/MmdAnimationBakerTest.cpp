@@ -8,7 +8,7 @@
 #include <glm/gtc/quaternion.hpp>
 
 #include "../Gltf/MmdAnimationBaker.h"
-#include "../../Animation/Animation/Animator.h"
+#include "../../Animation/Core/Animator.h"
 
 #include <map>
 

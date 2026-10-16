@@ -6,8 +6,8 @@
 #include <cstring>
 #include <vector>
 
-#include "../GeometryNode/GeometryOps.h"
-#include "../GeometryNode/GraphEvaluator.h"
+#include "../Core/GeometryOps.h"
+#include "../Core/GraphEvaluator.h"
 
 using namespace Phantom::GeometryNode;
 

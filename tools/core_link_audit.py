@@ -18,13 +18,13 @@ CMAKE = (ROOT / "cmake" / "PhantomCoreLibs.cmake").read_text(encoding="utf-8")
 
 # target -> (module name seen in includes, source dir)
 TARGETS = {
-    "MathCore": ("Math", "Math/Math"), "GraphicsCore": ("Graphics", "Graphics"),
-    "NumericsCore": ("Numerics", "Numerics/Numerics"), "SpaceCore": ("Space", "Space/Space"),
-    "VolumeCore": ("Volume", "Volume/Volume"),
-    "FileCore": ("File", "File/File"), "GeometryNodeCore": ("GeometryNode", "GeometryNode/GeometryNode"),
-    "ShaderGraphCore": ("ShaderGraph", "ShaderGraph/ShaderGraph"),
-    "AssetCore": ("AssetCore", "AssetCore/AssetCore"), "SceneRuntimeCore": ("SceneRuntime", "SceneRuntime/SceneRuntime"),
-    "AnimationCore": ("Animation", "Animation/Animation"),
+    "MathCore": ("Math", "Math/Core"), "GraphicsCore": ("Graphics", "Graphics/Core"),
+    "NumericsCore": ("Numerics", "Numerics/Core"), "SpaceCore": ("Space", "Space/Core"),
+    "VolumeCore": ("Volume", "Volume/Core"),
+    "FileCore": ("File", "File/Core"), "GeometryNodeCore": ("GeometryNode", "GeometryNode/Core"),
+    "ShaderGraphCore": ("ShaderGraph", "ShaderGraph/Core"),
+    "AssetCore": ("AssetCore", "AssetCore/Core"), "SceneRuntimeCore": ("SceneRuntime", "SceneRuntime/Core"),
+    "AnimationCore": ("Animation", "Animation/Core"),
 }
 MODULE_OF_TARGET = {t: m for t, (m, _) in TARGETS.items()}
 # Modules that live in a Core's directory tree but are not CPU cores (never allowed).

@@ -1,6 +1,6 @@
 #include "gtest/gtest.h"
 
-#include "../File/STLFileWriter.h"
+#include "../Core/STLFileWriter.h"
 
 #include <filesystem>
 

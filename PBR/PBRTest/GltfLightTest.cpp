@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include "../PBR/GltfLight.h"
+#include "../Core/GltfLight.h"
 
 #include <cmath>
 #include <string>

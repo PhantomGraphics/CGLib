@@ -1,7 +1,7 @@
-﻿# MeshEdit Boolean
+# MeshEdit Boolean
 
 `MeshEditCore` provides CPU polygon-mesh editing. `MeshEditView` is its Vulkan test viewer.
-Boolean operations are implemented in `MeshEdit/MeshBoolean.h` without an external CSG library.
+Boolean operations are implemented in `Core/MeshBoolean.h` without an external CSG library.
 
 ```cpp
 using namespace Phantom::MeshEdit;

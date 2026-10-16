@@ -1,6 +1,6 @@
 #include "gtest/gtest.h"
 
-#include "../SceneRuntime/ClipPlayback.h"
+#include "../Core/ClipPlayback.h"
 
 using namespace Phantom::SceneRuntime;
 

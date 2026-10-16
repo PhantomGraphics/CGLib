@@ -3,7 +3,7 @@
 #include "../../../CGLib/VulkanGraphics/VulkanContext.h"
 #include "../../../CGLib/VulkanGraphics/VulkanCommandPool.h"
 #include "../../../CGLib/VulkanGraphics/VulkanImage.h"
-#include "../../../CGLib/Graphics/Graphics/ImageFileReader.h"
+#include "../../../CGLib/Graphics/Core/ImageFileReader.h"
 
 #include <glm/gtc/packing.hpp>
 #include <cstdio>

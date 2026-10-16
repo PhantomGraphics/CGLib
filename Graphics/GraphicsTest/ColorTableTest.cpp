@@ -1,6 +1,6 @@
-﻿#include "pch.h"
+#include "pch.h"
 
-#include "../Graphics/ColorTable.h"
+#include "../Core/ColorTable.h"
 #include <gtest/gtest.h>
 
 using namespace Phantom::Graphics;

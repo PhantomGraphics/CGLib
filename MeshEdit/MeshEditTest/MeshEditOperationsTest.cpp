@@ -6,7 +6,7 @@
 #include <set>
 #include <string>
 
-#include "../MeshEdit/MeshEditOperations.h"
+#include "../Core/MeshEditOperations.h"
 
 // Pure shape operations and modifiers on an EditableMesh (moved from PhantomStudioTest/MeshEditCommandTest.cpp; the command
 // layer's own tests stay in PhantomStudio).

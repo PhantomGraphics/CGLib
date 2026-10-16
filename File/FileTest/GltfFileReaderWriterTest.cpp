@@ -1,7 +1,7 @@
 #include "gtest/gtest.h"
 
-#include "../File/GltfFileReader.h"
-#include "../File/GltfFileWriter.h"
+#include "../Core/GltfFileReader.h"
+#include "../Core/GltfFileWriter.h"
 
 #include <cstdint>
 #include <cstdio>

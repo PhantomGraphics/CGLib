@@ -1,12 +1,12 @@
-﻿#include "SVMeshView.h"
+#include "SVMeshView.h"
 
 #include "World.h"
 #include "SparseVolumeScene.h"
 
-#include "../Volume/LevelSet.h"
-#include "../Volume/SparseVolumeTree/SparseVolume.h"
+#include "../Core/LevelSet.h"
+#include "../Core/SparseVolumeTree/SparseVolume.h"
 
-#include "CGLib/File/File/STLFileReader.h"
+#include "CGLib/File/Core/STLFileReader.h"
 
 #include "../../../CGLib/UIWidgets/FileOpenDialog.h"
 

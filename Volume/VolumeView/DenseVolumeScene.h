@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../Volume/Volume.h"
+#include "../Core/Volume.h"
 
 #include <memory>
 #include <string>

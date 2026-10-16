@@ -1,11 +1,11 @@
-﻿#include "SVCombineView.h"
+#include "SVCombineView.h"
 
 #include "World.h"
 #include "SparseVolumeScene.h"
 
-#include "../Volume/SparseVolumeTree/SparseVolume.h"
-#include "../Volume/SparseVolumeTree/TrilinearInterpolator.h"
-#include "../Volume/SparseVolumeTree/Coord.h"
+#include "../Core/SparseVolumeTree/SparseVolume.h"
+#include "../Core/SparseVolumeTree/TrilinearInterpolator.h"
+#include "../Core/SparseVolumeTree/Coord.h"
 
 #include "imgui.h"
 

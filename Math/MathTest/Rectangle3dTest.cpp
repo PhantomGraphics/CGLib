@@ -1,6 +1,6 @@
 #include "gtest/gtest.h"
 
-#include "../Math/Rectangle3d.h"
+#include "../Core/Rectangle3d.h"
 
 #include "PrimitiveTestSupport.h"
 

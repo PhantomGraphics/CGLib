@@ -1,7 +1,7 @@
 #include "gtest/gtest.h"
 
-#include "CGLib/Animation/Animation/BVHConverter.h"
-#include "CGLib/File/File/BVHFile.h"
+#include "CGLib/Animation/Core/BVHConverter.h"
+#include "CGLib/File/Core/BVHFile.h"
 
 using namespace Phantom::Animation;
 using Phantom::File::BVHFile;

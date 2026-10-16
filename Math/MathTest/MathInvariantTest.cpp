@@ -1,10 +1,10 @@
 #include "gtest/gtest.h"
 
-#include "../Math/Box3d.h"
-#include "../Math/Matrix4d.h"
-#include "../Math/Quaternion.h"
-#include "../Math/Sphere3d.h"
-#include "../Math/Vector3d.h"
+#include "../Core/Box3d.h"
+#include "../Core/Matrix4d.h"
+#include "../Core/Quaternion.h"
+#include "../Core/Sphere3d.h"
+#include "../Core/Vector3d.h"
 #include "PrimitiveTestSupport.h"
 
 #include "../../ThirdParty/glm/glm/ext/matrix_transform.hpp"

@@ -6,7 +6,7 @@
 #include <set>
 #include <vector>
 
-#include "../MeshEdit/MeshEditPicking.h"
+#include "../Core/MeshEditPicking.h"
 
 using namespace Phantom::MeshEdit;
 

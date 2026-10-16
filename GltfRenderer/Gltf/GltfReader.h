@@ -1,7 +1,7 @@
 #pragma once
 
 #include "GltfDocument.h"
-#include "../../File/File/GltfFile.h"
+#include "../../File/Core/GltfFile.h"
 #include <filesystem>
 #include <optional>
 

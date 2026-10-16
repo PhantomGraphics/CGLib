@@ -1,6 +1,6 @@
 #include "GltfReader.h"
 #include "GltfAccessorBuilder.h"
-#include "../../File/File/GltfFileReader.h"
+#include "../../File/Core/GltfFileReader.h"
 
 #include "../../../CGLib/ThirdParty/stb/stb_image.h"
 

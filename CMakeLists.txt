@@ -165,7 +165,7 @@ endif()
 include(PhantomPch)
 
 # Eigen, through the existing Numerics/pch.h.
-phantom_use_pch(NumericsCore ${CGLIB_ROOT}/Numerics/Numerics/pch.h)
+phantom_use_pch(NumericsCore ${CGLIB_ROOT}/Numerics/Core/pch.h)
 
 # Test suites: gtest + STL for every TU. (Their legacy pch.h files hold nothing but
 # gtest, and most test files include gtest directly rather than through pch.h.)

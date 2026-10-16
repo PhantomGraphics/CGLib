@@ -1,7 +1,7 @@
 #include "gtest/gtest.h"
 
-#include "../File/MTLFileWriter.h"
-#include "../File/MTLFileReader.h"
+#include "../Core/MTLFileWriter.h"
+#include "../Core/MTLFileReader.h"
 
 #include <filesystem>
 

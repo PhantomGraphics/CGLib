@@ -1,6 +1,6 @@
 #include "gtest/gtest.h"
-#include "../Math/Matrix4d.h"
-#include "../Math/pi.h"
+#include "../Core/Matrix4d.h"
+#include "../Core/pi.h"
 #include "../../ThirdParty/glm/glm/ext/matrix_transform.hpp"
 
 using namespace Phantom::Math;

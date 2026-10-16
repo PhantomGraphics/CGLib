@@ -3,9 +3,9 @@
 #define GLM_FORCE_RADIANS
 #include <glm/glm.hpp>
 
-#include "../Animation/MorphAnimator.h"
-#include "../Animation/MorphTarget.h"
-#include "../Animation/SkinnedMesh.h"
+#include "../Core/MorphAnimator.h"
+#include "../Core/MorphTarget.h"
+#include "../Core/SkinnedMesh.h"
 
 using namespace Phantom::Animation;
 

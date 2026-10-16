@@ -1,8 +1,8 @@
-﻿#pragma once
+#pragma once
 
 #include "IWindow.h"
 
-#include "../Math/Math/Vector3d.h"
+#include "../Math/Core/Vector3d.h"
 
 namespace Phantom {
 	namespace UI {

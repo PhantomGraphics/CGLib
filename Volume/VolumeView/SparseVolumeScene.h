@@ -1,6 +1,6 @@
-﻿#pragma once
+#pragma once
 
-#include "../Volume/SparseVolumeTree/SparseVolume.h"
+#include "../Core/SparseVolumeTree/SparseVolume.h"
 
 #include <memory>
 #include <string>

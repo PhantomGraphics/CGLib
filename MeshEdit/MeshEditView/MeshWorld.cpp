@@ -7,8 +7,8 @@
 #include <sstream>
 #include <unordered_map>
 #include <glm/gtc/matrix_transform.hpp>
-#include "CGLib/Math/Math/Matrix4d.h"
-#include "CGLib/Math/Math/Vector4d.h"
+#include "CGLib/Math/Core/Matrix4d.h"
+#include "CGLib/Math/Core/Vector4d.h"
 
 using namespace Phantom::MeshEdit;
 

@@ -1,6 +1,6 @@
 #include "gtest/gtest.h"
 
-#include "../Math/Capsule3d.h"
+#include "../Core/Capsule3d.h"
 
 #include "PrimitiveTestSupport.h"
 

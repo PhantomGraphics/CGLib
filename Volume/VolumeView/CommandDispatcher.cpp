@@ -1,11 +1,11 @@
-﻿#include "CommandDispatcher.h"
+#include "CommandDispatcher.h"
 #include "CommandParse.h"
 
 #include "SparseVolumeScene.h"
 
-#include "../Volume/SparseVolumeTree/SparseVolume.h"
-#include "../Volume/SparseVolumeTree/Coord.h"
-#include "../Volume/Volume.h"
+#include "../Core/SparseVolumeTree/SparseVolume.h"
+#include "../Core/SparseVolumeTree/Coord.h"
+#include "../Core/Volume.h"
 #include "../VolumeRenderer/PBVRRenderer.h"
 #include "../../VkAppBase/VkAppBase.h"
 

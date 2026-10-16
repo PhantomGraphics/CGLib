@@ -1,9 +1,9 @@
 #include "gtest/gtest.h"
 
-#include "../GeometryNode/GeometryOps.h"
-#include "../GeometryNode/GraphAsset.h"
-#include "../GeometryNode/GraphEvaluator.h"
-#include "../GeometryNode/GraphJson.h"
+#include "../Core/GeometryOps.h"
+#include "../Core/GraphAsset.h"
+#include "../Core/GraphEvaluator.h"
+#include "../Core/GraphJson.h"
 
 using namespace Phantom::GeometryNode;
 

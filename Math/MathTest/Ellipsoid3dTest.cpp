@@ -1,6 +1,6 @@
 #include "gtest/gtest.h"
 
-#include "../Math/Ellipsoid3d.h"
+#include "../Core/Ellipsoid3d.h"
 
 #include "PrimitiveTestSupport.h"
 

@@ -2,7 +2,7 @@
 
 #include <cmath>
 
-#include "../Math/Statistics.h"
+#include "../Core/Statistics.h"
 #include "PrimitiveTestSupport.h"
 
 #include <limits>

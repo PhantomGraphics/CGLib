@@ -1,6 +1,6 @@
 #include "gtest/gtest.h"
 
-#include "../Space/CompactSpaceHash.h"
+#include "../Core/CompactSpaceHash.h"
 
 #include <algorithm>
 

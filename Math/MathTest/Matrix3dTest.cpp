@@ -1,6 +1,6 @@
 #include "gtest/gtest.h"
-#include "../Math/Matrix3d.h"
-#include "../Math/pi.h"
+#include "../Core/Matrix3d.h"
+#include "../Core/pi.h"
 
 using namespace Phantom::Math;
 

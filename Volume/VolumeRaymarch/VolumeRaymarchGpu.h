@@ -5,7 +5,7 @@
 #include <glm/glm.hpp>
 
 #include "Volume3dImage.h"
-#include "../Volume/VolumeScattering.h"
+#include "../Core/VolumeScattering.h"
 
 #include "../../VulkanGraphics/VulkanBuffer.h"
 #include "../../VulkanGraphics/VulkanComputePipeline.h"

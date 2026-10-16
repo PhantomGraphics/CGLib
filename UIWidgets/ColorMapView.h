@@ -1,10 +1,10 @@
-﻿#pragma once
+#pragma once
 
 #include "IView.h"
 #include "imgui.h"
 #include "FloatView.h"
 #include "IntView.h"
-#include "../Graphics/Graphics/ColorMap.h"
+#include "../Graphics/Core/ColorMap.h"
 
 namespace Phantom {
 	namespace UI {

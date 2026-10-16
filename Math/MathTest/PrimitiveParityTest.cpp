@@ -1,12 +1,12 @@
 #include "gtest/gtest.h"
 
-#include "../Math/Box2d.h"
-#include "../Math/Circle2d.h"
-#include "../Math/Circle3d.h"
-#include "../Math/Line2d.h"
-#include "../Math/Line3d.h"
-#include "../Math/Plane3d.h"
-#include "../Math/Ray3d.h"
+#include "../Core/Box2d.h"
+#include "../Core/Circle2d.h"
+#include "../Core/Circle3d.h"
+#include "../Core/Line2d.h"
+#include "../Core/Line3d.h"
+#include "../Core/Plane3d.h"
+#include "../Core/Ray3d.h"
 #include "PrimitiveTestSupport.h"
 
 #include <limits>

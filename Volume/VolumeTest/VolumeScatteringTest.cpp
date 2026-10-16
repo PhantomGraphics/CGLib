@@ -1,6 +1,6 @@
 #include "pch.h"
 
-#include "../Volume/VolumeScattering.h"
+#include "../Core/VolumeScattering.h"
 
 #include <cmath>
 

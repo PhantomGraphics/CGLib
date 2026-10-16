@@ -1,4 +1,4 @@
-﻿################################################################################
+################################################################################
 # この .gitignore ファイルは Microsoft(R) Visual Studio によって自動的に作成されました。
 ################################################################################
 
@@ -23,22 +23,22 @@
 /GraphicsTest/x64/Release
 /MathTest/x64/Release
 /UISample/x64/Release
-/Graphics/Graphics/x64/Debug
-/Math/Math/x64/Debug
-/Math/Math/x64/Release
+/Graphics/Core/x64/Debug
+/Math/Core/x64/Debug
+/Math/Core/x64/Release
 /Shader/Shader/x64/Debug
 /UI/UI/x64/Debug
-/Graphics/Graphics/x64/Release
+/Graphics/Core/x64/Release
 /Shader/Shader/x64/Release
 /UI/UI/x64/Release
 /VulkanGraphics/x64/Debug
 /VulkanGraphics/x64/Release
-/Graphics/Graphics/Debug/Graphics.tlog
+/Graphics/Core/Debug/Graphics.tlog
 /UISample/UISample/x64/Debug
 /Math/Debug
-/Math/Math/Debug
-/Graphics/Graphics/Release/Graphics.tlog
-/Math/Math/Release
+/Math/Core/Debug
+/Graphics/Core/Release/Graphics.tlog
+/Math/Core/Release
 /Math/Release
 /VulkanGraphics/VulkanGraphics/x64/Debug
 /VulkanGraphics/VulkanGraphics/x64/Debug

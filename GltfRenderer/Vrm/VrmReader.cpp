@@ -2,7 +2,7 @@
 #include "VrmExtensionParser.h"
 #include "VrmMToonFallback.h"
 #include "../Gltf/GltfReader.h"
-#include "../../File/File/GltfFileReader.h"
+#include "../../File/Core/GltfFileReader.h"
 
 #include <cstdio>
 

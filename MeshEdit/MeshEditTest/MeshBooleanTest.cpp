@@ -1,4 +1,4 @@
-#include "../MeshEdit/MeshBoolean.h"
+#include "../Core/MeshBoolean.h"
 #include <algorithm>
 #include <cmath>
 #include <array>

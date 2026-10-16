@@ -3,14 +3,14 @@
 // Contracts: docs/spec/space_api_contracts.md.
 #include "gtest/gtest.h"
 
-#include "../Space/CompactSpaceHash.h"
-#include "../Space/IndexedParticle.h"
-#include "../Space/IndexedSortBasedSearcher.h"
-#include "../Space/CSRNeighborList.h"
-#include "../Space/SpaceHash.h"
-#include "../Space/SpaceValidation.h"
-#include "../Space/ZIndexedSearcher.h"
-#include "../Space/ZOrderCurve3d.h"
+#include "../Core/CompactSpaceHash.h"
+#include "../Core/IndexedParticle.h"
+#include "../Core/IndexedSortBasedSearcher.h"
+#include "../Core/CSRNeighborList.h"
+#include "../Core/SpaceHash.h"
+#include "../Core/SpaceValidation.h"
+#include "../Core/ZIndexedSearcher.h"
+#include "../Core/ZOrderCurve3d.h"
 
 #include <algorithm>
 #include <limits>

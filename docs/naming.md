@@ -15,6 +15,18 @@ several related types use a descriptive plural name such as `GltfUniformTypes.h`
 - Preserve the full represented type name in widgets: `Rectangle3dView`.
 - Use matching names for GoogleTest suites and corresponding test source files.
 
+## Library source directories
+
+Libraries that keep their implementation in a dedicated subdirectory use
+`<Module>/Core/` for both public headers and implementation files. Tests and
+viewers remain alongside it in `<Module>Test/` and `<Module>View/`. Existing
+functional layouts (such as `Editor/Commands/` and `GltfRenderer/Renderer/`)
+retain their descriptive directories.
+
+Include paths follow the source layout, for example
+`CGLib/Math/Core/Vector3d.h`. Installed headers use the same paths. CMake target
+names and C++ namespaces do not depend on the source directory name.
+
 ## October 2026 migration
 
 These source-level renames require consumers to update includes and C++ type

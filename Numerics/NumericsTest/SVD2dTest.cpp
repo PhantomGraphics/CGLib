@@ -1,8 +1,8 @@
 #include "pch.h"
 
-#include "../Numerics/SVD2d.h"
+#include "../Core/SVD2d.h"
 
-#include "CGLib/Math/Math/pi.h"
+#include "CGLib/Math/Core/pi.h"
 
 using namespace Phantom::Math;
 using namespace Phantom::Numerics;

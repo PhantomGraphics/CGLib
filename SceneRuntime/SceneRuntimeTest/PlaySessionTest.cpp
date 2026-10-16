@@ -1,6 +1,6 @@
 #include "gtest/gtest.h"
 
-#include "../SceneRuntime/PlaySession.h"
+#include "../Core/PlaySession.h"
 
 using namespace Phantom::SceneRuntime;
 

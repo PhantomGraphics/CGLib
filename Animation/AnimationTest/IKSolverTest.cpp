@@ -6,8 +6,8 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp>
 
-#include "../Animation/IKSolver.h"
-#include "../Animation/Skeleton.h"
+#include "../Core/IKSolver.h"
+#include "../Core/Skeleton.h"
 
 using namespace Phantom::Animation;
 

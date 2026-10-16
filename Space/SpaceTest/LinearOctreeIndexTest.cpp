@@ -1,6 +1,6 @@
 #include "gtest/gtest.h"
 
-#include "../Space/LinearOctreeIndex.h"
+#include "../Core/LinearOctreeIndex.h"
 
 using namespace Phantom::Space;
 

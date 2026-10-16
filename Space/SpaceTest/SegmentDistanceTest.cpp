@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include "CGLib/Space/Space/DistanceCalculator.h"
+#include "CGLib/Space/Core/DistanceCalculator.h"
 
 using namespace Phantom;
 

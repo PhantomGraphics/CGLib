@@ -3,7 +3,7 @@
 #include <array>
 #include <vector>
 
-#include "../MeshEdit/MeshEditState.h"
+#include "../Core/MeshEditState.h"
 
 using namespace Phantom::MeshEdit;
 

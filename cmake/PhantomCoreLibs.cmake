@@ -30,7 +30,7 @@ function(phantom_add_math_core)
     if(TARGET MathCore)
         return()
     endif()
-    file(GLOB _math_sources CONFIGURE_DEPENDS ${CGLIB_ROOT}/Math/Math/*.cpp)
+    file(GLOB _math_sources CONFIGURE_DEPENDS ${CGLIB_ROOT}/Math/Core/*.cpp)
     list(FILTER _math_sources EXCLUDE REGEX "pch\\.cpp$")
     add_library(MathCore STATIC ${_math_sources})
     target_include_directories(MathCore PUBLIC ${CGLIB_ROOT} ${REPO_ROOT})
@@ -43,7 +43,7 @@ function(phantom_add_graphics_core)
         return()
     endif()
     phantom_add_math_core()
-    file(GLOB _graphics_sources CONFIGURE_DEPENDS ${CGLIB_ROOT}/Graphics/Graphics/*.cpp)
+    file(GLOB _graphics_sources CONFIGURE_DEPENDS ${CGLIB_ROOT}/Graphics/Core/*.cpp)
     list(FILTER _graphics_sources EXCLUDE REGEX "pch\\.cpp$")
     add_library(GraphicsCore STATIC ${_graphics_sources})
     target_include_directories(GraphicsCore PUBLIC ${CGLIB_ROOT} ${REPO_ROOT})
@@ -58,9 +58,9 @@ function(phantom_add_numerics_core)
     endif()
     phantom_add_math_core()
     add_library(NumericsCore STATIC
-        ${CGLIB_ROOT}/Numerics/Numerics/Converter.cpp
-        ${CGLIB_ROOT}/Numerics/Numerics/SVD2d.cpp
-        ${CGLIB_ROOT}/Numerics/Numerics/SVD3d.cpp
+        ${CGLIB_ROOT}/Numerics/Core/Converter.cpp
+        ${CGLIB_ROOT}/Numerics/Core/SVD2d.cpp
+        ${CGLIB_ROOT}/Numerics/Core/SVD3d.cpp
     )
     target_include_directories(NumericsCore PUBLIC ${REPO_ROOT})
     # Converter.h/SVD*.h take and return Math's Vector*/Matrix* types.
@@ -74,7 +74,7 @@ function(phantom_add_space_core)
         return()
     endif()
     phantom_add_math_core()
-    file(GLOB _space_sources CONFIGURE_DEPENDS ${CGLIB_ROOT}/Space/Space/*.cpp)
+    file(GLOB _space_sources CONFIGURE_DEPENDS ${CGLIB_ROOT}/Space/Core/*.cpp)
     list(FILTER _space_sources EXCLUDE REGEX "pch\\.cpp$")
     add_library(SpaceCore STATIC ${_space_sources})
     target_include_directories(SpaceCore PUBLIC ${REPO_ROOT})
@@ -105,12 +105,12 @@ function(phantom_add_volume_core)
     phantom_add_math_core()
     phantom_add_space_core()
     add_library(VolumeCore STATIC
-        ${CGLIB_ROOT}/Volume/Volume/LevelSet.cpp
-        ${CGLIB_ROOT}/Volume/Volume/MCSurfaceBuilder.cpp
-        ${CGLIB_ROOT}/Volume/Volume/SurfaceVoxelizer.cpp
-        ${CGLIB_ROOT}/Volume/Volume/Volume.cpp
-        ${CGLIB_ROOT}/Volume/Volume/VolumeNode.cpp
-        ${CGLIB_ROOT}/Volume/Volume/VolumeScattering.cpp
+        ${CGLIB_ROOT}/Volume/Core/LevelSet.cpp
+        ${CGLIB_ROOT}/Volume/Core/MCSurfaceBuilder.cpp
+        ${CGLIB_ROOT}/Volume/Core/SurfaceVoxelizer.cpp
+        ${CGLIB_ROOT}/Volume/Core/Volume.cpp
+        ${CGLIB_ROOT}/Volume/Core/VolumeNode.cpp
+        ${CGLIB_ROOT}/Volume/Core/VolumeScattering.cpp
     )
     target_include_directories(VolumeCore PUBLIC ${REPO_ROOT})
     target_link_libraries(VolumeCore PUBLIC MathCore SpaceCore)
@@ -124,7 +124,7 @@ function(phantom_add_file_core)
     endif()
     phantom_add_math_core()
     phantom_add_graphics_core()
-    # NOTE on File's on-disk source list: File/File/ also contains File.cpp, a
+    # NOTE on File's on-disk source list: File/Core/ also contains File.cpp, a
     # never-wired-up leftover from the original VS "static library" project
     # template (a stub fnFile() nobody calls) -- confirmed NOT part of File.
     # vcxproj's <ClCompile> list. Do NOT file(GLOB) this directory -- the
@@ -133,21 +133,21 @@ function(phantom_add_file_core)
     # via the repo-root-relative path "CGLib/File/ThirdParty/cgltf/cgltf.h"
     # -- no extra include dir needed beyond REPO_ROOT (already PUBLIC below).
     add_library(FileCore STATIC
-        ${CGLIB_ROOT}/File/File/BVHFileReader.cpp
-        ${CGLIB_ROOT}/File/File/GltfFileReader.cpp
-        ${CGLIB_ROOT}/File/File/GltfFileWriter.cpp
-        ${CGLIB_ROOT}/File/File/MTLFileReader.cpp
-        ${CGLIB_ROOT}/File/File/MTLFileWriter.cpp
-        ${CGLIB_ROOT}/File/File/OBJFileReader.cpp
-        ${CGLIB_ROOT}/File/File/OBJFileWriter.cpp
-        ${CGLIB_ROOT}/File/File/OBJSyntaxParser.cpp
-        ${CGLIB_ROOT}/File/File/PLYFileReader.cpp
-        ${CGLIB_ROOT}/File/File/PLYFileWriter.cpp
-        ${CGLIB_ROOT}/File/File/PMDFileReader.cpp
-        ${CGLIB_ROOT}/File/File/PMXFileReader.cpp
-        ${CGLIB_ROOT}/File/File/STLFileReader.cpp
-        ${CGLIB_ROOT}/File/File/STLFileWriter.cpp
-        ${CGLIB_ROOT}/File/File/VMDFileReader.cpp
+        ${CGLIB_ROOT}/File/Core/BVHFileReader.cpp
+        ${CGLIB_ROOT}/File/Core/GltfFileReader.cpp
+        ${CGLIB_ROOT}/File/Core/GltfFileWriter.cpp
+        ${CGLIB_ROOT}/File/Core/MTLFileReader.cpp
+        ${CGLIB_ROOT}/File/Core/MTLFileWriter.cpp
+        ${CGLIB_ROOT}/File/Core/OBJFileReader.cpp
+        ${CGLIB_ROOT}/File/Core/OBJFileWriter.cpp
+        ${CGLIB_ROOT}/File/Core/OBJSyntaxParser.cpp
+        ${CGLIB_ROOT}/File/Core/PLYFileReader.cpp
+        ${CGLIB_ROOT}/File/Core/PLYFileWriter.cpp
+        ${CGLIB_ROOT}/File/Core/PMDFileReader.cpp
+        ${CGLIB_ROOT}/File/Core/PMXFileReader.cpp
+        ${CGLIB_ROOT}/File/Core/STLFileReader.cpp
+        ${CGLIB_ROOT}/File/Core/STLFileWriter.cpp
+        ${CGLIB_ROOT}/File/Core/VMDFileReader.cpp
     )
     target_include_directories(FileCore PUBLIC ${REPO_ROOT})
     target_link_libraries(FileCore PUBLIC MathCore GraphicsCore)
@@ -164,16 +164,16 @@ function(phantom_add_geometrynode_core)
     # Studio dependency; the graph JSON uses the vendored header-only nlohmann/json
     # (reached by a relative include from GraphTypes.h).
     add_library(GeometryNodeCore STATIC
-        ${CGLIB_ROOT}/GeometryNode/GeometryNode/GeometryOps.cpp
-        ${CGLIB_ROOT}/GeometryNode/GeometryNode/TerrainOps.cpp
-        ${CGLIB_ROOT}/GeometryNode/GeometryNode/GraphAsset.cpp
-        ${CGLIB_ROOT}/GeometryNode/GeometryNode/GraphGroup.cpp
-        ${CGLIB_ROOT}/GeometryNode/GeometryNode/GraphTypes.cpp
-        ${CGLIB_ROOT}/GeometryNode/GeometryNode/NodeRegistry.cpp
-        ${CGLIB_ROOT}/GeometryNode/GeometryNode/GraphEvaluator.cpp
-        ${CGLIB_ROOT}/GeometryNode/GeometryNode/Field.cpp
-        ${CGLIB_ROOT}/GeometryNode/GeometryNode/FieldNodes.cpp
-        ${CGLIB_ROOT}/GeometryNode/GeometryNode/GraphJson.cpp
+        ${CGLIB_ROOT}/GeometryNode/Core/GeometryOps.cpp
+        ${CGLIB_ROOT}/GeometryNode/Core/TerrainOps.cpp
+        ${CGLIB_ROOT}/GeometryNode/Core/GraphAsset.cpp
+        ${CGLIB_ROOT}/GeometryNode/Core/GraphGroup.cpp
+        ${CGLIB_ROOT}/GeometryNode/Core/GraphTypes.cpp
+        ${CGLIB_ROOT}/GeometryNode/Core/NodeRegistry.cpp
+        ${CGLIB_ROOT}/GeometryNode/Core/GraphEvaluator.cpp
+        ${CGLIB_ROOT}/GeometryNode/Core/Field.cpp
+        ${CGLIB_ROOT}/GeometryNode/Core/FieldNodes.cpp
+        ${CGLIB_ROOT}/GeometryNode/Core/GraphJson.cpp
     )
     target_include_directories(GeometryNodeCore PUBLIC ${REPO_ROOT})
     target_compile_options(GeometryNodeCore PRIVATE ${PHANTOM_WARN_FLAGS})
@@ -189,11 +189,11 @@ function(phantom_add_meshedit_core)
     # screen-space picking, and the edit-session selection state with its argument parsing.
     # No Vulkan / scene / render-mesh dependency; picking uses the vendored header-only GLM.
     add_library(MeshEditCore STATIC
-        ${CGLIB_ROOT}/MeshEdit/MeshEdit/EditableMesh.cpp
-        ${CGLIB_ROOT}/MeshEdit/MeshEdit/MeshBoolean.cpp
-        ${CGLIB_ROOT}/MeshEdit/MeshEdit/MeshEditOperations.cpp
-        ${CGLIB_ROOT}/MeshEdit/MeshEdit/MeshEditPicking.cpp
-        ${CGLIB_ROOT}/MeshEdit/MeshEdit/MeshEditState.cpp
+        ${CGLIB_ROOT}/MeshEdit/Core/EditableMesh.cpp
+        ${CGLIB_ROOT}/MeshEdit/Core/MeshBoolean.cpp
+        ${CGLIB_ROOT}/MeshEdit/Core/MeshEditOperations.cpp
+        ${CGLIB_ROOT}/MeshEdit/Core/MeshEditPicking.cpp
+        ${CGLIB_ROOT}/MeshEdit/Core/MeshEditState.cpp
     )
     target_include_directories(MeshEditCore PUBLIC ${REPO_ROOT} ${CGLIB_ROOT}/ThirdParty/glm)
     target_compile_options(MeshEditCore PRIVATE ${PHANTOM_WARN_FLAGS})
@@ -207,9 +207,9 @@ function(phantom_add_pbr_core)
     # Physically based shading parts shared by the renderers (Phantom::PBR -- CPU-only): the light description and the
     # viewport's lighting uniform block. No Vulkan / scene dependency; uses the vendored header-only GLM.
     add_library(PBRCore STATIC
-        ${CGLIB_ROOT}/PBR/PBR/Light.cpp
-        ${CGLIB_ROOT}/PBR/PBR/LightBlock.cpp
-        ${CGLIB_ROOT}/PBR/PBR/Shadow.cpp
+        ${CGLIB_ROOT}/PBR/Core/Light.cpp
+        ${CGLIB_ROOT}/PBR/Core/LightBlock.cpp
+        ${CGLIB_ROOT}/PBR/Core/Shadow.cpp
     )
     # Shared GLSL (PBR/Shaders/*.glsl) is the single source for the viewport shaders: glslc `#include`s the files directly
     # (PhantomStudio cgstudio.frag), and the runtime-assembled shader-graph fragment embeds the same text through this generated
@@ -248,13 +248,13 @@ function(phantom_add_shadergraph_core)
     # No Math/Vulkan/Studio dependency; JSON uses the vendored header-only nlohmann/json
     # (reached by a relative include from ShaderGraph.h).
     add_library(ShaderGraphCore STATIC
-        ${CGLIB_ROOT}/ShaderGraph/ShaderGraph/NodeRegistry.cpp
-        ${CGLIB_ROOT}/ShaderGraph/ShaderGraph/Validate.cpp
-        ${CGLIB_ROOT}/ShaderGraph/ShaderGraph/GlslGen.cpp
-        ${CGLIB_ROOT}/ShaderGraph/ShaderGraph/GraphJson.cpp
-        ${CGLIB_ROOT}/ShaderGraph/ShaderGraph/GraphAsset.cpp
-        ${CGLIB_ROOT}/ShaderGraph/ShaderGraph/RuntimeCompiler.cpp
-        ${CGLIB_ROOT}/ShaderGraph/ShaderGraph/SurfaceFragment.cpp
+        ${CGLIB_ROOT}/ShaderGraph/Core/NodeRegistry.cpp
+        ${CGLIB_ROOT}/ShaderGraph/Core/Validate.cpp
+        ${CGLIB_ROOT}/ShaderGraph/Core/GlslGen.cpp
+        ${CGLIB_ROOT}/ShaderGraph/Core/GraphJson.cpp
+        ${CGLIB_ROOT}/ShaderGraph/Core/GraphAsset.cpp
+        ${CGLIB_ROOT}/ShaderGraph/Core/RuntimeCompiler.cpp
+        ${CGLIB_ROOT}/ShaderGraph/Core/SurfaceFragment.cpp
     )
     # SurfaceFragment embeds the shared viewport light GLSL generated by PBRCore (the header is all it needs).
     phantom_add_pbr_core()
@@ -275,11 +275,11 @@ function(phantom_add_assetcore)
     # Vulkan/ImGui dependency -- only nlohmann/json for AssetManifest (de)serialization,
     # the same header-only dependency GltfRendererCore/UniverseSceneIO already use.
     add_library(AssetCore STATIC
-        ${CGLIB_ROOT}/AssetCore/AssetCore/AssetId.cpp
-        ${CGLIB_ROOT}/AssetCore/AssetCore/AssetUri.cpp
-        ${CGLIB_ROOT}/AssetCore/AssetCore/AssetManifest.cpp
-        ${CGLIB_ROOT}/AssetCore/AssetCore/ContentHash.cpp
-        ${CGLIB_ROOT}/AssetCore/AssetCore/FileWatcher.cpp
+        ${CGLIB_ROOT}/AssetCore/Core/AssetId.cpp
+        ${CGLIB_ROOT}/AssetCore/Core/AssetUri.cpp
+        ${CGLIB_ROOT}/AssetCore/Core/AssetManifest.cpp
+        ${CGLIB_ROOT}/AssetCore/Core/ContentHash.cpp
+        ${CGLIB_ROOT}/AssetCore/Core/FileWatcher.cpp
     )
     target_include_directories(AssetCore PUBLIC
         ${REPO_ROOT}
@@ -301,18 +301,18 @@ function(phantom_add_scene_runtime_core)
     phantom_add_math_core()
     phantom_add_assetcore()
     add_library(SceneRuntimeCore STATIC
-        ${CGLIB_ROOT}/SceneRuntime/SceneRuntime/Transform.cpp
-        ${CGLIB_ROOT}/SceneRuntime/SceneRuntime/SceneNode.cpp
-        ${CGLIB_ROOT}/SceneRuntime/SceneRuntime/SceneGraph.cpp
-        ${CGLIB_ROOT}/SceneRuntime/SceneRuntime/ComponentSchema.cpp
-        ${CGLIB_ROOT}/SceneRuntime/SceneRuntime/ComponentSchemaRegistry.cpp
-        ${CGLIB_ROOT}/SceneRuntime/SceneRuntime/SceneV2.cpp
-        ${CGLIB_ROOT}/SceneRuntime/SceneRuntime/SceneV2Editor.cpp
-        ${CGLIB_ROOT}/SceneRuntime/SceneRuntime/ColliderDesc.cpp
-        ${CGLIB_ROOT}/SceneRuntime/SceneRuntime/AssetSidecar.cpp
-        ${CGLIB_ROOT}/SceneRuntime/SceneRuntime/SceneV2Merge.cpp
-        ${CGLIB_ROOT}/SceneRuntime/SceneRuntime/PlaySession.cpp
-        ${CGLIB_ROOT}/SceneRuntime/SceneRuntime/ClipPlayback.cpp
+        ${CGLIB_ROOT}/SceneRuntime/Core/Transform.cpp
+        ${CGLIB_ROOT}/SceneRuntime/Core/SceneNode.cpp
+        ${CGLIB_ROOT}/SceneRuntime/Core/SceneGraph.cpp
+        ${CGLIB_ROOT}/SceneRuntime/Core/ComponentSchema.cpp
+        ${CGLIB_ROOT}/SceneRuntime/Core/ComponentSchemaRegistry.cpp
+        ${CGLIB_ROOT}/SceneRuntime/Core/SceneV2.cpp
+        ${CGLIB_ROOT}/SceneRuntime/Core/SceneV2Editor.cpp
+        ${CGLIB_ROOT}/SceneRuntime/Core/ColliderDesc.cpp
+        ${CGLIB_ROOT}/SceneRuntime/Core/AssetSidecar.cpp
+        ${CGLIB_ROOT}/SceneRuntime/Core/SceneV2Merge.cpp
+        ${CGLIB_ROOT}/SceneRuntime/Core/PlaySession.cpp
+        ${CGLIB_ROOT}/SceneRuntime/Core/ClipPlayback.cpp
     )
     target_include_directories(SceneRuntimeCore PUBLIC
         ${REPO_ROOT}
@@ -335,13 +335,13 @@ function(phantom_add_animation_core)
     # WideCharToMultiByte(932, ...), Linux uses glibc's
     # iconv("UTF-8", "CP932") (always available, no extra link dependency).
     add_library(AnimationCore STATIC
-        ${CGLIB_ROOT}/Animation/Animation/Animator.cpp
-        ${CGLIB_ROOT}/Animation/Animation/BVHConverter.cpp
-        ${CGLIB_ROOT}/Animation/Animation/IKSolver.cpp
-        ${CGLIB_ROOT}/Animation/Animation/MorphAnimator.cpp
-        ${CGLIB_ROOT}/Animation/Animation/PMXConverter.cpp
-        ${CGLIB_ROOT}/Animation/Animation/Skeleton.cpp
-        ${CGLIB_ROOT}/Animation/Animation/VMDConverter.cpp
+        ${CGLIB_ROOT}/Animation/Core/Animator.cpp
+        ${CGLIB_ROOT}/Animation/Core/BVHConverter.cpp
+        ${CGLIB_ROOT}/Animation/Core/IKSolver.cpp
+        ${CGLIB_ROOT}/Animation/Core/MorphAnimator.cpp
+        ${CGLIB_ROOT}/Animation/Core/PMXConverter.cpp
+        ${CGLIB_ROOT}/Animation/Core/Skeleton.cpp
+        ${CGLIB_ROOT}/Animation/Core/VMDConverter.cpp
     )
     target_include_directories(AnimationCore PUBLIC ${REPO_ROOT} ${CGLIB_ROOT}/ThirdParty/glm)
     # BVHConverter.h/PMXConverter.h/VMDConverter.h include File's BVHFile/PMXFile/VMDFile.

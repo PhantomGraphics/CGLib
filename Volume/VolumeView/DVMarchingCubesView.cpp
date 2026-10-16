@@ -2,7 +2,7 @@
 
 #include "DenseVolumeScene.h"
 
-#include "../Volume/MCSurfaceBuilder.h"
+#include "../Core/MCSurfaceBuilder.h"
 
 #include "imgui.h"
 

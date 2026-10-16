@@ -2,7 +2,7 @@
 
 #include "../../CGLib/ThirdParty/stb/stb_image_write.h"
 
-#include "../Graphics/Graphics/FastPng.h"
+#include "../Graphics/Core/FastPng.h"
 
 #include <charconv>
 #include <cstdio>

@@ -1,6 +1,6 @@
 #include "gtest/gtest.h"
 
-#include "../Math/SphericalHarmonics.h"
+#include "../Core/SphericalHarmonics.h"
 
 #include <cmath>
 

@@ -1,8 +1,8 @@
-﻿#include "pch.h"
+#include "pch.h"
 #include "gtest/gtest.h"
 
-#include "../Graphics/ImageFileWriter.h"
-#include "../Graphics/Image.h"
+#include "../Core/ImageFileWriter.h"
+#include "../Core/Image.h"
 
 #include <filesystem>
 #include <string>

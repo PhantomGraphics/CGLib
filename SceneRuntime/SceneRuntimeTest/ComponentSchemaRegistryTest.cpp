@@ -1,6 +1,6 @@
 #include "gtest/gtest.h"
 
-#include "../SceneRuntime/ComponentSchemaRegistry.h"
+#include "../Core/ComponentSchemaRegistry.h"
 
 #include <filesystem>
 #include <random>

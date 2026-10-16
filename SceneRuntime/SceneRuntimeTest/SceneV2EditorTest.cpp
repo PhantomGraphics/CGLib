@@ -1,6 +1,6 @@
 #include "gtest/gtest.h"
 
-#include "../SceneRuntime/SceneV2Editor.h"
+#include "../Core/SceneV2Editor.h"
 
 using namespace Phantom::SceneRuntime;
 using namespace Phantom::SceneRuntime::Universe;

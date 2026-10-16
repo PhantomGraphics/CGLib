@@ -1,10 +1,10 @@
 #include "gtest/gtest.h"
 
 #include <sstream>
-#include "../File/STLFileReader.h"
-#include "../File/OBJFileReader.h"
-#include "../File/MTLFileReader.h"
-#include "../File/PLYFileReader.h"
+#include "../Core/STLFileReader.h"
+#include "../Core/OBJFileReader.h"
+#include "../Core/MTLFileReader.h"
+#include "../Core/PLYFileReader.h"
 
 using namespace Phantom::File;
 

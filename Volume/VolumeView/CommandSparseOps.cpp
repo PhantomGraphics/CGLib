@@ -1,14 +1,14 @@
-﻿#include "CommandDispatcher.h"
+#include "CommandDispatcher.h"
 #include "CommandParse.h"
 #include "McMesh.h"
 
 #include "SparseVolumeScene.h"
 
-#include "../Volume/SparseVolumeTree/SparseVolume.h"
-#include "../Volume/SparseVolumeTree/Coord.h"
-#include "../Volume/SparseVolumeTree/TrilinearInterpolator.h"
-#include "../Volume/LevelSet.h"
-#include "../Volume/MCSurfaceBuilder.h"
+#include "../Core/SparseVolumeTree/SparseVolume.h"
+#include "../Core/SparseVolumeTree/Coord.h"
+#include "../Core/SparseVolumeTree/TrilinearInterpolator.h"
+#include "../Core/LevelSet.h"
+#include "../Core/MCSurfaceBuilder.h"
 
 #define GLM_FORCE_RADIANS
 #include <glm/geometric.hpp>
