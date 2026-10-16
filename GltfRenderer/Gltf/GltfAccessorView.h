@@ -32,4 +32,8 @@ namespace Phantom::Gltf {
     // UnsignedInt) to uint32_t. Shared by the GPU mesh upload, the pose baker and the exporters.
     uint32_t readIndexValue(const GltfAccessorView& view, const GltfAccessor& accessor, size_t i);
 
+    // JOINTS_0 stores four unsigned byte/short components, not four 32-bit integers.
+    // UnsignedInt is retained for existing in-memory documents.
+    glm::uvec4 readJointIndices(const GltfAccessorView& view, const GltfAccessor& accessor, size_t i);
+
 }

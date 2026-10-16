@@ -66,10 +66,15 @@ std::vector<BakedPrimitive> bakeSkinnedPose(const CharacterPoseSource& src, doub
                 glm::vec3 pos = basePos;
                 glm::vec3 nrm = baseNrm;
                 if (hasJoints) {
-                    const glm::ivec4 j = jointsView.get<glm::ivec4>(i);
+                    const glm::uvec4 j = readJointIndices(jointsView, doc.accessors[prim.jointsAccessor], i);
                     const glm::vec4  w = weightsView.get<glm::vec4>(i);
-                    const glm::mat4 skinMat =
-                        w.x * skin[j.x] + w.y * skin[j.y] + w.z * skin[j.z] + w.w * skin[j.w];
+                    glm::mat4 skinMat(0.f);
+                    for (int c = 0; c < 4; ++c) {
+                        if (w[c] == 0.f) continue;
+                        // Reject malformed weighted joints; unused slots must never dereference skin.
+                        if (j[c] >= skin.size()) return {};
+                        skinMat += w[c] * skin[j[c]];
+                    }
                     pos = glm::vec3(skinMat * glm::vec4(basePos, 1.0f));
                     nrm = glm::inverseTranspose(glm::mat3(skinMat)) * baseNrm;
                 }
