@@ -73,6 +73,7 @@ void MeshEditApp::onSwapChainCreated() { renderer_.setExtent(getExtent()); }
 
 void MeshEditApp::onUpdate(uint32_t frameIndex) {
     dispatcher_.processQueue();
+    menuPanel_.setError(dispatcher_.lastUiError());
 
     // Single place that collects responses: first the ones for commands typed into the Command window, the rest belong
     // to the running scenario.

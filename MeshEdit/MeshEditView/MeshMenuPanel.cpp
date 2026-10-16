@@ -120,6 +120,59 @@ void MeshMenuPanel::onImGui() {
     ImGui::SameLine();
     if (ImGui::Button("Apply modifiers")) send("ApplyModifiers");
 
+    // ---- Boolean ----
+    ImGui::Separator();
+    ImGui::TextUnformatted("Boolean");
+    ImGui::BeginDisabled(edit);
+    if (ImGui::Button("Box cutter"))
+        send("SetCutter:box");
+    ImGui::SameLine();
+    if (ImGui::Button("Copy mesh as cutter"))
+        send("SetCutter:copy");
+    bool cutterVisible = world_->cutter().visible;
+    if (ImGui::Checkbox("Show cutter", &cutterVisible))
+        send(std::string("SetCutterVisible:") + (cutterVisible ? "1" : "0"));
+    if (!cutterDragging_)
+        cutterTransform_ = world_->cutter().transform;
+    const auto transformCommand = [&](bool preview) {
+        const auto vectorText = [](const std::array<float, 3>& v) {
+            char text[128];
+            std::snprintf(text, sizeof(text), "%.9g,%.9g,%.9g", v[0], v[1], v[2]);
+            return std::string(text);
+        };
+        return "SetCutterTransform:position=" + vectorText(cutterTransform_.position) +
+               " rotation=" + vectorText(cutterTransform_.rotation) +
+               " scale=" + vectorText(cutterTransform_.scale) + " preview=" + (preview ? "1" : "0");
+    };
+    bool cutterChanged = false, finished = false, active = false;
+    cutterChanged |= ImGui::DragFloat3("Cutter position", cutterTransform_.position.data(), 0.01f);
+    finished |= ImGui::IsItemDeactivatedAfterEdit();
+    active |= ImGui::IsItemActive();
+    cutterChanged |= ImGui::DragFloat3("Cutter rotation", cutterTransform_.rotation.data(), 1.f);
+    finished |= ImGui::IsItemDeactivatedAfterEdit();
+    active |= ImGui::IsItemActive();
+    cutterChanged |= ImGui::DragFloat3("Cutter scale", cutterTransform_.scale.data(), 0.01f, 0.001f, 1000.f);
+    finished |= ImGui::IsItemDeactivatedAfterEdit();
+    active |= ImGui::IsItemActive();
+    if (cutterChanged)
+        send(transformCommand(true));
+    if (finished)
+        send(transformCommand(false));
+    cutterDragging_ = active;
+    const char* operations[] = {"Union", "Difference (mesh - cutter)", "Intersection"};
+    ImGui::Combo("Operation", &booleanOperation_, operations, 3);
+    if (ImGui::Button("Apply Boolean"))
+        send(std::string("Boolean:") +
+             std::array<const char*, 3>{"union", "difference", "intersection"}[booleanOperation_]);
+    ImGui::EndDisabled();
+    if (edit)
+        ImGui::TextDisabled("Switch to object mode to use Boolean");
+    if (!error_.empty()) {
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.f, 0.35f, 0.25f, 1.f));
+        ImGui::TextWrapped("%s", error_.c_str());
+        ImGui::PopStyleColor();
+    }
+
     // ---- history ----
     ImGui::Separator();
     ImGui::BeginDisabled(world_->undoDepth() == 0);

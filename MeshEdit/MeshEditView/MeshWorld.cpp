@@ -6,6 +6,9 @@
 #include <set>
 #include <sstream>
 #include <unordered_map>
+#include <glm/gtc/matrix_transform.hpp>
+#include "CGLib/Math/Math/Matrix4d.h"
+#include "CGLib/Math/Math/Vector4d.h"
 
 using namespace Phantom::MeshEdit;
 
@@ -72,6 +75,9 @@ void MeshWorld::newMesh(Shape shape, int divs) {
     mesh_ = std::make_shared<const EditableMesh>(std::move(m));
     modifiers_.clear();
     edit_ = MeshEditState{};
+    cutter_ = Cutter{};
+    cutter_.mesh = std::make_shared<const EditableMesh>(makeEditableBox());
+    cutterPreview_.reset();
     undo_.clear();
     redo_.clear();
     invalidate();
@@ -101,7 +107,7 @@ bool MeshWorld::evaluate(EditableMesh& out, std::string* error) const {
 // ------------------------------------------------------------------------------------------------ history
 
 void MeshWorld::pushUndo() {
-    undo_.push_back({ mesh_, modifiers_ });
+    undo_.push_back({mesh_, modifiers_, cutter_});
     if (undo_.size() > kMaxUndo) undo_.erase(undo_.begin());
     redo_.clear();
 }
@@ -121,9 +127,11 @@ void MeshWorld::pruneSelection() {
 
 bool MeshWorld::undo() {
     if (undo_.empty()) return false;
-    redo_.push_back({ mesh_, modifiers_ });
+    redo_.push_back({mesh_, modifiers_, cutter_});
     mesh_ = undo_.back().mesh;
     modifiers_ = undo_.back().modifiers;
+    cutter_ = undo_.back().cutter;
+    cutterPreview_.reset();
     undo_.pop_back();
     pruneSelection();
     invalidate();
@@ -132,9 +140,11 @@ bool MeshWorld::undo() {
 
 bool MeshWorld::redo() {
     if (redo_.empty()) return false;
-    undo_.push_back({ mesh_, modifiers_ });
+    undo_.push_back({mesh_, modifiers_, cutter_});
     mesh_ = redo_.back().mesh;
     modifiers_ = redo_.back().modifiers;
+    cutter_ = redo_.back().cutter;
+    cutterPreview_.reset();
     redo_.pop_back();
     pruneSelection();
     invalidate();
@@ -150,6 +160,7 @@ bool MeshWorld::requireEditMode(std::string& error) const {
 }
 
 std::string MeshWorld::setEditMode(bool on) {
+    cutterPreview_.reset();
     edit_.editMode = on;
     if (!on) edit_.ids.clear();
     invalidate();
@@ -341,6 +352,126 @@ std::string MeshWorld::applyModifiers() {
     return {};
 }
 
+// ------------------------------------------------------------------------------------------------ Boolean
+
+Math::Vector3df MeshWorld::cutterPoint(const EditableVertex& vertex, const CutterTransform& t) const {
+    Math::Matrix4dd r(1.0);
+    r = glm::rotate(r, glm::radians(double(t.rotation[1])), Math::Vector3dd(0, 1, 0));
+    r = glm::rotate(r, glm::radians(double(t.rotation[0])), Math::Vector3dd(1, 0, 0));
+    r = glm::rotate(r, glm::radians(double(t.rotation[2])), Math::Vector3dd(0, 0, 1));
+    const Math::Vector3dd p(double(vertex.pos[0]) * t.scale[0], double(vertex.pos[1]) * t.scale[1],
+                            double(vertex.pos[2]) * t.scale[2]);
+    return Math::Vector3df(Math::Vector3dd(r * Math::Vector4dd(p, 0.0)) +
+                           Math::Vector3dd(t.position[0], t.position[1], t.position[2]));
+}
+
+std::string MeshWorld::setCutter(bool copyEvaluated) {
+    if (edit_.editMode)
+        return "cutter setup requires object mode";
+    EditableMesh next;
+    std::string error;
+    if (copyEvaluated) {
+        if (!evaluate(next, &error))
+            return error;
+    } else
+        next = makeEditableBox();
+    pushUndo();
+    cutter_.mesh = std::make_shared<const EditableMesh>(std::move(next));
+    cutter_.transform = CutterTransform{};
+    cutter_.copied = copyEvaluated;
+    cutter_.visible = true;
+    cutterPreview_.reset();
+    invalidate();
+    return {};
+}
+
+std::string MeshWorld::setCutterTransform(const CutterTransform& t, bool preview) {
+    if (edit_.editMode)
+        return "cutter setup requires object mode";
+    for (int k = 0; k < 3; ++k) {
+        if (!std::isfinite(t.position[k]) || !std::isfinite(t.rotation[k]) || !std::isfinite(t.scale[k]) ||
+            t.scale[k] <= 0.f)
+            return "cutter transform requires finite values and positive scale";
+    }
+    // Reject overflow before it can reach the preview draw buffers.
+    for (const auto& v : cutter_.mesh->vertices) {
+        const auto p = cutterPoint(v, t);
+        if (!std::isfinite(p.x) || !std::isfinite(p.y) || !std::isfinite(p.z))
+            return "cutter transform overflows";
+    }
+    if (preview)
+        cutterPreview_ = t;
+    else {
+        if (!(t == cutter_.transform)) {
+            pushUndo();
+            cutter_.transform = t;
+        }
+        cutterPreview_.reset();
+    }
+    invalidate();
+    return {};
+}
+
+void MeshWorld::setCutterVisible(bool visible) {
+    if (visible == cutter_.visible)
+        return;
+    pushUndo();
+    cutter_.visible = visible;
+    invalidate();
+}
+
+std::string MeshWorld::applyBoolean(BooleanOperation operation) {
+    if (edit_.editMode)
+        return "Boolean requires object mode (SetMode:object)";
+    EditableMesh a, b = *cutter_.mesh, result;
+    std::string error;
+    if (!evaluate(a, &error))
+        return error;
+    for (auto& v : b.vertices) {
+        const auto p = cutterPoint(v, cutter_.transform);
+        v.pos[0] = p.x;
+        v.pos[1] = p.y;
+        v.pos[2] = p.z;
+    }
+    // Transform stored corner normals by inverse scale followed by rotation.
+    Math::Matrix4dd normalRotation(1.0);
+    const auto& transform = cutter_.transform;
+    normalRotation =
+        glm::rotate(normalRotation, glm::radians(double(transform.rotation[1])), Math::Vector3dd(0, 1, 0));
+    normalRotation =
+        glm::rotate(normalRotation, glm::radians(double(transform.rotation[0])), Math::Vector3dd(1, 0, 0));
+    normalRotation =
+        glm::rotate(normalRotation, glm::radians(double(transform.rotation[2])), Math::Vector3dd(0, 0, 1));
+    for (auto& f : b.faces)
+        for (auto& c : f.loop)
+            if (c.hasNormal) {
+                Math::Vector3dd n(double(c.normal[0]) / transform.scale[0],
+                                  double(c.normal[1]) / transform.scale[1],
+                                  double(c.normal[2]) / transform.scale[2]);
+                n = Math::Vector3dd(normalRotation * Math::Vector4dd(n, 0.0));
+                const double len = glm::length(n);
+                if (std::isfinite(len) && len > 0.0) {
+                    n /= len;
+                    for (int k = 0; k < 3; ++k)
+                        c.normal[k] = static_cast<float>(n[k]);
+                } else
+                    c.hasNormal = false;
+            }
+    // Modifier evaluation may allocate its own id range. Preserve both ranges.
+    a.nextVertexId = std::max(a.nextVertexId, mesh_->nextVertexId);
+    a.nextFaceId = std::max(a.nextFaceId, mesh_->nextFaceId);
+    a.nextEdgeId = std::max(a.nextEdgeId, mesh_->nextEdgeId);
+    if (!booleanMeshes(a, b, operation, result, {}, &error))
+        return error;
+    pushUndo();
+    mesh_ = std::make_shared<const EditableMesh>(std::move(result));
+    modifiers_.clear();
+    edit_.ids.clear();
+    cutterPreview_.reset();
+    invalidate();
+    return {};
+}
+
 // ------------------------------------------------------------------------------------------------ display / draw data
 
 void MeshWorld::setDisplay(const Display& d) {
@@ -461,6 +592,15 @@ void MeshWorld::rebuild() {
         addColor(d.lineColors, color); addColor(d.lineColors, color);
         d.lineIndices.push_back(i); d.lineIndices.push_back(i + 1);
     };
+    if (cutter_.visible && cutter_.mesh) {
+        const auto& t = cutterPreview_ ? *cutterPreview_ : cutter_.transform;
+        for (const auto& e : cutter_.mesh->edges) {
+            const auto* a = cutter_.mesh->findVertex(e.a);
+            const auto* b = cutter_.mesh->findVertex(e.b);
+            if (a && b)
+                addLine(cutterPoint(*a, t), cutterPoint(*b, t), Math::Vector3df(0.95f, 0.25f, 0.8f));
+        }
+    }
     std::set<uint32_t> selectedEdges;           // base edge ids drawn highlighted
     if (edit_.editMode && !modified) {
         if (edit_.kind == ElementKind::Edge) selectedEdges.insert(edit_.ids.begin(), edit_.ids.end());

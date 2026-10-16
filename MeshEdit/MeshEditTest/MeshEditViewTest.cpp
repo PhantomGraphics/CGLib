@@ -329,3 +329,196 @@ TEST(MeshEditViewCommands, QueueRunsCommandsInOrderAndRepliesOncePerCommand) {
     EXPECT_EQ(0u, replies[2].rfind("Error:unknown command", 0));
     EXPECT_EQ(9u, count(replies[1], 0));
 }
+
+TEST(MeshWorldBoolean, CutterPreviewDrawsWithoutHistoryAndCommitsOnce) {
+    MeshWorld w;
+    const size_t lines = w.draw().lineIndices.size();
+    ASSERT_TRUE(w.setCutter(false).empty());
+    EXPECT_GT(w.draw().lineIndices.size(), lines);
+    EXPECT_EQ(1u, w.undoDepth());
+    auto original = w.cutter().transform;
+    auto t = original;
+    t.position = {.5f, 0, 0};
+    for (int i = 0; i < 5; ++i) {
+        t.position[0] = .5f + .01f * i;
+        ASSERT_TRUE(w.setCutterTransform(t, true).empty());
+        EXPECT_EQ(original, w.cutter().transform);
+        EXPECT_EQ(1u, w.undoDepth());
+        EXPECT_FALSE(w.draw().linePositions.empty());
+    }
+    ASSERT_TRUE(w.setCutterTransform(t).empty());
+    EXPECT_EQ(2u, w.undoDepth());
+    ASSERT_TRUE(w.undo());
+    EXPECT_EQ(original, w.cutter().transform);
+    ASSERT_TRUE(w.redo());
+    EXPECT_EQ(t, w.cutter().transform);
+}
+
+TEST(MeshWorldBoolean, BooleanBakesModifiersAsOneUndoStep) {
+    MeshWorld w;
+    ASSERT_TRUE(w.setEditMode(true).empty());
+    ASSERT_TRUE(w.select("all", SelectMode::Replace).empty());
+    ASSERT_TRUE(w.moveSelected({.75f, 0, 0}).empty());
+    ASSERT_TRUE(w.setEditMode(false).empty());
+    MeshModifier mirror;
+    mirror.type = MeshModifier::Type::Mirror;
+    ASSERT_TRUE(w.addModifier(mirror).empty());
+    const auto evaluated = w.evaluatedCounts();
+    ASSERT_TRUE(w.setCutter(false).empty());
+    auto t = w.cutter().transform;
+    t.position = {4, 0, 0};
+    ASSERT_TRUE(w.setCutterTransform(t).empty());
+    const size_t before = w.undoDepth();
+    const auto originalRevision = w.base().revision;
+    const auto booleanError = w.applyBoolean(BooleanOperation::Union);
+    ASSERT_TRUE(booleanError.empty()) << booleanError;
+    EXPECT_EQ(before + 1, w.undoDepth());
+    EXPECT_TRUE(w.modifiers().empty());
+    EXPECT_GT(w.baseCounts().faces, evaluated.faces);
+    const auto resultRevision = w.base().revision;
+    ASSERT_TRUE(w.undo());
+    EXPECT_EQ(originalRevision, w.base().revision);
+    EXPECT_EQ(1u, w.modifiers().size());
+    ASSERT_TRUE(w.redo());
+    EXPECT_EQ(resultRevision, w.base().revision);
+    EXPECT_TRUE(w.modifiers().empty());
+}
+
+TEST(MeshWorldBoolean, TransformCopyAndQueriesRemainIndependentOfCutterDisplay) {
+    MeshWorld w;
+    ASSERT_TRUE(w.setCutter(true).empty());
+    const auto copy = w.cutter().mesh;
+    EXPECT_TRUE(w.cutter().copied);
+    auto t = w.cutter().transform;
+    t.position = {0, 0, 0};
+    t.rotation = {0, 90, 0};
+    t.scale = {.5f, 1, 1};
+    ASSERT_TRUE(w.setCutterTransform(t).empty());
+    EXPECT_DOUBLE_EQ(1, w.signedVolume());
+    EXPECT_EQ(6u, w.baseCounts().faces);
+    const auto booleanError = w.applyBoolean(BooleanOperation::Difference);
+    ASSERT_TRUE(booleanError.empty()) << booleanError;
+    EXPECT_NEAR(.5, w.signedVolume(), 1e-5);
+    EXPECT_EQ(copy, w.cutter().mesh);
+    EXPECT_EQ(6u, copy->faces.size());
+    w.setCutterVisible(false);
+    EXPECT_NEAR(.5, w.signedVolume(), 1e-5);
+}
+
+TEST(MeshWorldBoolean, EmptyResultsDrawAndUndo) {
+    MeshWorld w;
+    ASSERT_TRUE(w.setCutter(true).empty());
+    CutterTransform t;
+    t.position = {0, 0, 0};
+    ASSERT_TRUE(w.setCutterTransform(t).empty());
+    const auto booleanError = w.applyBoolean(BooleanOperation::Difference);
+    ASSERT_TRUE(booleanError.empty()) << booleanError;
+    EXPECT_EQ(0u, w.baseCounts().faces);
+    EXPECT_TRUE(w.draw().triIndices.empty());
+    EXPECT_FALSE(w.draw().lineIndices.empty());
+    w.setCutterVisible(false);
+    EXPECT_TRUE(w.draw().lineIndices.empty());
+    ASSERT_TRUE(w.undo()); // visibility
+    ASSERT_TRUE(w.undo()); // Boolean
+    EXPECT_EQ(6u, w.baseCounts().faces);
+    EXPECT_EQ(1, w.signedVolume());
+}
+
+TEST(MeshEditViewBooleanCommands, RoundTripAndUndo) {
+    Fixture f;
+    EXPECT_EQ("OK", f.run("SetCutter:box"));
+    EXPECT_EQ("OK", f.run("SetCutterTransform:position=0.5,0,0 rotation=0,0,0 scale=1,1,1"));
+    EXPECT_EQ("Cutter:box,visible=1 position=0.5,0,0 rotation=0,0,0 scale=1,1,1", f.run("GetCutter"));
+    EXPECT_EQ("OK", f.run("Boolean:intersection"));
+    EXPECT_EQ("Volume:0.500000,closed=1", f.run("GetVolume"));
+    EXPECT_EQ("History:undo=3,redo=0", f.run("GetHistory"));
+    EXPECT_EQ("OK", f.run("Undo"));
+    EXPECT_EQ("Counts:8,12,6", f.run("GetCounts"));
+    EXPECT_EQ("OK", f.run("Redo"));
+    EXPECT_EQ("Volume:0.500000,closed=1", f.run("GetVolume"));
+}
+
+TEST(MeshEditViewBooleanCommands, FailuresLeaveGeometryCutterAndHistoryAlone) {
+    Fixture f;
+    const auto original = f.run("GetCutter");
+    for (const char* cmd :
+         {"Boolean:x", "Boolean:union unknown=1", "Boolean:union extra", "SetCutter:plane",
+          "SetCutterTransform:position=1,2", "SetCutterTransform:scale=1,0,1",
+          "SetCutterTransform:scale=-1,1,1", "SetCutterTransform:position=nan,0,0",
+          "SetCutterTransform:position=1e100,0,0", "SetCutterTransform:rotation=1e39,0,0",
+          "SetCutterTransform:foo=1,2,3", "SetCutterTransform:preview=yes", "SetCutterVisible:yes"})
+        EXPECT_EQ(0u, f.run(cmd).rfind("Error:", 0)) << cmd;
+    EXPECT_EQ(original, f.run("GetCutter"));
+    EXPECT_EQ("History:undo=0,redo=0", f.run("GetHistory"));
+    EXPECT_EQ("OK", f.run("SetMode:edit"));
+    EXPECT_EQ("OK", f.run("Select:all"));
+    const auto selection = f.run("GetSelection");
+    EXPECT_EQ(0u, f.run("Boolean:union").rfind("Error:", 0));
+    EXPECT_EQ(0u, f.run("SetCutter:copy").rfind("Error:", 0));
+    EXPECT_EQ(selection, f.run("GetSelection"));
+    EXPECT_EQ("OK", f.run("NewMesh:plane"));
+    const auto revision = f.world.base().revision;
+    EXPECT_EQ(0u, f.run("Boolean:union").rfind("Error:", 0));
+    EXPECT_EQ(revision, f.world.base().revision);
+    EXPECT_EQ("History:undo=0,redo=0", f.run("GetHistory"));
+}
+
+TEST(MeshEditViewBooleanCommands, PreviewAndUiErrorsUseCommandQueue) {
+    Fixture f;
+    const auto original = f.run("GetCutter");
+    EXPECT_EQ("OK", f.run("SetCutterTransform:position=0.5,0,0 preview=1"));
+    EXPECT_EQ(original, f.run("GetCutter"));
+    EXPECT_EQ("History:undo=0,redo=0", f.run("GetHistory"));
+    f.dispatcher.submitUi("Boolean:invalid");
+    f.dispatcher.processQueue();
+    EXPECT_FALSE(f.dispatcher.lastUiError().empty());
+    EXPECT_TRUE(f.dispatcher.collectResponses().empty());
+    f.dispatcher.submitUi("SetCutterTransform:position=0.5,0,0");
+    f.dispatcher.processQueue();
+    EXPECT_TRUE(f.dispatcher.lastUiError().empty());
+    EXPECT_EQ("History:undo=1,redo=0", f.run("GetHistory"));
+}
+
+TEST(MeshWorldBoolean, UnsuitableEvaluatedMeshIsRejectedWithoutBaking) {
+    MeshWorld w;
+    MeshModifier sub;
+    sub.type = MeshModifier::Type::Subdivision;
+    ASSERT_TRUE(w.addModifier(sub).empty());
+    const auto revision = w.base().revision;
+    const auto depth = w.undoDepth();
+    EXPECT_FALSE(w.applyBoolean(BooleanOperation::Union).empty());
+    EXPECT_EQ(revision, w.base().revision);
+    EXPECT_EQ(depth, w.undoDepth());
+    EXPECT_EQ(1u, w.modifiers().size());
+}
+
+TEST(MeshWorldBoolean, CutterNormalsFollowInverseTranspose) {
+    MeshWorld w;
+    ASSERT_TRUE(w.setEditMode(true).empty());
+    ASSERT_TRUE(w.setElementKind(ElementKind::Face).empty());
+    ASSERT_TRUE(w.select("all", SelectMode::Replace).empty());
+    ASSERT_TRUE(w.shade(true, 180).empty());
+    ASSERT_TRUE(w.setEditMode(false).empty());
+    ASSERT_TRUE(w.setCutter(true).empty());
+    auto t = w.cutter().transform;
+    t.position = {4, 0, 0};
+    t.rotation = {0, 90, 0};
+    t.scale = {.5f, 1, 2};
+    ASSERT_TRUE(w.setCutterTransform(t).empty());
+    auto error = w.applyBoolean(BooleanOperation::Union);
+    ASSERT_TRUE(error.empty()) << error;
+    bool checked = false;
+    for (const auto& f : w.base().faces)
+        for (const auto& c : f.loop) {
+            const auto* v = w.base().findVertex(c.vertex);
+            if (v->pos[0] > 2) {
+                ASSERT_TRUE(c.hasNormal);
+                const auto expected = glm::normalize(glm::vec3(
+                    v->pos[0] > 4 ? .5f : -.5f, v->pos[1] > 0 ? 1.f : -1.f, v->pos[2] > 0 ? 2.f : -2.f));
+                for (int k = 0; k < 3; ++k)
+                    EXPECT_NEAR(expected[k], c.normal[k], 1e-6);
+                checked = true;
+            }
+        }
+    EXPECT_TRUE(checked);
+}

@@ -8,18 +8,35 @@
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
+#include "CGLib/Math/Math/Vector3d.h"
 
 #include "../MeshEdit/MeshEditPicking.h"
 #include "../MeshEdit/MeshEditState.h"
+#include "../MeshEdit/MeshBoolean.h"
 
 #include <array>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
 namespace Phantom::MeshView {
 
 enum class Shape { Box, Plane };
+
+struct CutterTransform {
+    std::array<float, 3> position{0.35f, 0.2f, 0.f};
+    std::array<float, 3> rotation{0.f, 0.f, 0.f};
+    std::array<float, 3> scale{1.f, 1.f, 1.f};
+    bool operator==(const CutterTransform&) const = default;
+};
+
+struct Cutter {
+    std::shared_ptr<const Phantom::MeshEdit::EditableMesh> mesh;
+    CutterTransform transform;
+    bool visible = false;
+    bool copied = false;
+};
 
 struct Display {
     bool faces = true;         // shaded faces
@@ -87,6 +104,13 @@ public:
     std::string clearModifiers();
     std::string applyModifiers();       // bakes the stack into the base mesh
 
+    // ---- Boolean cutter (object mode; previews affect only draw data) ----
+    const Cutter& cutter() const { return cutter_; }
+    std::string setCutter(bool copyEvaluated);
+    std::string setCutterTransform(const CutterTransform& transform, bool preview = false);
+    void setCutterVisible(bool visible);
+    std::string applyBoolean(Phantom::MeshEdit::BooleanOperation operation);
+
     // ---- history ----
     bool undo();
     bool redo();
@@ -110,6 +134,7 @@ private:
     struct Snapshot {
         std::shared_ptr<const Phantom::MeshEdit::EditableMesh> mesh;
         std::vector<Phantom::MeshEdit::MeshModifier> modifiers;
+        Cutter cutter;
     };
 
     // Installs `next` as the base mesh (one undo step) and drops selection that no longer exists.
@@ -120,12 +145,16 @@ private:
     bool requireEditMode(std::string& error) const;
     bool evaluate(Phantom::MeshEdit::EditableMesh& out, std::string* error) const;
     void rebuild();
+    Phantom::Math::Vector3df cutterPoint(const Phantom::MeshEdit::EditableVertex& vertex,
+                                         const CutterTransform& transform) const;
 
     std::shared_ptr<const Phantom::MeshEdit::EditableMesh> mesh_;
     std::vector<Phantom::MeshEdit::MeshModifier> modifiers_;
     Phantom::MeshEdit::MeshEditState edit_;
     std::vector<Snapshot> undo_, redo_;
     Display display_;
+    Cutter cutter_;
+    std::optional<CutterTransform> cutterPreview_;
     glm::vec3 eye_{ 0.f, 0.f, 5.f };
     MeshDraw draw_;
     bool stale_ = true;

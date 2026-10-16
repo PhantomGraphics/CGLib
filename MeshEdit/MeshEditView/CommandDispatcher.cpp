@@ -6,6 +6,8 @@
 #include <cmath>
 #include <cstdio>
 #include <map>
+#include <limits>
+#include <iomanip>
 #include <sstream>
 
 using namespace Phantom::MeshEdit;
@@ -26,6 +28,8 @@ bool parseDouble(const std::string& s, double& out) {
 bool parseFloat(const std::string& s, float& out) {
     double v = 0.0;
     if (!parseDouble(s, v)) return false;
+    if (std::abs(v) > std::numeric_limits<float>::max())
+        return false;
     out = static_cast<float>(v);
     return true;
 }
@@ -98,6 +102,12 @@ std::vector<std::string> CommandDispatcher::collectResponses() { return queue_.c
 std::vector<CommandInfo> CommandDispatcher::commandCatalog() const {
     return {
         {"NewMesh", "box|plane [divs=N]", "Replace the mesh with a box or a divided plane"},
+        {"SetCutter", "box|copy", "Create a box cutter or copy the evaluated mesh (object mode)"},
+        {"SetCutterTransform", "[position=x,y,z] [rotation=x,y,z] [scale=x,y,z] [preview=0|1]",
+         "Place the cutter; preview changes only its display"},
+        {"SetCutterVisible", "0|1", "Show or hide the cutter wireframe"},
+        {"GetCutter", "", "Cutter source, transform and visibility"},
+        {"Boolean", "union|difference|intersection", "Bake evaluated mesh Boolean cutter as one undo step"},
         {"GetCounts", "", "Counts:vertices,edges,faces of the editing mesh"},
         {"GetEvaluatedCounts", "", "Counts after the modifier stack"},
         {"SetMode", "edit|object", "Enter or leave edit mode"},
@@ -156,7 +166,10 @@ void CommandDispatcher::processQueue() {
         local.pop();
         const bool fromUi = takeUiMark(cmd);
         std::string resp = route(cmd);
-        if (fromUi) continue;
+        if (fromUi) {
+            lastUiError_ = resp.rfind("Error:", 0) == 0 ? resp.substr(6) : std::string();
+            continue;
+        }
         queue_.respond(std::move(resp));
     }
 }
@@ -169,6 +182,75 @@ std::string CommandDispatcher::route(const std::string& line) {
     const std::string first = c.positional.empty() ? std::string() : c.positional[0];
     char buf[96];
 
+    if (c.verb == "SetCutter") {
+        if (c.positional.size() != 1 || !c.options.empty() || (first != "box" && first != "copy"))
+            return fail("expected SetCutter:box|copy");
+        return result(w.setCutter(first == "copy"));
+    }
+    if (c.verb == "SetCutterVisible") {
+        bool visible = false;
+        if (c.positional.size() != 1 || !c.options.empty() || !parseBool(first, visible))
+            return fail("expected SetCutterVisible:0|1");
+        w.setCutterVisible(visible);
+        return "OK";
+    }
+    if (c.verb == "SetCutterTransform") {
+        if (!c.positional.empty() || c.options.empty())
+            return fail(
+                "expected SetCutterTransform:position=x,y,z rotation=x,y,z scale=x,y,z [preview=0|1]");
+        CutterTransform t = w.cutter().transform;
+        bool preview = false;
+        for (const auto& [key, value] : c.options) {
+            if (key == "preview") {
+                if (!parseBool(value, preview))
+                    return fail("preview must be 0 or 1");
+                continue;
+            }
+            std::array<float, 3>* target = key == "position"   ? &t.position
+                                           : key == "rotation" ? &t.rotation
+                                           : key == "scale"    ? &t.scale
+                                                               : nullptr;
+            if (!target)
+                return fail("unknown cutter transform option " + key);
+            std::vector<double> numbers;
+            MeshArgError e;
+            if (!parseNumberList(value, 3, numbers, e))
+                return fail(e.message);
+            for (int k = 0; k < 3; ++k) {
+                if (std::abs(numbers[k]) > std::numeric_limits<float>::max())
+                    return fail("cutter transform is outside float range");
+                (*target)[k] = static_cast<float>(numbers[k]);
+            }
+        }
+        return result(w.setCutterTransform(t, preview));
+    }
+    if (c.verb == "GetCutter") {
+        if (!c.positional.empty() || !c.options.empty())
+            return fail("GetCutter takes no arguments");
+        const auto& b = w.cutter();
+        const auto& t = b.transform;
+        std::ostringstream s;
+        s << std::setprecision(6) << "Cutter:" << (b.copied ? "copy" : "box") << ",visible=" << b.visible;
+        for (const auto& pair : {std::pair{"position", &t.position}, std::pair{"rotation", &t.rotation},
+                                 std::pair{"scale", &t.scale}})
+            s << ' ' << pair.first << '=' << (*pair.second)[0] << ',' << (*pair.second)[1] << ','
+              << (*pair.second)[2];
+        return s.str();
+    }
+    if (c.verb == "Boolean") {
+        if (c.positional.size() != 1 || !c.options.empty())
+            return fail("expected Boolean:union|difference|intersection");
+        BooleanOperation operation;
+        if (first == "union")
+            operation = BooleanOperation::Union;
+        else if (first == "difference")
+            operation = BooleanOperation::Difference;
+        else if (first == "intersection")
+            operation = BooleanOperation::Intersection;
+        else
+            return fail("expected Boolean:union|difference|intersection");
+        return result(w.applyBoolean(operation));
+    }
     if (c.verb == "NewMesh") {
         Shape shape;
         if (first == "box") shape = Shape::Box;

@@ -32,6 +32,7 @@ public:
     void setCamera(CameraAccess camera) { camera_ = std::move(camera); }
 
     void processQueue();
+    const std::string& lastUiError() const { return lastUiError_; }
 
     void dispatch(const std::string& command) override;
     std::vector<std::string> collectResponses() override;
@@ -49,6 +50,7 @@ private:
     MeshWorld* world_ = nullptr;
     CameraAccess camera_;
     CommandQueue queue_;
+    std::string lastUiError_;
 };
 
 }  // namespace MeshView

@@ -54,6 +54,7 @@ if(PHANTOM_GTEST_FOUND)
         SOURCES
             ${MESHEDIT_ROOT}/MeshEditTest/MeshEditPickingTest.cpp
             ${MESHEDIT_ROOT}/MeshEditTest/MeshEditStateTest.cpp
+            ${MESHEDIT_ROOT}/MeshEditTest/MeshBooleanTest.cpp
             ${MESHEDIT_ROOT}/MeshEditTest/EditableMeshTest.cpp
             ${MESHEDIT_ROOT}/MeshEditTest/MeshEditOperationsTest.cpp
             ${MESHEDIT_ROOT}/MeshEditTest/MeshEditViewTest.cpp
