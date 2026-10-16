@@ -282,6 +282,7 @@ function(phantom_add_shadergraph_core)
         ${CGLIB_ROOT}/ShaderGraph/Core/GlslGen.cpp
         ${CGLIB_ROOT}/ShaderGraph/Core/GraphJson.cpp
         ${CGLIB_ROOT}/ShaderGraph/Core/GraphAsset.cpp
+        ${CGLIB_ROOT}/ShaderGraph/Core/GraphCompile.cpp
         ${CGLIB_ROOT}/ShaderGraph/Core/RuntimeCompiler.cpp
         ${CGLIB_ROOT}/ShaderGraph/Core/SurfaceFragment.cpp
     )
