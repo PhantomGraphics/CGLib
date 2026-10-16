@@ -30,3 +30,11 @@ GltfAccessorView::GltfAccessorView(const GltfDocument& doc, int accessorIndex) {
     ptr_    = buf.data.data() + bv.byteOffset + acc.byteOffset;
     stride_ = (bv.byteStride > 0) ? static_cast<size_t>(bv.byteStride) : elementSize;
 }
+
+uint32_t Phantom::Gltf::readIndexValue(const GltfAccessorView& view, const GltfAccessor& accessor, size_t i) {
+    switch (accessor.componentType) {
+        case GltfComponentType::UnsignedByte:  return view.get<uint8_t>(i);
+        case GltfComponentType::UnsignedShort: return view.get<uint16_t>(i);
+        default:                               return view.get<uint32_t>(i);
+    }
+}

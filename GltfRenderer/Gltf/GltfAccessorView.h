@@ -28,4 +28,8 @@ namespace Phantom::Gltf {
         GltfAccessorType type_ = GltfAccessorType::Scalar;
     };
 
+    // Widens whatever integer component type an indices accessor stores (glTF allows UnsignedByte / UnsignedShort /
+    // UnsignedInt) to uint32_t. Shared by the GPU mesh upload, the pose baker and the exporters.
+    uint32_t readIndexValue(const GltfAccessorView& view, const GltfAccessor& accessor, size_t i);
+
 }

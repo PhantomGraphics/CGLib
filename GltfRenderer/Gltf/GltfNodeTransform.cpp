@@ -14,4 +14,10 @@ glm::mat4 nodeLocalMatrix(const GltfNode& node) {
     return T * R * S;
 }
 
+int findNodeForMesh(const GltfDocument& doc, int meshIndex) {
+    for (size_t i = 0; i < doc.nodes.size(); ++i)
+        if (doc.nodes[i].meshIndex == meshIndex) return static_cast<int>(i);
+    return -1;
+}
+
 }
