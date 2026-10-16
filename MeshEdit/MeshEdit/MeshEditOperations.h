@@ -103,6 +103,11 @@ namespace Phantom::MeshEdit {
 	bool unwrapFaces(const EditableMesh& in, const std::vector<uint32_t>& faceIds, float angleDeg, float margin, EditableMesh& out,
 	                 std::string* error = nullptr, size_t* charts = nullptr);
 
+	// Marks (or clears) the selected edges as UV seams for unwrapFaces. Geometry and topology do not change (the revision is
+	// renewed so caches redraw); *changed receives how many edges changed state. Fails if an id does not exist or nothing would change.
+	bool markSeams(const EditableMesh& in, const std::vector<uint32_t>& edgeIds, bool mark, EditableMesh& out,
+	               std::string* error = nullptr, size_t* changed = nullptr);
+
 	// Deletes the selected elements together with the faces that depend on them: a face deletes itself; an edge deletes the
 	// faces using it; a vertex deletes the faces around it. Vertices left without any face are removed too (a face delete
 	// never leaves isolated vertices behind that it created). The result may be empty. Ids are never reused.

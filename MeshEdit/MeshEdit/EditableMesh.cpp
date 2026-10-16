@@ -93,6 +93,8 @@ void EditableMesh::rebuildEdges() {
 		}
 	}
 	edges = std::move(rebuilt);
+	// A seam survives only on an edge that still exists.
+	seams.erase(std::remove_if(seams.begin(), seams.end(), [&](const std::pair<uint32_t, uint32_t>& sm) { return !seen.count(sm); }), seams.end());
 }
 
 bool EditableMesh::validate(std::string* error) const {
