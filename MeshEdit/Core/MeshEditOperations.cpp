@@ -433,10 +433,103 @@ bool insetFaces(const EditableMesh& in, const std::vector<uint32_t>& faceIds, fl
 	return extrudeRegion(in, faceIds, depth, thickness, out, error, ringFaces);
 }
 
+// All-edge chamfer for closed convex, three-valent meshes (boxes, including non-cubic dimensions).
+// One inset corner per original face/vertex; edge strips and triangular corner caps close the surface.
+static bool bevelAllEdges(const EditableMesh& in, float width, EditableMesh& out,
+                          std::string* error, std::vector<uint32_t>* bevelFaces) {
+	if (!in.validate(error)) return false;
+	EditableMesh work = in;
+	std::map<std::pair<uint32_t, uint32_t>, EditableCorner> corners;
+	std::map<uint32_t, std::vector<uint32_t>> incident;
+	for (const auto& f : in.faces) for (const auto& c : f.loop) incident[c.vertex].push_back(f.id);
+	for (const auto& [v, faces] : incident)
+		if (faces.size() != 3) { fail(error, "all-edge bevel needs three faces at every vertex"); return false; }
+	for (const auto& f : in.faces) {
+		float normal[3];
+		const float area = newellNormal(in, f, normal);
+		for (auto& n : normal) n /= area;
+		const auto* anchor = in.findVertex(f.loop.front().vertex);
+		for (const auto& v : in.vertices) {
+			double side = 0;
+			for (int k = 0; k < 3; ++k) side += (double(v.pos[k]) - anchor->pos[k])*normal[k];
+			if (side > 1e-6) { fail(error, "all-edge bevel needs a convex outward-oriented mesh"); return false; }
+		}
+		for (size_t i = 0; i < f.loop.size(); ++i) {
+			const auto& c = f.loop[i];
+			const auto& prev = f.loop[(i + f.loop.size() - 1) % f.loop.size()];
+			const auto& next = f.loop[(i + 1) % f.loop.size()];
+			const auto* p = in.findVertex(c.vertex);
+			const auto* a = in.findVertex(prev.vertex);
+			const auto* b = in.findVertex(next.vertex);
+			double u[3], v[3], lu = 0, lv = 0;
+			for (int k = 0; k < 3; ++k) { u[k] = a->pos[k] - p->pos[k]; v[k] = b->pos[k] - p->pos[k]; lu += u[k]*u[k]; lv += v[k]*v[k]; }
+			lu = std::sqrt(lu); lv = std::sqrt(lv);
+			if (lu < 1e-12 || lv < 1e-12) { fail(error, "degenerate bevel corner"); return false; }
+			for (int k = 0; k < 3; ++k) { u[k] /= lu; v[k] /= lv; }
+			const double dot = u[0]*v[0] + u[1]*v[1] + u[2]*v[2];
+			const double sin = std::sqrt(std::max(0.0, 1.0 - dot*dot));
+			const double turn = (v[1]*u[2]-v[2]*u[1])*normal[0] + (v[2]*u[0]-v[0]*u[2])*normal[1] + (v[0]*u[1]-v[1]*u[0])*normal[2];
+			if (sin < 1e-6 || turn <= 0) { fail(error, "all-edge bevel needs convex face corners"); return false; }
+			// width is the perpendicular offset from both incident edges in this face.
+			const double d = width / sin;
+			const double along = d * (1.0 + dot);
+			if (!(along < 0.499 * std::min(lu, lv))) { fail(error, "the bevel width is too large for a face"); return false; }
+			EditableCorner result = c;
+			result.hasNormal = false;
+			result.vertex = work.addVertex(float(p->pos[0] + d*(u[0]+v[0])), float(p->pos[1] + d*(u[1]+v[1])), float(p->pos[2] + d*(u[2]+v[2])));
+			for (int k = 0; k < 2; ++k) result.uv[k] = float(c.uv[k] + d/lu*(prev.uv[k]-c.uv[k]) + d/lv*(next.uv[k]-c.uv[k]));
+			corners[{f.id, c.vertex}] = result;
+		}
+	}
+	for (auto& f : work.faces) for (auto& c : f.loop) c = corners.at({f.id, c.vertex});
+	std::vector<uint32_t> created;
+	// At each old vertex, directed strip boundaries determine the opposite direction for its cap.
+	std::map<uint32_t, std::map<uint32_t, uint32_t>> capNext;
+	for (const auto& e : in.edges) {
+		const EditableFace* forward = nullptr; const EditableFace* reverse = nullptr;
+		for (const auto& f : in.faces) for (size_t i = 0; i < f.loop.size(); ++i) {
+			const auto a = f.loop[i].vertex, b = f.loop[(i+1)%f.loop.size()].vertex;
+			if (a == e.a && b == e.b) forward = &f;
+			if (a == e.b && b == e.a) reverse = &f;
+		}
+		if (!forward || !reverse) { fail(error, "all-edge bevel needs a closed mesh"); return false; }
+		auto a = corners.at({forward->id, e.a}), b = corners.at({forward->id, e.b});
+		auto c = corners.at({reverse->id, e.a}), d = corners.at({reverse->id, e.b});
+		created.push_back(work.addFace({b, a, c, d}));
+		capNext[e.a][c.vertex] = a.vertex;
+		capNext[e.b][b.vertex] = d.vertex;
+	}
+	for (const auto& [vertex, next] : capNext) {
+		if (next.size() != 3) { fail(error, "invalid bevel corner fan"); return false; }
+		std::vector<EditableCorner> loop;
+		const uint32_t first = next.begin()->first;
+		uint32_t v = first;
+		for (int k = 0; k < 3; ++k) {
+			EditableCorner c; c.vertex = v; c.uv[0] = k == 1 ? 1.f : 0.f; c.uv[1] = k == 2 ? 1.f : 0.f;
+			loop.push_back(c);
+			const auto it = next.find(v);
+			if (it == next.end()) { fail(error, "invalid bevel corner fan"); return false; }
+			v = it->second;
+		}
+		if (v != first) { fail(error, "invalid bevel corner fan"); return false; }
+		created.push_back(work.addFace(loop));
+	}
+	work.vertices.erase(std::remove_if(work.vertices.begin(), work.vertices.end(), [&](const EditableVertex& v) { return incident.count(v.id) > 0; }), work.vertices.end());
+	work.rebuildEdges();
+	if (!work.validate(error)) return false;
+	work.revision = nextEditableRevision();
+	out = std::move(work);
+	if (bevelFaces) *bevelFaces = std::move(created);
+	return true;
+}
+
 bool bevelEdges(const EditableMesh& in, const std::vector<uint32_t>& edgeIds, float width, EditableMesh& out,
                 std::string* error, std::vector<uint32_t>* bevelFaces) {
 	if (edgeIds.empty()) { fail(error, "no edges selected"); return false; }
 	if (!std::isfinite(width) || width <= 0.f) { fail(error, "the bevel width must be a positive finite number"); return false; }
+	const std::set<uint32_t> requested(edgeIds.begin(), edgeIds.end());
+	if (requested.size() == in.edges.size() && std::all_of(in.edges.begin(), in.edges.end(), [&](const EditableEdge& e) { return requested.count(e.id) > 0; }))
+		return bevelAllEdges(in, width, out, error, bevelFaces);
 
 	// Per endpoint of a selected edge: the two faces of the edge (f1 walks a -> b, f2 walks b -> a), this vertex's
 	// neighbours n1 / n2 in them (other than the partner), the slide fractions along vertex->n1 / vertex->n2, and the

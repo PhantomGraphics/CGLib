@@ -12,6 +12,37 @@
 // layer's own tests stay in PhantomStudio).
 using namespace Phantom::MeshEdit;
 
+TEST(MeshBevelOperation, AllBoxEdgesProduceClosedOutwardChamfersAndCornerCaps) {
+    auto box = makeEditableBox();
+    // Furniture-like dimensions: 1.4 x 0.06 x 0.7. Width must fit the thin side.
+    for (auto& v : box.vertices) { v.pos[0] *= 1.4f; v.pos[1] *= 0.06f; v.pos[2] *= 0.7f; }
+    std::vector<uint32_t> ids; for (const auto& e : box.edges) ids.push_back(e.id);
+    EditableMesh out; std::string error; std::vector<uint32_t> faces;
+    ASSERT_TRUE(bevelEdges(box, ids, 0.01f, out, &error, &faces)) << error;
+    EXPECT_EQ(24u, out.vertices.size()); EXPECT_EQ(26u, out.faces.size()); EXPECT_EQ(48u, out.edges.size());
+    EXPECT_EQ(20u, faces.size());
+    EXPECT_TRUE(out.validate(&error)) << error;
+    for (const auto& f : out.faces) {
+        float normal[3]; newellNormal(out, f, normal);
+        double dot = 0;
+        for (const auto& c : f.loop) for (int k = 0; k < 3; ++k) dot += normal[k] * out.findVertex(c.vertex)->pos[k];
+        EXPECT_GT(dot, 0);
+    }
+    // Every edge has two incident faces; validation alone also permits open meshes.
+    for (const auto& e : out.edges) {
+        int count = 0;
+        for (const auto& f : out.faces) for (size_t i = 0; i < f.loop.size(); ++i) {
+            const auto a = f.loop[i].vertex, b = f.loop[(i+1)%f.loop.size()].vertex;
+            if ((a == e.a && b == e.b) || (a == e.b && b == e.a)) ++count;
+        }
+        EXPECT_EQ(2, count);
+    }
+    const auto revision = out.revision;
+    EXPECT_FALSE(bevelEdges(box, ids, 0.04f, out, &error));
+    EXPECT_EQ(revision, out.revision);  // failure does not publish partial geometry
+    EXPECT_EQ(8u, box.vertices.size());
+}
+
 namespace {
 
 // Top face of the box is the one whose vertices all have y = +0.5.
