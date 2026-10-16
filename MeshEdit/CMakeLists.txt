@@ -56,6 +56,7 @@ if(PHANTOM_GTEST_FOUND)
             ${MESHEDIT_ROOT}/MeshEditTest/MeshEditStateTest.cpp
             ${MESHEDIT_ROOT}/MeshEditTest/MeshBooleanTest.cpp
             ${MESHEDIT_ROOT}/MeshEditTest/EditableMeshTest.cpp
+            ${MESHEDIT_ROOT}/MeshEditTest/EditableMeshConvertTest.cpp
             ${MESHEDIT_ROOT}/MeshEditTest/MeshEditOperationsTest.cpp
             ${MESHEDIT_ROOT}/MeshEditTest/MeshEditViewTest.cpp
         INCLUDES ${MESHEDIT_ROOT}/MeshEditTest

@@ -187,15 +187,18 @@ function(phantom_add_meshedit_core)
     # Polygon mesh editing (Phantom::MeshEdit -- CPU-only): EditableMesh (logical topology with persistent ids),
     # shape operations (extrude/inset/bevel/loop cut/merge/delete/shading), the modifier stack (mirror, subdivision),
     # screen-space picking, and the edit-session selection state with its argument parsing.
-    # No Vulkan / scene / render-mesh dependency; picking uses the vendored header-only GLM.
+    # No Vulkan / scene dependency; the render-mesh conversions use Graphics' CPU MeshData; picking uses the vendored header-only GLM.
+    phantom_add_graphics_core()
     add_library(MeshEditCore STATIC
         ${CGLIB_ROOT}/MeshEdit/Core/EditableMesh.cpp
+        ${CGLIB_ROOT}/MeshEdit/Core/EditableMeshConvert.cpp
         ${CGLIB_ROOT}/MeshEdit/Core/MeshBoolean.cpp
         ${CGLIB_ROOT}/MeshEdit/Core/MeshEditOperations.cpp
         ${CGLIB_ROOT}/MeshEdit/Core/MeshEditPicking.cpp
         ${CGLIB_ROOT}/MeshEdit/Core/MeshEditState.cpp
     )
     target_include_directories(MeshEditCore PUBLIC ${REPO_ROOT} ${CGLIB_ROOT}/ThirdParty/glm)
+    target_link_libraries(MeshEditCore PUBLIC GraphicsCore)
     target_compile_options(MeshEditCore PRIVATE ${PHANTOM_WARN_FLAGS})
     target_compile_features(MeshEditCore PUBLIC cxx_std_20)
 endfunction()
