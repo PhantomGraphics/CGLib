@@ -190,6 +190,7 @@ function(phantom_add_meshedit_core)
     # No Vulkan / scene / render-mesh dependency; picking uses the vendored header-only GLM.
     add_library(MeshEditCore STATIC
         ${CGLIB_ROOT}/MeshEdit/MeshEdit/EditableMesh.cpp
+        ${CGLIB_ROOT}/MeshEdit/MeshEdit/MeshBoolean.cpp
         ${CGLIB_ROOT}/MeshEdit/MeshEdit/MeshEditOperations.cpp
         ${CGLIB_ROOT}/MeshEdit/MeshEdit/MeshEditPicking.cpp
         ${CGLIB_ROOT}/MeshEdit/MeshEdit/MeshEditState.cpp

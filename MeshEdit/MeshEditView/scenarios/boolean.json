@@ -1,0 +1,150 @@
+{
+  "name": "boolean",
+  "steps": [
+    {
+      "label": "NewMesh:box",
+      "command": "NewMesh:box",
+      "expect": "OK"
+    },
+    {
+      "label": "SetCutter:box",
+      "command": "SetCutter:box",
+      "expect": "OK"
+    },
+    {
+      "label": "SetCutterTransform:position=0.5,0,0",
+      "command": "SetCutterTransform:position=0.5,0,0",
+      "expect": "OK"
+    },
+    {
+      "label": "Boolean:union",
+      "command": "Boolean:union",
+      "expect": "OK"
+    },
+    {
+      "label": "GetVolume",
+      "command": "GetVolume",
+      "expect": "Volume:1.500000,closed=1"
+    },
+    {
+      "label": "Undo",
+      "command": "Undo",
+      "expect": "OK"
+    },
+    {
+      "label": "Boolean:difference",
+      "command": "Boolean:difference",
+      "expect": "OK"
+    },
+    {
+      "label": "GetVolume",
+      "command": "GetVolume",
+      "expect": "Volume:0.500000,closed=1"
+    },
+    {
+      "label": "Undo",
+      "command": "Undo",
+      "expect": "OK"
+    },
+    {
+      "label": "Boolean:intersection",
+      "command": "Boolean:intersection",
+      "expect": "OK"
+    },
+    {
+      "label": "GetVolume",
+      "command": "GetVolume",
+      "expect": "Volume:0.500000,closed=1"
+    },
+    {
+      "label": "Undo",
+      "command": "Undo",
+      "expect": "OK"
+    },
+    {
+      "label": "Redo",
+      "command": "Redo",
+      "expect": "OK"
+    },
+    {
+      "label": "Undo",
+      "command": "Undo",
+      "expect": "OK"
+    },
+    {
+      "label": "SetCutterTransform:position=0,0,0",
+      "command": "SetCutterTransform:position=0,0,0",
+      "expect": "OK"
+    },
+    {
+      "label": "Boolean:difference",
+      "command": "Boolean:difference",
+      "expect": "OK"
+    },
+    {
+      "label": "GetCounts",
+      "command": "GetCounts",
+      "expect": "Counts:0,0,0"
+    },
+    {
+      "label": "Undo",
+      "command": "Undo",
+      "expect": "OK"
+    },
+    {
+      "label": "SetCutterVisible:0",
+      "command": "SetCutterVisible:0",
+      "expect": "OK"
+    },
+    {
+      "label": "GetVolume",
+      "command": "GetVolume",
+      "expect": "Volume:1.000000,closed=1"
+    },
+    {
+      "label": "SetMode:edit",
+      "command": "SetMode:edit",
+      "expect": "OK"
+    },
+    {
+      "label": "Boolean:union",
+      "command": "Boolean:union",
+      "expect_prefix": "Error:"
+    },
+    {
+      "label": "SetMode:object",
+      "command": "SetMode:object",
+      "expect": "OK"
+    },
+    {
+      "label": "SetCutter:copy",
+      "command": "SetCutter:copy",
+      "expect": "OK"
+    },
+    {
+      "label": "SetCutterTransform:position=0.35,0.2,0 rotation=0,25,0 scale=0.75,0.8,1.2",
+      "command": "SetCutterTransform:position=0.35,0.2,0 rotation=0,25,0 scale=0.75,0.8,1.2",
+      "expect": "OK"
+    },
+    {
+      "label": "Boolean:difference",
+      "command": "Boolean:difference",
+      "expect": "OK"
+    },
+    {
+      "label": "SetCutterVisible:0",
+      "command": "SetCutterVisible:0",
+      "expect": "OK"
+    },
+    {
+      "label": "SetDisplay:orientation=1",
+      "command": "SetDisplay:orientation=1",
+      "expect": "OK"
+    },
+    {
+      "label": "CheckCommandCatalog",
+      "command": "CheckCommandCatalog",
+      "expect": "OK"
+    }
+  ]
+}

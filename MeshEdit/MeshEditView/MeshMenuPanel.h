@@ -17,6 +17,7 @@ public:
     void setShell(ViewShell* shell) { shell_ = shell; }
     void setSubmit(std::function<void(const std::string&)> submit) { submit_ = std::move(submit); }
     void setLocked(bool locked) { locked_ = locked; }
+    void setError(const std::string& error) { error_ = error; }
 
     void onImGuiMenuBar();   // inside BeginMainMenuBar()
     void onImGui();          // the Control window (through the shell)
@@ -28,6 +29,10 @@ private:
     ViewShell* shell_ = nullptr;
     std::function<void(const std::string&)> submit_;
     bool locked_ = false;
+    std::string error_;
+    CutterTransform cutterTransform_;
+    bool cutterDragging_ = false;
+    int booleanOperation_ = 1;
 
     // Operation parameters (the GUI's text boxes).
     int divs_ = 2;
