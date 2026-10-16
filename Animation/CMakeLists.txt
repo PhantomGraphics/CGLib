@@ -39,6 +39,7 @@ if(PHANTOM_GTEST_FOUND)
 
     cglib_add_test(AnimationTest
         SOURCES
+            ${ANIMATION_ROOT}/AnimationTest/AnimationTrackTest.cpp
             ${ANIMATION_ROOT}/AnimationTest/AnimatorTest.cpp
             ${ANIMATION_ROOT}/AnimationTest/BVHConverterTest.cpp
             ${ANIMATION_ROOT}/AnimationTest/IKSolverTest.cpp

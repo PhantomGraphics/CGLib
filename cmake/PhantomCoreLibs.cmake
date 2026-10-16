@@ -335,6 +335,7 @@ function(phantom_add_animation_core)
     # WideCharToMultiByte(932, ...), Linux uses glibc's
     # iconv("UTF-8", "CP932") (always available, no extra link dependency).
     add_library(AnimationCore STATIC
+        ${CGLIB_ROOT}/Animation/Core/AnimationTrack.cpp
         ${CGLIB_ROOT}/Animation/Core/Animator.cpp
         ${CGLIB_ROOT}/Animation/Core/BVHConverter.cpp
         ${CGLIB_ROOT}/Animation/Core/IKSolver.cpp
