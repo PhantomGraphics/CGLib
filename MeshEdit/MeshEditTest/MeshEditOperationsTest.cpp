@@ -807,3 +807,45 @@ TEST(KnifePlane, UvIsInterpolatedAndNothingToCutIsRefused) {
     EXPECT_FALSE(knifePlane(box, { 0.f, 0.f, 0.f }, { 0.f, 0.f, 0.f }, untouched, &error)) << "a zero normal";
     EXPECT_FALSE(knifePlane(box, { 0.f, 0.5f, 0.f }, { 0.f, 1.f, 0.f }, untouched, &error)) << "a plane along the top face touches no face on both sides";
 }
+
+TEST(MarkSeams, SeamsSeparateChartsEvenAtAWideAngleAndFollowTheirEdges) {
+    const EditableMesh box = makeEditableBox(0.5f);
+    std::vector<uint32_t> all;
+    for (const auto& f : box.faces) all.push_back(f.id);
+    EditableMesh out;
+    std::string error;
+    size_t charts = 0;
+    ASSERT_TRUE(unwrapFaces(box, all, 180.f, 0.02f, out, &error, &charts)) << error;
+    EXPECT_EQ(1u, charts);                                        // without seams a wide angle gives one chart
+
+    // The four edges around the top face are seams: the top becomes its own chart.
+    const EditableFace* top = box.findFace(topFaceId(box));
+    std::vector<uint32_t> ring;
+    for (size_t i = 0; i < top->loop.size(); ++i) {
+        const EditableEdge* e = box.findEdge(top->loop[i].vertex, top->loop[(i + 1) % top->loop.size()].vertex);
+        ASSERT_NE(nullptr, e);
+        ring.push_back(e->id);
+    }
+    EditableMesh marked;
+    size_t changed = 0;
+    ASSERT_TRUE(markSeams(box, ring, true, marked, &error, &changed)) << error;
+    EXPECT_EQ(4u, changed);
+    EXPECT_EQ(4u, marked.seams.size());
+    EXPECT_NE(box.revision, marked.revision);                     // a new revision, so overlays redraw
+    EXPECT_FALSE(markSeams(marked, ring, true, out, &error));    // already seams
+    ASSERT_TRUE(unwrapFaces(marked, all, 180.f, 0.02f, out, &error, &charts)) << error;
+    EXPECT_EQ(2u, charts);
+    EXPECT_EQ(4u, out.seams.size());                              // unwrapping keeps the seams
+
+    // Seams are dropped when their edge disappears (the top face is deleted: its ring edges stay on the sides, so extrude instead).
+    EditableMesh clearedOne;
+    ASSERT_TRUE(markSeams(marked, { ring[0] }, false, clearedOne, &error, &changed)) << error;
+    EXPECT_EQ(3u, clearedOne.seams.size());
+    EditableMesh knifed;
+    ASSERT_TRUE(knifePlane(marked, { 0.f, 0.f, 0.f }, { 0.f, 1.f, 0.f }, knifed, &error)) << error;
+    EXPECT_EQ(4u, knifed.seams.size());                           // the ring edges survive a cut through the middle
+
+    EXPECT_FALSE(markSeams(box, {}, true, out, &error));
+    EXPECT_FALSE(markSeams(box, { 99999u }, true, out, &error));
+    EXPECT_FALSE(markSeams(box, ring, false, out, &error));       // none of them is a seam
+}

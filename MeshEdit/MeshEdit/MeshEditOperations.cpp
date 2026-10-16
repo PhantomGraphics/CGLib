@@ -886,8 +886,10 @@ bool unwrapFaces(const EditableMesh& in, const std::vector<uint32_t>& faceIds, f
 		}
 	}
 	std::map<uint32_t, std::vector<uint32_t>> neighbours;
-	for (const auto& e : edgeFaces)
+	for (const auto& e : edgeFaces) {
+		if (std::binary_search(in.seams.begin(), in.seams.end(), e.first)) continue;   // a marked seam separates charts
 		for (uint32_t x : e.second) for (uint32_t y : e.second) if (x != y) neighbours[x].push_back(y);
+	}
 
 	// Charts: flood fill, comparing each candidate with the chart's running average normal.
 	const double kPi = 3.14159265358979323846;
@@ -988,6 +990,28 @@ bool unwrapFaces(const EditableMesh& in, const std::vector<uint32_t>& faceIds, f
 	work.revision = nextEditableRevision();
 	out = std::move(work);
 	if (charts) *charts = list.size();
+	return true;
+}
+
+bool markSeams(const EditableMesh& in, const std::vector<uint32_t>& edgeIds, bool mark, EditableMesh& out,
+               std::string* error, size_t* changed) {
+	if (edgeIds.empty()) { fail(error, "no edges selected"); return false; }
+	EditableMesh work = in;
+	size_t count = 0;
+	for (uint32_t id : std::set<uint32_t>(edgeIds.begin(), edgeIds.end())) {
+		const EditableEdge* e = nullptr;
+		for (const auto& cand : work.edges) if (cand.id == id) { e = &cand; break; }
+		if (!e) { fail(error, "edge " + std::to_string(id) + " does not exist"); return false; }
+		const std::pair<uint32_t, uint32_t> key{ e->a, e->b };
+		auto it = std::lower_bound(work.seams.begin(), work.seams.end(), key);
+		const bool present = it != work.seams.end() && *it == key;
+		if (mark && !present) { work.seams.insert(it, key); ++count; }
+		else if (!mark && present) { work.seams.erase(it); ++count; }
+	}
+	if (count == 0) { fail(error, mark ? "the selected edges are already seams" : "none of the selected edges is a seam"); return false; }
+	work.revision = nextEditableRevision();   // caches keyed on the revision (the edit overlay) must redraw the seams
+	out = std::move(work);
+	if (changed) *changed = count;
 	return true;
 }
 

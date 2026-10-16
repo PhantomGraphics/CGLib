@@ -9,6 +9,7 @@
 // shared_ptr<const EditableMesh>; an edit validates a working copy and installs a new pointer.
 #include <cstdint>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace Phantom::MeshEdit {
@@ -48,6 +49,9 @@ namespace Phantom::MeshEdit {
 		// never rolled back by Undo (an undone mesh keeps the revision it had). Not saved. Lets pick caches, GPU buffers
 		// and late results tell "same geometry" from "same pointer value reused".
 		uint64_t revision = 0;
+		// UV seams: edges (as sorted vertex-id pairs) that automatic unwrapping must cut along. Kept only while the pair is still an
+		// edge (rebuildEdges drops the rest), sorted and unique. Not part of the geometry: revision is unaffected by marking.
+		std::vector<std::pair<uint32_t, uint32_t>> seams;
 
 		const EditableVertex* findVertex(uint32_t id) const;
 		const EditableFace*   findFace(uint32_t id) const;
