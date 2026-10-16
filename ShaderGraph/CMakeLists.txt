@@ -40,6 +40,7 @@ if(PHANTOM_GTEST_FOUND)
     cglib_add_test(ShaderGraphTest
         SOURCES
             ${SHADERGRAPH_ROOT}/ShaderGraphTest/ShaderGraphTest.cpp
+            ${SHADERGRAPH_ROOT}/ShaderGraphTest/GraphCompileTest.cpp
         
         INCLUDES ${SHADERGRAPH_ROOT}/ShaderGraphTest
         LINK ShaderGraphCore
