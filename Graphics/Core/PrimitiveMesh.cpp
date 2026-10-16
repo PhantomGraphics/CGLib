@@ -351,7 +351,7 @@ MeshData mirror(const MeshData& src, int axis) {
 		v.tangent[3] = -v.tangent[3];
 	}
 	// Flip triangle winding so the mirrored mesh isn't back-face culled
-	// (see CGApp/PhantomStudio/CLAUDE.md, winding convention).
+	// (the renderers treat counter-clockwise as the front face).
 	for (size_t i = 0; i + 2 < md.indices.size(); i += 3)
 		std::swap(md.indices[i + 1], md.indices[i + 2]);
 	return md;

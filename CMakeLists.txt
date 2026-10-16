@@ -196,7 +196,7 @@ set(CGLIB_ALIAS_MAP
     GeometryNode=GeometryNodeCore  MeshEdit=MeshEditCore  PBR=PBRCore  ShaderGraph=ShaderGraphCore  Asset=AssetCore  SceneRuntime=SceneRuntimeCore
     Pugixml=PugixmlCore
     VulkanGraphics=VulkanGraphicsCore  UI=UIWidgetsCore  VkAppBase=VkAppBaseCore
-    VkRenderer=VkRendererCore  GltfRenderer=GltfRendererCore  VolumeRenderer=VolumeRenderer
+    VkRenderer=VkRendererCore  GltfRenderer=GltfRendererCore  Gltf=GltfCore  VolumeRenderer=VolumeRenderer
     Editor=EditorCore  EditorVulkan=EditorVulkanCore  Effects=EffectsCore)
 foreach(_pair IN LISTS CGLIB_ALIAS_MAP)
     string(REPLACE "=" ";" _pair "${_pair}")

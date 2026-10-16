@@ -59,7 +59,8 @@ endfunction()
 set(_cglib_install_components
     Math=MathCore Graphics=GraphicsCore Numerics=NumericsCore Space=SpaceCore
     Volume=VolumeCore File=FileCore Animation=AnimationCore
-    GeometryNode=GeometryNodeCore MeshEdit=MeshEditCore PBR=PBRCore ShaderGraph=ShaderGraphCore Asset=AssetCore SceneRuntime=SceneRuntimeCore)
+    GeometryNode=GeometryNodeCore MeshEdit=MeshEditCore PBR=PBRCore ShaderGraph=ShaderGraphCore Asset=AssetCore SceneRuntime=SceneRuntimeCore
+    Gltf=GltfCore)
 
 set(_cglib_install_targets "")
 set(_cglib_install_component_names "")
@@ -74,7 +75,12 @@ foreach(_pair IN LISTS _cglib_install_components)
     list(APPEND _cglib_install_targets ${_target})
     list(APPEND _cglib_install_component_names ${_name})
 
-    cglib_split_include_dirs(${_target})
+    if(_target STREQUAL "PBRCore")
+        # The generated LightGlslSource.h dir is only included by .cpp files (ShaderGraph's SurfaceFragment, PBRTest): build-only.
+        cglib_split_include_dirs(${_target} BUILD_ONLY_OUTSIDE BUILD_ONLY_DIRS ${CMAKE_BINARY_DIR}/_pbr_generated)
+    else()
+        cglib_split_include_dirs(${_target})
+    endif()
 endforeach()
 
 install(TARGETS ${_cglib_install_targets} EXPORT CGLibTargets
@@ -117,6 +123,11 @@ foreach(_dir Math Graphics Numerics Space File Animation Volume GeometryNode Mes
         PATTERN "pch.h" EXCLUDE
         PATTERN "*Presenter.h" EXCLUDE)
 endforeach()
+
+# GltfCore (CPU-only glTF evaluation, character pose and bake): its headers live in GltfRenderer/Gltf next to the Vulkan
+# renderer's, which is not exported. The Gltf headers only reach Animation/Core, Graphics/Core and the vendored glm.
+install(DIRECTORY ${CGLIB_ROOT}/GltfRenderer/Gltf/ DESTINATION ${_hdr_dest}/GltfRenderer/Gltf
+    FILES_MATCHING PATTERN "*.h")
 
 # PBR/Core/GltfLight.h exposes the CPU-only glTF light description. Ship that
 # dependency without exporting the Vulkan renderer component.

@@ -8,6 +8,10 @@
 #include "CGLib/Volume/Core/Volume.h"
 #include "CGLib/File/Core/OBJFileReader.h"
 #include "CGLib/Animation/Core/Animator.h"
+#include "CGLib/Animation/Core/AnimationTrack.h"
+#include "CGLib/Graphics/Core/PrimitiveMesh.h"
+#include "CGLib/MeshEdit/Core/EditableMeshConvert.h"
+#include "CGLib/GltfRenderer/Gltf/CharacterPoseBake.h"
 #include "CGLib/GeometryNode/Core/GeometryOps.h"
 #include "CGLib/SceneRuntime/Core/SceneGraph.h"
 
@@ -45,6 +49,24 @@ int main()
 
     Phantom::GeometryNode::Mesh terrain;
     check(Phantom::GeometryNode::makeTerrain(Phantom::GeometryNode::TerrainParams{}, Phantom::GeometryNode::Limits{}, terrain) == Phantom::GeometryNode::OpStatus::Ok, "GeometryNode terrain");
+
+    // Animation tracks, the shared CPU mesh and its edit conversion, and the CPU character pose (GltfCore).
+    Phantom::Animation::AnimTracks tracks;
+    Phantom::Animation::TrackKey k0, k1;
+    k0.frame = 0;  k0.value = {0.0f, 0.0f, 0.0f};
+    k1.frame = 10; k1.value = {10.0f, 0.0f, 0.0f};
+    tracks.track(Phantom::Animation::AnimChannel::Translation) = {k0, k1};
+    Phantom::Animation::TrackTransform pose;
+    Phantom::Animation::evaluateTracks(tracks, 5.0, pose);
+    check(pose.translation[0] > 4.99f && pose.translation[0] < 5.01f, "Animation tracks");
+
+    const Phantom::Graphics::MeshData box = Phantom::Graphics::buildBox(0.5f);
+    check(Phantom::Graphics::validate(box).inconsistentTriangles == 0, "Graphics primitive mesh");
+    Phantom::MeshEdit::EditableMesh editable;
+    check(Phantom::MeshEdit::makeEditableFromMeshData(box, editable) && editable.faces.size() == 12, "MeshEdit convert");
+
+    Phantom::Gltf::CharacterPoseSource source;
+    check(Phantom::Gltf::bakeSkinnedPose(source, 0.0, 30.0).empty(), "Gltf pose bake without a document");
 
     Phantom::SceneRuntime::SceneGraph graph;
     check(graph.size() == 0, "SceneRuntime (nlohmann bundled)");
