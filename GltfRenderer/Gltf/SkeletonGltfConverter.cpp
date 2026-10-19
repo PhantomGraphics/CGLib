@@ -37,6 +37,65 @@ bool decodeImageFile(GltfImage& img, const std::filesystem::path& path) {
     return true;
 }
 
+void appendBoneChannels(GltfDocument& out, const Skeleton& skeleton, const AnimationClip& bakedClip, GltfAnimation& anim) {
+    const int boneCount = static_cast<int>(skeleton.bones.size());
+    for (const auto& ch : bakedClip.channels) {
+        if (ch.boneIndex < 0 || ch.boneIndex >= boneCount) continue;
+        const Bone& bone = skeleton.bones[ch.boneIndex];
+
+        if (!ch.positionKeys.empty()) {
+            std::vector<float>     times;
+            std::vector<glm::vec3> values;
+            times.reserve(ch.positionKeys.size());
+            values.reserve(ch.positionKeys.size());
+            for (const auto& key : ch.positionKeys) {
+                times.push_back(key.time);
+                values.push_back(bone.localPosition + key.value);
+            }
+            GltfAnimationSampler sampler;
+            sampler.input  = appendAccessor(out, times,  GltfComponentType::Float, GltfAccessorType::Scalar);
+            sampler.output = appendAccessor(out, values, GltfComponentType::Float, GltfAccessorType::Vec3);
+            const int samplerIdx = static_cast<int>(anim.samplers.size());
+            anim.samplers.push_back(sampler);
+            anim.channels.push_back({samplerIdx, {ch.boneIndex, GltfAnimationPath::Translation}});
+        }
+
+        if (!ch.rotationKeys.empty()) {
+            std::vector<float>     times;
+            std::vector<glm::vec4> values;
+            times.reserve(ch.rotationKeys.size());
+            values.reserve(ch.rotationKeys.size());
+            for (const auto& key : ch.rotationKeys) {
+                times.push_back(key.time);
+                values.push_back(glm::vec4(key.value.x, key.value.y, key.value.z, key.value.w));
+            }
+            GltfAnimationSampler sampler;
+            sampler.input  = appendAccessor(out, times,  GltfComponentType::Float, GltfAccessorType::Scalar);
+            sampler.output = appendAccessor(out, values, GltfComponentType::Float, GltfAccessorType::Vec4);
+            const int samplerIdx = static_cast<int>(anim.samplers.size());
+            anim.samplers.push_back(sampler);
+            anim.channels.push_back({samplerIdx, {ch.boneIndex, GltfAnimationPath::Rotation}});
+        }
+
+        if (!ch.scaleKeys.empty()) {
+            std::vector<float>     times;
+            std::vector<glm::vec3> values;
+            times.reserve(ch.scaleKeys.size());
+            values.reserve(ch.scaleKeys.size());
+            for (const auto& key : ch.scaleKeys) {
+                times.push_back(key.time);
+                values.push_back(key.value);
+            }
+            GltfAnimationSampler sampler;
+            sampler.input  = appendAccessor(out, times,  GltfComponentType::Float, GltfAccessorType::Scalar);
+            sampler.output = appendAccessor(out, values, GltfComponentType::Float, GltfAccessorType::Vec3);
+            const int samplerIdx = static_cast<int>(anim.samplers.size());
+            anim.samplers.push_back(sampler);
+            anim.channels.push_back({samplerIdx, {ch.boneIndex, GltfAnimationPath::Scale}});
+        }
+    }
+}
+
 } // namespace
 
 bool SkeletonGltfConverter::convert(const Skeleton& skeleton,
@@ -231,61 +290,7 @@ bool SkeletonGltfConverter::convert(const Skeleton& skeleton,
     // rotation/scale keys are already absolute (PMXConverter always sets bind-pose
     // localRotation/localScale to identity).
     GltfAnimation anim;
-    for (const auto& ch : bakedClip.channels) {
-        if (ch.boneIndex < 0 || ch.boneIndex >= boneCount) continue;
-        const Bone& bone = skeleton.bones[ch.boneIndex];
-
-        if (!ch.positionKeys.empty()) {
-            std::vector<float>     times;
-            std::vector<glm::vec3> values;
-            times.reserve(ch.positionKeys.size());
-            values.reserve(ch.positionKeys.size());
-            for (const auto& key : ch.positionKeys) {
-                times.push_back(key.time);
-                values.push_back(bone.localPosition + key.value);
-            }
-            GltfAnimationSampler sampler;
-            sampler.input  = appendAccessor(out, times,  GltfComponentType::Float, GltfAccessorType::Scalar);
-            sampler.output = appendAccessor(out, values, GltfComponentType::Float, GltfAccessorType::Vec3);
-            const int samplerIdx = static_cast<int>(anim.samplers.size());
-            anim.samplers.push_back(sampler);
-            anim.channels.push_back({samplerIdx, {ch.boneIndex, GltfAnimationPath::Translation}});
-        }
-
-        if (!ch.rotationKeys.empty()) {
-            std::vector<float>     times;
-            std::vector<glm::vec4> values;
-            times.reserve(ch.rotationKeys.size());
-            values.reserve(ch.rotationKeys.size());
-            for (const auto& key : ch.rotationKeys) {
-                times.push_back(key.time);
-                values.push_back(glm::vec4(key.value.x, key.value.y, key.value.z, key.value.w));
-            }
-            GltfAnimationSampler sampler;
-            sampler.input  = appendAccessor(out, times,  GltfComponentType::Float, GltfAccessorType::Scalar);
-            sampler.output = appendAccessor(out, values, GltfComponentType::Float, GltfAccessorType::Vec4);
-            const int samplerIdx = static_cast<int>(anim.samplers.size());
-            anim.samplers.push_back(sampler);
-            anim.channels.push_back({samplerIdx, {ch.boneIndex, GltfAnimationPath::Rotation}});
-        }
-
-        if (!ch.scaleKeys.empty()) {
-            std::vector<float>     times;
-            std::vector<glm::vec3> values;
-            times.reserve(ch.scaleKeys.size());
-            values.reserve(ch.scaleKeys.size());
-            for (const auto& key : ch.scaleKeys) {
-                times.push_back(key.time);
-                values.push_back(key.value);
-            }
-            GltfAnimationSampler sampler;
-            sampler.input  = appendAccessor(out, times,  GltfComponentType::Float, GltfAccessorType::Scalar);
-            sampler.output = appendAccessor(out, values, GltfComponentType::Float, GltfAccessorType::Vec3);
-            const int samplerIdx = static_cast<int>(anim.samplers.size());
-            anim.samplers.push_back(sampler);
-            anim.channels.push_back({samplerIdx, {ch.boneIndex, GltfAnimationPath::Scale}});
-        }
-    }
+    appendBoneChannels(out, skeleton, bakedClip, anim);
 
     // --- Morph weights channel: a single Weights channel on the mesh node, sampling the dense,
     // pre-merged timeline from MmdAnimationBaker::bakeMorphWeights() (one flattened
@@ -309,6 +314,123 @@ bool SkeletonGltfConverter::convert(const Skeleton& skeleton,
         anim.channels.push_back({samplerIdx, {meshNodeIndex, GltfAnimationPath::Weights}});
     }
 
+    if (!anim.channels.empty())
+        out.animations.push_back(std::move(anim));
+
+    return true;
+}
+
+bool SkeletonGltfConverter::convertRig(const Skeleton& skeleton,
+                                        const SkinnedMesh* mesh,
+                                        const RigMaterialSet& materials,
+                                        const AnimationClip& bakedClip,
+                                        GltfDocument& out)
+{
+    out = GltfDocument{};
+
+    const int boneCount = static_cast<int>(skeleton.bones.size());
+    const bool hasMesh  = mesh && !mesh->vertices.empty() && boneCount > 0;
+
+    if (hasMesh) {
+        for (uint32_t idx : mesh->indices)
+            if (idx >= mesh->vertices.size()) return false;
+        for (const auto& v : mesh->vertices)
+            for (int k = 0; k < 4; ++k)
+                if (v.boneWeights[k] > 0.f && (v.boneIndices[k] < 0 || v.boneIndices[k] >= boneCount)) return false;
+    }
+
+    out.nodes.resize(boneCount);
+    for (int i = 0; i < boneCount; ++i) {
+        const auto& bone = skeleton.bones[i];
+        GltfNode& node   = out.nodes[i];
+        node.name        = bone.name;
+        node.translation = bone.localPosition;
+        node.rotation    = glm::vec4(bone.localRotation.x, bone.localRotation.y,
+                                      bone.localRotation.z, bone.localRotation.w);
+        node.scale       = bone.localScale;
+    }
+    for (int i = 0; i < boneCount; ++i) {
+        const int parent = skeleton.bones[i].parentIndex;
+        if (parent >= 0 && parent < boneCount)
+            out.nodes[parent].children.push_back(i);
+    }
+
+    GltfScene scene;
+    if (hasMesh) {
+        GltfSkin skin;
+        skin.joints.resize(boneCount);
+        skin.inverseBindMatrices.resize(boneCount);
+        for (int i = 0; i < boneCount; ++i) {
+            skin.joints[i]              = i;
+            skin.inverseBindMatrices[i] = skeleton.bones[i].bindPoseInverse;
+        }
+        out.skins.push_back(std::move(skin));
+
+        out.materials = materials.materials;
+        out.textures  = materials.textures;
+        out.images    = materials.images;
+        out.samplers  = materials.samplers;
+        if (out.materials.empty()) out.materials.push_back(GltfMaterial{});
+        const int matCount = static_cast<int>(out.materials.size());
+
+        const size_t vertCount = mesh->vertices.size();
+        std::vector<glm::vec3>  positions(vertCount);
+        std::vector<glm::vec3>  normals(vertCount);
+        std::vector<glm::vec2>  texCoords(vertCount);
+        std::vector<glm::ivec4> joints(vertCount);
+        std::vector<glm::vec4>  weights(vertCount);
+        for (size_t i = 0; i < vertCount; ++i) {
+            const auto& v = mesh->vertices[i];
+            positions[i] = v.position;
+            normals[i]   = v.normal;
+            texCoords[i] = v.texCoord;
+            joints[i]    = v.boneIndices;
+            weights[i]   = v.boneWeights;
+        }
+        const int posAcc     = appendAccessor(out, positions, GltfComponentType::Float,       GltfAccessorType::Vec3);
+        const int normAcc    = appendAccessor(out, normals,   GltfComponentType::Float,       GltfAccessorType::Vec3);
+        const int texAcc     = appendAccessor(out, texCoords, GltfComponentType::Float,       GltfAccessorType::Vec2);
+        const int jointsAcc  = appendAccessor(out, joints,    GltfComponentType::UnsignedInt, GltfAccessorType::Vec4);
+        const int weightsAcc = appendAccessor(out, weights,   GltfComponentType::Float,       GltfAccessorType::Vec4);
+
+        std::vector<RigMaterialSet::Range> ranges = materials.ranges;
+        if (ranges.empty())
+            ranges.push_back({0, static_cast<uint32_t>(mesh->indices.size()), mesh->materialIndex});
+
+        GltfMesh gltfMesh;
+        for (const auto& range : ranges) {
+            if (static_cast<size_t>(range.indexOffset) + range.indexCount > mesh->indices.size()) { out = GltfDocument{}; return false; }
+            if (range.indexCount == 0) continue;
+            std::vector<uint32_t> slice(mesh->indices.begin() + range.indexOffset,
+                                        mesh->indices.begin() + range.indexOffset + range.indexCount);
+            GltfPrimitive prim;
+            prim.positionAccessor  = posAcc;
+            prim.normalAccessor    = normAcc;
+            prim.texCoord0Accessor = texAcc;
+            prim.jointsAccessor    = jointsAcc;
+            prim.weightsAccessor   = weightsAcc;
+            prim.indicesAccessor   = appendAccessor(out, slice, GltfComponentType::UnsignedInt, GltfAccessorType::Scalar);
+            prim.materialIndex     = (range.materialIndex >= 0 && range.materialIndex < matCount) ? range.materialIndex : 0;
+            gltfMesh.primitives.push_back(prim);
+        }
+        const int meshIndex = static_cast<int>(out.meshes.size());
+        out.meshes.push_back(std::move(gltfMesh));
+
+        GltfNode meshNode;
+        meshNode.name      = "SkinnedMeshRoot";
+        meshNode.meshIndex = meshIndex;
+        meshNode.skin      = 0;
+        scene.nodes.push_back(static_cast<int>(out.nodes.size()));
+        out.nodes.push_back(std::move(meshNode));
+    }
+
+    for (int root : skeleton.rootBoneIndices())
+        scene.nodes.push_back(root);
+    out.scenes.push_back(std::move(scene));
+    out.defaultScene = 0;
+
+    GltfAnimation anim;
+    appendBoneChannels(out, skeleton, bakedClip, anim);
     if (!anim.channels.empty())
         out.animations.push_back(std::move(anim));
 

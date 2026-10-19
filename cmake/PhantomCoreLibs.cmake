@@ -366,11 +366,13 @@ function(phantom_add_animation_core)
     # iconv("UTF-8", "CP932") (always available, no extra link dependency).
     add_library(AnimationCore STATIC
         ${CGLIB_ROOT}/Animation/Core/AnimationTrack.cpp
+        ${CGLIB_ROOT}/Animation/Core/AuthoredRig.cpp
         ${CGLIB_ROOT}/Animation/Core/Animator.cpp
         ${CGLIB_ROOT}/Animation/Core/BVHConverter.cpp
         ${CGLIB_ROOT}/Animation/Core/IKSolver.cpp
         ${CGLIB_ROOT}/Animation/Core/MorphAnimator.cpp
         ${CGLIB_ROOT}/Animation/Core/PMXConverter.cpp
+        ${CGLIB_ROOT}/Animation/Core/RigSkinning.cpp
         ${CGLIB_ROOT}/Animation/Core/Skeleton.cpp
         ${CGLIB_ROOT}/Animation/Core/VMDConverter.cpp
     )

@@ -7,6 +7,8 @@
 
 #include "../Gltf/GltfAccessorView.h"
 #include "../Gltf/SkeletonGltfConverter.h"
+#include "../../Animation/Core/AuthoredRig.h"
+#include "../../Animation/Core/RigSkinning.h"
 
 using namespace Phantom::Gltf;
 using namespace Phantom::Animation;
@@ -155,4 +157,70 @@ TEST(SkeletonGltfConverterTest, MorphTargetsAndBakedWeights_BuildMorphDataAndWei
     ASSERT_EQ(2u, outView.count()); // 2 keyframes x 1 target
     EXPECT_FLOAT_EQ(0.f, outView.get<float>(0));
     EXPECT_FLOAT_EQ(1.f, outView.get<float>(1));
+}
+
+TEST(SkeletonGltfConverterTest, ConvertRig_BonesOnlyHasHierarchyAndNoSkin)
+{
+    AuthoredRig rig;
+    auto a = rig.addBone("A", {0, 0, 0}, {0, 1, 0});
+    rig.addChainBone(a.id, "B", {0, 2, 0});
+    Skeleton sk;
+    ASSERT_TRUE(rig.toSkeleton(sk).ok);
+
+    GltfDocument doc;
+    SkeletonGltfConverter conv;
+    ASSERT_TRUE(conv.convertRig(sk, nullptr, {}, AnimationClip{}, doc));
+    EXPECT_EQ(2u, doc.nodes.size());
+    EXPECT_TRUE(doc.skins.empty());
+    EXPECT_TRUE(doc.meshes.empty());
+    ASSERT_EQ(1u, doc.nodes[0].children.size());
+    ASSERT_EQ(1u, doc.scenes.size());
+    EXPECT_EQ(std::vector<int>{0}, doc.scenes[0].nodes);
+}
+
+TEST(SkeletonGltfConverterTest, ConvertRig_KeepsMaterialsAndBoneAnimation)
+{
+    AuthoredRig rig;
+    auto a = rig.addBone("A", {0, 0, 0}, {0, 1, 0});
+    rig.addChainBone(a.id, "B", {0, 2, 0});
+    SkinVertex v0, v1, v2;
+    v0.position = {0, 0, 0}; v1.position = {1, 0, 0}; v2.position = {0, 2, 0};
+    v0.texCoord = {0.25f, 0.5f};
+    RigMesh mesh = RigSkinning::makeRigMesh({v0, v1, v2}, {0, 1, 2});
+    RigBinding bind;
+    ASSERT_TRUE(RigSkinning::autoBind(rig, mesh, bind).ok);
+    Skeleton sk; SkinnedMesh sm;
+    ASSERT_TRUE(RigSkinning::buildSkinnedMesh(rig, bind, mesh, sk, sm).ok);
+
+    RigMaterialSet mats;
+    GltfMaterial m0; m0.pbrMetallicRoughness.baseColorFactor = {0.1f, 0.2f, 0.3f, 1.f}; m0.pbrMetallicRoughness.roughnessFactor = 0.4f;
+    mats.materials.push_back(m0);
+    sm.materialIndex = 0;
+
+    AnimationClip clip;
+    BoneChannel ch; ch.boneIndex = 1;
+    ch.rotationKeys.push_back({0.f, glm::quat{1.f, 0.f, 0.f, 0.f}});
+    clip.channels.push_back(ch);
+
+    GltfDocument doc;
+    SkeletonGltfConverter conv;
+    ASSERT_TRUE(conv.convertRig(sk, &sm, mats, clip, doc));
+    ASSERT_EQ(1u, doc.skins.size());
+    EXPECT_EQ(2u, doc.skins[0].joints.size());
+    ASSERT_EQ(1u, doc.materials.size());
+    EXPECT_FLOAT_EQ(0.4f, doc.materials[0].pbrMetallicRoughness.roughnessFactor);
+    ASSERT_EQ(1u, doc.meshes.size());
+    const GltfPrimitive& prim = doc.meshes[0].primitives[0];
+    EXPECT_GE(prim.jointsAccessor, 0);
+    EXPECT_GE(prim.weightsAccessor, 0);
+    EXPECT_EQ(0, prim.materialIndex);
+    ASSERT_EQ(1u, doc.animations.size());
+    EXPECT_EQ(1u, doc.animations[0].channels.size());
+
+    // A joint index outside the skeleton is rejected and leaves an empty document.
+    SkinnedMesh bad = sm;
+    bad.vertices[0].boneIndices = {9, 0, 0, 0}; bad.vertices[0].boneWeights = {1, 0, 0, 0};
+    GltfDocument rejected;
+    EXPECT_FALSE(conv.convertRig(sk, &bad, mats, AnimationClip{}, rejected));
+    EXPECT_TRUE(rejected.nodes.empty());
 }

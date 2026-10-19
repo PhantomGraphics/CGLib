@@ -24,6 +24,22 @@ namespace Phantom::Gltf {
 // GltfSceneRenderer::updateSkinMatrices() every frame) or, once an animation clip/morph weights
 // are baked into the document below, GltfAnimationEvaluator -- this converter runs once, at load
 // time either way.
+// Materials (and the textures / images / samplers they reference) for convertRig(), already in glTF form so an
+// authored model keeps its own UVs, normals and PBR parameters. Texture indices inside `materials` refer to the
+// vectors below and are copied verbatim.
+struct RigMaterialSet {
+    struct Range {
+        uint32_t indexOffset = 0;
+        uint32_t indexCount  = 0;
+        int      materialIndex = 0; // into `materials`
+    };
+    std::vector<GltfMaterial> materials;
+    std::vector<GltfTexture>  textures;
+    std::vector<GltfImage>    images;
+    std::vector<GltfSampler>  samplers;
+    std::vector<Range>        ranges; // empty -> one primitive over all indices using mesh->materialIndex
+};
+
 class SkeletonGltfConverter {
 public:
     // subMeshes empty -> a single primitive spanning all of mesh.indices, materialIndex=0, a
@@ -59,6 +75,16 @@ public:
                  const std::vector<Phantom::Animation::MorphTarget>& morphTargets,
                  const std::vector<std::pair<float, std::vector<float>>>& bakedMorphWeights,
                  GltfDocument& out);
+
+    // Generic (non-MMD) path for authored rigs. `mesh` may be null or empty: the document then holds only the bone
+    // hierarchy (nodes + scene roots, no skin / mesh), which is how an unbound rig is evaluated and saved. Bone
+    // animation comes from bakedClip with the same conventions as convert(). Returns false for an invalid
+    // mesh (an index or joint outside range) and leaves `out` empty.
+    bool convertRig(const Phantom::Animation::Skeleton& skeleton,
+                    const Phantom::Animation::SkinnedMesh* mesh,
+                    const RigMaterialSet& materials,
+                    const Phantom::Animation::AnimationClip& bakedClip,
+                    GltfDocument& out);
 };
 
 } // namespace Phantom::Gltf

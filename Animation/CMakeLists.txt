@@ -41,6 +41,8 @@ if(PHANTOM_GTEST_FOUND)
         SOURCES
             ${ANIMATION_ROOT}/AnimationTest/AnimationTrackTest.cpp
             ${ANIMATION_ROOT}/AnimationTest/AnimatorTest.cpp
+            ${ANIMATION_ROOT}/AnimationTest/AuthoredRigTest.cpp
+            ${ANIMATION_ROOT}/AnimationTest/RigSkinningTest.cpp
             ${ANIMATION_ROOT}/AnimationTest/BVHConverterTest.cpp
             ${ANIMATION_ROOT}/AnimationTest/IKSolverTest.cpp
             ${ANIMATION_ROOT}/AnimationTest/MorphAnimatorTest.cpp
