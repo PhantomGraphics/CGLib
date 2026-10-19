@@ -50,6 +50,12 @@ public:
     // computed for, so stale weights can be detected.
     uint64_t revision() const { return m_revision; }
 
+    // Next id an added bone receives (saved with the rig so ids stay unique across save / load).
+    uint32_t nextId() const { return m_nextId; }
+
+    // Rebuilds a rig from saved bones. Fails (rig untouched) unless the bones validate, ids are non-zero and below nextId.
+    RigResult restore(std::vector<AuthoredBone> bones, uint32_t nextId);
+
     const AuthoredBone* find(uint32_t id) const;
     const AuthoredBone* findByName(const std::string& name) const;
     std::vector<uint32_t> children(uint32_t id) const;

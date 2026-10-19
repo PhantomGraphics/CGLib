@@ -77,7 +77,7 @@ public:
                  GltfDocument& out);
 
     // Generic (non-MMD) path for authored rigs. `mesh` may be null or empty: the document then holds only the bone
-    // hierarchy (nodes + scene roots, no skin / mesh), which is how an unbound rig is evaluated and saved. Bone
+    // hierarchy and the skin joints (no mesh), which is how an unbound rig is evaluated and saved. Bone
     // animation comes from bakedClip with the same conventions as convert(). Returns false for an invalid
     // mesh (an index or joint outside range) and leaves `out` empty.
     bool convertRig(const Phantom::Animation::Skeleton& skeleton,

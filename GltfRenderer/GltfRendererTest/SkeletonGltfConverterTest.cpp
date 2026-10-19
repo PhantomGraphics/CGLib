@@ -159,7 +159,7 @@ TEST(SkeletonGltfConverterTest, MorphTargetsAndBakedWeights_BuildMorphDataAndWei
     EXPECT_FLOAT_EQ(1.f, outView.get<float>(1));
 }
 
-TEST(SkeletonGltfConverterTest, ConvertRig_BonesOnlyHasHierarchyAndNoSkin)
+TEST(SkeletonGltfConverterTest, ConvertRig_BonesOnlyHasHierarchyAndJointsButNoMesh)
 {
     AuthoredRig rig;
     auto a = rig.addBone("A", {0, 0, 0}, {0, 1, 0});
@@ -171,7 +171,8 @@ TEST(SkeletonGltfConverterTest, ConvertRig_BonesOnlyHasHierarchyAndNoSkin)
     SkeletonGltfConverter conv;
     ASSERT_TRUE(conv.convertRig(sk, nullptr, {}, AnimationClip{}, doc));
     EXPECT_EQ(2u, doc.nodes.size());
-    EXPECT_TRUE(doc.skins.empty());
+    ASSERT_EQ(1u, doc.skins.size()); // joints exist so the bones can be posed
+    EXPECT_EQ(2u, doc.skins[0].joints.size());
     EXPECT_TRUE(doc.meshes.empty());
     ASSERT_EQ(1u, doc.nodes[0].children.size());
     ASSERT_EQ(1u, doc.scenes.size());

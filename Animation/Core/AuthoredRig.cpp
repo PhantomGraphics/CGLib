@@ -112,6 +112,19 @@ RigResult AuthoredRig::validate() const {
     return RigResult::success();
 }
 
+RigResult AuthoredRig::restore(std::vector<AuthoredBone> bones, uint32_t nextId) {
+    AuthoredRig next;
+    next.m_bones = std::move(bones);
+    for (const auto& b : next.m_bones)
+        if (b.id == 0 || b.id >= nextId) return RigResult::failure("bone id is out of range");
+    next.m_nextId = std::max<uint32_t>(nextId, 1);
+    RigResult v = next.validate();
+    if (!v) return v;
+    next.m_revision = m_revision + 1;
+    *this = std::move(next);
+    return RigResult::success();
+}
+
 RigResult AuthoredRig::addBone(const std::string& name, const glm::vec3& head, const glm::vec3& tail, float roll,
                                uint32_t parent, bool connected) {
     if (parent != 0 && !find(parent)) return RigResult::failure("parent bone does not exist");

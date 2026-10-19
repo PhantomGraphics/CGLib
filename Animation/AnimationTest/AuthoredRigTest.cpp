@@ -206,3 +206,27 @@ TEST(AuthoredRigTest, EmptyRigConvertsToEmptySkeleton)
     EXPECT_TRUE(rig.toSkeleton(sk).ok);
     EXPECT_TRUE(sk.bones.empty());
 }
+
+TEST(AuthoredRigTest, RestoreRoundTripsBonesAndKeepsIdsUnique)
+{
+    uint32_t ids[3];
+    AuthoredRig rig = makeChain(ids);
+    ASSERT_TRUE(rig.removeBone(ids[1]).ok);
+
+    AuthoredRig copy;
+    ASSERT_TRUE(copy.restore(rig.bones(), rig.nextId()).ok);
+    ASSERT_EQ(copy.size(), rig.size());
+    EXPECT_NE(copy.find(ids[2]), nullptr);
+    auto added = copy.addBone("New", {5, 0, 0}, {5, 1, 0});
+    EXPECT_GE(added.id, rig.nextId()); // an id used before the save is never handed out again
+
+    AuthoredRig bad;
+    auto bones = rig.bones();
+    EXPECT_FALSE(bad.restore(bones, 1).ok);         // ids not below nextId
+    bones[0].id = 0;
+    EXPECT_FALSE(bad.restore(bones, 99).ok);        // id 0
+    bones = rig.bones();
+    bones[1].parent = 12345;
+    EXPECT_FALSE(bad.restore(bones, 99).ok);        // missing parent
+    EXPECT_TRUE(bad.empty());
+}

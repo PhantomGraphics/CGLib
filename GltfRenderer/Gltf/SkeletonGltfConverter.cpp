@@ -356,7 +356,8 @@ bool SkeletonGltfConverter::convertRig(const Skeleton& skeleton,
     }
 
     GltfScene scene;
-    if (hasMesh) {
+    // The skin exists even without a mesh: its joints are what makes the bones poseable and keyable.
+    if (boneCount > 0) {
         GltfSkin skin;
         skin.joints.resize(boneCount);
         skin.inverseBindMatrices.resize(boneCount);
@@ -365,6 +366,8 @@ bool SkeletonGltfConverter::convertRig(const Skeleton& skeleton,
             skin.inverseBindMatrices[i] = skeleton.bones[i].bindPoseInverse;
         }
         out.skins.push_back(std::move(skin));
+    }
+    if (hasMesh) {
 
         out.materials = materials.materials;
         out.textures  = materials.textures;
