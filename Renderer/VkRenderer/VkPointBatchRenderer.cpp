@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 
 namespace Phantom::VKG {
 
@@ -75,6 +76,9 @@ bool VkPointBatchRenderer::create(const VulkanContext& ctx, const VulkanCommandP
         s.vertSpv = config_.sphereVertSpv;
         s.fragSpv = config_.sphereFragSpv;
         s.pushConstantRanges = { { VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(SpherePushConstants) } };
+        // Second vertex stream: one selection byte per point.
+        s.bindingDescs.push_back({ 1, 1, VK_VERTEX_INPUT_RATE_VERTEX });
+        s.attrDescs.push_back({ 3, 1, VK_FORMAT_R8_UNORM, 0 });
         // A failed sphere pipeline only disables sphere draws; the sprite path above stays usable.
         spherePipeline_.create(ctx, renderPass, s);
     }
@@ -84,7 +88,7 @@ bool VkPointBatchRenderer::create(const VulkanContext& ctx, const VulkanCommandP
 void VkPointBatchRenderer::destroy(VkDevice device)
 {
     if (device != VK_NULL_HANDLE) vkDeviceWaitIdle(device);
-    for (auto& kv : batches_) kv.second.buffer.destroy(device);
+    for (auto& kv : batches_) { kv.second.buffer.destroy(device); if (kv.second.hasSelection) kv.second.selection.destroy(device); }
     batches_.clear();
     pipeline_.destroy(device);
     spherePipeline_.destroy(device);
@@ -106,6 +110,12 @@ uint32_t VkPointBatchRenderer::addBatch(const PointBatchData& d)
     Batch b;
     if (!b.buffer.create(*ctx_, *pool_, verts.size() * sizeof(Vertex), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, verts.data()))
         return 0;
+    if (d.selectable) {
+        b.selection.createMapped(*ctx_, static_cast<VkDeviceSize>(n), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+        if (!b.selection.isValid()) { b.buffer.destroy(ctx_->getDevice()); return 0; }
+        std::memset(b.selection.getMapped(), 0, static_cast<size_t>(n));
+        b.hasSelection = true;
+    }
     b.count = static_cast<uint32_t>(n);
     b.bytes = verts.size() * sizeof(Vertex);
     const uint32_t id = nextId_++;
@@ -120,7 +130,20 @@ void VkPointBatchRenderer::removeBatch(uint32_t id)
     if (it == batches_.end()) return;
     if (ctx_) vkDeviceWaitIdle(ctx_->getDevice());
     it->second.buffer.destroy(ctx_ ? ctx_->getDevice() : VK_NULL_HANDLE);
+    if (it->second.hasSelection) it->second.selection.destroy(ctx_ ? ctx_->getDevice() : VK_NULL_HANDLE);
     batches_.erase(it);
+}
+
+bool VkPointBatchRenderer::setBatchSelection(uint32_t id, const uint32_t* indices, size_t count)
+{
+    auto it = batches_.find(id);
+    if (it == batches_.end() || !it->second.hasSelection || !ctx_) return false;
+    vkDeviceWaitIdle(ctx_->getDevice());
+    auto* bytes = static_cast<unsigned char*>(it->second.selection.getMapped());
+    std::memset(bytes, 0, it->second.count);
+    for (size_t i = 0; i < count; ++i)
+        if (indices[i] < it->second.count) bytes[indices[i]] = 255;
+    return true;
 }
 
 uint64_t VkPointBatchRenderer::batchPointCount(uint32_t id) const
@@ -132,7 +155,7 @@ uint64_t VkPointBatchRenderer::batchPointCount(uint32_t id) const
 uint64_t VkPointBatchRenderer::gpuBytes() const
 {
     uint64_t sum = 0;
-    for (const auto& kv : batches_) sum += kv.second.bytes;
+    for (const auto& kv : batches_) sum += kv.second.bytes + (kv.second.hasSelection ? kv.second.count : 0u);
     return sum;
 }
 
@@ -162,11 +185,14 @@ void VkPointBatchRenderer::render(VkCommandBuffer cmd, const std::vector<PointBa
             sp.tint = glm::vec4(d.tint, d.useTint ? 1.f : 0.f);
             sp.proj = glm::vec4(proj_[0][0], proj_[1][1], proj_[2][2], proj_[3][2]);
             sp.viewport = vpSet_ ? vp_ : glm::vec4(0.f, 0.f, float(targetHeight_) * std::abs(proj_[1][1]) / std::max(std::abs(proj_[0][0]), 1.0e-6f), float(targetHeight_));
-            sp.params = glm::vec4(largestScale(glm::mat3(sp.mv)), d.radiusScale, minPointSize_, srgbOutput_ ? 1.f : 0.f);
+            if (d.selectMode != 0 && !it->second.hasSelection) continue;
+            sp.params = glm::vec4(largestScale(glm::mat3(sp.mv)), d.radiusScale, minPointSize_,
+                (srgbOutput_ ? 1.f : 0.f) + 2.f * static_cast<float>(d.selectMode));
             vkCmdPushConstants(cmd, spherePipeline_.getLayout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(sp), &sp);
-            VkBuffer     svb  = it->second.buffer.get();
-            VkDeviceSize soff = 0;
-            vkCmdBindVertexBuffers(cmd, 0, 1, &svb, &soff);
+            if (!it->second.hasSelection) continue;   // the sphere pipeline always reads the selection stream
+            VkBuffer     svb[2]  = { it->second.buffer.get(), it->second.selection.get() };
+            VkDeviceSize soff[2] = { 0, 0 };
+            vkCmdBindVertexBuffers(cmd, 0, 2, svb, soff);
             vkCmdDraw(cmd, it->second.count, 1, 0, 0);
             continue;
         }

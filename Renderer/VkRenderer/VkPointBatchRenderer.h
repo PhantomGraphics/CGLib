@@ -24,6 +24,8 @@ struct PointBatchData {
     uint64_t     count     = 0;
     float        defaultColor[3] = { 0.8f, 0.8f, 0.8f };
     float        defaultRadius   = 0.01f;
+    /// true: the batch also gets one selection byte per point (see setBatchSelection), which sphere draws can filter by.
+    bool         selectable = false;
 };
 
 /// @brief One draw of a batch.
@@ -38,6 +40,10 @@ struct PointBatchDraw {
     /// @c tint is then the colour (useTint) or a multiplier of the per-point colour (!useTint).
     /// false (default): the flat world-radius sprite; the radius follows @c radiusScale only.
     bool      sphere = false;
+    /// Sphere draws of a selectable batch: 0 = every point; 1 = only the points that are not selected; 2 = only the selected points,
+    /// blended toward the selection colour. A non-zero mode on a batch without a selection stream draws nothing.
+    /// Drawing the two halves with different @c model matrices previews a transform of the selection without touching the buffer.
+    uint32_t  selectMode = 0;
 };
 
 /// @brief Draws many independent point sets ("batches") as round, world-radius point sprites.
@@ -70,6 +76,10 @@ public:
     /// @return batch id (> 0), or 0 on failure (no data, or buffer creation failed).
     uint32_t addBatch(const PointBatchData& data);
     void     removeBatch(uint32_t id);
+    /// @brief Marks exactly the points in @p indices (any order, out-of-range ignored) as selected and the others as not. Waits for
+    /// the GPU to be idle first (selection changes are discrete user actions, not per-frame work). False for an unknown batch or one
+    /// created without PointBatchData::selectable.
+    bool     setBatchSelection(uint32_t id, const uint32_t* indices, size_t count);
     uint64_t batchPointCount(uint32_t id) const;
     uint64_t gpuBytes() const;
     /// @brief Number of addBatch() calls that uploaded data since create() (a placement or camera change must not raise it).
@@ -87,7 +97,7 @@ public:
     void render(VkCommandBuffer cmd, const std::vector<PointBatchDraw>& draws) const;
 
 private:
-    struct Batch { VulkanBuffer buffer; uint32_t count = 0; uint64_t bytes = 0; };
+    struct Batch { VulkanBuffer buffer; VulkanBuffer selection; bool hasSelection = false; uint32_t count = 0; uint64_t bytes = 0; };
 
     Config   config_;
     const VulkanContext*     ctx_  = nullptr;

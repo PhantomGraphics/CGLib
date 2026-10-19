@@ -36,7 +36,10 @@ void main() {
     vec3 n = normalize(transpose(B) * (B * (p - viewCenter)));
     float facing = clamp(dot(n, -normalize(p)), 0.0, 1.0);
     float shade = mix(0.55, 1.0, facing);     // headlight, never darker than 55 %
-    vec3 rgb = fragColor * shade;
-    if (pc.params.w > 0.5) rgb = pow(max(rgb, vec3(0.0)), vec3(1.0 / 2.2));
+    int flags = int(pc.params.w + 0.5);
+    vec3 base = fragColor;
+    if ((flags >> 1) == 2) base = mix(base, vec3(1.0, 0.55, 0.1), 0.6);   // selected points
+    vec3 rgb = base * shade;
+    if ((flags & 1) != 0) rgb = pow(max(rgb, vec3(0.0)), vec3(1.0 / 2.2));
     outColor = vec4(rgb, 1.0);
 }

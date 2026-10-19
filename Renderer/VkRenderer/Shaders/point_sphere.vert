@@ -6,6 +6,7 @@
 layout(location = 0) in vec3  inPos;
 layout(location = 1) in vec3  inColor;
 layout(location = 2) in float inRadius;
+layout(location = 3) in float inSelected;   // 0 or 1 (R8_UNORM selection byte)
 
 layout(push_constant) uniform PC {
     mat4 mv;       // view * model
@@ -13,7 +14,8 @@ layout(push_constant) uniform PC {
     vec4 proj;     // projection P[0][0], P[1][1] (Vulkan Y flip included), P[2][2], P[3][2]
     vec4 viewport; // x, y, width, height of the viewport in pixels
     vec4 params;   // x: largest scale of mv's 3x3 (bounds the sprite), y: radius scale, z: min point size (px),
-                   // w > 0.5 => encode linear -> sRGB in the fragment shader
+                   // w = srgb + 2 * selectMode: bit 0 => encode linear -> sRGB in the fragment shader;
+                   // selectMode 0 = all points, 1 = only the unselected, 2 = only the selected (highlighted)
 } pc;
 
 layout(location = 0) out vec3 fragColor;
@@ -25,8 +27,11 @@ void main() {
     vec4 pv = pc.mv * vec4(inPos, 1.0);
     float w = -pv.z;
     gl_Position = vec4(pc.proj.x * pv.x, pc.proj.y * pv.y, pc.proj.z * pv.z + pc.proj.w, w);
-    if (!(r > 0.0) || !(w > 1.0e-4)) {
-        gl_Position = vec4(0.0, 0.0, -2.0, 1.0); // radius 0 and points behind the eye are not drawn (clipped)
+    int mode = int(pc.params.w + 0.5) >> 1;
+    bool selected = inSelected > 0.5;
+    bool hidden = (mode == 1 && selected) || (mode == 2 && !selected);
+    if (hidden || !(r > 0.0) || !(w > 1.0e-4)) {
+        gl_Position = vec4(0.0, 0.0, -2.0, 1.0); // radius 0, points behind the eye and filtered-out points are not drawn (clipped)
         gl_PointSize = 1.0;
     } else {
         float pixelsPerUnit = 0.5 * pc.viewport.w * abs(pc.proj.y);
