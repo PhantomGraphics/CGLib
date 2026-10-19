@@ -253,8 +253,11 @@ RigResult applyBrush(RigBinding& binding, const AuthoredRig& rig, const RigAdjac
     for (const auto& s : samples)
         if (s.sourceVertex >= binding.weights.size()) return RigResult::failure("vertex index out of range");
 
-    const std::vector<VertexInfluence>& before = binding.weights; // snapshot
-    std::vector<VertexInfluence> next = before;
+    // Every sample reads the weights as they were before the brush (a snapshot), and the results are written together at the end: only
+    // the touched vertices are copied, so a dab on a large mesh does not copy the whole weight array.
+    const std::vector<VertexInfluence>& before = binding.weights;
+    std::vector<std::pair<uint32_t, VertexInfluence>> updates;
+    updates.reserve(samples.size());
 
     for (const auto& s : samples) {
         const VertexInfluence& cur = before[s.sourceVertex];
@@ -291,22 +294,28 @@ RigResult applyBrush(RigBinding& binding, const AuthoredRig& rig, const RigAdjac
         }
 
         VertexInfluence inf;
-        if (normalizePairs(pairs, rig, inf)) next[s.sourceVertex] = inf;
-        else if (!sanitize(next[s.sourceVertex] = VertexInfluence{}, rig, strongestBone(cur)))
-            return RigResult::failure("weights are all zero");
+        if (normalizePairs(pairs, rig, inf)) {
+            updates.emplace_back(s.sourceVertex, inf);
+        } else {
+            VertexInfluence fallback;
+            if (!sanitize(fallback, rig, strongestBone(cur))) return RigResult::failure("weights are all zero");
+            updates.emplace_back(s.sourceVertex, fallback);
+        }
     }
-    binding.weights = std::move(next);
+    for (const auto& [vertex, inf] : updates) binding.weights[vertex] = inf;
     return RigResult::success();
 }
 
 bool isBindingValid(const RigBinding& binding, const AuthoredRig& rig, const RigMesh& mesh) {
     if (binding.rigRevision != rig.revision()) return false;
     if (binding.weights.size() != mesh.sourceCount) return false;
+    std::vector<uint8_t> known(rig.nextId(), 0);   // bone ids are below nextId
+    for (const auto& b : rig.bones()) if (b.id < known.size()) known[b.id] = 1;
     for (const auto& v : binding.weights) {
         double sum = 0.0;
         for (int k = 0; k < 4; ++k) {
             if (v.weight[k] < 0.f || !std::isfinite(v.weight[k])) return false;
-            if (v.weight[k] > 0.f && !rig.find(v.boneId[k])) return false;
+            if (v.weight[k] > 0.f && (v.boneId[k] >= known.size() || !known[v.boneId[k]])) return false;
             sum += v.weight[k];
         }
         if (std::fabs(sum - 1.0) > 1.0e-4) return false;
