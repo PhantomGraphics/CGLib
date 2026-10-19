@@ -372,6 +372,9 @@ bool SkeletonGltfConverter::convertRig(const Skeleton& skeleton,
         out.materials = materials.materials;
         out.textures  = materials.textures;
         out.images    = materials.images;
+        for (auto& image : out.images)
+            if (image.pixels.empty() && !image.uri.empty() && image.uri.rfind("data:", 0) != 0)
+                decodeImageFile(image, std::filesystem::u8path(image.uri));
         out.samplers  = materials.samplers;
         if (out.materials.empty()) out.materials.push_back(GltfMaterial{});
         const int matCount = static_cast<int>(out.materials.size());

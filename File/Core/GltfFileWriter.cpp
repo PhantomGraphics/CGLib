@@ -7,6 +7,7 @@
 #include <vector>
 #include <string>
 #include <algorithm>
+#include <cctype>
 
 using namespace Phantom::File;
 
@@ -98,14 +99,21 @@ namespace {
 
 bool GltfFileWriter::write(const std::filesystem::path& filename, const GltfFile& gltf)
 {
-	std::ofstream stream(filename);
+	std::string extension = filename.extension().string();
+	std::transform(extension.begin(), extension.end(), extension.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+	std::ofstream stream(filename, std::ios::binary);
 	if (!stream.is_open()) {
 		return false;
 	}
-	return write(stream, gltf);
+	return writeDocument(stream, gltf, extension == ".glb");
 }
 
 bool GltfFileWriter::write(std::ostream& stream, const GltfFile& gltf)
+{
+	return writeDocument(stream, gltf, false);
+}
+
+bool GltfFileWriter::writeDocument(std::ostream& stream, const GltfFile& gltf, bool binary)
 {
    // Build binary buffer / accessors / bufferViews
 	std::vector<uint8_t>     binData;
@@ -742,21 +750,40 @@ bool GltfFileWriter::write(std::ostream& stream, const GltfFile& gltf)
 
 	// buffers
 	if (!binData.empty()) {
-		const std::string b64 = base64Encode(binData.data(), binData.size());
 		std::ostringstream ss;
-		ss << "[{\"byteLength\": " << binData.size()
-			<< ", \"uri\": \"data:application/octet-stream;base64," << b64 << "\"}]";
+		ss << "[{\"byteLength\": " << binData.size();
+		if (!binary) ss << ", \"uri\": \"data:application/octet-stream;base64," << base64Encode(binData.data(), binData.size()) << "\"";
+		ss << "}]";
 		sections.push_back({ "buffers", ss.str() });
 	}
 
-   // Output JSON
-	stream << "{\n";
+   // GLB stores padded JSON and BIN chunks; ordinary glTF keeps its data URI.
+	std::ostringstream json;
+	json << "{\n";
 	for (size_t i = 0; i < sections.size(); ++i) {
-		stream << "  " << quoted(sections[i].first) << ": " << sections[i].second;
-		if (i + 1 < sections.size()) stream << ",";
-		stream << "\n";
+		json << "  " << quoted(sections[i].first) << ": " << sections[i].second;
+		if (i + 1 < sections.size()) json << ",";
+		json << "\n";
 	}
-	stream << "}\n";
+	json << "}\n";
+	std::string text = json.str();
+	if (!binary) { stream << text; return stream.good(); }
+	while (text.size() % 4) text.push_back(' ');
+	const bool hasBin = !binData.empty();
+	while (binData.size() % 4) binData.push_back(0);
+	const uint64_t total = 12ull + 8 + text.size() + (hasBin ? 8 + binData.size() : 0);
+	if (total > UINT32_MAX) return false;
+	auto word = [&](uint32_t value) {
+		const char bytes[4] = { static_cast<char>(value), static_cast<char>(value >> 8), static_cast<char>(value >> 16), static_cast<char>(value >> 24) };
+		stream.write(bytes, 4);
+	};
+	word(0x46546c67); word(2); word(static_cast<uint32_t>(total));
+	word(static_cast<uint32_t>(text.size())); word(0x4e4f534a);
+	stream.write(text.data(), static_cast<std::streamsize>(text.size()));
+	if (hasBin) {
+		word(static_cast<uint32_t>(binData.size())); word(0x004e4942);
+		stream.write(reinterpret_cast<const char*>(binData.data()), static_cast<std::streamsize>(binData.size()));
+	}
 
 	return stream.good();
 }
