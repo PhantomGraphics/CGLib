@@ -9,6 +9,7 @@ rem
 rem  Output files (written next to this script):
 rem    point.vert.spv / point.frag.spv
 rem    point_batch.vert.spv / point_batch.frag.spv
+rem    point_sphere.vert.spv / point_sphere.frag.spv
 rem    line.vert.spv  / line.frag.spv
 rem    triangle.vert.spv / triangle.frag.spv
 rem    tex.vert.spv   / tex.frag.spv
@@ -39,6 +40,12 @@ echo Compiling point batch shaders...
 if errorlevel 1 ( echo FAILED: point_batch.vert & exit /b 1 )
 %GLSLC% -fshader-stage=frag "%OUTDIR%point_batch.frag" -o "%OUTDIR%point_batch.frag.spv"
 if errorlevel 1 ( echo FAILED: point_batch.frag & exit /b 1 )
+
+echo Compiling point sphere shaders...
+%GLSLC% -fshader-stage=vert "%OUTDIR%point_sphere.vert" -o "%OUTDIR%point_sphere.vert.spv"
+if errorlevel 1 ( echo FAILED: point_sphere.vert & exit /b 1 )
+%GLSLC% -fshader-stage=frag "%OUTDIR%point_sphere.frag" -o "%OUTDIR%point_sphere.frag.spv"
+if errorlevel 1 ( echo FAILED: point_sphere.frag & exit /b 1 )
 
 echo Compiling line shaders...
 %GLSLC% -fshader-stage=vert "%OUTDIR%line.vert"  -o "%OUTDIR%line.vert.spv"
