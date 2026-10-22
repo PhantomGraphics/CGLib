@@ -29,6 +29,11 @@ include(PhantomVulkanApp)
 
 phantom_add_meshedit_core()
 
+# Explicit build/run only; keep performance work out of the normal test suite.
+add_executable(MeshReductionBenchmark EXCLUDE_FROM_ALL benchmarks/MeshReductionBenchmark.cpp)
+target_link_libraries(MeshReductionBenchmark PRIVATE MeshEditCore)
+target_compile_options(MeshReductionBenchmark PRIVATE ${PHANTOM_WARN_FLAGS})
+
 # MeshEditDemoCore: the CPU side of MeshEditView (the world -- mesh, selection, history, draw data -- and the command router).
 # No ImGui and no Vulkan, so MeshEditTest can check what the viewer does without a window and MeshEditView shares it.
 if(NOT TARGET MeshEditDemoCore)
@@ -55,6 +60,7 @@ if(PHANTOM_GTEST_FOUND)
             ${MESHEDIT_ROOT}/MeshEditTest/MeshEditPickingTest.cpp
             ${MESHEDIT_ROOT}/MeshEditTest/MeshEditStateTest.cpp
             ${MESHEDIT_ROOT}/MeshEditTest/MeshBooleanTest.cpp
+            ${MESHEDIT_ROOT}/MeshEditTest/MeshReductionTest.cpp
             ${MESHEDIT_ROOT}/MeshEditTest/PlanarMeshCleanupTest.cpp
             ${MESHEDIT_ROOT}/MeshEditTest/EditableMeshTest.cpp
             ${MESHEDIT_ROOT}/MeshEditTest/EditableMeshConvertTest.cpp

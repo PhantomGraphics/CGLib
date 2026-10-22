@@ -193,6 +193,7 @@ function(phantom_add_meshedit_core)
         ${CGLIB_ROOT}/MeshEdit/Core/EditableMesh.cpp
         ${CGLIB_ROOT}/MeshEdit/Core/EditableMeshConvert.cpp
         ${CGLIB_ROOT}/MeshEdit/Core/MeshBoolean.cpp
+        ${CGLIB_ROOT}/MeshEdit/Core/MeshReduction.cpp
         ${CGLIB_ROOT}/MeshEdit/Core/PlanarMeshCleanup.cpp
         ${CGLIB_ROOT}/MeshEdit/Core/PlanarTriangulation.cpp
         ${CGLIB_ROOT}/MeshEdit/Core/MeshEditOperations.cpp
