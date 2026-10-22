@@ -3,6 +3,8 @@
 // oriented closed surfaces (cavity shells face into the cavity). Input quads must
 // be planar within tolerance. Empty meshes represent the empty set.
 // Output is triangulated, with fresh ids above a's counters and a fresh revision.
+// Planar, attribute-compatible redundant subdivisions are cleaned automatically;
+// UV/normal interpolation boundaries are retained. No animation edge loops are generated.
 // Inputs may alias out. Failure leaves out untouched and reports a reason; success
 // clears *error. No scene, Vulkan, external CSG library, or exception dependency.
 #include "EditableMesh.h"

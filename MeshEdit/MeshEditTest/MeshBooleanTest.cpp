@@ -307,3 +307,40 @@ TEST(MeshBoolean, PrecisionAndIdExhaustionFailAtomically) {
         EXPECT_EQ(revision, out.revision);
     }
 }
+
+TEST(MeshBoolean, CharacterRobotSequentialUnionHasBoundedTopology) {
+    auto part = [](float x, float y, float sx, float sy, float sz) {
+        auto m = makeEditableBox();
+        for (auto& v : m.vertices) {
+            v.pos[0] = v.pos[0] * sx + x;
+            v.pos[1] = v.pos[1] * sy + y;
+            v.pos[2] *= sz;
+        }
+        return m;
+    };
+    const std::array<EditableMesh, 5> parts{
+        part(0, 3.05f, .85f, .8f, .7f), part(1.1f, 2.45f, 1.2f, .4f, .5f),
+        part(-1.1f, 2.45f, 1.2f, .4f, .5f), part(.35f, .75f, .45f, 1.2f, .55f),
+        part(-.35f, .75f, .45f, 1.2f, .55f)};
+    for (bool reverse : {false, true}) {
+        auto robot = part(0, 2, 1.2f, 1.4f, .65f);
+        std::string error;
+        const std::array<size_t, 5> order = reverse ? std::array<size_t, 5>{0, 2, 1, 4, 3}
+                                                  : std::array<size_t, 5>{0, 1, 2, 3, 4};
+        for (size_t k = 0; k < order.size(); ++k) {
+            ASSERT_TRUE(booleanMeshes(robot, parts[order[k]], BooleanOperation::Union, robot, {}, &error)) << error;
+            EXPECT_TRUE(robot.validate());
+            EXPECT_LE(robot.faces.size(), 874u);
+            std::printf("[RobotBoolean] %s step=%zu vertices=%zu triangles=%zu volume=%.9f\n",
+                        reverse ? "reverse" : "forward", k + 1, robot.vertices.size(), robot.faces.size(), volume(robot));
+        }
+        EXPECT_NEAR(2.549625, volume(robot), 1e-5);
+        EXPECT_LE(robot.faces.size(), 874u);
+        // The boundary and volume must be symmetric; diagonals and vertex IDs
+        // are allowed to depend on the operand order.
+        for (const auto& v : robot.vertices) {
+            EXPECT_GE(v.pos[0], -1.70001f); EXPECT_LE(v.pos[0], 1.70001f);
+            EXPECT_GE(v.pos[1], .14999f); EXPECT_LE(v.pos[1], 3.45001f);
+        }
+    }
+}

@@ -1,4 +1,6 @@
 #include "MeshBoolean.h"
+#include "PlanarMeshCleanup.h"
+#include "PlanarTriangulation.h"
 #include "CGLib/Math/Core/Vector3d.h"
 #include <algorithm>
 #include <array>
@@ -634,12 +636,14 @@ bool reconstruct(const std::vector<Polygon>& polygons, const EditableMesh& a, co
                         if (!ctx.tick())
                             return false;
                         double d = length(positions[j] - p);
-                        if (d <= ctx.eps * 0.01) {
+                        // Float input positions and independently intersected
+                        // planes can differ within the declared tolerance after
+                        // a previous Boolean. Share that intersection; collapsed
+                        // corners/edges and invalid solids are still rejected.
+                        if (d <= ctx.eps) {
                             index = j;
                             return true;
                         }
-                        if (d <= ctx.eps)
-                            return ctx.fail("Boolean distinct vertices are closer than the precision limit");
                     }
                 }
         if (m.nextVertexId == UINT32_MAX)
@@ -728,36 +732,20 @@ bool reconstruct(const std::vector<Polygon>& polygons, const EditableMesh& a, co
             m.addFace({corner(i, ci), corner(j, cj), corner(k, ck)});
             return true;
         };
-        if (boundary.size() == 3) {
-            if (!face(boundary[0].first, boundary[0].second, boundary[1].first, boundary[1].second,
-                      boundary[2].first, boundary[2].second))
-                return false;
-        } else {
-            // Convex BSP fragments: a centre fan preserves every collinear boundary
-            // vertex, unlike a first-corner fan which can reintroduce T-junctions.
-            Corner c;
-            c.normal = true;
-            for (const auto& v : p.c) {
-                c.p += v.p;
-                c.n += v.n;
-                c.u += v.u;
-                c.v += v.v;
-                c.normal = c.normal && v.normal;
-            }
-            double n = double(p.c.size());
-            c.p /= n;
-            c.n /= n;
-            c.u /= n;
-            c.v /= n;
-            size_t mid = 0;
-            if (!vertex(c.p, mid))
-                return false;
-            for (size_t k = 0; k < boundary.size(); ++k) {
-                const auto& x = boundary[k];
-                const auto& y = boundary[(k + 1) % boundary.size()];
-                if (!face(mid, c, x.first, x.second, y.first, y.second))
-                    return false;
-            }
+        std::vector<V> points;
+        for (const auto& v : boundary) points.push_back(positions[v.first]);
+        std::vector<std::array<size_t, 3>> triangles;
+        size_t work = 50000000 - ctx.work;
+        const size_t previousWork = work;
+        const bool triangulated = detail::triangulatePlanarBoundary(points, p.n, ctx.eps, work, triangles);
+        if (!ctx.tick(previousWork - work)) return false;
+        if (!triangulated)
+            return ctx.fail(work ? "Boolean cannot triangulate fragment boundary" : "Boolean work limit exceeded");
+        for (const auto& t : triangles) {
+            const auto& x = boundary[t[0]];
+            const auto& y = boundary[t[1]];
+            const auto& z = boundary[t[2]];
+            if (!face(x.first, x.second, y.first, y.second, z.first, z.second)) return false;
         }
     }
     // Remove vertices not used by any surviving fragment, without recycling ids.
@@ -776,6 +764,20 @@ bool reconstruct(const std::vector<Polygon>& polygons, const EditableMesh& a, co
         ctx.message = "Boolean output validation: " + error;
         return false;
     }
+    PlanarCleanupOptions cleanup;
+    cleanup.relativeTolerance = options.relativeTolerance;
+    // Reserve half the remaining traversal budget for cleanup and half for the
+    // final solid validation. Charging the reservation keeps the total bounded
+    // without exposing Boolean's Context in the reusable cleanup API.
+    cleanup.maxWork = (50000000 - ctx.work) / 2;
+    if (!cleanup.maxWork) return ctx.fail("Boolean work limit exceeded");
+    if (!cleanupPlanarMesh(m, m, cleanup, &error)) {
+        ctx.message = "Boolean output cleanup: " + error;
+        return false;
+    }
+    if (!ctx.tick(cleanup.maxWork)) return false;
+    // Cleanup never increases faces. Retain the original output cap, fresh-ID
+    // contract, and full solid validation after the topology changes.
     std::vector<Triangle> ts;
     if (!triangulate(m, center, scale, ts, ctx) || !solidValid(m, ts, ctx))
         return false;
