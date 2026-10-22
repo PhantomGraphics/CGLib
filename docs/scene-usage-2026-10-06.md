@@ -34,7 +34,7 @@ CMake の link・vcxproj の `AdditionalDependencies` を `git grep` 相当で�
 | 利用者 | 内容 |
 |---|---|
 | `CGApp/Universe`（`UniverseScene.h`・`UniverseSceneIO.cpp`・`CommandDispatcher.cpp`・`AssetSidecar.*`・`SceneMerge.h`・`Rendering/GltfRenderer.cpp`） | `.universe` のシーン本体 |
-| `CGApp/PhantomStudio/PhantomStudioEngine`（`PhantomStudioSession.*`・`TransactionManager.h`） | Studio のシーンモデル・Undo |
+| `CGApp/PhantomStudio/PhantomStudioEngine`（`PhantomStudioSession.*`・`SessionState.h`） | Studio のシーンモデル・Undo |
 | `CGApp/Common/RigidSim`（`ClipSimWorld`・`RigidBodyCore`・`RigidSimWorld`） | 剛体シミュレーションのノード/コライダー記述 |
 | `CGApp/CMakeLists.txt`（`CGAPP_NATIVE_DEPS`）・`Universe.vcxproj`・`PhantomStudio*.vcxproj`・`UniverseTest/CMakeLists.txt` | 上記のリンク |
 | `CGLib/tests/install_consumer` | install 検証 |
