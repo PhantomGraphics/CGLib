@@ -1,4 +1,4 @@
-#include "CommandDispatcher.h"
+﻿#include "CommandDispatcher.h"
 
 #include <algorithm>
 #include <charconv>
@@ -108,6 +108,7 @@ std::vector<CommandInfo> CommandDispatcher::commandCatalog() const {
         {"SetCutterVisible", "0|1", "Show or hide the cutter wireframe"},
         {"GetCutter", "", "Cutter source, transform and visibility"},
         {"Boolean", "union|difference|intersection", "Bake evaluated mesh Boolean cutter as one undo step"},
+        {"Reduce", "ratio=0.5 | target=N", "Reduce evaluated triangles in object mode; preserve protected topology"},
         {"GetCounts", "", "Counts:vertices,edges,faces of the editing mesh"},
         {"GetEvaluatedCounts", "", "Counts after the modifier stack"},
         {"SetMode", "edit|object", "Enter or leave edit mode"},
@@ -250,6 +251,28 @@ std::string CommandDispatcher::route(const std::string& line) {
         else
             return fail("expected Boolean:union|difference|intersection");
         return result(w.applyBoolean(operation));
+    }
+    if (c.verb == "Reduce") {
+        if (!c.positional.empty() || c.options.size() != 1)
+            return fail("expected Reduce:ratio=<0..1> or target=<positive integer>");
+        MeshReductionOptions options;
+        const auto& [key, value] = *c.options.begin();
+        if (key == "ratio") {
+            if (!parseDouble(value, options.ratio) || options.ratio <= 0 || options.ratio > 1)
+                return fail("ratio must be greater than 0 and at most 1");
+        } else if (key == "target") {
+            const auto [end, ec] = std::from_chars(value.data(), value.data() + value.size(), options.targetTriangles);
+            if (ec != std::errc{} || end != value.data() + value.size() || options.targetTriangles == 0)
+                return fail("target must be a positive integer");
+        } else return fail("unknown reduction option " + key);
+        MeshReductionReport report;
+        const std::string error = w.reduce(options, report);
+        if (!error.empty()) return fail(error);
+        return "Reduction:input=" + std::to_string(report.inputTriangles) +
+            ",output=" + std::to_string(report.outputTriangles) +
+            ",target=" + std::to_string(report.targetTriangles) +
+            ",changed=" + std::to_string(report.changed) +
+            ",reached=" + std::to_string(report.targetReached);
     }
     if (c.verb == "NewMesh") {
         Shape shape;

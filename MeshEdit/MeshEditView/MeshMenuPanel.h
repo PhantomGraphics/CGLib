@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "MeshWorld.h"
 
@@ -38,6 +38,9 @@ private:
     int divs_ = 2;
     float distance_ = 0.3f, thickness_ = 0.08f, depth_ = 0.f, width_ = 0.1f, factor_ = 0.5f, angle_ = 180.f;
     float move_[3] = { 0.f, 0.2f, 0.f };
+    float reductionRatio_ = 0.5f;
+    int reductionTarget_ = 100;
+    bool reductionByCount_ = false;
     int levels_ = 1;
     bool mirrorAxis_[3] = { true, false, false };
 };

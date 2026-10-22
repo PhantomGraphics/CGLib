@@ -1,0 +1,113 @@
+{
+  "name": "Polygon reduction and history",
+  "steps": [
+    {
+      "command": "NewMesh:plane divs=8",
+      "expect": "OK"
+    },
+    {
+      "command": "Reduce:ratio=0.5",
+      "expect": "Reduction:input=128,output=64,target=64,changed=1,reached=1"
+    },
+    {
+      "command": "GetHistory",
+      "expect": "History:undo=1,redo=0"
+    },
+    {
+      "command": "Undo",
+      "expect": "OK"
+    },
+    {
+      "command": "GetCounts",
+      "expect": "Counts:81,144,64"
+    },
+    {
+      "command": "Reduce:ratio=nan",
+      "expect_prefix": "Error:"
+    },
+    {
+      "command": "Reduce:ratio=0",
+      "expect_prefix": "Error:"
+    },
+    {
+      "command": "Reduce:target=-1",
+      "expect_prefix": "Error:"
+    },
+    {
+      "command": "Reduce:target=1.5",
+      "expect_prefix": "Error:"
+    },
+    {
+      "command": "Reduce:ratio=0.5 target=10",
+      "expect_prefix": "Error:"
+    },
+    {
+      "command": "GetHistory",
+      "expect": "History:undo=0,redo=1"
+    },
+    {
+      "command": "Redo",
+      "expect": "OK"
+    },
+    {
+      "command": "SetMode:edit",
+      "expect": "OK"
+    },
+    {
+      "command": "Reduce:ratio=0.5",
+      "expect_prefix": "Error:"
+    },
+    {
+      "command": "GetHistory",
+      "expect": "History:undo=1,redo=0"
+    },
+    {
+      "command": "NewMesh:box",
+      "expect": "OK"
+    },
+    {
+      "command": "SetMode:object",
+      "expect": "OK"
+    },
+    {
+      "command": "Reduce:ratio=0.5",
+      "expect": "Reduction:input=12,output=12,target=6,changed=0,reached=0"
+    },
+    {
+      "command": "GetHistory",
+      "expect": "History:undo=0,redo=0"
+    },
+    {
+      "command": "NewMesh:plane divs=8",
+      "expect": "OK"
+    },
+    {
+      "command": "AddModifier:subdivision levels=1",
+      "expect": "OK"
+    },
+    {
+      "command": "Reduce:target=256",
+      "expect": "Reduction:input=512,output=256,target=256,changed=1,reached=1"
+    },
+    {
+      "command": "GetModifierCount",
+      "expect": "Modifiers:0"
+    },
+    {
+      "command": "Undo",
+      "expect": "OK"
+    },
+    {
+      "command": "GetModifierCount",
+      "expect": "Modifiers:1"
+    },
+    {
+      "command": "Redo",
+      "expect": "OK"
+    },
+    {
+      "command": "GetModifierCount",
+      "expect": "Modifiers:0"
+    }
+  ]
+}

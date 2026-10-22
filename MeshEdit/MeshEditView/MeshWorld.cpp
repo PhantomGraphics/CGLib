@@ -1,4 +1,4 @@
-#include "MeshWorld.h"
+﻿#include "MeshWorld.h"
 
 #include <algorithm>
 #include <cmath>
@@ -469,6 +469,27 @@ std::string MeshWorld::applyBoolean(BooleanOperation operation) {
     edit_.ids.clear();
     cutterPreview_.reset();
     invalidate();
+    return {};
+}
+
+std::string MeshWorld::reduce(const MeshReductionOptions& options, MeshReductionReport& report) {
+    if (edit_.editMode) return "Reduction requires object mode (SetMode:object)";
+    EditableMesh input, output;
+    std::string error;
+    if (!evaluate(input, &error)) return error;
+    MeshReductionReport next;
+    if (!reduceMesh(input, options, output, next, &error)) return error;
+    // A protected/no-op result must not bake modifiers or discard the redo branch.
+    if (next.changed) {
+        pushUndo();
+        mesh_ = std::make_shared<const EditableMesh>(std::move(output));
+        modifiers_.clear();
+        edit_.ids.clear();
+        cutterPreview_.reset();
+        invalidate();
+    }
+    lastReduction_ = next;
+    report = next;
     return {};
 }
 

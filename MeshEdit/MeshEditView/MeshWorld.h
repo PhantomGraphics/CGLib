@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 // MeshWorld: the state behind MeshEditView -- one EditableMesh with its modifier stack, the edit-session selection, an undo
 // history, and the CPU-built draw data (faces / edges / vertices) the renderer uploads. No ImGui and no Vulkan, so
@@ -13,6 +13,7 @@
 #include "../Core/MeshEditPicking.h"
 #include "../Core/MeshEditState.h"
 #include "../Core/MeshBoolean.h"
+#include "../Core/MeshReduction.h"
 
 #include <array>
 #include <memory>
@@ -111,6 +112,12 @@ public:
     void setCutterVisible(bool visible);
     std::string applyBoolean(Phantom::MeshEdit::BooleanOperation operation);
 
+    // Object-mode reduction of the evaluated mesh. Report is unchanged on failure.
+    std::string reduce(const Phantom::MeshEdit::MeshReductionOptions& options,
+                       Phantom::MeshEdit::MeshReductionReport& report);
+
+    const std::optional<Phantom::MeshEdit::MeshReductionReport>& lastReduction() const { return lastReduction_; }
+
     // ---- history ----
     bool undo();
     bool redo();
@@ -153,6 +160,7 @@ private:
     Phantom::MeshEdit::MeshEditState edit_;
     std::vector<Snapshot> undo_, redo_;
     Display display_;
+    std::optional<Phantom::MeshEdit::MeshReductionReport> lastReduction_;
     Cutter cutter_;
     std::optional<CutterTransform> cutterPreview_;
     glm::vec3 eye_{ 0.f, 0.f, 5.f };

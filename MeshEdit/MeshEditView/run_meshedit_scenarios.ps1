@@ -1,9 +1,14 @@
-# run_meshedit_scenarios.ps1 - Run all MeshEditView scenario tests
+﻿# run_meshedit_scenarios.ps1 - Run all MeshEditView scenario tests
 # Usage: .\CGLib\MeshEdit\MeshEditView\run_meshedit_scenarios.ps1 [-Configuration Debug|Release]
 # Run from the repository root or the CGLib\MeshEdit\MeshEditView directory.
 
 param(
-    [string]$Configuration = "Debug"
+    [ValidateSet("Debug", "Release")]
+    [string]$Configuration = "Debug",
+    [string]$Filter = "*",
+    [ValidateRange(1, 3600)]
+    [int]$TimeoutSeconds = 120,
+    [string]$ExecutablePath = ""
 )
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -21,6 +26,13 @@ for ($root = $srcDir; $root; $root = Split-Path -Parent $root) {
     $tried    += $candidate
     if (Test-Path $candidate) { $exe = $candidate; break }
 }
+if ($ExecutablePath) {
+    if (-not (Test-Path -LiteralPath $ExecutablePath -PathType Leaf)) {
+        Write-Error "Executable not found: $ExecutablePath"
+        exit 1
+    }
+    $exe = (Resolve-Path -LiteralPath $ExecutablePath).Path
+}
 $scenDir   = Join-Path $scriptDir "scenarios"
 
 if (-not $exe) {
@@ -30,7 +42,7 @@ if (-not $exe) {
 }
 Write-Host "Using $exe"
 
-$scenarios = Get-ChildItem "$scenDir\*.json" | Sort-Object Name
+$scenarios = Get-ChildItem "$scenDir\*.json" | Where-Object { $_.BaseName -like $Filter } | Sort-Object Name
 if ($scenarios.Count -eq 0) {
     Write-Host "ERROR: No scenario JSON files found in $scenDir"
     exit 1
@@ -43,7 +55,15 @@ foreach ($s in $scenarios) {
     Write-Host "Running: $($s.BaseName)"
     $proc = Start-Process -FilePath $exe `
         -ArgumentList "--run-scenario `"$($s.FullName)`"" `
-        -PassThru -Wait -WorkingDirectory $scriptDir
+        -PassThru -WindowStyle Hidden -WorkingDirectory $scriptDir
+    if (-not $proc.WaitForExit($TimeoutSeconds * 1000)) {
+        $proc.Kill()
+        $proc.WaitForExit()
+        Write-Host "FAILED: $($s.BaseName) (timeout after $TimeoutSeconds seconds)"
+        $failed++
+        continue
+    }
+    $proc.Refresh()
     if ($proc.ExitCode -eq 0) {
         Write-Host "PASSED: $($s.BaseName)"
         $passed++

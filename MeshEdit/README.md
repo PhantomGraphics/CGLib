@@ -1,4 +1,4 @@
-# MeshEdit Boolean
+﻿# MeshEdit Boolean
 
 `MeshEditCore` provides CPU polygon-mesh editing. `MeshEditView` is its Vulkan test viewer.
 Boolean operations are implemented in `Core/MeshBoolean.h` without an external CSG library.
@@ -99,3 +99,24 @@ coplanar contacts, fixed rotations, UV interpolation/seams, normals, empty resul
 limits, id exhaustion, determinism, atomic failure, preview, commands and Undo/Redo.
 `MeshEditView/scenarios/boolean.json` exercises all three operations and empty-result
 rendering through the real viewer alongside the existing scenario suite.
+
+## Polygon reduction scenarios
+
+The Control window's Polygon Reduction section and `Reduce:ratio=0.5` /
+`Reduce:target=256` share the same object-mode handler. Reduction uses the evaluated
+mesh. A changed result clears modifiers and selection as one Undo step; Undo restores
+the original mesh and modifier stack. A protected/no-op result leaves history and the
+modifier stack intact. Invalid input changes nothing. Targets blocked by protected
+borders, seams or sharp features are successful partial results.
+
+The response `Reduction:input=N,output=N,target=N,changed=0|1,reached=0|1` reports
+triangle counts, rather than polygon counts. `scenarios/reduction.json` checks ratio
+and count targets, Undo/Redo, modifier baking, protected topology and invalid arguments.
+
+The scenario runner accepts `-Filter 'reduction'`, `-TimeoutSeconds 120` and
+`-ExecutablePath <absolute exe path>` to select a freshly built viewer explicitly.
+For the standalone CGLib build, run from the CGLib root:
+
+```powershell
+.\MeshEdit\MeshEditView\run_meshedit_scenarios.ps1 -Configuration Debug
+```

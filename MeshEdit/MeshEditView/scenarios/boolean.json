@@ -102,6 +102,10 @@
       "expect": "Volume:1.000000,closed=1"
     },
     {
+      "command": "GetCounts",
+      "store_as": "before_rejected_boolean"
+    },
+    {
       "label": "SetMode:edit",
       "command": "SetMode:edit",
       "expect": "OK"
@@ -110,6 +114,10 @@
       "label": "Boolean:union",
       "command": "Boolean:union",
       "expect_prefix": "Error:"
+    },
+    {
+      "command": "GetCounts",
+      "expect": "${before_rejected_boolean}"
     },
     {
       "label": "SetMode:object",

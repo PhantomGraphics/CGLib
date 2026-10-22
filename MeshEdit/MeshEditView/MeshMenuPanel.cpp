@@ -1,4 +1,4 @@
-#include "MeshMenuPanel.h"
+﻿#include "MeshMenuPanel.h"
 
 #include "imgui.h"
 
@@ -171,6 +171,24 @@ void MeshMenuPanel::onImGui() {
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.f, 0.35f, 0.25f, 1.f));
         ImGui::TextWrapped("%s", error_.c_str());
         ImGui::PopStyleColor();
+    }
+
+    ImGui::Separator();
+    ImGui::TextUnformatted("Polygon Reduction");
+    ImGui::BeginDisabled(edit);
+    ImGui::Checkbox("Use triangle count", &reductionByCount_);
+    if (reductionByCount_) ImGui::InputInt("Target triangles", &reductionTarget_);
+    else ImGui::SliderFloat("Triangle ratio", &reductionRatio_, 0.01f, 1.f);
+    if (ImGui::Button("Apply Reduction"))
+        send(reductionByCount_ ? "Reduce:target=" + std::to_string(reductionTarget_)
+                               : "Reduce:ratio=" + std::to_string(reductionRatio_));
+    ImGui::EndDisabled();
+    if (edit) ImGui::TextDisabled("Switch to object mode to reduce polygons");
+    if (const auto& last = world_->lastReduction()) {
+        ImGui::TextWrapped("Last reduction: %zu -> %zu triangles (target %zu)",
+                           last->inputTriangles, last->outputTriangles, last->targetTriangles);
+        if (!last->targetReached)
+            ImGui::TextWrapped("Protected topology prevented reaching the target.");
     }
 
     // ---- history ----

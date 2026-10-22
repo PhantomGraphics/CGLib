@@ -1,4 +1,4 @@
-#include <gtest/gtest.h>
+﻿#include <gtest/gtest.h>
 
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -521,4 +521,62 @@ TEST(MeshWorldBoolean, CutterNormalsFollowInverseTranspose) {
             }
         }
     EXPECT_TRUE(checked);
+}
+
+TEST(MeshEditViewReduction, CommandsHistoryAndAtomicFailure) {
+    Fixture f;
+    EXPECT_EQ("OK", f.run("NewMesh:plane divs=8"));
+    const auto before = f.run("GetCounts");
+    EXPECT_EQ("Reduction:input=128,output=64,target=64,changed=1,reached=1", f.run("Reduce:ratio=0.5"));
+    EXPECT_EQ(64u, f.world.baseCounts().faces);
+    EXPECT_TRUE(f.world.base().validate());
+    const auto after = f.run("GetCounts");
+    EXPECT_EQ("OK", f.run("Undo"));
+    EXPECT_EQ(before, f.run("GetCounts"));
+    for (const auto* cmd : {"Reduce:ratio=nan", "Reduce:ratio=0", "Reduce:target=-1",
+                            "Reduce:target=1.5", "Reduce:ratio=0.5 target=10", "Reduce:unknown=1"})
+        EXPECT_EQ(0u, f.run(cmd).find("Error:")) << cmd;
+    EXPECT_EQ("History:undo=0,redo=1", f.run("GetHistory"));
+    EXPECT_EQ("OK", f.run("Redo"));
+    EXPECT_EQ(after, f.run("GetCounts"));
+    EXPECT_EQ("OK", f.run("SetMode:edit"));
+    EXPECT_EQ(0u, f.run("Reduce:ratio=0.5").find("Error:"));
+    EXPECT_EQ(after, f.run("GetCounts"));
+}
+
+TEST(MeshEditViewReduction, ProtectedNoOpAndModifierBake) {
+    Fixture f;
+    EXPECT_EQ("Reduction:input=12,output=12,target=6,changed=0,reached=0", f.run("Reduce:ratio=0.5"));
+    EXPECT_EQ("History:undo=0,redo=0", f.run("GetHistory"));
+    EXPECT_EQ("OK", f.run("NewMesh:plane divs=8"));
+    EXPECT_EQ("OK", f.run("AddModifier:subdivision levels=1"));
+    const auto evaluated = f.run("GetEvaluatedCounts");
+    EXPECT_EQ("Reduction:input=512,output=256,target=256,changed=1,reached=1", f.run("Reduce:target=256"));
+    EXPECT_EQ("Modifiers:0", f.run("GetModifierCount"));
+    EXPECT_EQ("OK", f.run("Undo"));
+    EXPECT_EQ("Modifiers:1", f.run("GetModifierCount"));
+    EXPECT_EQ(evaluated, f.run("GetEvaluatedCounts"));
+    EXPECT_EQ("OK", f.run("Redo"));
+    EXPECT_EQ("Modifiers:0", f.run("GetModifierCount"));
+}
+
+TEST(MeshEditViewReduction, CoreFailureAndNoOpKeepRedoAndReport) {
+    Fixture f;
+    ASSERT_EQ("OK", f.run("NewMesh:plane divs=8"));
+    ASSERT_EQ(0u, f.run("Reduce:ratio=0.5").find("Reduction:"));
+    ASSERT_EQ("OK", f.run("Undo"));
+    const auto revision = f.world.base().revision;
+    MeshReductionOptions options;
+    options.maxWork = 1;
+    MeshReductionReport report;
+    report.work = 123;
+    EXPECT_FALSE(f.world.reduce(options, report).empty());
+    EXPECT_EQ(123u, report.work);
+    EXPECT_EQ(revision, f.world.base().revision);
+    EXPECT_EQ("History:undo=0,redo=1", f.run("GetHistory"));
+    EXPECT_EQ(64u, f.world.lastReduction()->outputTriangles);
+    EXPECT_EQ("Reduction:input=128,output=128,target=128,changed=0,reached=1", f.run("Reduce:ratio=1"));
+    EXPECT_EQ(revision, f.world.base().revision);
+    EXPECT_EQ("History:undo=0,redo=1", f.run("GetHistory"));
+    EXPECT_EQ("OK", f.run("Redo"));
 }
