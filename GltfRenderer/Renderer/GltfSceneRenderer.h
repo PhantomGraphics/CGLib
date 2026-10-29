@@ -310,6 +310,8 @@ namespace Phantom::Gltf
         // descriptor set, so the caster matches the skinned/morphed pose drawn in the main pass. Push constants are
         // {lightVP, model} like renderShadowCasters(). Call between a ShadowMapPass's begin()/end().
         void createSkinnedShadowPipeline(VkRenderPass shadowRenderPass);
+        // Optional tangent attribute for callers encoding GPU morph metadata alongside skinning.
+        void createSkinnedShadowPipeline(VkRenderPass shadowRenderPass, bool includeTangent);
         bool hasSkinnedShadowPipeline() const { return skinnedShadowPipeline_.getPipeline() != VK_NULL_HANDLE; }
         void renderSkinnedShadowCasters(VkCommandBuffer cmd, const glm::mat4& lightVP, uint32_t frameIndex);
 

@@ -372,6 +372,11 @@ void GltfSceneRenderer::createShadowPipeline(VkRenderPass shadowRenderPass)
 
 void GltfSceneRenderer::createSkinnedShadowPipeline(VkRenderPass shadowRenderPass)
 {
+    createSkinnedShadowPipeline(shadowRenderPass, false);
+}
+
+void GltfSceneRenderer::createSkinnedShadowPipeline(VkRenderPass shadowRenderPass, bool includeTangent)
+{
     if (!ctx_ || shaders_.skinnedShadowVertSpv.empty() || shaders_.shadowFragSpv.empty())
         return;
     skinnedShadowPipeline_.destroy(ctx_->getDevice());
@@ -383,6 +388,7 @@ void GltfSceneRenderer::createSkinnedShadowPipeline(VkRenderPass shadowRenderPas
     // position (0), joint indices (4), joint weights (5)
     auto allAttrs = GltfGpuMesh::Vertex::getAttributeDescriptions();
     cfg.attrDescs = { allAttrs[0], allAttrs[4], allAttrs[5] };
+    if (includeTangent) cfg.attrDescs.push_back(allAttrs[3]);
     cfg.descriptorSetLayouts = { descriptors_.globalLayout() };
     cfg.cullMode    = VK_CULL_MODE_NONE;
     cfg.blendEnable = false;
