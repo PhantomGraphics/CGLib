@@ -375,6 +375,7 @@ function(phantom_add_animation_core)
         ${CGLIB_ROOT}/Animation/Core/IKSolver.cpp
         ${CGLIB_ROOT}/Animation/Core/MorphAnimator.cpp
         ${CGLIB_ROOT}/Animation/Core/PMXConverter.cpp
+        ${CGLIB_ROOT}/Animation/Core/RigMirror.cpp
         ${CGLIB_ROOT}/Animation/Core/RigSkinning.cpp
         ${CGLIB_ROOT}/Animation/Core/Skeleton.cpp
         ${CGLIB_ROOT}/Animation/Core/VMDConverter.cpp
