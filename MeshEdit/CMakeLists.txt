@@ -60,6 +60,7 @@ if(PHANTOM_GTEST_FOUND)
             ${MESHEDIT_ROOT}/MeshEditTest/MeshEditPickingTest.cpp
             ${MESHEDIT_ROOT}/MeshEditTest/MeshEditStateTest.cpp
             ${MESHEDIT_ROOT}/MeshEditTest/MeshBooleanTest.cpp
+            ${MESHEDIT_ROOT}/MeshEditTest/MeshJoinTest.cpp
             ${MESHEDIT_ROOT}/MeshEditTest/MeshReductionTest.cpp
             ${MESHEDIT_ROOT}/MeshEditTest/PlanarMeshCleanupTest.cpp
             ${MESHEDIT_ROOT}/MeshEditTest/EditableMeshTest.cpp
