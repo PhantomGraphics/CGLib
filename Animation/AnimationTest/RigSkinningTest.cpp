@@ -5,6 +5,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+#include <algorithm>
 #include <cmath>
 #include <cstring>
 #include <limits>
@@ -303,4 +304,196 @@ TEST(RigSkinningTest, TransformRejectsSingularAndNonFinite)
     bad[3][0] = std::numeric_limits<float>::infinity();
     EXPECT_FALSE(RS::transformToRigSpace(m, bad).ok);
     EXPECT_EQ(m.vertices[1].position, f.mesh.vertices[1].position);
+}
+
+// ---- limited automatic weights (docs/todo/PLAN_phantomstudio_character_workflow.md Phase 2) ----
+
+namespace {
+
+// A mesh of loose triangles, one per point (vertices are welded by position, so far-apart points stay separate source vertices).
+RigMesh pointsMesh(const std::vector<glm::vec3>& points)
+{
+    std::vector<SkinVertex> verts;
+    std::vector<uint32_t> idx;
+    for (const glm::vec3& p : points) {
+        const uint32_t base = static_cast<uint32_t>(verts.size());
+        verts.push_back(vertexAt(p));
+        verts.push_back(vertexAt(p + glm::vec3(0.f, 0.f, 1000.f)));
+        verts.push_back(vertexAt(p + glm::vec3(0.f, 0.f, 2000.f)));
+        idx.insert(idx.end(), {base, base + 1, base + 2});
+    }
+    return RS::makeRigMesh(verts, idx);
+}
+
+// The source vertex that sits at point `point` (the first vertex of each triangle).
+uint32_t sourceAt(const RigMesh& mesh, size_t point) { return mesh.sourceIndex[point * 3]; }
+
+} // namespace
+
+TEST(AutoWeightsTest, DistanceMethodIsTheOriginalAutoBind)
+{
+    Fixture f;
+    RigBinding legacy;
+    ASSERT_TRUE(RS::autoBind(f.rig, f.mesh, legacy));
+    AutoWeightOptions options; // Distance by default; the other fields must not matter
+    options.maxDistance = 0.001f;
+    options.leftBones = {f.a};
+    AutoWeightResult result;
+    ASSERT_TRUE(RS::autoWeights(f.rig, f.mesh, options, result));
+    EXPECT_TRUE(result.unassigned.empty());
+    ASSERT_EQ(result.binding.weights.size(), legacy.weights.size());
+    for (size_t i = 0; i < legacy.weights.size(); ++i)
+        for (int k = 0; k < 4; ++k) {
+            EXPECT_EQ(result.binding.weights[i].boneId[k], legacy.weights[i].boneId[k]);
+            EXPECT_EQ(result.binding.weights[i].weight[k], legacy.weights[i].weight[k]);
+        }
+}
+
+TEST(AutoWeightsTest, DistanceLimitIsInclusiveAndFarVerticesAreUnassigned)
+{
+    AuthoredRig rig;
+    const uint32_t a = rig.addBone("A", {0, 0, 0}, {0, 1, 0}).id;
+    const RigMesh mesh = pointsMesh({{1.f, 0.5f, 0.f}, {1.0001f, 0.5f, 0.f}, {5.f, 0.5f, 0.f}});
+    AutoWeightOptions options;
+    options.method = AutoWeightOptions::Method::Limited;
+    options.maxDistance = 1.f;
+    AutoWeightResult result;
+    ASSERT_TRUE(RS::autoWeights(rig, mesh, options, result));
+    // Exactly at the limit: assigned. Just beyond, and far away: listed, never silently given to the bone.
+    // (The helper's filler vertices lie far off along Z, so they are unassigned too; only the three points matter here.)
+    const auto listed = [&](size_t point) {
+        return std::find(result.unassigned.begin(), result.unassigned.end(), sourceAt(mesh, point)) != result.unassigned.end();
+    };
+    EXPECT_FALSE(listed(0));
+    EXPECT_TRUE(listed(1));
+    EXPECT_TRUE(listed(2));
+    EXPECT_TRUE(std::is_sorted(result.unassigned.begin(), result.unassigned.end()));
+    // The unassigned ones still hold a valid fallback so the mesh draws.
+    for (const VertexInfluence& w : result.binding.weights) EXPECT_NEAR(sum(w), 1.f, 1e-5f);
+    EXPECT_EQ(weightOf(result.binding.weights[sourceAt(mesh, 2)], a), 1.f);
+}
+
+TEST(AutoWeightsTest, MaxBonesLimitsCandidatesAndWeightsStayValid)
+{
+    AuthoredRig rig;
+    const uint32_t a = rig.addBone("A", {0, 0, 0}, {0, 1, 0}).id;
+    rig.addBone("B", {1, 0, 0}, {1, 1, 0});
+    rig.addBone("C", {2, 0, 0}, {2, 1, 0});
+    const RigMesh mesh = pointsMesh({{0.6f, 0.5f, 0.f}});
+    AutoWeightOptions options;
+    options.method = AutoWeightOptions::Method::Limited;
+    options.maxBones = 2;
+    AutoWeightResult result;
+    ASSERT_TRUE(RS::autoWeights(rig, mesh, options, result));
+    const VertexInfluence& w = result.binding.weights[sourceAt(mesh, 0)];
+    int used = 0;
+    for (int k = 0; k < 4; ++k) {
+        EXPECT_GE(w.weight[k], 0.f);
+        if (w.weight[k] > 0.f) ++used;
+    }
+    EXPECT_EQ(used, 2);
+    EXPECT_NEAR(sum(w), 1.f, 1e-5f);
+    EXPECT_GT(weightOf(w, rig.findByName("B")->id), weightOf(w, a)); // 0.4 away against 0.6 away
+    EXPECT_EQ(weightOf(w, rig.findByName("C")->id), 0.f);
+}
+
+TEST(AutoWeightsTest, SideGroupsKeepTheOppositeArmOut)
+{
+    AuthoredRig rig;
+    const uint32_t left = rig.addBone("ArmL", {1.f, 0, 0}, {2.f, 0, 0}).id;
+    const uint32_t right = rig.addBone("ArmR", {-0.1f, 0, 0}, {-2.f, 0, 0}).id;
+    const RigMesh mesh = pointsMesh({{0.4f, 0.5f, 0.f}});
+    AutoWeightOptions options;
+    options.method = AutoWeightOptions::Method::Limited;
+    AutoWeightResult ungrouped;
+    ASSERT_TRUE(RS::autoWeights(rig, mesh, options, ungrouped));
+    EXPECT_GT(weightOf(ungrouped.binding.weights[0], right), 0.f); // nearer, so it leaks without the groups
+    options.leftBones = {left};
+    options.rightBones = {right};
+    AutoWeightResult grouped;
+    ASSERT_TRUE(RS::autoWeights(rig, mesh, options, grouped));
+    EXPECT_EQ(weightOf(grouped.binding.weights[0], right), 0.f);
+    EXPECT_NEAR(weightOf(grouped.binding.weights[0], left), 1.f, 1e-6f);
+    EXPECT_TRUE(grouped.unassigned.empty());
+}
+
+TEST(AutoWeightsTest, CentreBonesAndThePlaneServeBothSides)
+{
+    AuthoredRig rig;
+    const uint32_t spine = rig.addBone("Spine", {0, 0, 0}, {0, 2, 0}).id; // in no group
+    const uint32_t left = rig.addBone("ArmL", {0.2f, 1.f, 0}, {2.f, 1.f, 0}).id;
+    const uint32_t right = rig.addBone("ArmR", {-0.2f, 1.f, 0}, {-2.f, 1.f, 0}).id;
+    // Two vertices off the plane, one on either side, and one on it.
+    const RigMesh mesh = pointsMesh({{0.5f, 1.2f, 0.f}, {-0.5f, 1.2f, 0.f}, {0.f, 1.2f, 0.f}});
+    AutoWeightOptions options;
+    options.method = AutoWeightOptions::Method::Limited;
+    options.leftBones = {left};
+    options.rightBones = {right};
+    AutoWeightResult result;
+    ASSERT_TRUE(RS::autoWeights(rig, mesh, options, result));
+    const auto& w = result.binding.weights;
+    EXPECT_GT(weightOf(w[sourceAt(mesh, 0)], spine), 0.f);
+    EXPECT_GT(weightOf(w[sourceAt(mesh, 0)], left), 0.f);
+    EXPECT_EQ(weightOf(w[sourceAt(mesh, 0)], right), 0.f);
+    EXPECT_GT(weightOf(w[sourceAt(mesh, 1)], right), 0.f);
+    EXPECT_EQ(weightOf(w[sourceAt(mesh, 1)], left), 0.f);
+    EXPECT_GT(weightOf(w[sourceAt(mesh, 2)], left), 0.f); // on the plane: both arms are allowed
+    EXPECT_GT(weightOf(w[sourceAt(mesh, 2)], right), 0.f);
+}
+
+TEST(AutoWeightsTest, EqualDistancesAreBrokenByBoneId)
+{
+    AuthoredRig rig;
+    const uint32_t first = rig.addBone("First", {1.f, 0, 0}, {1.f, 1, 0}).id;
+    const uint32_t second = rig.addBone("Second", {-1.f, 0, 0}, {-1.f, 1, 0}).id;
+    const RigMesh mesh = pointsMesh({{0.f, 0.5f, 0.f}});
+    AutoWeightOptions options;
+    options.method = AutoWeightOptions::Method::Limited;
+    options.maxBones = 1;
+    AutoWeightResult result;
+    ASSERT_TRUE(RS::autoWeights(rig, mesh, options, result));
+    EXPECT_EQ(weightOf(result.binding.weights[0], first), 1.f);
+    EXPECT_EQ(weightOf(result.binding.weights[0], second), 0.f);
+}
+
+TEST(AutoWeightsTest, RejectsBadOptions)
+{
+    Fixture f;
+    AutoWeightResult result;
+    AutoWeightOptions options;
+    options.method = AutoWeightOptions::Method::Limited;
+    options.maxBones = 0;
+    EXPECT_FALSE(RS::autoWeights(f.rig, f.mesh, options, result));
+    options.maxBones = 5;
+    EXPECT_FALSE(RS::autoWeights(f.rig, f.mesh, options, result));
+    options.maxBones = 2;
+    options.maxDistance = -1.f;
+    EXPECT_FALSE(RS::autoWeights(f.rig, f.mesh, options, result));
+    options.maxDistance = 0.f;
+    options.leftBones = {f.a};
+    options.rightBones = {f.a};
+    EXPECT_FALSE(RS::autoWeights(f.rig, f.mesh, options, result));
+    options.rightBones = {999};
+    EXPECT_FALSE(RS::autoWeights(f.rig, f.mesh, options, result));
+    EXPECT_TRUE(result.binding.weights.empty()); // refused calls leave the output alone
+}
+
+TEST(AutoWeightsTest, ConnectedComponentsFollowEdges)
+{
+    // Two separate strips: vertices 0..3 and 4..7.
+    std::vector<SkinVertex> verts;
+    std::vector<uint32_t> idx;
+    for (int strip = 0; strip < 2; ++strip) {
+        const uint32_t base = static_cast<uint32_t>(verts.size());
+        const float x = strip * 10.f;
+        for (int i = 0; i < 4; ++i) verts.push_back(vertexAt({x + static_cast<float>(i % 2), static_cast<float>(i / 2), 0.f}));
+        idx.insert(idx.end(), {base, base + 1, base + 2, base + 1, base + 3, base + 2});
+    }
+    const RigMesh mesh = RS::makeRigMesh(verts, idx);
+    const RigAdjacency adjacency = RS::buildAdjacency(mesh);
+    const auto first = RS::connectedComponents(adjacency, {mesh.sourceIndex[0]});
+    ASSERT_EQ(first.size(), 4u);
+    const auto both = RS::connectedComponents(adjacency, {mesh.sourceIndex[0], mesh.sourceIndex[4]});
+    EXPECT_EQ(both.size(), 8u);
+    EXPECT_TRUE(RS::connectedComponents(adjacency, {}).empty());
 }

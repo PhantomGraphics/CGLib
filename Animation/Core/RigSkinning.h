@@ -41,6 +41,28 @@ struct BrushSample {
     float    falloff = 1.f; // 0..1
 };
 
+// Settings of the limited automatic weights. Method::Distance is the original behaviour (every other field is ignored).
+// Method::Limited picks, for each vertex, the nearest bones (distance to the head-tail segment) that are allowed on its side of
+// the rig's X = 0 plane and no farther than maxDistance, at most maxBones of them, weighted by inverse squared distance.
+struct AutoWeightOptions {
+    enum class Method { Distance = 0, Limited = 1 };
+    Method method = Method::Distance;
+    float  maxDistance = 0.f;          // rig units; 0 = no distance limit
+    int    maxBones = 4;               // candidate bones per vertex, 1..4
+    // Side groups, as bone ids. A leftBones bone only influences vertices on the +X side of the X = 0 plane, a rightBones bone only the -X
+    // side. Bones in neither group (the centre line) and vertices within centerTolerance of the plane are not restricted.
+    std::vector<uint32_t> leftBones;
+    std::vector<uint32_t> rightBones;
+    float  centerTolerance = 1.0e-4f;
+};
+
+// A vertex that no allowed bone reaches keeps a nearest-bone fallback in `binding` (so the mesh still draws) and is listed in `unassigned`
+// (source vertex indices, ascending); callers decide whether to accept it. Distance never reports unassigned vertices.
+struct AutoWeightResult {
+    RigBinding            binding;
+    std::vector<uint32_t> unassigned;
+};
+
 namespace RigSkinning {
 
 // Groups render vertices that share an identical position into one source vertex. Returns the per-vertex source index
@@ -60,6 +82,13 @@ std::vector<glm::vec3> sourcePositions(const RigMesh& mesh);
 // Distance-based automatic weights: the nearest (up to) 4 bones by distance to the head-tail segment, weighted by inverse
 // squared distance. Ties are broken by bone id; a zero distance stays finite.
 RigResult autoBind(const AuthoredRig& rig, const RigMesh& mesh, RigBinding& out);
+
+// Checks the options against the rig, then computes the weights. Fails (outputs untouched) for an empty rig, non-finite vertices, unknown bones,
+// a bone in both groups, maxBones outside 1..4 or a negative / non-finite distance or tolerance.
+RigResult autoWeights(const AuthoredRig& rig, const RigMesh& mesh, const AutoWeightOptions& options, AutoWeightResult& out);
+
+// The source vertices connected to `seeds` through mesh edges (seeds included), ascending.
+std::vector<uint32_t> connectedComponents(const RigAdjacency& adjacency, const std::vector<uint32_t>& seeds);
 
 // Every vertex fully weighted to one bone.
 RigResult rigidBind(const AuthoredRig& rig, const RigMesh& mesh, uint32_t boneId, RigBinding& out);

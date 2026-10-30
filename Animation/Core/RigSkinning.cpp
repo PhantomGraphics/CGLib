@@ -189,6 +189,84 @@ RigResult autoBind(const AuthoredRig& rig, const RigMesh& mesh, RigBinding& out)
     return RigResult::success();
 }
 
+RigResult autoWeights(const AuthoredRig& rig, const RigMesh& mesh, const AutoWeightOptions& options, AutoWeightResult& out) {
+    if (options.method == AutoWeightOptions::Method::Distance) {
+        AutoWeightResult legacy;
+        RigResult r = autoBind(rig, mesh, legacy.binding);
+        if (!r) return r;
+        out = std::move(legacy);
+        return RigResult::success();
+    }
+    if (rig.empty()) return RigResult::failure("rig has no bones");
+    RigResult valid = rig.validate();
+    if (!valid) return valid;
+    if (options.maxBones < 1 || options.maxBones > 4) return RigResult::failure("maxBones must be 1 to 4");
+    if (!std::isfinite(options.maxDistance) || options.maxDistance < 0.f) return RigResult::failure("maxDistance must be zero (no limit) or a positive number");
+    if (!std::isfinite(options.centerTolerance) || options.centerTolerance < 0.f) return RigResult::failure("invalid centre tolerance");
+    std::map<uint32_t, int> side; // bone id -> +1 left (+X), -1 right (-X)
+    for (uint32_t id : options.leftBones) {
+        if (!rig.find(id)) return RigResult::failure("the left group names a bone that does not exist");
+        side[id] = 1;
+    }
+    for (uint32_t id : options.rightBones) {
+        if (!rig.find(id)) return RigResult::failure("the right group names a bone that does not exist");
+        if (side.count(id) && side[id] == 1) return RigResult::failure("a bone cannot be in both the left and the right group");
+        side[id] = -1;
+    }
+    const std::vector<glm::vec3> pos = sourcePositions(mesh);
+    for (const auto& p : pos)
+        if (!std::isfinite(p.x) || !std::isfinite(p.y) || !std::isfinite(p.z))
+            return RigResult::failure("mesh has non-finite vertices");
+
+    const double limitSq = options.maxDistance > 0.f ? static_cast<double>(options.maxDistance) * options.maxDistance : -1.0;
+    AutoWeightResult result;
+    result.binding.rigRevision = rig.revision();
+    result.binding.weights.resize(pos.size());
+    std::vector<std::pair<double, uint32_t>> eligible, everything;
+    for (size_t vi = 0; vi < pos.size(); ++vi) {
+        const float x = pos[vi].x;
+        const int vertexSide = x > options.centerTolerance ? 1 : x < -options.centerTolerance ? -1 : 0;
+        eligible.clear();
+        everything.clear();
+        for (const AuthoredBone& b : rig.bones()) {
+            const double d = segmentDistanceSq(pos[vi], b.head, b.tail);
+            everything.emplace_back(d, b.id);
+            const auto it = side.find(b.id);
+            const bool blocked = vertexSide != 0 && it != side.end() && it->second != vertexSide;
+            if (!blocked && (limitSq < 0.0 || d <= limitSq)) eligible.emplace_back(d, b.id);
+        }
+        const bool reached = !eligible.empty();
+        std::vector<std::pair<double, uint32_t>>& pool = reached ? eligible : everything;
+        const size_t n = std::min<size_t>(reached ? static_cast<size_t>(options.maxBones) : 1, pool.size());
+        std::partial_sort(pool.begin(), pool.begin() + n, pool.end()); // distance, then bone id
+        std::vector<Pair> pairs;
+        for (size_t k = 0; k < n; ++k) pairs.emplace_back(pool[k].second, 1.0 / std::max(pool[k].first, 1.0e-12));
+        VertexInfluence inf;
+        if (!normalizePairs(pairs, rig, inf)) return RigResult::failure("automatic weights failed");
+        result.binding.weights[vi] = inf;
+        if (!reached) result.unassigned.push_back(static_cast<uint32_t>(vi));
+    }
+    out = std::move(result);
+    return RigResult::success();
+}
+
+std::vector<uint32_t> connectedComponents(const RigAdjacency& adjacency, const std::vector<uint32_t>& seeds) {
+    std::vector<uint8_t> seen(adjacency.size(), 0);
+    std::vector<uint32_t> stack;
+    for (uint32_t s : seeds)
+        if (s < adjacency.size() && !seen[s]) { seen[s] = 1; stack.push_back(s); }
+    while (!stack.empty()) {
+        const uint32_t v = stack.back();
+        stack.pop_back();
+        for (uint32_t n : adjacency[v])
+            if (!seen[n]) { seen[n] = 1; stack.push_back(n); }
+    }
+    std::vector<uint32_t> out;
+    for (uint32_t i = 0; i < seen.size(); ++i)
+        if (seen[i]) out.push_back(i);
+    return out;
+}
+
 RigResult rigidBind(const AuthoredRig& rig, const RigMesh& mesh, uint32_t boneId, RigBinding& out) {
     if (!rig.find(boneId)) return RigResult::failure("bone does not exist");
     RigBinding result;
