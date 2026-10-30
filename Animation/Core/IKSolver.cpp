@@ -4,9 +4,38 @@
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/gtc/matrix_transform.hpp>
 
+#include <glm/gtc/quaternion.hpp>
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/euler_angles.hpp>
+
 #include <cmath>
 
 namespace Phantom::Animation {
+
+namespace {
+
+// Keeps the rotation of a local transform inside the joint limit (relative to the bone's rest local rotation). The translation column stays.
+void clampToLimit(glm::mat4& local, const glm::quat& rest, const IKJointLimit& limit) {
+    glm::mat3 r(local);
+    for (int c = 0; c < 3; ++c) {
+        const float l = glm::length(r[c]);
+        if (l > 1e-12f) r[c] /= l;
+    }
+    const glm::quat q = glm::normalize(glm::quat_cast(r));
+    const glm::quat delta = glm::normalize(glm::inverse(rest) * q);
+    float y = 0.f, x = 0.f, z = 0.f;
+    glm::extractEulerAngleYXZ(glm::mat4_cast(delta), y, x, z);
+    const float cx = glm::clamp(x, limit.minRad.x, limit.maxRad.x);
+    const float cy = glm::clamp(y, limit.minRad.y, limit.maxRad.y);
+    const float cz = glm::clamp(z, limit.minRad.z, limit.maxRad.z);
+    if (cx == x && cy == y && cz == z) return;
+    const glm::quat fixed = glm::normalize(rest * glm::quat_cast(glm::eulerAngleYXZ(cy, cx, cz)));
+    const glm::vec4 translation = local[3];
+    local = glm::mat4_cast(fixed);
+    local[3] = translation;
+}
+
+} // namespace
 
 void IKSolver::solve(const Skeleton&             sk,
                      const std::vector<IKChain>& chains,
@@ -71,6 +100,11 @@ void IKSolver::solve(const Skeleton&             sk,
                     const int p = sk.bones[boneIdx].parentIndex;
                     localT[boneIdx] = (p < 0) ? globalT[boneIdx]
                                               : glm::inverse(globalT[p]) * globalT[boneIdx];
+                    // A limited joint is pulled back into its range; the world transform follows.
+                    if (ci < static_cast<int>(chain.limits.size()) && chain.limits[ci].enabled) {
+                        clampToLimit(localT[boneIdx], sk.bones[boneIdx].localRotation, chain.limits[ci]);
+                        globalT[boneIdx] = (p < 0 ? glm::mat4{1.f} : globalT[p]) * localT[boneIdx];
+                    }
                 }
 
                 // Propagate to chain bones closer to the effector (indices 0..ci-1).
