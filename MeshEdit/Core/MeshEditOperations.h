@@ -166,6 +166,9 @@ namespace Phantom::MeshEdit {
 		int                 levels = 1;                     // Subdivision: Catmull-Clark steps (1..4)
 		int count = 2;
 		std::array<float, 3> offset = {1.f, 0.f, 0.f};
+		// Array: `offset` is a WORLD-space step between copies. The host resolves it to a local offset (inverse of the object's
+		// world rotation/scale) before calling evaluateModifiers, which always reads `offset` as local.
+		bool                worldSpace = false;
 		bool                smoothShading = true;           // Subdivision: store smooth corner normals on the result
 	};
 
