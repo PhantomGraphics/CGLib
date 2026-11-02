@@ -137,3 +137,23 @@ TEST(MeshReduction, AttributeDiscontinuitiesAreFixedAndComponentsStaySeparate) {
     EXPECT_FALSE(reduceMesh(sphere(), options, out, report));
     EXPECT_EQ(revision, out.revision);
 }
+
+TEST(MeshReduction, MaterialSlotsSurviveTheReduction) {
+    auto plane = Phantom::MeshEdit::makeEditablePlane(1.0f, 8);
+    for (auto& f : plane.faces) {
+        float x = 0.f;
+        for (const auto& c : f.loop) x += plane.findVertex(c.vertex)->pos[0];
+        f.material = x < 0.f ? 0u : 1u;
+    }
+    Phantom::MeshEdit::MeshReductionOptions options;
+    options.ratio = 0.5;
+    Phantom::MeshEdit::MeshReductionReport report;
+    Phantom::MeshEdit::EditableMesh reduced;
+    std::string error;
+    ASSERT_TRUE(Phantom::MeshEdit::reduceMesh(plane, options, reduced, report, &error)) << error;
+    size_t slot0 = 0, slot1 = 0;
+    for (const auto& f : reduced.faces) (f.material == 0u ? slot0 : slot1)++;
+    EXPECT_GT(slot0, 0u);
+    EXPECT_GT(slot1, 0u);
+    EXPECT_EQ(slot0 + slot1, reduced.faces.size());
+}

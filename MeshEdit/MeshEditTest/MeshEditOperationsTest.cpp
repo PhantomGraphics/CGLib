@@ -971,3 +971,32 @@ TEST(MeshMaterialSlots, JoinShiftsThePartsSlotsByTheirOffsets) {
     ASSERT_TRUE(joinMeshes(base, {&part}, out, &error, &offsets)) << error;
     EXPECT_EQ(slotsOf(out), (std::set<uint32_t>{0u, 1u, 2u, 3u}));
 }
+
+TEST(MeshMaterialSlots, BevelStripsAndCornerCapsTakeTheSmallerNeighbourFaceId) {
+    auto box = slottedBox();   // face id 2 is on slot 1
+    std::vector<uint32_t> edges;
+    for (const auto& e : box.edges) edges.push_back(e.id);
+    EditableMesh out; std::string error;
+    ASSERT_TRUE(bevelEdges(box, edges, 0.05f, out, &error)) << error;
+    // Expected slot-1 faces: the face itself, every edge strip whose smaller neighbour is face 2, every corner cap whose smallest incident face is 2.
+    size_t expected = 1;
+    for (const auto& e : box.edges) {
+        uint32_t smallest = UINT32_MAX;
+        for (const auto& f : box.faces)
+            for (size_t i = 0; i < f.loop.size(); ++i) {
+                const uint32_t a = f.loop[i].vertex, b = f.loop[(i + 1) % f.loop.size()].vertex;
+                if ((a == e.a && b == e.b) || (a == e.b && b == e.a)) smallest = std::min(smallest, f.id);
+            }
+        if (smallest == 2u) ++expected;
+    }
+    for (const auto& v : box.vertices) {
+        uint32_t smallest = UINT32_MAX;
+        for (const auto& f : box.faces)
+            for (const auto& c : f.loop) if (c.vertex == v.id) smallest = std::min(smallest, f.id);
+        if (smallest == 2u) ++expected;
+    }
+    size_t slot1 = 0;
+    for (const auto& f : out.faces) slot1 += f.material == 1u;
+    EXPECT_EQ(slot1, expected);
+    EXPECT_GT(out.faces.size(), box.faces.size());
+}
