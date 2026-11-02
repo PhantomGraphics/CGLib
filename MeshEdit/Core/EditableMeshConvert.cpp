@@ -140,6 +140,33 @@ bool editableToMeshData(const EditableMesh& mesh, MeshData& out, std::vector<uin
 			if (triangleFace) triangleFace->push_back(f.id);
 		}
 	}
+	// Several material slots: order the triangles by slot (stable) so each slot is one contiguous index range.
+	std::vector<uint32_t> triangleSlot;
+	bool multiple = false;
+	for (const auto& f : mesh.faces) {
+		const size_t triangles = f.loop.size() >= 3 ? f.loop.size() - 2 : 0;
+		for (size_t t = 0; t < triangles; ++t) triangleSlot.push_back(f.material);
+		multiple = multiple || f.material != 0;
+	}
+	if (multiple && triangleSlot.size() * 3 == out.indices.size()) {
+		std::vector<uint32_t> order(triangleSlot.size());
+		for (uint32_t i = 0; i < order.size(); ++i) order[i] = i;
+		std::stable_sort(order.begin(), order.end(), [&](uint32_t a, uint32_t b) { return triangleSlot[a] < triangleSlot[b]; });
+		std::vector<uint32_t> indices;
+		std::vector<uint32_t> faces;
+		indices.reserve(out.indices.size());
+		for (const uint32_t t : order) {
+			indices.insert(indices.end(), out.indices.begin() + 3 * t, out.indices.begin() + 3 * t + 3);
+			if (triangleFace) faces.push_back((*triangleFace)[t]);
+		}
+		out.indices = std::move(indices);
+		if (triangleFace) *triangleFace = std::move(faces);
+		for (uint32_t i = 0; i < order.size(); ++i) {
+			const uint32_t slot = triangleSlot[order[i]];
+			if (out.slotRanges.empty() || out.slotRanges.back().slot != slot) out.slotRanges.push_back({ slot, i * 3, 0 });
+			out.slotRanges.back().indexCount += 3;
+		}
+	}
 	return true;
 }
 

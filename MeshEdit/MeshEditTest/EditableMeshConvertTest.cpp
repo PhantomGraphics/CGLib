@@ -71,3 +71,25 @@ TEST(EditableMeshConvert, NonManifoldAndEmptyMeshesAreRefusedWithAReason) {
     EXPECT_NE(std::string::npos, error.find("manifold"));
     EXPECT_FALSE(makeEditableFromMeshData(MeshData{}, e, &error));
 }
+
+TEST(EditableMeshConvert, MaterialSlotsBecomeContiguousIndexRangesAndPickingStaysAligned) {
+    auto box = makeEditableBox();
+    for (auto& f : box.faces) f.material = (f.id % 2 == 0) ? 1u : 0u;   // three faces on slot 1
+    Phantom::Graphics::MeshData data;
+    std::vector<uint32_t> triangleFace;
+    std::string error;
+    ASSERT_TRUE(editableToMeshData(box, data, &triangleFace, &error)) << error;
+    ASSERT_EQ(data.slotRanges.size(), 2u);
+    EXPECT_EQ(data.slotRanges[0].slot, 0u);
+    EXPECT_EQ(data.slotRanges[1].slot, 1u);
+    EXPECT_EQ(data.slotRanges[0].firstIndex, 0u);
+    EXPECT_EQ(data.slotRanges[0].indexCount, 18u);
+    EXPECT_EQ(data.slotRanges[1].firstIndex, 18u);
+    EXPECT_EQ(data.slotRanges[1].indexCount, 18u);
+    ASSERT_EQ(triangleFace.size(), data.indices.size() / 3);
+    for (size_t t = 0; t < triangleFace.size(); ++t)
+        EXPECT_EQ(box.findFace(triangleFace[t])->material, t < 6 ? 0u : 1u) << "the triangle-to-face map follows the reordering";
+    auto single = makeEditableBox();
+    ASSERT_TRUE(editableToMeshData(single, data, nullptr, &error)) << error;
+    EXPECT_TRUE(data.slotRanges.empty()) << "one slot needs no ranges";
+}

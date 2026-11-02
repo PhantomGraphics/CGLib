@@ -29,9 +29,18 @@ namespace Phantom::Graphics {
 	static_assert(offsetof(MeshVertex, tangent) == 40, "MeshVertex layout");
 	static_assert(sizeof(MeshVertex) == 56, "MeshVertex layout");
 
+	// A run of indices that share one material slot (editable meshes with several materials). The ranges tile `indices` in order;
+	// an empty list means the whole mesh uses slot 0.
+	struct MeshSlotRange {
+		uint32_t slot = 0;
+		uint32_t firstIndex = 0;
+		uint32_t indexCount = 0;
+	};
+
 	struct MeshData {
 		std::vector<MeshVertex> vertices;
 		std::vector<uint32_t>   indices;
+		std::vector<MeshSlotRange> slotRanges;
 	};
 
 	struct MeshValidationResult {
