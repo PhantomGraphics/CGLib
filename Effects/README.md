@@ -4,6 +4,9 @@ Reusable Vulkan visual effects, built as `EffectsCore` (`CGLib::Effects`).
 
 - `Particles/`: emitter configuration, GPU particle storage and compute updates,
   and billboard rendering. Namespace: `Phantom::Effects::Particles`.
+- `WaterSurface/`: height-field ripple simulation and planar reflection/refraction
+  rendering. Namespace: `Phantom::Effects::WaterSurface`. See
+  [WaterSurface integration and demo](WaterSurface/README.md).
 - `PostProcess/`: image-space Bloom, SSAO, tone mapping and FXAA, plus
   `PostProcessChain`. Namespace: `Phantom::Effects::PostProcess`.
 

@@ -1,0 +1,184 @@
+{
+  "steps": [
+    {
+      "command": "status",
+      "expect": "ready"
+    },
+    {
+      "command": "verify",
+      "expect": "ok"
+    },
+    {
+      "command": "pause 1",
+      "expect": "ok"
+    },
+    {
+      "command": "reset",
+      "expect": "ok"
+    },
+    {
+      "command": "impulse 5 5 0.7 2",
+      "expect": "ok"
+    },
+    {
+      "command": "step",
+      "expect": "ok"
+    },
+    {
+      "command": "wait",
+      "expect": "ok"
+    },
+    {
+      "command": "pause 0",
+      "expect": "ok"
+    },
+    {
+      "command": "wait",
+      "expect": "ok"
+    },
+    {
+      "command": "wait",
+      "expect": "ok"
+    },
+    {
+      "command": "wait",
+      "expect": "ok"
+    },
+    {
+      "command": "wait",
+      "expect": "ok"
+    },
+    {
+      "command": "wait",
+      "expect": "ok"
+    },
+    {
+      "command": "wait",
+      "expect": "ok"
+    },
+    {
+      "command": "wait",
+      "expect": "ok"
+    },
+    {
+      "command": "wait",
+      "expect": "ok"
+    },
+    {
+      "command": "wait",
+      "expect": "ok"
+    },
+    {
+      "command": "wait",
+      "expect": "ok"
+    },
+    {
+      "command": "wait",
+      "expect": "ok"
+    },
+    {
+      "command": "wait",
+      "expect": "ok"
+    },
+    {
+      "command": "wait",
+      "expect": "ok"
+    },
+    {
+      "command": "wait",
+      "expect": "ok"
+    },
+    {
+      "command": "wait",
+      "expect": "ok"
+    },
+    {
+      "command": "wait",
+      "expect": "ok"
+    },
+    {
+      "command": "wait",
+      "expect": "ok"
+    },
+    {
+      "command": "wait",
+      "expect": "ok"
+    },
+    {
+      "command": "wait",
+      "expect": "ok"
+    },
+    {
+      "command": "wait",
+      "expect": "ok"
+    },
+    {
+      "command": "wait",
+      "expect": "ok"
+    },
+    {
+      "command": "wait",
+      "expect": "ok"
+    },
+    {
+      "command": "wait",
+      "expect": "ok"
+    },
+    {
+      "command": "wait",
+      "expect": "ok"
+    },
+    {
+      "command": "wait",
+      "expect": "ok"
+    },
+    {
+      "command": "wait",
+      "expect": "ok"
+    },
+    {
+      "command": "wait",
+      "expect": "ok"
+    },
+    {
+      "command": "wait",
+      "expect": "ok"
+    },
+    {
+      "command": "wait",
+      "expect": "ok"
+    },
+    {
+      "command": "wait",
+      "expect": "ok"
+    },
+    {
+      "command": "resize 1100 750",
+      "expect": "ok"
+    },
+    {
+      "command": "wait",
+      "expect": "ok"
+    },
+    {
+      "command": "wait",
+      "expect": "ok"
+    },
+    {
+      "command": "wait",
+      "expect": "ok"
+    },
+    {
+      "command": "wait",
+      "expect": "ok"
+    },
+    {
+      "command": "wait",
+      "expect": "ok"
+    },
+    {
+      "command": "status",
+      "expect": "ready"
+    }
+  ]
+}

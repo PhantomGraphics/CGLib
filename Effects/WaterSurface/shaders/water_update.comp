@@ -1,0 +1,29 @@
+#version 450
+layout(local_size_x=16,local_size_y=16) in;
+layout(std430,binding=0) readonly buffer Source { vec2 src[]; };
+layout(std430,binding=1) writeonly buffer Destination { vec2 dst[]; };
+layout(push_constant) uniform Params {
+    uvec4 grid;
+    vec4 domain;
+    vec4 impulse;
+    vec4 strength;
+} p;
+void main() {
+    uvec2 xy=gl_GlobalInvocationID.xy;
+    uint w=p.grid.x, h=p.grid.y;
+    if(xy.x>=w || xy.y>=h) return;
+    uint i=xy.y*w+xy.x;
+    if(xy.x==0 || xy.y==0 || xy.x==w-1 || xy.y==h-1) { dst[i]=vec2(0); return; }
+    vec2 cell=src[i];
+    vec2 spacing=p.domain.xy/vec2(w-1,h-1);
+    if(p.grid.z==1) {
+        float q=length(vec2(xy)*spacing-p.impulse.yz)/p.impulse.w;
+        if(q<1) cell.y+=p.strength.x*pow(1-q*q,2);
+    } else {
+        float lap=(src[i-1].x-2*cell.x+src[i+1].x)/(spacing.x*spacing.x)
+                 +(src[i-w].x-2*cell.x+src[i+w].x)/(spacing.y*spacing.y);
+        cell.y=(cell.y+p.domain.z*p.domain.z*lap*p.impulse.x)*exp(-p.domain.w*p.impulse.x);
+        cell.x+=cell.y*p.impulse.x;
+    }
+    dst[i]=cell;
+}

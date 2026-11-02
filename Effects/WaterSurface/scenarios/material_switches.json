@@ -1,0 +1,68 @@
+{
+  "steps": [
+    {
+      "command": "pause 1",
+      "expect": "ok"
+    },
+    {
+      "command": "reset",
+      "expect": "ok"
+    },
+    {
+      "command": "reflection 0",
+      "expect": "ok"
+    },
+    {
+      "command": "refraction 0",
+      "expect": "ok"
+    },
+    {
+      "command": "wait",
+      "expect": "ok"
+    },
+    {
+      "command": "reflection 1",
+      "expect": "ok"
+    },
+    {
+      "command": "wait",
+      "expect": "ok"
+    },
+    {
+      "command": "refraction 1",
+      "expect": "ok"
+    },
+    {
+      "command": "wait",
+      "expect": "ok"
+    },
+    {
+      "command": "impulse 5 5 1 2",
+      "expect": "ok"
+    },
+    {
+      "command": "step",
+      "expect": "ok"
+    },
+    {
+      "command": "wait",
+      "expect": "ok"
+    },
+    {
+      "command": "reflection 0",
+      "expect": "ok"
+    },
+    {
+      "command": "wait",
+      "expect": "ok"
+    },
+    {
+      "command": "reflection 1",
+      "expect": "ok"
+    },
+    {
+      "command": "status",
+      "expect": "ready"
+    }
+  ]
+}
