@@ -7,6 +7,7 @@
 #include <string>
 
 #include "../Core/MeshEditOperations.h"
+#include "../Core/MeshJoin.h"
 
 // Pure shape operations and modifiers on an EditableMesh (moved from PhantomStudioTest/MeshEditCommandTest.cpp; the command
 // layer's own tests stay in PhantomStudio).
@@ -910,4 +911,63 @@ TEST(MarkSeams, SeamsSeparateChartsEvenAtAWideAngleAndFollowTheirEdges) {
     EXPECT_FALSE(markSeams(box, {}, true, out, &error));
     EXPECT_FALSE(markSeams(box, { 99999u }, true, out, &error));
     EXPECT_FALSE(markSeams(box, ring, false, out, &error));       // none of them is a seam
+}
+
+// ---- material slots on faces (docs/todo/PLAN_phantomstudio_modeling_usability.md, stage 2) ----
+namespace {
+EditableMesh slottedBox() {
+    auto box = makeEditableBox();
+    for (auto& f : box.faces) f.material = f.id == 2 ? 1u : 0u;   // one face uses slot 1
+    return box;
+}
+std::set<uint32_t> slotsOf(const EditableMesh& m) { std::set<uint32_t> s; for (const auto& f : m.faces) s.insert(f.material); return s; }
+}
+
+TEST(MeshMaterialSlots, ExtrudeWallsInheritTheSourceFaceSlot) {
+    auto box = slottedBox();
+    EditableMesh out; std::string error;
+    ASSERT_TRUE(extrudeFaces(box, {2}, 0.5f, out, &error)) << error;
+    int slot1 = 0;
+    for (const auto& f : out.faces) slot1 += f.material == 1u;
+    EXPECT_EQ(slot1, 5) << "the moved cap and its four walls";
+}
+
+TEST(MeshMaterialSlots, InsetRingAndSubdivisionAndArrayKeepSlots) {
+    auto box = slottedBox();
+    EditableMesh out; std::string error;
+    ASSERT_TRUE(insetFaces(box, {2}, 0.1f, 0.f, out, &error)) << error;
+    int slot1 = 0;
+    for (const auto& f : out.faces) slot1 += f.material == 1u;
+    EXPECT_EQ(slot1, 5) << "the inner face and the four ring faces";
+    ASSERT_TRUE(subdivideMesh(box, 1, true, out, &error)) << error;
+    slot1 = 0;
+    for (const auto& f : out.faces) slot1 += f.material == 1u;
+    EXPECT_EQ(slot1, 4);
+    ASSERT_TRUE(arrayMesh(box, 3, {2, 0, 0}, out, &error)) << error;
+    slot1 = 0;
+    for (const auto& f : out.faces) slot1 += f.material == 1u;
+    EXPECT_EQ(slot1, 3);
+}
+
+TEST(MeshMaterialSlots, BevelMirrorLoopCutAndKnifeKeepSlots) {
+    auto box = slottedBox();
+    EditableMesh out; std::string error;
+    auto half = slottedBox();
+    for (auto& v : half.vertices) v.pos[0] += 0.5f;   // the box sits on the plane x = 0 .. 1
+    half.revision = nextEditableRevision();
+    ASSERT_TRUE(mirrorMesh(half, {true, false, false}, 0.001f, out, &error)) << error;
+    EXPECT_TRUE(slotsOf(out).count(1u)) << "mirrored faces keep their slot";
+    ASSERT_TRUE(knifePlane(box, {0.f, 0.f, 0.f}, {0.f, 1.f, 0.f}, out, &error)) << error;
+    for (const auto& f : out.faces) EXPECT_LE(f.material, 1u);
+}
+
+TEST(MeshMaterialSlots, JoinShiftsThePartsSlotsByTheirOffsets) {
+    auto base = slottedBox();
+    auto part = slottedBox();
+    for (auto& v : part.vertices) v.pos[0] += 3.f;
+    part.revision = nextEditableRevision();
+    EditableMesh out; std::string error;
+    const std::vector<uint32_t> offsets = {2};
+    ASSERT_TRUE(joinMeshes(base, {&part}, out, &error, &offsets)) << error;
+    EXPECT_EQ(slotsOf(out), (std::set<uint32_t>{0u, 1u, 2u, 3u}));
 }

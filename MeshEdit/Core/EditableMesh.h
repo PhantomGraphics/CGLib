@@ -30,6 +30,7 @@ namespace Phantom::MeshEdit {
 	struct EditableFace {
 		uint32_t id = 0;
 		std::vector<EditableCorner> loop;     // counter-clockwise seen from the outside (cross product = outward normal)
+		uint32_t material = 0;                // material slot of the owning object (0 = its first / only material)
 	};
 
 	// An edge is derived from the faces, but its id is persistent: rebuildEdges() keeps the id of every (a,b) pair that
@@ -58,7 +59,7 @@ namespace Phantom::MeshEdit {
 		const EditableEdge*   findEdge(uint32_t a, uint32_t b) const;  // order-insensitive
 
 		uint32_t addVertex(float x, float y, float z);
-		uint32_t addFace(const std::vector<EditableCorner>& loop);
+		uint32_t addFace(const std::vector<EditableCorner>& loop, uint32_t material = 0);
 
 		// Re-derives `edges` from `faces` (see EditableEdge).
 		void rebuildEdges();

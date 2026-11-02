@@ -398,6 +398,13 @@ bool extrudeRegion(const EditableMesh& in, const std::vector<uint32_t>& faceIds,
 	}
 
 	const float height = std::sqrt(distance * distance + inset * inset);
+	// The side walls take the material of the region face they grow from.
+	std::map<std::pair<uint32_t, uint32_t>, uint32_t> wallMaterial;
+	for (uint32_t id : region) {
+		const EditableFace* rf = in.findFace(id);
+		for (size_t i = 0; i < rf->loop.size(); ++i)
+			wallMaterial[{ rf->loop[i].vertex, rf->loop[(i + 1) % rf->loop.size()].vertex }] = rf->material;
+	}
 	for (const auto& e : boundary) {
 		const EditableVertex* a = in.findVertex(e.first);
 		const EditableVertex* b = in.findVertex(e.second);
@@ -408,7 +415,8 @@ bool extrudeRegion(const EditableMesh& in, const std::vector<uint32_t>& faceIds,
 		const float uv[4][2] = { { 0.f, 0.f }, { width, 0.f }, { width, height }, { 0.f, height } };
 		std::vector<EditableCorner> loop(4);
 		for (int k = 0; k < 4; ++k) { loop[k].vertex = ids[k]; loop[k].uv[0] = uv[k][0]; loop[k].uv[1] = uv[k][1]; }
-		work.addFace(loop);
+		const auto mat = wallMaterial.find({ e.first, e.second });
+		work.addFace(loop, mat != wallMaterial.end() ? mat->second : 0u);
 	}
 	work.rebuildEdges();
 	if (!work.validate(error)) return false;
@@ -495,7 +503,7 @@ static bool bevelAllEdges(const EditableMesh& in, float width, EditableMesh& out
 		if (!forward || !reverse) { fail(error, "all-edge bevel needs a closed mesh"); return false; }
 		auto a = corners.at({forward->id, e.a}), b = corners.at({forward->id, e.b});
 		auto c = corners.at({reverse->id, e.a}), d = corners.at({reverse->id, e.b});
-		created.push_back(work.addFace({b, a, c, d}));
+		created.push_back(work.addFace({b, a, c, d}, (forward->id < reverse->id ? forward : reverse)->material));   // the neighbour with the smaller face id decides
 		capNext[e.a][c.vertex] = a.vertex;
 		capNext[e.b][b.vertex] = d.vertex;
 	}
@@ -512,7 +520,12 @@ static bool bevelAllEdges(const EditableMesh& in, float width, EditableMesh& out
 			v = it->second;
 		}
 		if (v != first) { fail(error, "invalid bevel corner fan"); return false; }
-		created.push_back(work.addFace(loop));
+		uint32_t capMaterial = 0;
+		{
+			uint32_t smallest = UINT32_MAX;
+			for (uint32_t fid : incident.at(vertex)) if (fid < smallest) { smallest = fid; capMaterial = in.findFace(fid)->material; }
+		}
+		created.push_back(work.addFace(loop, capMaterial));
 	}
 	work.vertices.erase(std::remove_if(work.vertices.begin(), work.vertices.end(), [&](const EditableVertex& v) { return incident.count(v.id) > 0; }), work.vertices.end());
 	work.rebuildEdges();
@@ -681,7 +694,7 @@ bool bevelEdges(const EditableMesh& in, const std::vector<uint32_t>& edgeIds, fl
 	}
 	for (auto& r : rewritten) {
 		work.faces[r.first].loop = std::move(r.second[0]);
-		for (size_t k = 1; k < r.second.size(); ++k) work.addFace(r.second[k]);
+		for (size_t k = 1; k < r.second.size(); ++k) work.addFace(r.second[k], work.faces[r.first].material);
 	}
 
 	// The bevel quads: b1 a1 a2 b2 (b1->a1 reverses f1's a1->b1, a2->b2 reverses f2's b2->a2).
@@ -701,7 +714,14 @@ bool bevelEdges(const EditableMesh& in, const std::vector<uint32_t>& edgeIds, fl
 		const float uv[4][2] = { { length, 0.f }, { 0.f, 0.f }, { 0.f, across }, { length, across } };
 		std::vector<EditableCorner> loop(4);
 		for (int k = 0; k < 4; ++k) { loop[k].vertex = ids[k]; loop[k].uv[0] = uv[k][0]; loop[k].uv[1] = uv[k][1]; }
-		bevelIds.push_back(work.addFace(loop));
+		// The bevel strip takes the material of the neighbouring face with the smaller id.
+		uint32_t stripMaterial = 0, smallestFace = UINT32_MAX;
+		for (const auto& nf : in.faces) {
+			bool hasA = false, hasB = false;
+			for (const auto& nc : nf.loop) { hasA = hasA || nc.vertex == s.a; hasB = hasB || nc.vertex == s.b; }
+			if (hasA && hasB && nf.id < smallestFace) { smallestFace = nf.id; stripMaterial = nf.material; }
+		}
+		bevelIds.push_back(work.addFace(loop, stripMaterial));
 	}
 
 	work.vertices.erase(std::remove_if(work.vertices.begin(), work.vertices.end(),
@@ -806,6 +826,7 @@ bool loopCut(const EditableMesh& in, uint32_t edgeId, float factor, EditableMesh
 
 	size_t split = 0;
 	std::vector<std::vector<EditableCorner>> extra;
+	std::vector<uint32_t> extraMaterial;
 	for (auto& face : work.faces) {
 		const EditableFace* orig = in.findFace(face.id);
 		if (!orig || orig->loop.size() != 4) continue;
@@ -825,9 +846,10 @@ bool loopCut(const EditableMesh& in, uint32_t edgeId, float factor, EditableMesh
 		// [c0, m1, m2, c3] keeps the id, [m1, c1, c2, m2] is new. The midpoint corner is taken from the nearer end per piece.
 		face.loop = { c0, m1, m2b, c3 };
 		extra.push_back({ m1b, c1, c2, m2 });
+		extraMaterial.push_back(face.material);
 		++split;
 	}
-	for (const auto& loop : extra) work.addFace(loop);
+	for (size_t i = 0; i < extra.size(); ++i) work.addFace(extra[i], extraMaterial[i]);
 	// Every cut edge must belong to two split faces (or one, on a mesh border), otherwise a T-junction would remain.
 	{
 		std::map<Key, int> uses;
@@ -890,6 +912,7 @@ bool knifePlane(const EditableMesh& in, const std::array<float, 3>& point, const
 	std::set<uint32_t> cut;
 	size_t split = 0;
 	std::vector<std::vector<EditableCorner>> extra;
+	std::vector<uint32_t> extraMaterial;
 	for (auto& face : work.faces) {
 		const EditableFace* orig = in.findFace(face.id);
 		if (!orig) continue;   // (only original faces are in `work.faces` at this point)
@@ -939,12 +962,12 @@ bool knifePlane(const EditableMesh& in, const std::array<float, 3>& point, const
 			pieces.push_back(rest);
 		}
 		face.loop = pieces[0];
-		for (size_t i = 1; i < pieces.size(); ++i) extra.push_back(pieces[i]);
+		for (size_t i = 1; i < pieces.size(); ++i) { extra.push_back(pieces[i]); extraMaterial.push_back(face.material); }
 		for (const Node& node : ring) if (node.onPlane) cut.insert(node.corner.vertex);
 		++split;
 	}
 	if (split == 0) { fail(error, "the plane does not cross any face"); return false; }
-	for (const auto& loop : extra) work.addFace(loop);
+	for (size_t i = 0; i < extra.size(); ++i) work.addFace(extra[i], extraMaterial[i]);
 	work.rebuildEdges();
 	if (!work.validate(error)) { if (error) *error = "the cut would produce an invalid mesh: " + *error; return false; }
 	work.revision = nextEditableRevision();
@@ -1209,7 +1232,7 @@ bool mirrorOneAxis(const EditableMesh& in, int a, float merge, EditableMesh& out
 			if (c.hasNormal) c.normal[a] = -c.normal[a];
 			loop.push_back(c);
 		}
-		work.addFace(loop);
+		work.addFace(loop, f.material);
 	}
 	work.faces.erase(std::remove_if(work.faces.begin(), work.faces.end(),
 		[&](const EditableFace& f) { return caps.count(f.id) != 0; }), work.faces.end());
@@ -1266,7 +1289,7 @@ bool arrayMesh(const EditableMesh& in, int count, const std::array<float, 3>& of
 		for (const auto& f : in.faces) {
 			auto loop = f.loop;
 			for (auto& c : loop) c.vertex = ids[c.vertex];
-			result.addFace(loop);
+			result.addFace(loop, f.material);
 		}
 		for (const auto& seam : in.seams) {
 			auto a = ids[seam.first], b = ids[seam.second];
@@ -1399,7 +1422,7 @@ bool subdivideOnce(const EditableMesh& in, EditableMesh& out, std::string* error
 			quad[2].vertex = fv;                             quad[2].uv[0] = faceUv[0];                     quad[2].uv[1] = faceUv[1];
 			quad[3].vertex = edgePoint[key(prev.vertex, cur.vertex)];
 			quad[3].uv[0] = (cur.uv[0] + prev.uv[0]) / 2;    quad[3].uv[1] = (cur.uv[1] + prev.uv[1]) / 2;
-			work.addFace(quad);
+			work.addFace(quad, in.faces[fi].material);
 		}
 	}
 	work.rebuildEdges();

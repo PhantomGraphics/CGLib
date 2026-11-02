@@ -11,6 +11,7 @@
 
 namespace Phantom::MeshEdit {
 
-bool joinMeshes(const EditableMesh& base, const std::vector<const EditableMesh*>& parts, EditableMesh& out, std::string* error = nullptr);
+bool joinMeshes(const EditableMesh& base, const std::vector<const EditableMesh*>& parts, EditableMesh& out, std::string* error = nullptr,
+	                 const std::vector<uint32_t>* materialOffsets = nullptr);   // per part: added to its faces' material slots
 
 }

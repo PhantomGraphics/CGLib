@@ -5,7 +5,8 @@
 
 namespace Phantom::MeshEdit {
 
-bool joinMeshes(const EditableMesh& base, const std::vector<const EditableMesh*>& parts, EditableMesh& out, std::string* error) {
+bool joinMeshes(const EditableMesh& base, const std::vector<const EditableMesh*>& parts, EditableMesh& out, std::string* error,
+                const std::vector<uint32_t>* materialOffsets) {
 	auto fail = [&](const std::string& why) { if (error) *error = why; return false; };
 	if (!base.validate(error)) return false;
 	for (const EditableMesh* part : parts) {
@@ -14,13 +15,16 @@ bool joinMeshes(const EditableMesh& base, const std::vector<const EditableMesh*>
 	}
 
 	EditableMesh joined = base;
-	for (const EditableMesh* part : parts) {
+	if (materialOffsets && materialOffsets->size() != parts.size()) return fail("the material offsets do not match the parts");
+	for (size_t partIndex = 0; partIndex < parts.size(); ++partIndex) {
+		const EditableMesh* part = parts[partIndex];
+		const uint32_t slotOffset = materialOffsets ? (*materialOffsets)[partIndex] : 0u;
 		std::map<uint32_t, uint32_t> vertexOf;
 		for (const EditableVertex& v : part->vertices) vertexOf[v.id] = joined.addVertex(v.pos[0], v.pos[1], v.pos[2]);
 		for (const EditableFace& f : part->faces) {
 			std::vector<EditableCorner> loop = f.loop;
 			for (EditableCorner& c : loop) c.vertex = vertexOf.at(c.vertex);
-			joined.addFace(loop);
+			joined.addFace(loop, f.material + slotOffset);
 		}
 		for (const auto& seam : part->seams) {
 			uint32_t a = vertexOf.at(seam.first), b = vertexOf.at(seam.second);

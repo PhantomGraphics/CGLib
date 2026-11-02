@@ -47,6 +47,7 @@ struct Vertex {
 struct Face {
     std::array<size_t, 3> v{};
     std::array<EditableCorner, 3> c{};
+    uint32_t material = 0;
     bool alive = true;
 };
 using Triangle = std::array<V, 3>;
@@ -240,6 +241,7 @@ bool reduceMesh(const EditableMesh& input, const MeshReductionOptions& options,
         for (const auto& t : triangles) {
             Face face;
             for (size_t k = 0; k < 3; ++k) { face.c[k] = f.loop[t[k]]; face.v[k] = indices.find(face.c[k].vertex)->second; }
+            face.material = f.material;
             const auto index = faces.size(); faces.push_back(face);
             for (size_t v : face.v) vertices[v].faces.insert(index);
             const double plane[4]{n.x, n.y, n.z, -glm::dot(n, p[0])};
@@ -403,7 +405,7 @@ bool reduceMesh(const EditableMesh& input, const MeshReductionOptions& options,
         for (const auto& f : faces) if (f.alive) {
             std::vector<EditableCorner> corners(f.c.begin(), f.c.end());
             for (size_t k = 0; k < 3; ++k) corners[k].vertex = vertices[f.v[k]].id;
-            made.addFace(corners);
+            made.addFace(corners, f.material);
         }
         made.rebuildEdges();
         if (!made.validate(error)) return false;

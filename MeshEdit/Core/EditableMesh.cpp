@@ -66,10 +66,11 @@ uint32_t EditableMesh::addVertex(float x, float y, float z) {
 	return v.id;
 }
 
-uint32_t EditableMesh::addFace(const std::vector<EditableCorner>& loop) {
+uint32_t EditableMesh::addFace(const std::vector<EditableCorner>& loop, uint32_t material) {
 	EditableFace f;
 	f.id = nextFaceId++;
 	f.loop = loop;
+	f.material = material;
 	faces.push_back(std::move(f));
 	return faces.back().id;
 }
