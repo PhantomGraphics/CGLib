@@ -1245,6 +1245,42 @@ bool mirrorMesh(const EditableMesh& in, const std::array<bool, 3>& axes, float m
 	return true;
 }
 
+bool arrayMesh(const EditableMesh& in, int count, const std::array<float, 3>& offset, EditableMesh& out, std::string* error) {
+	if (count < 1 || in.faces.empty() || in.faces.size() > 1000000u / static_cast<size_t>(count) ||
+	    in.vertices.size() > 4000000u / static_cast<size_t>(count)) {
+		fail(error, "array requires a positive count, nonempty mesh and at most 1000000 faces"); return false;
+	}
+	for (float x : offset) if (!std::isfinite(x)) { fail(error, "array offset must be finite"); return false; }
+	if (!in.validate(error)) return false;
+	EditableMesh result;
+	for (int i = 0; i < count; ++i) {
+		std::map<uint32_t, uint32_t> ids;
+		for (const auto& v : in.vertices) {
+			float p[3];
+			for (int a = 0; a < 3; ++a) {
+				p[a] = v.pos[a] + static_cast<float>(i) * offset[a];
+				if (!std::isfinite(p[a])) { fail(error, "array coordinates overflow"); return false; }
+			}
+			ids.emplace(v.id, result.addVertex(p[0], p[1], p[2]));
+		}
+		for (const auto& f : in.faces) {
+			auto loop = f.loop;
+			for (auto& c : loop) c.vertex = ids[c.vertex];
+			result.addFace(loop);
+		}
+		for (const auto& seam : in.seams) {
+			auto a = ids[seam.first], b = ids[seam.second];
+			result.seams.emplace_back(std::min(a,b), std::max(a,b));
+		}
+	}
+	result.rebuildEdges();
+	std::sort(result.seams.begin(), result.seams.end());
+	if (!result.validate(error)) return false;
+	result.revision = nextEditableRevision();
+	out = std::move(result);
+	return true;
+}
+
 bool evaluateModifiers(const EditableMesh& in, const std::vector<MeshModifier>& modifiers, EditableMesh& out, std::string* error) {
 	EditableMesh current = in;
 	bool any = false;
@@ -1252,6 +1288,9 @@ bool evaluateModifiers(const EditableMesh& in, const std::vector<MeshModifier>& 
 		if (!m.enabled) continue;
 		EditableMesh next;
 		switch (m.type) {
+		case MeshModifier::Type::Array:
+			if (!arrayMesh(current, m.count, m.offset, next, error)) return false;
+			break;
 		case MeshModifier::Type::Mirror:
 			if (!mirrorMesh(current, m.axis, m.mergeDistance, next, error)) return false;
 			break;

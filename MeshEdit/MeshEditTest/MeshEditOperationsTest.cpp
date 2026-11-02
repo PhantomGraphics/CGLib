@@ -12,6 +12,37 @@
 // layer's own tests stay in PhantomStudio).
 using namespace Phantom::MeshEdit;
 
+TEST(MeshArrayOperation, CopiesTopologyAttributesAndNegativeOffset) {
+    auto input = makeEditableBox();
+    EditableMesh output;
+    std::string error;
+    ASSERT_TRUE(arrayMesh(input, 3, {-2,0,0}, output, &error)) << error;
+    EXPECT_EQ(output.vertices.size(), input.vertices.size()*3);
+    EXPECT_EQ(output.faces.size(), input.faces.size()*3);
+    ASSERT_TRUE(output.validate(&error)) << error;
+    EXPECT_FLOAT_EQ(output.vertices[input.vertices.size()].pos[0], input.vertices[0].pos[0]-2);
+    EXPECT_FLOAT_EQ(output.faces[input.faces.size()].loop[0].uv[0], input.faces[0].loop[0].uv[0]);
+}
+
+TEST(MeshArrayOperation, InvalidCountAndOverflowLeaveOutputUntouched) {
+    auto input = makeEditableBox();
+    auto output = input;
+    auto revision = output.revision;
+    EXPECT_FALSE(arrayMesh(input, 0, {1,0,0}, output));
+    EXPECT_FALSE(arrayMesh(input, 1000000, {1,0,0}, output));
+    EXPECT_EQ(output.revision, revision);
+    EXPECT_EQ(output.faces.size(), input.faces.size());
+}
+
+TEST(MeshArrayOperation, ModifierStackEvaluatesArray) {
+    MeshModifier modifier;
+    modifier.type = MeshModifier::Type::Array;
+    modifier.count = 4;
+    EditableMesh output;
+    ASSERT_TRUE(evaluateModifiers(makeEditableBox(), {modifier}, output));
+    EXPECT_EQ(output.faces.size(), 24u);
+}
+
 TEST(MeshBevelOperation, AllBoxEdgesProduceClosedOutwardChamfersAndCornerCaps) {
     auto box = makeEditableBox();
     // Furniture-like dimensions: 1.4 x 0.06 x 0.7. Width must fit the thin side.

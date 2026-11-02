@@ -158,14 +158,20 @@ namespace Phantom::MeshEdit {
 	// ---- non-destructive modifiers (docs/todo/PLAN_phantomstudio_mesh_editing.md Phase 7) ----
 	// A stack on an EditableMesh object: the editing master stays untouched, the evaluated mesh is what renders and exports.
 	struct MeshModifier {
-		enum class Type { Mirror, Subdivision };
+		enum class Type { Mirror, Subdivision, Array };
 		Type                type = Type::Mirror;
 		bool                enabled = true;
 		std::array<bool, 3> axis = { true, false, false };  // Mirror: object-local planes x = 0 / y = 0 / z = 0
 		float               mergeDistance = 0.001f;         // Mirror: vertices this close to the plane are welded onto it
 		int                 levels = 1;                     // Subdivision: Catmull-Clark steps (1..4)
+		int count = 2;
+		std::array<float, 3> offset = {1.f, 0.f, 0.f};
 		bool                smoothShading = true;           // Subdivision: store smooth corner normals on the result
 	};
+
+	// Repeats disconnected copies in local space, including the original. Failure leaves out untouched.
+	bool arrayMesh(const EditableMesh& in, int count, const std::array<float, 3>& offset,
+	               EditableMesh& out, std::string* error = nullptr);
 
 	// Catmull-Clark subdivision: every face becomes quads, interior vertices follow the standard rule, border vertices the
 	// crease rule (1/8, 6/8, 1/8), non-manifold vertices stay. Corner UVs are averaged inside each face (seams stay seams).
