@@ -1,5 +1,6 @@
 ﻿#include "CGLib/Animation/AnimationRenderer/SkinnedMeshRenderer.h"
 
+#include "CGLib/Animation/Core/SkinningCpu.h"
 #include "CGLib/VulkanGraphics/VulkanContext.h"
 #include "CGLib/VulkanGraphics/VulkanCommandPool.h"
 
@@ -16,31 +17,17 @@ void SkinnedMeshRenderer::updatePose(const std::vector<glm::mat4>& skinMatrices,
         return;
     }
 
-    const int maxBone = static_cast<int>(skinMatrices_.size());
-    skinnedPositions_.clear();
+    const std::size_t n = mesh_.vertices.size();
+    skinnedPositions_.assign(n * 3, 0.f);
+    skinVertices(mesh_.vertices.data(), n, skinMatrices_.data(), skinMatrices_.size(), skinnedPositions_.data(), nullptr);
     skinnedColors_.clear();
-    skinnedPositions_.reserve(mesh_.vertices.size() * 3);
-    skinnedColors_.reserve(mesh_.vertices.size() * 4);
-
+    skinnedColors_.reserve(n * 4);
     for (const auto& v : mesh_.vertices) {
-        glm::vec4 p{v.position, 1.f};
-        glm::vec4 sp{0.f};
-        for (int k = 0; k < 4; ++k) {
-            float w = v.boneWeights[k];
-            if (w <= 0.f) continue;
-            int bi = v.boneIndices[k];
-            if (bi < 0 || bi >= maxBone) continue;
-            sp += w * (skinMatrices_[bi] * p);
-        }
-        skinnedPositions_.push_back(sp.x);
-        skinnedPositions_.push_back(sp.y);
-        skinnedPositions_.push_back(sp.z);
         skinnedColors_.push_back(v.color.r);
         skinnedColors_.push_back(v.color.g);
         skinnedColors_.push_back(v.color.b);
         skinnedColors_.push_back(v.color.a);
     }
-
     dirty_ = true;
 }
 
