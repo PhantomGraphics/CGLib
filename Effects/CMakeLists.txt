@@ -43,6 +43,7 @@ endif()
 
 include(PhantomGTest)
 phantom_find_gtest()
+cglib_add_test(ParticleEmitterTest SOURCES Particles/ParticleEmitterTest.cpp LINK EffectsCore)
 cglib_add_test(WaterSurfaceTest SOURCES WaterSurface/WaterSurfaceTest.cpp)
 if(TARGET WaterSurfaceTest)
     target_compile_features(WaterSurfaceTest PRIVATE cxx_std_20)

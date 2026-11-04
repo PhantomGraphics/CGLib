@@ -1,16 +1,19 @@
 #include "ParticleEmitter.h"
 
 #include <algorithm>
+#include <cmath>
 
 namespace Phantom::Effects::Particles {
 
 ParticleEmitter::EmitBatch ParticleEmitter::update(float dt, uint32_t maxParticles)
 {
     EmitBatch batch{};
-    if (!enabled_ || maxParticles == 0)
+    if (!enabled_ || maxParticles == 0 || !std::isfinite(dt) || dt <= 0
+        || !std::isfinite(params_.emitRate) || params_.emitRate < 0)
         return batch;
 
-    accum_ += params_.emitRate * dt;
+    accum_ = static_cast<float>(std::min(static_cast<double>(accum_) + static_cast<double>(params_.emitRate) * dt,
+        static_cast<double>(maxParticles)));
     uint32_t count = static_cast<uint32_t>(accum_);
     count = std::min(count, maxParticles);
     accum_ -= static_cast<float>(count);

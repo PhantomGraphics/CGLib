@@ -12,5 +12,5 @@ void main()
     float alpha    = inColor.a * falloff;
     if (alpha <= 0.001)
         discard;
-    outColor = vec4(inColor.rgb, alpha);
+    outColor = vec4(inColor.rgb * alpha, alpha);
 }

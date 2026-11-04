@@ -33,7 +33,7 @@ public:
 
     void setShaders(Shaders s) { shaders_ = std::move(s); }
 
-    void create(const Phantom::VKG::VulkanContext& ctx, const Phantom::VKG::VulkanCommandPool& pool,
+    bool create(const Phantom::VKG::VulkanContext& ctx, const Phantom::VKG::VulkanCommandPool& pool,
                 uint32_t maxParticles, uint32_t framesInFlight);
     void destroy(VkDevice device);
 

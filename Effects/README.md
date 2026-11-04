@@ -38,3 +38,14 @@ A failed chain retains its stages and can be retried after correcting shader
 inputs; no final image is exposed until initialization succeeds. Destroy a live
 chain after GPU completion before changing its resolution or initializing again.
 SSAO requires a command pool and valid linear-depth/normal views and samplers.
+
+## Particle integration
+
+ParticlePool::create, ParticleSimulator::create and ParticleBillboardRenderer::onInit
+return bool; check failures before recording commands. Destroy partial resources
+safely after GPU completion. The simulator supports up to 64 uniform slots; use
+a distinct frameIndex for each update recorded before the same submission.
+Compute-to-compute and compute-to-vertex barriers protect the shared pool.
+Billboards use additive blending with premultiplied lifetime/edge fading and no
+depth writes. ParticleEmitterTest covers fractional emission, reset, invalid
+steps, disabling emission and saturation without an emission backlog.

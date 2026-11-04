@@ -34,9 +34,10 @@ public:
 
     // particleBuffer/maxParticles come from ParticleSimulator::getParticleBuffer()/getMaxParticles();
     // the simulator must already be created.
-    void onInit(const Phantom::VKG::VulkanContext& ctx, VkRenderPass renderPass, uint32_t framesInFlight,
+    bool onInit(const Phantom::VKG::VulkanContext& ctx, VkRenderPass renderPass, uint32_t framesInFlight,
                 VkBuffer particleBuffer, uint32_t maxParticles);
 
+    bool isValid() const { return pipeline_.getPipeline() != VK_NULL_HANDLE; }
     void setCamera(const glm::mat4& view, const glm::mat4& proj);
     void onUpdate(uint32_t frameIndex);
     void onRender(VkCommandBuffer cmd, uint32_t frameIndex);

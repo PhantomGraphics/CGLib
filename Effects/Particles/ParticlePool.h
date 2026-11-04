@@ -17,7 +17,7 @@ public:
     ParticlePool(const ParticlePool&) = delete;
     ParticlePool& operator=(const ParticlePool&) = delete;
 
-    void create(const Phantom::VKG::VulkanContext& ctx, const Phantom::VKG::VulkanCommandPool& pool,
+    bool create(const Phantom::VKG::VulkanContext& ctx, const Phantom::VKG::VulkanCommandPool& pool,
                 uint32_t maxParticles);
     void destroy(VkDevice device);
 

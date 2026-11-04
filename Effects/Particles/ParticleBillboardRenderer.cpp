@@ -3,9 +3,12 @@
 
 namespace Phantom::Effects::Particles {
 
-void ParticleBillboardRenderer::onInit(const Phantom::VKG::VulkanContext& ctx, VkRenderPass renderPass,
+bool ParticleBillboardRenderer::onInit(const Phantom::VKG::VulkanContext& ctx, VkRenderPass renderPass,
                                        uint32_t framesInFlight, VkBuffer particleBuffer, uint32_t maxParticles)
 {
+    if (!ctx.getDevice() || !maxParticles || maxParticles > 1000000) return false;
+    if (isValid() || !renderPass || !particleBuffer || !framesInFlight || framesInFlight > 64
+        || shaders_.vertSpv.empty() || shaders_.fragSpv.empty()) return false;
     framesInFlight_ = framesInFlight;
     maxParticles_    = maxParticles;
     VkDevice device  = ctx.getDevice();
@@ -23,20 +26,21 @@ void ParticleBillboardRenderer::onInit(const Phantom::VKG::VulkanContext& ctx, V
     b1.descriptorCount = 1;
     b1.stageFlags      = VK_SHADER_STAGE_VERTEX_BIT;
 
-    dsl_.create(device, { b0, b1 });
+    if (!dsl_.create(device, { b0, b1 })) { onCleanup(ctx.getDevice()); return false; }
 
     std::vector<VkDescriptorPoolSize> poolSizes = {
         { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, framesInFlight_ },
         { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, framesInFlight_ },
     };
-    descPool_.create(device, poolSizes, framesInFlight_);
+    if (!descPool_.create(device, poolSizes, framesInFlight_)) { onCleanup(ctx.getDevice()); return false; }
 
     std::vector<VkDescriptorSetLayout> layouts(framesInFlight_, dsl_.get());
     descSets_ = descPool_.allocateSets(device, layouts);
+    if (descSets_.size()!=framesInFlight_) { onCleanup(device); return false; }
 
     cameraUBO_.resize(framesInFlight_);
     for (auto& ubo : cameraUBO_)
-        ubo.createMapped(ctx, sizeof(CameraUBO), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
+        if (!ubo.createMapped(ctx, sizeof(CameraUBO), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT)) { onCleanup(device);return false; }
 
     for (uint32_t f = 0; f < framesInFlight_; ++f) {
         VkDescriptorBufferInfo particleInfo{ particleBuffer, 0, VK_WHOLE_SIZE };
@@ -69,7 +73,9 @@ void ParticleBillboardRenderer::onInit(const Phantom::VKG::VulkanContext& ctx, V
     cfg.depthTest           = true;
     cfg.depthWrite          = false; // particles never occlude each other/opaque geometry by depth write
     cfg.blendEnable         = true;
-    pipeline_.create(ctx, renderPass, cfg);
+    cfg.additiveBlend       = true;
+    if (!pipeline_.create(ctx, renderPass, cfg)) { onCleanup(ctx.getDevice()); return false; }
+    return true;
 }
 
 void ParticleBillboardRenderer::setCamera(const glm::mat4& view, const glm::mat4& proj)
@@ -103,10 +109,8 @@ void ParticleBillboardRenderer::onCleanup(VkDevice device)
     pipeline_.destroy(device);
     for (auto& ubo : cameraUBO_) ubo.destroy(device);
     cameraUBO_.clear();
-    if (!descSets_.empty()) {
-        descPool_.destroy(device);
-        descSets_.clear();
-    }
+    descPool_.destroy(device);
+    descSets_.clear();
     dsl_.destroy(device);
     maxParticles_ = 0;
 }
