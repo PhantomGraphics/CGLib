@@ -153,54 +153,6 @@ NodeRegistry makeBuiltin() {
 
     {
         NodeDefinition d;
-        d.typeId = "WaterSurface";
-        d.displayName = "Water Surface";
-        d.category = "Effects";
-        d.description = "Deterministic CPU water effect: replay a centred ripple at Time seconds. Uses Effects water solver; no GPU reflection/refraction.";
-        d.inputs = {sock("Width", "Width", SocketType::Float, 10.f), sock("Depth", "Depth", SocketType::Float, 10.f),
-            sock("Resolution", "Resolution", SocketType::Int, int32_t(33)),
-            sock("Speed", "Speed", SocketType::Float, 1.f), sock("Damping", "Damping", SocketType::Float, .5f),
-            sock("Time", "Time", SocketType::Float, 0.f), sock("Radius", "Radius", SocketType::Float, 1.f),
-            sock("Velocity", "Velocity", SocketType::Float, 1.f), sock("Center", "Center", SocketType::Vector3, Vec3{})};
-        d.outputs = {sock("Geometry", "Geometry", SocketType::Geometry)};
-        d.evaluate = [](NodeEvalContext& c) {
-            using namespace Phantom::Effects::WaterSurface;
-            const int resolution = c.getInt("Resolution");
-            const float time = c.getFloat("Time");
-            const Vec3 center = c.getVec3("Center");
-            WaterSurfaceConfig config{uint32_t(resolution),uint32_t(resolution),c.getFloat("Width"),c.getFloat("Depth"),c.getFloat("Speed"),c.getFloat("Damping")};
-            if (resolution < 3 || resolution > 129 || !isValidWaterSurfaceConfig(config) ||
-                !std::isfinite(time) || time < 0 || time > 60 || !std::isfinite(center.x) || !std::isfinite(center.z) ||
-                !std::isfinite(c.getFloat("Radius")) || c.getFloat("Radius") <= 0 ||
-                !std::isfinite(c.getFloat("Velocity")) || std::abs(c.getFloat("Velocity")) > 100 ||
-                std::abs(center.x) > config.width*.5f || std::abs(center.z) > config.depth*.5f) {
-                c.fail(DiagCode::InvalidParameter,"WaterSurface: invalid dimensions, ripple, time (0..60) or resolution (3..129)"); return;
-            }
-            const double count = std::floor(double(time)/waterSurfaceStepSize(config)+1e-6);
-            if (!std::isfinite(count) || count > 20000) {
-                c.fail(DiagCode::LimitExceeded,"WaterSurface: excessive replay step count"); return;
-            }
-            const auto steps = static_cast<uint64_t>(count);
-            if (steps > 20000 || steps*uint64_t(resolution)*resolution > 50000000) {
-                c.fail(DiagCode::LimitExceeded,"WaterSurface: replay exceeds work limit; reduce time, resolution or speed"); return;
-            }
-            Mesh m;
-            if (!check(c,makeGrid(config.width,config.depth,resolution,resolution,c.limits(),m),"WaterSurface")) return;
-            WaterSurfaceReference solver;
-            if (!solver.create(config) || !solver.addImpulse({center.x+config.width*.5f,center.z+config.depth*.5f,c.getFloat("Radius"),c.getFloat("Velocity")})) {
-                c.fail(DiagCode::InvalidParameter,"WaterSurface: ripple rejected"); return;
-            }
-            for (uint64_t step=0;step<steps;++step) solver.singleStep();
-            for (size_t i=0;i<m.positions.size();++i) m.positions[i].y=solver.cells()[i].height;
-            m.normals=computeSmoothNormals(m);
-            c.setOutput("Geometry",GeometryPtr(std::make_shared<const Mesh>(std::move(m))));
-        };
-        r.add(std::move(d));
-    }
-
-
-    {
-        NodeDefinition d;
         d.typeId = "Box";
         d.displayName = "Box";
         d.category = "Mesh Primitives";
@@ -354,6 +306,52 @@ NodeRegistry makeBuiltin() {
             }
             if (!noInstances(c, in, "Output")) return;
             c.setOutput("Geometry", in);
+        };
+        r.add(std::move(d));
+    }
+    {
+        NodeDefinition d;
+        d.typeId = "WaterSurface";
+        d.displayName = "Water Surface";
+        d.category = "Effects";
+        d.description = "Deterministic CPU water effect: replay a centred ripple at Time seconds. Uses Effects water solver; no GPU reflection/refraction.";
+        d.inputs = {sock("Width", "Width", SocketType::Float, 10.f), sock("Depth", "Depth", SocketType::Float, 10.f),
+            sock("Resolution", "Resolution", SocketType::Int, int32_t(33)),
+            sock("Speed", "Speed", SocketType::Float, 1.f), sock("Damping", "Damping", SocketType::Float, .5f),
+            sock("Time", "Time", SocketType::Float, 0.f), sock("Radius", "Radius", SocketType::Float, 1.f),
+            sock("Velocity", "Velocity", SocketType::Float, 1.f), sock("Center", "Center", SocketType::Vector3, Vec3{})};
+        d.outputs = {sock("Geometry", "Geometry", SocketType::Geometry)};
+        d.evaluate = [](NodeEvalContext& c) {
+            using namespace Phantom::Effects::WaterSurface;
+            const int resolution = c.getInt("Resolution");
+            const float time = c.getFloat("Time");
+            const Vec3 center = c.getVec3("Center");
+            WaterSurfaceConfig config{uint32_t(resolution),uint32_t(resolution),c.getFloat("Width"),c.getFloat("Depth"),c.getFloat("Speed"),c.getFloat("Damping")};
+            if (resolution < 3 || resolution > 129 || !isValidWaterSurfaceConfig(config) ||
+                !std::isfinite(time) || time < 0 || time > 60 || !std::isfinite(center.x) || !std::isfinite(center.z) ||
+                !std::isfinite(c.getFloat("Radius")) || c.getFloat("Radius") <= 0 ||
+                !std::isfinite(c.getFloat("Velocity")) || std::abs(c.getFloat("Velocity")) > 100 ||
+                std::abs(center.x) > config.width*.5f || std::abs(center.z) > config.depth*.5f) {
+                c.fail(DiagCode::InvalidParameter,"WaterSurface: invalid dimensions, ripple, time (0..60) or resolution (3..129)"); return;
+            }
+            const double count = std::floor(double(time)/waterSurfaceStepSize(config)+1e-6);
+            if (!std::isfinite(count) || count > 20000) {
+                c.fail(DiagCode::LimitExceeded,"WaterSurface: excessive replay step count"); return;
+            }
+            const auto steps = static_cast<uint64_t>(count);
+            if (steps > 20000 || steps*uint64_t(resolution)*resolution > 50000000) {
+                c.fail(DiagCode::LimitExceeded,"WaterSurface: replay exceeds work limit; reduce time, resolution or speed"); return;
+            }
+            Mesh m;
+            if (!check(c,makeGrid(config.width,config.depth,resolution,resolution,c.limits(),m),"WaterSurface")) return;
+            WaterSurfaceReference solver;
+            if (!solver.create(config) || !solver.addImpulse({center.x+config.width*.5f,center.z+config.depth*.5f,c.getFloat("Radius"),c.getFloat("Velocity")})) {
+                c.fail(DiagCode::InvalidParameter,"WaterSurface: ripple rejected"); return;
+            }
+            for (uint64_t step=0;step<steps;++step) solver.singleStep();
+            for (size_t i=0;i<m.positions.size();++i) m.positions[i].y=solver.cells()[i].height;
+            m.normals=computeSmoothNormals(m);
+            c.setOutput("Geometry",GeometryPtr(std::make_shared<const Mesh>(std::move(m))));
         };
         r.add(std::move(d));
     }
