@@ -54,7 +54,7 @@ public:
     // Safe to call every frame (e.g. on resize) before apply().
     void setProjection(const glm::mat4& proj) { proj_ = proj; }
 
-    void init(const PostEffectContext& ctx, VkImageView inputView, VkSampler inputSampler) override;
+    bool init(const PostEffectContext& ctx, VkImageView inputView, VkSampler inputSampler) override;
     void apply(VkCommandBuffer cmd, uint32_t frameIndex) override;
     VkImageView  getOutputView()    const override { return composite_.getColorImageView(); }
     VkSampler    getOutputSampler() const override { return compositeSampler_.get(); }
@@ -105,7 +105,7 @@ private:
     Phantom::VKG::VulkanSampler noiseSampler_;
     glm::vec4 kernel_[kMaxKernelSize]{};
 
-    void createKernelAndNoise(const Phantom::VKG::VulkanCommandPool& pool);
+    bool createKernelAndNoise(const Phantom::VKG::VulkanCommandPool& pool);
 };
 
 } // namespace Phantom::Effects::PostProcess

@@ -19,7 +19,7 @@ protected:
         if(!window_ || !glfwVulkanSupported()) GTEST_SKIP()<<"Vulkan window unavailable";
         uint32_t count=0; const char** names=glfwGetRequiredInstanceExtensions(&count);
         if(!names) GTEST_SKIP()<<"Vulkan surface extensions unavailable";
-        if(!ctx_.createInstance("Water GPU test",std::vector<const char*>(names,names+count),false))
+        if(!ctx_.createInstance("Water GPU test",std::vector<const char*>(names,names+count),true))
             GTEST_SKIP()<<"Vulkan instance unavailable";
         if(glfwCreateWindowSurface(ctx_.getInstance(),window_,nullptr,&surface_)!=VK_SUCCESS)
             GTEST_SKIP()<<"Vulkan surface unavailable";
@@ -75,4 +75,70 @@ TEST_F(WaterSurfaceGpuTest, MatchesReferenceAcrossUpdatesPauseAndReset) {
     }
     vkDeviceWaitIdle(ctx_.getDevice()); readback.destroy(ctx_.getDevice()); gpu.destroy(ctx_.getDevice());
     EXPECT_TRUE(success);
+}
+
+// Integration safety for the shared C# effects backend: a failed chain must be reusable.
+#include "../PostProcess/PostProcessChain.h"
+#include "../PostProcess/ToneMappingEffect.h"
+#include "../PostProcess/FXAAEffect.h"
+#include "../PostProcess/BloomEffect.h"
+#include "../PostProcess/SSAOEffect.h"
+#include "CGLib/VulkanGraphics/VulkanOffscreen.h"
+#include "CGLib/VulkanGraphics/VulkanSampler.h"
+#include <filesystem>
+
+TEST_F(WaterSurfaceGpuTest, PostProcessFailureRollsBackAndCanRetry) {
+    namespace PP = Phantom::Effects::PostProcess;
+    Phantom::VKG::VulkanOffscreen input;
+    Phantom::VKG::VulkanSampler sampler;
+    ASSERT_TRUE(input.create(ctx_, 16, 16, VK_FORMAT_R16G16B16A16_SFLOAT, VK_FORMAT_D32_SFLOAT));
+    ASSERT_TRUE(sampler.create(ctx_.getDevice(), VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE));
+    const auto directory = std::filesystem::path(WATER_SHADER_PATH).parent_path().parent_path().parent_path()
+        / "PostProcess" / "shaders";
+    auto load = [&](const char* name) { return Phantom::VKG::loadSPV((directory / name).string()); };
+    PP::PostEffectContext setup{&ctx_, &pool_, {16,16}, 1};
+    PP::PostProcessChain chain;
+    auto bloom = std::make_unique<PP::BloomEffect>();
+    auto* bloomPtr = bloom.get();
+    bloom->setShaders({load("passthrough.vert.spv"), load("bloom_extract.frag.spv"),
+        load("bloom_blur.frag.spv"), load("bloom_composite.frag.spv")});
+    chain.addEffect(std::move(bloom));
+    auto tone = std::make_unique<PP::ToneMappingEffect>();
+    auto* tonePtr = tone.get();
+    tone->setShaders({load("passthrough.vert.spv"), load("tonemap.frag.spv")});
+    chain.addEffect(std::move(tone));
+    auto fxaa = std::make_unique<PP::FXAAEffect>();
+    auto* fxaaPtr = fxaa.get();
+    chain.addEffect(std::move(fxaa)); // deliberately missing shaders after a successful first stage
+    EXPECT_FALSE(chain.init(setup, input.getColorImageView(), sampler.get()));
+    EXPECT_EQ(chain.getFinalView(), VK_NULL_HANDLE);
+    EXPECT_EQ(tonePtr->getOutputView(), VK_NULL_HANDLE);
+    EXPECT_EQ(bloomPtr->getOutputView(), VK_NULL_HANDLE);
+    fxaaPtr->setShaders({load("passthrough.vert.spv"), load("fxaa.frag.spv")});
+    EXPECT_TRUE(chain.init(setup, input.getColorImageView(), sampler.get()));
+    EXPECT_NE(chain.getFinalView(), VK_NULL_HANDLE);
+    EXPECT_FALSE(chain.init(setup, input.getColorImageView(), sampler.get()));
+    chain.destroy(ctx_.getDevice());
+    chain.destroy(ctx_.getDevice());
+    // Empty chains remain a valid pass-through and can be recreated after destruction.
+    EXPECT_TRUE(chain.init(setup, input.getColorImageView(), sampler.get()));
+    EXPECT_EQ(chain.getFinalView(), input.getColorImageView());
+    chain.destroy(ctx_.getDevice());
+    sampler.destroy(ctx_.getDevice());
+    input.destroy(ctx_);
+}
+
+TEST_F(WaterSurfaceGpuTest, PostProcessRejectsMissingInputs) {
+    namespace PP = Phantom::Effects::PostProcess;
+    PP::PostEffectContext setup{&ctx_, &pool_, {16,16}, 1};
+    PP::BloomEffect bloom;
+    PP::ToneMappingEffect tone;
+    PP::FXAAEffect fxaa;
+    PP::SSAOEffect ssao;
+    EXPECT_FALSE(bloom.init(setup, VK_NULL_HANDLE, VK_NULL_HANDLE));
+    EXPECT_FALSE(tone.init(setup, VK_NULL_HANDLE, VK_NULL_HANDLE));
+    EXPECT_FALSE(fxaa.init(setup, VK_NULL_HANDLE, VK_NULL_HANDLE));
+    EXPECT_FALSE(ssao.init(setup, VK_NULL_HANDLE, VK_NULL_HANDLE));
+    bloom.destroy(ctx_.getDevice()); tone.destroy(ctx_.getDevice());
+    fxaa.destroy(ctx_.getDevice()); ssao.destroy(ctx_.getDevice());
 }

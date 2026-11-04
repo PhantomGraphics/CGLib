@@ -29,7 +29,7 @@ public:
     void setParams(const Params& p) { params_ = p; }
     const Params& params() const { return params_; }
 
-    void init(const PostEffectContext& ctx, VkImageView inputView, VkSampler inputSampler) override;
+    bool init(const PostEffectContext& ctx, VkImageView inputView, VkSampler inputSampler) override;
     void apply(VkCommandBuffer cmd, uint32_t frameIndex) override;
     VkImageView  getOutputView()    const override { return output_.getColorImageView(); }
     VkSampler    getOutputSampler() const override { return outputSampler_.get(); }

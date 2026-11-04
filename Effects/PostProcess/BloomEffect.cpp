@@ -10,8 +10,10 @@ constexpr VkFormat kBloomColorFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
 constexpr VkFormat kDepthFormat      = VK_FORMAT_D32_SFLOAT; // unused, VulkanOffscreen requires one
 }
 
-void BloomEffect::init(const PostEffectContext& ctx, VkImageView inputView, VkSampler inputSampler)
+bool BloomEffect::init(const PostEffectContext& ctx, VkImageView inputView, VkSampler inputSampler)
 {
+    if (ctx_ || !ctx.ctx || !ctx.ctx->getDevice() || !ctx.extent.width || !ctx.extent.height
+        || !ctx.framesInFlight || !inputView || !inputSampler) return false;
     ctx_ = ctx.ctx;
     originalInputView_    = inputView;
     originalInputSampler_ = inputSampler;
@@ -19,15 +21,15 @@ void BloomEffect::init(const PostEffectContext& ctx, VkImageView inputView, VkSa
     VkDevice device = ctx_->getDevice();
     const uint32_t w = ctx.extent.width, h = ctx.extent.height;
 
-    extract_.create  (*ctx_, w, h, kBloomColorFormat, kDepthFormat);
-    blurA_.create    (*ctx_, w, h, kBloomColorFormat, kDepthFormat);
-    blurB_.create    (*ctx_, w, h, kBloomColorFormat, kDepthFormat);
-    composite_.create(*ctx_, w, h, kBloomColorFormat, kDepthFormat);
+    if (!extract_.create  (*ctx_, w, h, kBloomColorFormat, kDepthFormat)) { destroy(ctx_->getDevice()); return false; }
+    if (!blurA_.create    (*ctx_, w, h, kBloomColorFormat, kDepthFormat)) { destroy(ctx_->getDevice()); return false; }
+    if (!blurB_.create    (*ctx_, w, h, kBloomColorFormat, kDepthFormat)) { destroy(ctx_->getDevice()); return false; }
+    if (!composite_.create(*ctx_, w, h, kBloomColorFormat, kDepthFormat)) { destroy(ctx_->getDevice()); return false; }
 
-    extractSampler_.create  (device, VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
-    blurASampler_.create    (device, VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
-    blurBSampler_.create    (device, VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
-    compositeSampler_.create(device, VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
+    if (!extractSampler_.create  (device, VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE)) { destroy(ctx_->getDevice()); return false; }
+    if (!blurASampler_.create    (device, VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE)) { destroy(ctx_->getDevice()); return false; }
+    if (!blurBSampler_.create    (device, VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE)) { destroy(ctx_->getDevice()); return false; }
+    if (!compositeSampler_.create(device, VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE)) { destroy(ctx_->getDevice()); return false; }
 
     // --- Extract: bright-pass threshold, one draw per real frame -> UBO indexed by frameIndex ---
     {
@@ -37,7 +39,7 @@ void BloomEffect::init(const PostEffectContext& ctx, VkImageView inputView, VkSa
         cfg.framesInFlight    = ctx.framesInFlight;
         cfg.uboSize           = sizeof(ExtractUBO);
         cfg.sampledImageCount = 1;
-        extractPipeline_.create(*ctx_, extract_.getRenderPass(), cfg);
+        if (!extractPipeline_.create(*ctx_, extract_.getRenderPass(), cfg)) { destroy(ctx_->getDevice()); return false; }
         for (uint32_t f = 0; f < ctx.framesInFlight; ++f)
             extractPipeline_.setSampledImage(device, f, 0, originalInputView_, originalInputSampler_);
     }
@@ -56,7 +58,7 @@ void BloomEffect::init(const PostEffectContext& ctx, VkImageView inputView, VkSa
         cfg.uboSize           = 0;
         cfg.sampledImageCount = 1;
         cfg.pushConstantSize  = sizeof(BlurUBO);
-        blurPipeline_.create(*ctx_, blurA_.getRenderPass(), cfg);
+        if (!blurPipeline_.create(*ctx_, blurA_.getRenderPass(), cfg)) { destroy(ctx_->getDevice()); return false; }
         blurPipeline_.setSampledImage(device, 0, 0, extract_.getColorImageView(), extractSampler_.get());
         blurPipeline_.setSampledImage(device, 1, 0, blurA_.getColorImageView(),   blurASampler_.get());
         blurPipeline_.setSampledImage(device, 2, 0, blurB_.getColorImageView(),   blurBSampler_.get());
@@ -70,10 +72,11 @@ void BloomEffect::init(const PostEffectContext& ctx, VkImageView inputView, VkSa
         cfg.framesInFlight    = ctx.framesInFlight;
         cfg.uboSize           = sizeof(CompositeUBO);
         cfg.sampledImageCount = 2; // 0 = original scene, 1 = blurred bloom (rebound each apply())
-        compositePipeline_.create(*ctx_, composite_.getRenderPass(), cfg);
+        if (!compositePipeline_.create(*ctx_, composite_.getRenderPass(), cfg)) { destroy(ctx_->getDevice()); return false; }
         for (uint32_t f = 0; f < ctx.framesInFlight; ++f)
             compositePipeline_.setSampledImage(device, f, 0, originalInputView_, originalInputSampler_);
     }
+    return true;
 }
 
 void BloomEffect::apply(VkCommandBuffer cmd, uint32_t frameIndex)

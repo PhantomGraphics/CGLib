@@ -28,7 +28,7 @@ void SSAOEffect::setGBuffer(VkImageView depthView, VkSampler depthSampler,
     normalSampler_ = normalSampler;
 }
 
-void SSAOEffect::createKernelAndNoise(const Phantom::VKG::VulkanCommandPool& pool)
+bool SSAOEffect::createKernelAndNoise(const Phantom::VKG::VulkanCommandPool& pool)
 {
     // --- Hemisphere kernel: samples biased towards the origin (LearnOpenGL SSAO tutorial
     // scheme) so most samples land close to the fragment being shaded. Fixed seed keeps
@@ -60,16 +60,19 @@ void SSAOEffect::createKernelAndNoise(const Phantom::VKG::VulkanCommandPool& poo
     constexpr VkFormat kNoiseFormat = VK_FORMAT_R8G8_SNORM;
 
     // Upload through the shared helper: on failure it leaves null handles and nothing allocated,
-    // and the effect simply has no noise texture (the descriptor write below sees a null view).
+    // and initialization fails before writing descriptors.
     if (!Phantom::VKG::VulkanImage::createFromPixels(*ctx_, pool,
             reinterpret_cast<const uint8_t*>(snormPixels.data()), 2, kNoiseDim, kNoiseDim, kNoiseFormat, false,
             noiseImage_, noiseMemory_, noiseView_))
-        std::fprintf(stderr, "[SSAOEffect] noise texture upload failed\n");
-    noiseSampler_.create(device, VK_FILTER_NEAREST, VK_SAMPLER_ADDRESS_MODE_REPEAT);
+        return false;
+    return noiseSampler_.create(device, VK_FILTER_NEAREST, VK_SAMPLER_ADDRESS_MODE_REPEAT);
 }
 
-void SSAOEffect::init(const PostEffectContext& ctx, VkImageView inputView, VkSampler inputSampler)
+bool SSAOEffect::init(const PostEffectContext& ctx, VkImageView inputView, VkSampler inputSampler)
 {
+    if (ctx_ || !ctx.ctx || !ctx.ctx->getDevice() || !ctx.extent.width || !ctx.extent.height
+        || !ctx.framesInFlight || !inputView || !inputSampler) return false;
+    if (!ctx.pool || !depthView_ || !depthSampler_ || !normalView_ || !normalSampler_) return false;
     ctx_ = ctx.ctx;
     originalInputView_    = inputView;
     originalInputSampler_ = inputSampler;
@@ -77,12 +80,12 @@ void SSAOEffect::init(const PostEffectContext& ctx, VkImageView inputView, VkSam
     VkDevice device = ctx_->getDevice();
     const uint32_t w = ctx.extent.width, h = ctx.extent.height;
 
-    raw_.create      (*ctx_, w, h, kAoFormat,  kDepthFormat);
-    composite_.create(*ctx_, w, h, kHdrFormat, kDepthFormat);
-    rawSampler_.create      (device, VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
-    compositeSampler_.create(device, VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
+    if (!raw_.create      (*ctx_, w, h, kAoFormat,  kDepthFormat)) { destroy(ctx_->getDevice()); return false; }
+    if (!composite_.create(*ctx_, w, h, kHdrFormat, kDepthFormat)) { destroy(ctx_->getDevice()); return false; }
+    if (!rawSampler_.create      (device, VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE)) { destroy(ctx_->getDevice()); return false; }
+    if (!compositeSampler_.create(device, VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE)) { destroy(ctx_->getDevice()); return false; }
 
-    createKernelAndNoise(*ctx.pool);
+    if (!createKernelAndNoise(*ctx.pool)) { destroy(device); return false; }
 
     // --- SSAO pass: binding 0 = UBO, 1 = depth, 2 = normal, 3 = noise ---
     {
@@ -92,7 +95,7 @@ void SSAOEffect::init(const PostEffectContext& ctx, VkImageView inputView, VkSam
         cfg.framesInFlight    = ctx.framesInFlight;
         cfg.uboSize           = sizeof(SSAOUBO);
         cfg.sampledImageCount = 3;
-        ssaoPipeline_.create(*ctx_, raw_.getRenderPass(), cfg);
+        if (!ssaoPipeline_.create(*ctx_, raw_.getRenderPass(), cfg)) { destroy(ctx_->getDevice()); return false; }
         for (uint32_t f = 0; f < ctx.framesInFlight; ++f) {
             ssaoPipeline_.setSampledImage(device, f, 0, depthView_, depthSampler_);
             ssaoPipeline_.setSampledImage(device, f, 1, normalView_, normalSampler_);
@@ -108,12 +111,13 @@ void SSAOEffect::init(const PostEffectContext& ctx, VkImageView inputView, VkSam
         cfg.framesInFlight    = ctx.framesInFlight;
         cfg.uboSize           = sizeof(BlurCompositeUBO);
         cfg.sampledImageCount = 2;
-        blurPipeline_.create(*ctx_, composite_.getRenderPass(), cfg);
+        if (!blurPipeline_.create(*ctx_, composite_.getRenderPass(), cfg)) { destroy(ctx_->getDevice()); return false; }
         for (uint32_t f = 0; f < ctx.framesInFlight; ++f) {
             blurPipeline_.setSampledImage(device, f, 0, raw_.getColorImageView(), rawSampler_.get());
             blurPipeline_.setSampledImage(device, f, 1, originalInputView_, originalInputSampler_);
         }
     }
+    return true;
 }
 
 void SSAOEffect::apply(VkCommandBuffer cmd, uint32_t frameIndex)

@@ -29,3 +29,12 @@ component and is not currently exported by the installed CGLib package.
 
 Shaders and their compilation scripts remain under each subdirectory's
 `shaders/`. Shader lookup and packaging are managed by the application.
+
+## Post-process initialization
+
+`IPostEffect::init` and `PostProcessChain::init` return `bool`. Check the result
+before recording draws. Allocation or shader failures release partial resources.
+A failed chain retains its stages and can be retried after correcting shader
+inputs; no final image is exposed until initialization succeeds. Destroy a live
+chain after GPU completion before changing its resolution or initializing again.
+SSAO requires a command pool and valid linear-depth/normal views and samplers.

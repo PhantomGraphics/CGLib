@@ -44,9 +44,9 @@ public:
     FullscreenEffectPipeline(const FullscreenEffectPipeline&) = delete;
     FullscreenEffectPipeline& operator=(const FullscreenEffectPipeline&) = delete;
 
-    // @throws std::runtime_error if shader module, descriptor, or pipeline creation fails
-    //         (matches CGLib/VulkanGraphics error-handling convention).
-    void create(const Phantom::VKG::VulkanContext& ctx, VkRenderPass renderPass,
+    // Returns false and releases partial resources on allocation failure.
+    // Destroy after GPU completion before reusing this instance.
+    bool create(const Phantom::VKG::VulkanContext& ctx, VkRenderPass renderPass,
                 const FullscreenEffectPipelineConfig& cfg);
     void destroy(VkDevice device);
 

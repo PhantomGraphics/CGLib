@@ -1,13 +1,18 @@
 #include "FullscreenEffectPipeline.h"
 #include "CGLib/VulkanGraphics/VulkanContext.h"
 
-#include <stdexcept>
+#include <cstdio>
 
 namespace Phantom::Effects::PostProcess::detail {
 
-void FullscreenEffectPipeline::create(const Phantom::VKG::VulkanContext& ctx, VkRenderPass renderPass,
+bool FullscreenEffectPipeline::create(const Phantom::VKG::VulkanContext& ctx, VkRenderPass renderPass,
                                        const FullscreenEffectPipelineConfig& cfg)
 {
+    if (pipeline_ || layout_ || !ctx.getDevice() || !renderPass || !cfg.framesInFlight
+        || cfg.vertSpv.empty() || cfg.fragSpv.empty()) {
+        std::fprintf(stderr, "[PostProcess] invalid pipeline context or missing vertex/fragment SPIR-V\n");
+        return false;
+    }
     framesInFlight_     = cfg.framesInFlight;
     uboSize_            = cfg.uboSize;
     sampledImageCount_  = cfg.sampledImageCount;
@@ -33,11 +38,19 @@ void FullscreenEffectPipeline::create(const Phantom::VKG::VulkanContext& ctx, Vk
         b.stageFlags      = VK_SHADER_STAGE_FRAGMENT_BIT;
         bindings.push_back(b);
     }
-    setLayout_.create(device, bindings);
+    if (!setLayout_.create(device, bindings)) { destroy(device); return false; }
 
     // --- Shader modules ---
     VkShaderModule vertMod = createShaderModule(device, cfg.vertSpv);
     VkShaderModule fragMod = createShaderModule(device, cfg.fragSpv);
+    auto fail = [&]() {
+        if (vertMod) vkDestroyShaderModule(device, vertMod, nullptr);
+        if (fragMod) vkDestroyShaderModule(device, fragMod, nullptr);
+        destroy(device);
+        std::fprintf(stderr, "[PostProcess] pipeline initialization failed\n");
+        return false;
+    };
+    if (!vertMod || !fragMod) return fail();
 
     VkPipelineShaderStageCreateInfo stages[2]{};
     stages[0].sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -110,7 +123,7 @@ void FullscreenEffectPipeline::create(const Phantom::VKG::VulkanContext& ctx, Vk
     plci.pPushConstantRanges    = pushConstantSize_ > 0 ? &pushRange : nullptr;
 
     if (vkCreatePipelineLayout(device, &plci, nullptr, &layout_) != VK_SUCCESS)
-        throw std::runtime_error("[PostProcess] Failed to create pipeline layout");
+        return fail();
 
     VkGraphicsPipelineCreateInfo pci{};
     pci.sType               = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -128,16 +141,17 @@ void FullscreenEffectPipeline::create(const Phantom::VKG::VulkanContext& ctx, Vk
     pci.renderPass          = renderPass;
 
     if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pci, nullptr, &pipeline_) != VK_SUCCESS)
-        throw std::runtime_error("[PostProcess] Failed to create graphics pipeline");
+        return fail();
 
     vkDestroyShaderModule(device, vertMod, nullptr);
     vkDestroyShaderModule(device, fragMod, nullptr);
+    vertMod = fragMod = VK_NULL_HANDLE;
 
     // --- Per-frame UBO ---
     if (uboSize_ > 0) {
         ubo_.resize(framesInFlight_);
         for (auto& ub : ubo_)
-            ub.createMapped(ctx, uboSize_, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
+            if (!ub.createMapped(ctx, uboSize_, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT)) return fail();
     }
 
     // --- Per-frame descriptor sets ---
@@ -146,10 +160,11 @@ void FullscreenEffectPipeline::create(const Phantom::VKG::VulkanContext& ctx, Vk
         poolSizes.push_back({ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, framesInFlight_ });
     if (sampledImageCount_ > 0)
         poolSizes.push_back({ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, framesInFlight_ * sampledImageCount_ });
-    descPool_.create(device, poolSizes, framesInFlight_);
+    if (!descPool_.create(device, poolSizes, framesInFlight_)) return fail();
 
     std::vector<VkDescriptorSetLayout> layouts(framesInFlight_, descLayout);
     descSets_ = descPool_.allocateSets(device, layouts);
+    if (descSets_.size() != framesInFlight_) return fail();
 
     if (uboSize_ > 0) {
         for (uint32_t i = 0; i < framesInFlight_; ++i) {
@@ -168,6 +183,7 @@ void FullscreenEffectPipeline::create(const Phantom::VKG::VulkanContext& ctx, Vk
             vkUpdateDescriptorSets(device, 1, &w, 0, nullptr);
         }
     }
+    return true;
 }
 
 void FullscreenEffectPipeline::destroy(VkDevice device)
@@ -175,10 +191,8 @@ void FullscreenEffectPipeline::destroy(VkDevice device)
     for (auto& ub : ubo_) ub.destroy(device);
     ubo_.clear();
 
-    if (!descSets_.empty()) {
-        descPool_.destroy(device);
-        descSets_.clear();
-    }
+    descPool_.destroy(device);
+    descSets_.clear();
     setLayout_.destroy(device);
 
     if (pipeline_) { vkDestroyPipeline(device, pipeline_, nullptr);     pipeline_ = VK_NULL_HANDLE; }
@@ -231,9 +245,9 @@ VkShaderModule FullscreenEffectPipeline::createShaderModule(VkDevice device, con
     ci.codeSize = spv.size() * sizeof(uint32_t);
     ci.pCode    = spv.data();
 
-    VkShaderModule mod;
+    VkShaderModule mod = VK_NULL_HANDLE;
     if (vkCreateShaderModule(device, &ci, nullptr, &mod) != VK_SUCCESS)
-        throw std::runtime_error("[PostProcess] Failed to create shader module");
+        return VK_NULL_HANDLE;
     return mod;
 }
 

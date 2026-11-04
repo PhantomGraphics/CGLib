@@ -30,7 +30,7 @@ public:
     // Calls init() on every added effect in order, chaining input->output as it goes.
     // hdrView/hdrSampler feed the first effect; a chain with no effects makes
     // getFinalView()/getFinalSampler() return hdrView/hdrSampler unchanged (pass-through).
-    void init(const PostEffectContext& ctx, VkImageView hdrView, VkSampler hdrSampler);
+    bool init(const PostEffectContext& ctx, VkImageView hdrView, VkSampler hdrSampler);
 
     // Records every effect's apply() in order.
     void apply(VkCommandBuffer cmd, uint32_t frameIndex);
@@ -43,6 +43,7 @@ public:
     void destroy(VkDevice device);
 
 private:
+    bool initialized_ = false;
     std::vector<std::unique_ptr<IPostEffect>> effects_;
     VkImageView passthroughView_    = VK_NULL_HANDLE;
     VkSampler   passthroughSampler_ = VK_NULL_HANDLE;

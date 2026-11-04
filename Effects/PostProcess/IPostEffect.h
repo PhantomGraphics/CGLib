@@ -28,9 +28,10 @@ class IPostEffect {
 public:
     virtual ~IPostEffect() = default;
 
+    // Returns false on failure; partial resources are released. Caller must destroy before reinitializing.
     // Called once by PostProcessChain::init(). inputView/inputSampler is the previous
     // effect's output (or the chain's original HDR source for the first effect).
-    virtual void init(const PostEffectContext& ctx, VkImageView inputView, VkSampler inputSampler) = 0;
+    virtual bool init(const PostEffectContext& ctx, VkImageView inputView, VkSampler inputSampler) = 0;
 
     // Records this effect's draw commands. Must not be called before init().
     virtual void apply(VkCommandBuffer cmd, uint32_t frameIndex) = 0;

@@ -3,13 +3,15 @@
 
 namespace Phantom::Effects::PostProcess {
 
-void FXAAEffect::init(const PostEffectContext& ctx, VkImageView inputView, VkSampler inputSampler)
+bool FXAAEffect::init(const PostEffectContext& ctx, VkImageView inputView, VkSampler inputSampler)
 {
+    if (ctx_ || !ctx.ctx || !ctx.ctx->getDevice() || !ctx.extent.width || !ctx.extent.height
+        || !ctx.framesInFlight || !inputView || !inputSampler) return false;
     ctx_ = ctx.ctx;
 
-    output_.create(*ctx_, ctx.extent.width, ctx.extent.height,
-                   VK_FORMAT_R8G8B8A8_UNORM, VK_FORMAT_D32_SFLOAT);
-    outputSampler_.create(ctx_->getDevice(), VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
+    if (!output_.create(*ctx_, ctx.extent.width, ctx.extent.height,
+                   VK_FORMAT_R8G8B8A8_UNORM, VK_FORMAT_D32_SFLOAT)) { destroy(ctx_->getDevice()); return false; }
+    if (!outputSampler_.create(ctx_->getDevice(), VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE)) { destroy(ctx_->getDevice()); return false; }
 
     detail::FullscreenEffectPipelineConfig cfg;
     cfg.vertSpv           = shaders_.vertSpv;
@@ -17,10 +19,11 @@ void FXAAEffect::init(const PostEffectContext& ctx, VkImageView inputView, VkSam
     cfg.framesInFlight    = ctx.framesInFlight;
     cfg.uboSize           = sizeof(UBO);
     cfg.sampledImageCount = 1;
-    pipeline_.create(*ctx_, output_.getRenderPass(), cfg);
+    if (!pipeline_.create(*ctx_, output_.getRenderPass(), cfg)) { destroy(ctx_->getDevice()); return false; }
 
     for (uint32_t f = 0; f < ctx.framesInFlight; ++f)
         pipeline_.setSampledImage(ctx_->getDevice(), f, 0, inputView, inputSampler);
+    return true;
 }
 
 void FXAAEffect::apply(VkCommandBuffer cmd, uint32_t frameIndex)
