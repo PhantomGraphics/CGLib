@@ -150,7 +150,7 @@ void addGroupDefinitions(NodeRegistry& r, const LibraryPtr& lib) {
                 const auto it = c.inputs.find(s.id);
                 if (it != c.inputs.end() && !it->second.empty()) inputs[s.id] = it->second[0];
             }
-            EvalContext inner;
+            EvalContext inner = c.eval();
             inner.seed = c.seed();
             inner.limits = c.limits();
             inner.cancel = c.cancelFlag();

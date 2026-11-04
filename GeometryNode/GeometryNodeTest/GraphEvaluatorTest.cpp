@@ -266,3 +266,61 @@ TEST(GraphEvaluator, DefinitionsExposeMetadataForUi) {
     EXPECT_TRUE(reg().find("JoinGeometry")->findInput("Geometry")->multi);
     EXPECT_EQ(reg().find("Nope"), nullptr);
 }
+
+
+TEST(WaterTimeline, SeeksAndEvictionProduceIdenticalHeightsAndNormals) {
+    Graph g;
+    const auto water = addNode(g,"WaterSurface").id;
+    const auto output = addNode(g,"Output").id;
+    addLink(g,water,"Geometry",output,"Geometry");
+    setParam(*g.findNode(water),"Resolution",int32_t(17));
+    setParam(*g.findNode(water),"StartFrame",12.f);
+    setParam(*g.findNode(water),"PlaybackSpeed",2.f);
+    Phantom::Effects::WaterSurface::WaterReplayCache replay(17*17*8*2);
+    EvalCache cache;
+    EvalContext ctx; ctx.waterCache=&replay;
+    for (double frame : {36.,72.,24.,60.,36.,12.,0.,48.}) {
+        ctx.frame=frame;
+        const auto cached=evaluateGraph(g,reg(),ctx,&cache);
+        ctx.waterCache=nullptr;
+        const auto fresh=evaluateGraph(g,reg(),ctx);
+        ASSERT_TRUE(cached.success); ASSERT_TRUE(fresh.success);
+        ASSERT_EQ(cached.geometry->positions.size(),fresh.geometry->positions.size());
+        for(size_t i=0;i<fresh.geometry->positions.size();++i) {
+            EXPECT_FLOAT_EQ(cached.geometry->positions[i].y,fresh.geometry->positions[i].y);
+            EXPECT_FLOAT_EQ(cached.geometry->normals[i].x,fresh.geometry->normals[i].x);
+            EXPECT_FLOAT_EQ(cached.geometry->normals[i].y,fresh.geometry->normals[i].y);
+            EXPECT_FLOAT_EQ(cached.geometry->normals[i].z,fresh.geometry->normals[i].z);
+            if(frame<=12) EXPECT_FLOAT_EQ(fresh.geometry->positions[i].y,0);
+        }
+        EXPECT_LE(replay.bytes(),17u*17*8*2);
+        ctx.waterCache=&replay;
+    }
+    // Changing physical parameters must not reuse an incompatible checkpoint.
+    setParam(*g.findNode(water),"Damping",3.f);
+    const auto changed=evaluateGraph(g,reg(),ctx,&cache);
+    ctx.waterCache=nullptr;
+    const auto fresh=evaluateGraph(g,reg(),ctx);
+    ASSERT_TRUE(changed.success); ASSERT_TRUE(fresh.success);
+    for(size_t i=0;i<fresh.geometry->positions.size();++i)
+        EXPECT_FLOAT_EQ(changed.geometry->positions[i].y,fresh.geometry->positions[i].y);
+}
+
+TEST(WaterTimeline, MissingModeRetainsLegacyManualTime) {
+    Graph g;
+    const auto water=addNode(g,"WaterSurface").id;
+    const auto output=addNode(g,"Output").id;
+    addLink(g,water,"Geometry",output,"Geometry");
+    auto* n=g.findNode(water);
+    n->params.erase("TimeMode");
+    setParam(*n,"Time",.5f);
+    EvalContext ctx; ctx.frame=120;
+    const auto legacy=evaluateGraph(g,reg(),ctx);
+    setParam(*n,"TimeMode",int32_t(1)); ctx.frame=12;
+    const auto timeline=evaluateGraph(g,reg(),ctx);
+    ASSERT_TRUE(legacy.success); ASSERT_TRUE(timeline.success);
+    for(size_t i=0;i<legacy.geometry->positions.size();++i)
+        EXPECT_FLOAT_EQ(legacy.geometry->positions[i].y,timeline.geometry->positions[i].y);
+    std::atomic<bool> cancelled{true}; ctx.cancel=&cancelled;
+    EXPECT_FALSE(evaluateGraph(g,reg(),ctx).success);
+}

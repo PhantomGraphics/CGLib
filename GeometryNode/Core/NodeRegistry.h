@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "GraphTypes.h"
+#include "../../Effects/WaterSurface/WaterReplayCache.h"
 
 namespace Phantom::GeometryNode {
 
@@ -23,6 +24,9 @@ struct EvalContext {
     // deep the group nesting is (a self-referencing group is cut off instead of recursing forever).
     const std::map<std::string, Value>* groupInputs = nullptr;
     int groupDepth = 0;
+    double frame = 0, fps = 24;
+    Phantom::Effects::WaterSurface::WaterReplayCache* waterCache = nullptr;
+    std::atomic<float>* progress = nullptr;
 
     bool cancelled() const { return cancel && cancel->load(std::memory_order_relaxed); }
 };

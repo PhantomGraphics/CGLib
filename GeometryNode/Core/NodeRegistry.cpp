@@ -318,13 +318,23 @@ NodeRegistry makeBuiltin() {
         d.inputs = {sock("Width", "Width", SocketType::Float, 10.f), sock("Depth", "Depth", SocketType::Float, 10.f),
             sock("Resolution", "Resolution", SocketType::Int, int32_t(33)),
             sock("Speed", "Speed", SocketType::Float, 1.f), sock("Damping", "Damping", SocketType::Float, .5f),
+            sock("TimeMode", "Time Mode (0 manual, 1 timeline)", SocketType::Int, int32_t(0)),
+            sock("StartFrame", "Start Frame", SocketType::Float, 0.f),
+            sock("PlaybackSpeed", "Playback Speed", SocketType::Float, 1.f),
             sock("Time", "Time", SocketType::Float, 0.f), sock("Radius", "Radius", SocketType::Float, 1.f),
             sock("Velocity", "Velocity", SocketType::Float, 1.f), sock("Center", "Center", SocketType::Vector3, Vec3{})};
         d.outputs = {sock("Geometry", "Geometry", SocketType::Geometry)};
         d.evaluate = [](NodeEvalContext& c) {
             using namespace Phantom::Effects::WaterSurface;
             const int resolution = c.getInt("Resolution");
-            const float time = c.getFloat("Time");
+            const int mode = c.getInt("TimeMode");
+            const double start = c.getFloat("StartFrame"), speed = c.getFloat("PlaybackSpeed");
+            if ((mode != 0 && mode != 1) || !std::isfinite(start) || start < 0 ||
+                !std::isfinite(speed) || speed <= 0 || !std::isfinite(c.eval().frame) ||
+                !std::isfinite(c.eval().fps) || c.eval().fps <= 0) {
+                c.fail(DiagCode::InvalidParameter,"WaterSurface: invalid time mode, start frame, playback speed or frame context"); return;
+            }
+            const double time = mode == 1 ? std::max(0.0,(c.eval().frame-start)/c.eval().fps*speed) : c.getFloat("Time");
             const Vec3 center = c.getVec3("Center");
             WaterSurfaceConfig config{uint32_t(resolution),uint32_t(resolution),c.getFloat("Width"),c.getFloat("Depth"),c.getFloat("Speed"),c.getFloat("Damping")};
             if (resolution < 3 || resolution > 129 || !isValidWaterSurfaceConfig(config) ||
@@ -345,10 +355,13 @@ NodeRegistry makeBuiltin() {
             Mesh m;
             if (!check(c,makeGrid(config.width,config.depth,resolution,resolution,c.limits(),m),"WaterSurface")) return;
             WaterSurfaceReference solver;
-            if (!solver.create(config) || !solver.addImpulse({center.x+config.width*.5f,center.z+config.depth*.5f,c.getFloat("Radius"),c.getFloat("Velocity")})) {
+            WaterReplayCache uncached(0);
+            auto& replay = c.eval().waterCache ? *c.eval().waterCache : uncached;
+            if (!replay.evaluate(config, {center.x+config.width*.5f,center.z+config.depth*.5f,c.getFloat("Radius"),c.getFloat("Velocity")},
+                                 steps, solver, c.cancelFlag(), c.eval().progress)) {
                 c.fail(DiagCode::InvalidParameter,"WaterSurface: ripple rejected"); return;
             }
-            for (uint64_t step=0;step<steps;++step) solver.singleStep();
+            if (c.eval().cancelled()) { c.fail(DiagCode::Cancelled,"WaterSurface: cancelled"); return; }
             for (size_t i=0;i<m.positions.size();++i) m.positions[i].y=solver.cells()[i].height;
             m.normals=computeSmoothNormals(m);
             c.setOutput("Geometry",GeometryPtr(std::make_shared<const Mesh>(std::move(m))));

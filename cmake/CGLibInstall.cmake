@@ -124,6 +124,12 @@ foreach(_dir Math Graphics Numerics Space File Animation Volume GeometryNode Mes
         PATTERN "*Presenter.h" EXCLUDE)
 endforeach()
 
+# GeometryNode's public CPU water replay cache includes the reference solver, never Vulkan headers.
+install(FILES
+    ${CGLIB_ROOT}/Effects/WaterSurface/WaterReplayCache.h
+    ${CGLIB_ROOT}/Effects/WaterSurface/WaterSurfaceReference.h
+    DESTINATION ${_hdr_dest}/Effects/WaterSurface)
+
 # GltfCore (CPU-only glTF evaluation, character pose and bake): its headers live in GltfRenderer/Gltf next to the Vulkan
 # renderer's, which is not exported. The Gltf headers only reach Animation/Core, Graphics/Core and the vendored glm.
 install(DIRECTORY ${CGLIB_ROOT}/GltfRenderer/Gltf/ DESTINATION ${_hdr_dest}/GltfRenderer/Gltf

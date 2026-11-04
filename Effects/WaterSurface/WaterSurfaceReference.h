@@ -80,6 +80,10 @@ public:
         }
         cells_.swap(next_);
     }
+    bool restoreCells(const std::vector<WaterCell>& cells) {
+        if (cells.size() != cells_.size()) return false;
+        cells_ = cells; accumulator_ = 0; return true;
+    }
     const std::vector<WaterCell>& cells() const { return cells_; }
 private:
     WaterSurfaceConfig config_;

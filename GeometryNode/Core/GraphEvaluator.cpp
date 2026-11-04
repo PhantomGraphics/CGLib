@@ -296,6 +296,9 @@ EvalResult evaluateGraph(const Graph& graph, const NodeRegistry& registry, const
         appendPod(key, n->version);
         appendPod(key, def.contentHash);
         appendPod(key, context.seed);
+        if (def.typeId == "WaterSurface" || def.typeId.rfind("Group", 0) == 0) {
+            appendPod(key, context.frame); appendPod(key, context.fps);
+        }
         appendPod(key, context.limits.maxVertices);
         appendPod(key, context.limits.maxIndices);
         appendPod(key, context.limits.maxInstances);

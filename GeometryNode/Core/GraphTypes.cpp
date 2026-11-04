@@ -130,6 +130,7 @@ Node& addNode(Graph& g, const std::string& type, uint32_t version) {
     Node n;
     n.id = next;
     n.type = type;
+    if (type == "WaterSurface") n.params["TimeMode"] = 1;
     n.version = version;
     g.nodes.push_back(std::move(n));
     return g.nodes.back();
