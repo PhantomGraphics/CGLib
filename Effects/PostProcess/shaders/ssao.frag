@@ -1,9 +1,8 @@
 #version 450
 
 // Hemisphere-sampling SSAO (Crysis / LearnOpenGL style). Reconstructs view-space position
-// from a linear-depth input + the projection matrix (valid for symmetric perspective
-// frustums, i.e. no projection skew), rather than requiring a full inverse-projection
-// matrix or a dedicated view-space-position G-buffer target.
+// from linear depth using the full inverse projection. This supports perspective
+// and orthographic cameras without a dedicated view-space-position attachment.
 
 layout(location = 0) in vec2 inUV;
 layout(location = 0) out vec4 outAO;
@@ -26,9 +25,11 @@ layout(binding = 3) uniform sampler2D uNoise;  // tangent-space rotation vector,
 vec3 reconstructViewPos(vec2 uv, float linearDepth)
 {
     vec2 ndc = uv * 2.0 - 1.0;
-    float viewX = ndc.x * linearDepth / ubo.proj[0][0];
-    float viewY = ndc.y * linearDepth / ubo.proj[1][1];
-    return vec3(viewX, viewY, -linearDepth);
+    mat4 inv = inverse(ubo.proj);
+    vec4 nearH = inv * vec4(ndc, 0, 1), farH = inv * vec4(ndc, 1, 1);
+    vec3 nearP = nearH.xyz / nearH.w, farP = farH.xyz / farH.w;
+    float t = (-linearDepth - nearP.z) / (farP.z - nearP.z);
+    return mix(nearP, farP, t);
 }
 
 void main()
@@ -52,8 +53,10 @@ void main()
         vec4 offset = ubo.proj * vec4(samplePos, 1.0);
         offset.xy /= offset.w;
         offset.xy = offset.xy * 0.5 + 0.5;
+        if (offset.w <= 0 || any(lessThan(offset.xy,vec2(0))) || any(greaterThan(offset.xy,vec2(1)))) continue;
 
         float sampleDepth  = texture(uDepth, offset.xy).r;
+        if(sampleDepth <= 0) continue;
         float sampleViewZ  = -sampleDepth;
         float rangeCheck   = smoothstep(0.0, 1.0, ubo.radius / max(abs(fragPos.z - sampleViewZ), 1e-4));
         occlusion += ((sampleViewZ >= samplePos.z + ubo.bias) ? 1.0 : 0.0) * rangeCheck;
