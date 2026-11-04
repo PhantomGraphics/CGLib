@@ -26,15 +26,16 @@ public:
     // Call after this frame's fence, after simulator.recordUpdate(). Images must
     // remain alive until submission completes; depth uses Vulkan's [0,1] range.
     void update(VkDevice, uint32_t frame, VkBuffer state, const WaterSurfaceImages&,
-                const WaterSurfaceCamera&, const WaterSurfaceMaterial&, float elevation = 0);
+                const WaterSurfaceCamera&, const WaterSurfaceMaterial&, float elevation = 0, const glm::mat4& model = glm::mat4(1));
     void recordDraw(VkCommandBuffer, uint32_t frame);
 private:
     struct Uniform {
         glm::mat4 vp, inverseVP, reflectionVP;
         glm::vec4 eye, domain, color, absorption, flags;
         glm::uvec4 grid;
+        glm::mat4 model;
     };
-    static_assert(sizeof(Uniform) == 288);
+    static_assert(sizeof(Uniform) == 352);
     VKG::VulkanPipeline pipeline_;
     VKG::VulkanDescriptorPool pool_;
     VKG::VulkanDescriptorSetLayout layout_;

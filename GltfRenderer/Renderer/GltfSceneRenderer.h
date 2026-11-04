@@ -148,6 +148,12 @@ namespace Phantom::Gltf
 
         // --- External camera override ---
         void setCamera(const glm::mat4& view, const glm::mat4& proj, const glm::vec3& eye);
+        // Caller waits all previous auxiliary uses and calls onUpdate(0) first. Slots hold independent camera UBOs
+        // while sharing that frame's geometry, poses, materials, lights and textures.
+        bool prepareAuxiliaryView(uint32_t slot, const glm::mat4& view, const glm::mat4& projection,
+                                  const glm::vec3& eye, const glm::vec4& clipPlane);
+        void refreshAuxiliaryViews();
+        void renderAuxiliaryInstances(VkCommandBuffer, uint32_t slot, const std::vector<glm::mat4>&);
         void clearCameraOverride() { useExternalCamera_ = false; }
 
         // --- Per-instance world transform ---
@@ -408,6 +414,14 @@ namespace Phantom::Gltf
         std::array<Phantom::VKG::VulkanBuffer, MAX_FRAMES> lightUbos_; // binding 6, see setPunctualLights()
         // Layouts + global sets (set=0) + per-document material pool (set=1); see GltfGlobalDescriptors.
         GltfGlobalDescriptors descriptors_;
+        struct AuxiliaryView {
+            Phantom::VKG::VulkanBuffer uniform;
+            VkDescriptorSet set = VK_NULL_HANDLE;
+            glm::vec3 eye{0};
+        };
+        Phantom::VKG::VulkanDescriptorPool auxiliaryPool_;
+        std::vector<std::unique_ptr<AuxiliaryView>> auxiliaryViews_;
+
 
         // --- set=1: Per-material resources (document-dependent) ---
 

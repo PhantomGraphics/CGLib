@@ -1,7 +1,7 @@
 #version 450
 layout(std140,binding=1) uniform Uniforms {
     mat4 vp; mat4 inverseVP; mat4 reflectionVP;
-    vec4 eye; vec4 domain; vec4 color; vec4 absorption; vec4 flags; uvec4 grid;
+    vec4 eye; vec4 domain; vec4 color; vec4 absorption; vec4 flags; uvec4 grid; mat4 model;
 } u;
 layout(binding=2) uniform sampler2D reflectionImage;
 layout(binding=3) uniform sampler2D sceneImage;

@@ -3,6 +3,7 @@
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
+#include <cstddef>
 #include <cstdint>
 
 namespace Phantom::Gltf
@@ -47,7 +48,9 @@ struct GlobalUBO {
     // medium. Appended at the end for the same reason as `exposure`; enabled=0 by default.
     glm::mat4 volumeShadowVP = glm::mat4(1.0f);
     glm::vec4 volumeShadowParams = glm::vec4(0.0f); // x = sigma, y = layer count, z = enabled
-};  // 416 bytes, std140 OK
+    glm::vec4 clipPlane = glm::vec4(0); // world-space plane; zero disables clipping
+};  // 432 bytes, std140 OK
+static_assert(sizeof(GlobalUBO)==432 && offsetof(GlobalUBO,clipPlane)==416);
 
 // set=1 binding 0: per-material UBO (frag)
 struct MaterialUBO {

@@ -1015,5 +1015,57 @@ void GltfSceneRenderer::onCleanup(VkDevice device) {
         lightUbos_[f].destroy(device);
     }
 
+    auxiliaryPool_.destroy(device);
+    for(auto& entry:auxiliaryViews_)if(entry)entry->uniform.destroy(device);
+    auxiliaryViews_.clear();
     ctx_ = nullptr;
+}
+
+namespace Phantom::Gltf {
+bool GltfSceneRenderer::prepareAuxiliaryView(uint32_t slot,const glm::mat4& view,const glm::mat4& projection,
+                                           const glm::vec3& eye,const glm::vec4& clipPlane) {
+    if(!ready_ || !ctx_ || slot>=16)return false;
+    auto device=ctx_->getDevice();
+    if(!auxiliaryPool_.isValid() && !auxiliaryPool_.create(device,
+        {{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,48},{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,80},
+         {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,16}},16))return false;
+    if(auxiliaryViews_.size()<=slot)auxiliaryViews_.resize(slot+1);
+    auto& entry=auxiliaryViews_[slot];
+    if(!entry) {
+        entry=std::make_unique<AuxiliaryView>();
+        if(!entry->uniform.createMapped(*ctx_,sizeof(GlobalUBO),VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT)){entry.reset();return false;}
+        auto sets=auxiliaryPool_.allocateSets(device,{descriptors_.globalLayout()});
+        if(sets.empty()){entry->uniform.destroy(device);entry.reset();return false;}
+        entry->set=sets[0];
+        VkDescriptorBufferInfo buffer{entry->uniform.get(),0,sizeof(GlobalUBO)};
+        VkWriteDescriptorSet write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};write.dstSet=entry->set;write.dstBinding=0;
+        write.descriptorCount=1;write.descriptorType=VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;write.pBufferInfo=&buffer;
+        vkUpdateDescriptorSets(device,1,&write,0,nullptr);
+    }
+    GlobalUBO camera{};std::memcpy(&camera,globalUbos_[0].getMapped(),sizeof(camera));
+    camera.view=view;camera.proj=projection;camera.camPos=glm::vec4(eye,1);camera.clipPlane=clipPlane;
+    entry->uniform.write(&camera,sizeof(camera));entry->eye=eye;
+    return true;
+}
+void GltfSceneRenderer::refreshAuxiliaryViews() {
+    if(!ctx_)return;
+    for(auto& entry:auxiliaryViews_)if(entry) {
+        VkCopyDescriptorSet copies[8]{};
+        for(uint32_t binding=1;binding<=8;++binding) {
+            auto& copy=copies[binding-1];copy.sType=VK_STRUCTURE_TYPE_COPY_DESCRIPTOR_SET;
+            copy.srcSet=*descriptors_.globalSet(0);copy.srcBinding=binding;
+            copy.dstSet=entry->set;copy.dstBinding=binding;copy.descriptorCount=1;
+        }
+        vkUpdateDescriptorSets(ctx_->getDevice(),0,nullptr,8,copies);
+    }
+}
+void GltfSceneRenderer::renderAuxiliaryInstances(VkCommandBuffer cmd,uint32_t slot,const std::vector<glm::mat4>& matrices) {
+    if(!ready_ || !visible_ || slot>=auxiliaryViews_.size() || !auxiliaryViews_[slot])return;
+    auto set=auxiliaryViews_[slot]->set;
+    vkCmdBindDescriptorSets(cmd,VK_PIPELINE_BIND_POINT_GRAPHICS,mainPipelines_.layout(),0,1,&set,0,nullptr);
+    const auto previousEye=extEye_;const bool previousOverride=useExternalCamera_;
+    extEye_=auxiliaryViews_[slot]->eye;useExternalCamera_=true;
+    for(const auto& model:matrices)renderPrimitivesWithModel(cmd,0,model);
+    extEye_=previousEye;useExternalCamera_=previousOverride;
+}
 }

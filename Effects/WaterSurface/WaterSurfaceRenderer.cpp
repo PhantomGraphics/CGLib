@@ -4,7 +4,7 @@ namespace Phantom::Effects::WaterSurface {
 bool WaterSurfaceRenderer::create(const VKG::VulkanContext& ctx,VkRenderPass pass,uint32_t frames,
                                   const WaterSurfaceConfig& config,const std::vector<uint32_t>& vert,
                                   const std::vector<uint32_t>& frag) {
-    if(!sets_.empty() || frames==0) return false;
+    if(!ctx.getDevice() || !pass || vert.empty() || frag.empty() || !sets_.empty() || frames==0) return false;
     if(!isValidWaterSurfaceConfig(config)) return false;
     config_=config;
     const auto d=ctx.getDevice();
@@ -28,11 +28,11 @@ void WaterSurfaceRenderer::destroy(VkDevice d) {
     uniforms_.clear(); sets_.clear();
 }
 void WaterSurfaceRenderer::update(VkDevice d,uint32_t f,VkBuffer state,const WaterSurfaceImages& images,
-                                  const WaterSurfaceCamera& camera,const WaterSurfaceMaterial& material,float elevation) {
+                                  const WaterSurfaceCamera& camera,const WaterSurfaceMaterial& material,float elevation,const glm::mat4& model) {
     if(f>=sets_.size()) return;
     Uniform u{camera.viewProjection,camera.inverseViewProjection,camera.reflectionViewProjection,camera.eye,
         {config_.width,config_.depth,elevation,0},material.color,material.absorption,
-        {material.reflection?1.f:0.f,material.refraction?1.f:0.f,0,0},{config_.columns,config_.rows,0,0}};
+        {material.reflection?1.f:0.f,material.refraction?1.f:0.f,0,0},{config_.columns,config_.rows,0,0},model};
     uniforms_[f].write(&u,sizeof(u));
     VkDescriptorBufferInfo buffers[2]{{state,0,VK_WHOLE_SIZE},{uniforms_[f].get(),0,sizeof(u)}};
     const VkDescriptorImageInfo textures[]{images.reflection,images.color,images.depth};

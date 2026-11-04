@@ -2,7 +2,7 @@
 
 Finite horizontal rectangular height field, Vulkan compute updates and a displaced
 grid renderer. This is a visual wave model, not a shallow-water flow solver.
-No Physics dependency, external models, underwater camera or breaking waves.
+No Physics dependency or external assets required. Underwater cameras and breaking waves are unsupported.
 
 ## Build and demo
 
@@ -89,3 +89,14 @@ Scenario commands: `status`, `verify`, `reset`, `pause 0|1`, `step`, `wait`,
 return nonzero on failure. Vulkan validation is enabled by VkAppBase. Capture
 with `--screenshot path --screenshot-frame N`; the viewer keeps running unless
 the scenario completes or the window closes.
+
+## Transformed surfaces and application integration
+
+WaterSurfaceRenderer::update accepts an optional rigid model matrix after elevation
+(default identity for existing callers). Use world translation and Y rotation for
+horizontal rectangles; the new matrix is appended to the uniform layout. Rebuild
+the water SPIR-V together with consumers after changing this layout.
+
+The C# Phantom.Rendering.Effects adapter provides scene-owned water with real
+model/mesh reflection/refraction passes. Its settings, limits, lifecycle and
+initial rendering exclusions are documented in that package's README.

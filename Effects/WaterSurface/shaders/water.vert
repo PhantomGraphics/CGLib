@@ -2,7 +2,7 @@
 layout(std430,binding=0) readonly buffer State { vec2 cells[]; };
 layout(std140,binding=1) uniform Uniforms {
     mat4 vp; mat4 inverseVP; mat4 reflectionVP;
-    vec4 eye; vec4 domain; vec4 color; vec4 absorption; vec4 flags; uvec4 grid;
+    vec4 eye; vec4 domain; vec4 color; vec4 absorption; vec4 flags; uvec4 grid; mat4 model;
 } u;
 layout(location=0) out vec3 world;
 layout(location=1) out vec3 normal;
@@ -16,5 +16,7 @@ void main() {
     uint left=xy.y*u.grid.x+max(xy.x,1)-1, right=xy.y*u.grid.x+min(xy.x+1,u.grid.x-1);
     uint down=(max(xy.y,1)-1)*u.grid.x+xy.x, up=min(xy.y+1,u.grid.y-1)*u.grid.x+xy.x;
     normal=normalize(vec3(-(cells[right].x-cells[left].x)/(2*spacing.x),1,-(cells[up].x-cells[down].x)/(2*spacing.y)));
+    world=(u.model*vec4(world,1)).xyz;
+    normal=normalize(mat3(u.model)*normal);
     gl_Position=u.vp*vec4(world,1);
 }
