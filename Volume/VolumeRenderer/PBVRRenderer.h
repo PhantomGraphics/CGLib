@@ -35,6 +35,8 @@ public:
         // entirely (renderShadowDeposit() then no-ops even if setShadowEnabled(true) is called).
         std::vector<uint32_t> depositVertSpv;
         std::vector<uint32_t> depositFragSpv;
+        // Optional injection for packaged consumers. Empty preserves the legacy viewer lookup.
+        std::vector<uint32_t> computeSpv;
     };
 
     void setDataSource(IPBVRDataSource* src) { dataSource_ = src; }

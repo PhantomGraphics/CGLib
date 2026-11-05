@@ -20,6 +20,13 @@ namespace Phantom::Volume {
 
 void VolumeComputePBVR::create(const ::Phantom::VKG::VulkanContext& ctx)
 {
+    create(ctx, ::Phantom::VKG::loadSPVRepo("shaders/volume_pbvr_gen.comp.spv"));
+}
+
+void VolumeComputePBVR::create(const ::Phantom::VKG::VulkanContext& ctx, std::vector<uint32_t> computeSpv)
+{
+    if (computeSpv.empty()) return; // Do not pass an empty module to Vulkan.
+
     VkDevice dev = ctx.getDevice();
 
     // Descriptor set layout: binding 0 = voxel SSBO, 1 = TF LUT SSBO, 2 = output SSBO
@@ -43,7 +50,7 @@ void VolumeComputePBVR::create(const ::Phantom::VKG::VulkanContext& ctx)
     descSet_ = sets.front();
 
     ::Phantom::VKG::ComputePipelineConfig cfg{};
-    cfg.compSpv             = ::Phantom::VKG::loadSPVRepo("shaders/volume_pbvr_gen.comp.spv");
+    cfg.compSpv             = std::move(computeSpv);
     cfg.descriptorSetLayout = dsl_.get();
     cfg.pushConstantRange   = {VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConstants)};
     pipeline_.create(ctx, cfg);
@@ -68,7 +75,7 @@ void VolumeComputePBVR::dispatch(const ::Phantom::VKG::VulkanContext& ctx,
                                     float voxelSize,
                                     const std::vector<TFSample>& tfLut)
 {
-    if (voxels.empty()) {
+    if (voxels.empty() || !pipeline_.isValid()) {
         totalCount_ = 0;
         return;
     }

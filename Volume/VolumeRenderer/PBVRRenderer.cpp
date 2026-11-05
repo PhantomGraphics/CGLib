@@ -175,7 +175,8 @@ void PBVRRenderer::onInit(::Phantom::VKG::VulkanContext& ctx, const ::Phantom::V
         pipeline_.updateShadowMap(i, shadowMapPass_.getArrayView(), shadowMapPass_.getSampler());
     }
 
-    computePBVR_.create(ctx);
+    if (shaders_.computeSpv.empty()) computePBVR_.create(ctx);
+    else computePBVR_.create(ctx, std::move(shaders_.computeSpv));
     dirty_ = true;
     shadowContentDirty_ = true;
 }

@@ -28,6 +28,7 @@ struct GpuVoxelEntry {
 class VolumeComputePBVR {
 public:
     void create(const ::Phantom::VKG::VulkanContext& ctx);
+    void create(const ::Phantom::VKG::VulkanContext& ctx, std::vector<uint32_t> computeSpv);
     void destroy(VkDevice device);
 
     void setDensityScale(float s)       { densityScale_ = s; }
