@@ -334,3 +334,39 @@ TEST(Field, NoiseUsesCoordinatesAndOptionalPosition) {
     EXPECT_FLOAT_EQ(constant[0],values[0]); EXPECT_FLOAT_EQ(constant[0],constant[2]);
     node.inputs["Octaves"]={int32_t(0)}; def->evaluate(node); EXPECT_TRUE(node.failed());
 }
+
+TEST(Field, WarpedMultifractalRoundTripAndDiagnostics) {
+    for (const char* type : {"DomainWarp2D", "DomainWarp3D"}) {
+        Jitter j=makeJitter(); j.g.findNode(j.random)->type="Noise3D";
+        const NodeId warp=add(j.g,type);
+        addLink(j.g,warp,"Position",j.random,"Position");
+        setParam(*j.g.findNode(j.random),"FractalMode",int32_t(4));
+        setParam(*j.g.findNode(j.random),"Scale",.73f);
+        setParam(*j.g.findNode(warp),"Scale",.43f);
+        const auto warped=evaluateGraph(j.g,reg(),EvalContext{42}); ASSERT_TRUE(warped.success);
+        Graph back; ASSERT_TRUE(parseGraph(serializeGraph(j.g),back).ok);
+        const auto restored=evaluateGraph(back,reg(),EvalContext{42}); ASSERT_TRUE(restored.success);
+        EXPECT_EQ(warped.geometry->positions,restored.geometry->positions);
+        setParam(*j.g.findNode(warp),"Strength",0.0f);
+        const auto plain=evaluateGraph(j.g,reg(),EvalContext{42}); ASSERT_TRUE(plain.success);
+        EXPECT_NE(plain.geometry->positions,warped.geometry->positions);
+        setParam(*j.g.findNode(warp),"Strength",-1.0f);
+        const auto invalid=evaluateGraph(j.g,reg(),EvalContext{42});
+        EXPECT_FALSE(invalid.success); EXPECT_TRUE(hasCode(invalid.diagnostics,DiagCode::InvalidParameter));
+    }
+    const auto* mode=reg().find("Noise2D")->findInput("FractalMode");
+    ASSERT_NE(mode,nullptr); ASSERT_EQ(mode->choices.size(),5u);
+    EXPECT_EQ(mode->choices.back().value,4);
+}
+TEST(Field, WarpDirectPositionAndCancellation) {
+    Jitter j=makeJitter();
+    const NodeId warp=add(j.g,"DomainWarp2D");
+    // Replace the Offset connection with Warp as the absolute Position input.
+    j.g.links.erase(std::remove_if(j.g.links.begin(),j.g.links.end(),[&](const auto& l){return l.to.node==j.set && l.to.socket=="Offset";}),j.g.links.end());
+    addLink(j.g,warp,"Position",j.set,"Position");
+    setParam(*j.g.findNode(warp),"Strength",0.0f);
+    const auto result=evaluateGraph(j.g,reg(),EvalContext{}); ASSERT_TRUE(result.success);
+    for(const auto& p:result.geometry->positions) EXPECT_FLOAT_EQ(p.y,0);
+    std::atomic<bool> cancel{true}; EvalContext ctx; ctx.cancel=&cancel;
+    EXPECT_FALSE(evaluateGraph(j.g,reg(),ctx).success);
+}

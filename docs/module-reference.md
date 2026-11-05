@@ -89,3 +89,7 @@ Math ──┬── Graphics ──┬── File
 Math/Noise provides seeded Perlin 2D/3D and normalized fBm, Turbulence and Ridged composition.
 GeometryNode uses Math privately and exposes Noise2D (XZ) and Noise3D point fields through the Studio catalog.
 See Math/Noise/README.md for the API and seed contract.
+
+Noise mode 4 adds Ridged Multifractal (offset and octave feedback). DomainWarp2D/3D
+provide independent fBm coordinate displacements, including zero-strength passthrough.
+Integer socket choices are catalog metadata; Studio displays labels while keeping saved integers.

@@ -31,6 +31,8 @@ struct EvalContext {
     bool cancelled() const { return cancel && cancel->load(std::memory_order_relaxed); }
 };
 
+struct SocketChoice { int32_t value; std::string name; };
+
 struct SocketDef {
     std::string id;           // stable identifier used in links / params / JSON
     std::string displayName;
@@ -39,6 +41,7 @@ struct SocketDef {
     bool required = false;    // must be linked (Geometry inputs)
     bool multi = false;       // accepts several links (ordered); inputs only
     std::string description;
+    std::vector<SocketChoice> choices; // Optional labels for integer parameters; serialized values stay integers.
 };
 
 // Handed to a node's evaluate function. Inputs are already resolved (linked value,

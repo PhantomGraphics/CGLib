@@ -4,7 +4,7 @@
 #include <cmath>
 
 #include "GeometryOps.h"
-#include "../../Math/Noise/PerlinNoise.h"
+#include "../../Math/Noise/DomainWarp.h"
 
 namespace Phantom::GeometryNode {
 
@@ -154,24 +154,25 @@ void registerFieldNodes(NodeRegistry& r) {
         d.typeId = threeD ? "Noise3D" : "Noise2D";
         d.displayName = threeD ? "Noise 3D" : "Noise 2D (XZ)";
         d.category = "Field";
-        d.description = "Seeded Perlin field. Samples Position * Scale + Offset; unlinked Position uses mesh positions. FractalMode: 0=None, 1=fBm, 2=Turbulence, 3=Ridged.";
+        d.description = "Seeded Perlin field. Samples Position * Scale + Offset; unlinked Position uses mesh positions. FractalMode: 0=None, 1=fBm, 2=Turbulence, 3=Ridged, 4=Ridged Multifractal.";
         d.inputs = {sock("Position", "Position", SocketType::FieldVector3),
             sock("Scale", "Scale", SocketType::Float, 1.0f),
             sock("Offset", "Offset", SocketType::Vector3, Vec3{0,0,0}),
             sock("Seed", "Seed", SocketType::Int, int32_t(0)),
-            sock("FractalMode", "Fractal Mode", SocketType::Int, int32_t(0), "0=None, 1=fBm, 2=Turbulence, 3=Ridged"),
+            sock("FractalMode", "Fractal Mode", SocketType::Int, int32_t(0), "0=None, 1=fBm, 2=Turbulence, 3=Ridged, 4=Ridged Multifractal"),
             sock("Octaves", "Octaves", SocketType::Int, int32_t(5)),
             sock("Lacunarity", "Lacunarity", SocketType::Float, 2.0f),
-            sock("Gain", "Gain", SocketType::Float, 0.5f)};
+            sock("Gain", "Gain", SocketType::Float, 0.5f), sock("RidgeOffset", "Ridge Offset", SocketType::Float, 1.0f), sock("RidgeFeedback", "Ridge Feedback", SocketType::Float, 2.0f)};
+        d.inputs[4].choices = {{0,"None"},{1,"fBm"},{2,"Turbulence"},{3,"Ridged"},{4,"Ridged Multifractal"}};
         d.outputs = {sock("Value", "Value", SocketType::FieldFloat)};
         d.evaluate = [threeD](NodeEvalContext& c) {
             using namespace Phantom::Math::Noise;
             const float scale=c.getFloat("Scale");
             const Vec3 offset=c.getVec3("Offset");
             const int mode=c.getInt("FractalMode"), octaves=c.getInt("Octaves");
-            const FractalSettings settings{static_cast<FractalMode>(mode), static_cast<unsigned>(octaves), c.getFloat("Lacunarity"), c.getFloat("Gain")};
+            const FractalSettings settings{static_cast<FractalMode>(mode), static_cast<unsigned>(octaves), c.getFloat("Lacunarity"), c.getFloat("Gain"), c.getFloat("RidgeOffset"), c.getFloat("RidgeFeedback")};
             if (!std::isfinite(scale) || !std::isfinite(offset.x) || !std::isfinite(offset.y) || !std::isfinite(offset.z) ||
-                !evaluateFractal([](float)->std::optional<float>{return 0.0f;}, settings)) {
+                !validateFractalSettings(settings)) {
                 c.fail(DiagCode::InvalidParameter, "Noise: invalid scale, offset or fractal settings"); return;
             }
             const FieldPtr position=c.getField("Position");
@@ -191,6 +192,35 @@ void registerFieldNodes(NodeRegistry& r) {
         r.add(std::move(d));
     }
 
+    for (bool three : {false,true}) {
+        NodeDefinition d;
+        d.typeId=three ? "DomainWarp3D" : "DomainWarp2D";
+        d.displayName=three ? "Domain Warp 3D" : "Domain Warp 2D (XZ)";
+        d.category="Field";
+        d.description="Independent seeded fBm coordinate displacement. 2D preserves Y. Strength zero preserves Position.";
+        d.inputs={sock("Position","Position",SocketType::FieldVector3),sock("Strength","Strength",SocketType::Float,1.0f),sock("Scale","Scale",SocketType::Float,1.0f),sock("Offset","Offset",SocketType::Vector3,Vec3{0,0,0}),sock("Seed","Seed",SocketType::Int,int32_t(0)),sock("Octaves","Octaves",SocketType::Int,int32_t(3)),sock("Lacunarity","Lacunarity",SocketType::Float,2.0f),sock("Gain","Gain",SocketType::Float,.5f)};
+        d.outputs={sock("Position","Position",SocketType::FieldVector3)};
+        d.evaluate=[three](NodeEvalContext& c) {
+            using namespace Phantom::Math::Noise;
+            const auto offset=c.getVec3("Offset");
+            DomainWarpSettings s{c.getFloat("Strength"),c.getFloat("Scale"),{offset.x,offset.y,offset.z},static_cast<unsigned>(c.getInt("Octaves")),c.getFloat("Lacunarity"),c.getFloat("Gain")};
+            if(!validateDomainWarpSettings(s)) {c.fail(DiagCode::InvalidParameter,"Domain Warp: invalid settings");return;}
+            const auto position=c.getField("Position");
+            const DomainWarp warp(randomHash(c.seed(),c.getInt("Seed"),0));
+            c.setOutput("Position",Value(makeVectorField([=](const FieldContext& ctx,std::vector<Vec3>& out) {
+                const auto points=position ? evaluateVectors(position,ctx) : (ctx.mesh ? ctx.mesh->positions : std::vector<Vec3>{});
+                if(ctx.stopped()) return;
+                out.resize(points.size());
+                for(size_t i=0;i<points.size() && !ctx.stopped();++i) {
+                    const Phantom::Math::Vector3df p(points[i].x,points[i].y,points[i].z);
+                    const auto result=three ? warp.sample3D(p,s) : warp.sample2D(p,s);
+                    if(!result) {if(ctx.evaluation) ctx.evaluation->invalidNoiseCoordinate=true;out.clear();return;}
+                    out[i]={result->x,result->y,result->z};
+                }
+            })));
+        };
+        r.add(std::move(d));
+    }
     {
         NodeDefinition d;
         d.typeId = "Position";

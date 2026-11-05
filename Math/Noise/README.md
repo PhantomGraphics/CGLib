@@ -19,3 +19,29 @@ Use Value -> CombineXYZField.Y -> SetPosition.Offset for height displacement.
 Studio's catalog, parameter editor, history and persistence use these nodes
 through the existing generic graph implementation. FractalMode is an integer
 with the mapping above. See the geometry_noise.json Studio scenario.
+
+## Ridged multifractal and domain warp
+
+FractalMode 4 is RidgedMultifractal. Existing mode numbers and algorithms are unchanged.
+RidgeOffset (default 1, finite >0) controls the ridge profile, and RidgeFeedback
+(default 2, finite >=0) controls octave feedback. Each signal is
+`max(0, RidgeOffset-abs(noise))^2 * previousWeight`; the next weight is
+`clamp(signal*RidgeFeedback,0,1)`. The first weight is 1. Normalize by the sum
+of octave amplitudes; the result is not clamped. These extra settings are
+validated only for mode 4. `validateFractalSettings` validates without sampling.
+
+`DomainWarp(seed)` supplies checked sample2D/sample3D taking Vector3df positions.
+2D displaces XZ and preserves Y. Independent axis seeds are the first SplitMix32
+outputs (2D: first two; 3D: first three). All components sample the original
+`position * scale + offset` with normalized fBm, then add `strength * displacement`
+to position. Settings default to strength=1, scale=1, offset=0, octaves=3,
+lacunarity=2, gain=0.5. Strength must be finite >=0, scale finite >0; other
+fractal bounds match fBm. Strength=0 returns the original finite position.
+Failures return nullopt; the sampler is immutable and can be shared by threads.
+
+DomainWarp2D/3D nodes output Position. Connect it to Noise.Position to bend
+patterns, or SetPosition.Position to deform the mesh directly. Noise modes
+are selected by name in Studio, with numeric command and saved values retained.
+The geometry_fractal.json scenario creates Ridged and Warped comparison objects
+and saves scenarios/_out/geometry_fractal.cgstudio for interactive inspection.
+Integer socket choice metadata travels with the catalog; it is not scene data.
