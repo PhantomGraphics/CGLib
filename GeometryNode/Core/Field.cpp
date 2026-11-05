@@ -41,7 +41,7 @@ bool FieldContext::stopped() const {
         if (evaluation) evaluation->cancelled = true;
         return true;
     }
-    return evaluation && (evaluation->limitExceeded || evaluation->cancelled);
+    return evaluation && (evaluation->limitExceeded || evaluation->cancelled || evaluation->invalidNoiseCoordinate);
 }
 
 namespace {

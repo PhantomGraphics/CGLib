@@ -173,3 +173,5 @@ write_basic_package_version_file(
     COMPATIBILITY SameMajorVersion)
 install(FILES ${CMAKE_BINARY_DIR}/CGLibConfig.cmake ${CMAKE_BINARY_DIR}/CGLibConfigVersion.cmake
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/CGLib)
+
+install(DIRECTORY ${CGLIB_ROOT}/Math/Noise/ DESTINATION ${_hdr_dest}/Math/Noise FILES_MATCHING PATTERN "*.h")

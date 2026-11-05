@@ -4,6 +4,7 @@
 #include <cmath>
 
 #include "GeometryOps.h"
+#include "../../Math/Noise/PerlinNoise.h"
 
 namespace Phantom::GeometryNode {
 
@@ -100,6 +101,10 @@ bool sizeIs(NodeEvalContext& c, size_t got, size_t want, const char* socket) {
 
 bool fieldFailed(NodeEvalContext& c, const FieldContext& ctx) {
     if (!ctx.stopped()) return false;
+    if (ctx.evaluation->invalidNoiseCoordinate) {
+        c.fail(DiagCode::InvalidParameter, "Noise: non-finite or out-of-range sample coordinate");
+        return true;
+    }
     const bool cancelled = ctx.evaluation->cancelled;
     c.fail(cancelled ? DiagCode::Cancelled : DiagCode::LimitExceeded,
            cancelled ? "field evaluation cancelled" : "field workspace or expression depth limit exceeded");
@@ -144,6 +149,48 @@ bool noInstances(NodeEvalContext& c, const GeometryPtr& g, const char* what) {
 }  // namespace
 
 void registerFieldNodes(NodeRegistry& r) {
+    for (bool threeD : {false, true}) {
+        NodeDefinition d;
+        d.typeId = threeD ? "Noise3D" : "Noise2D";
+        d.displayName = threeD ? "Noise 3D" : "Noise 2D (XZ)";
+        d.category = "Field";
+        d.description = "Seeded Perlin field. Samples Position * Scale + Offset; unlinked Position uses mesh positions. FractalMode: 0=None, 1=fBm, 2=Turbulence, 3=Ridged.";
+        d.inputs = {sock("Position", "Position", SocketType::FieldVector3),
+            sock("Scale", "Scale", SocketType::Float, 1.0f),
+            sock("Offset", "Offset", SocketType::Vector3, Vec3{0,0,0}),
+            sock("Seed", "Seed", SocketType::Int, int32_t(0)),
+            sock("FractalMode", "Fractal Mode", SocketType::Int, int32_t(0), "0=None, 1=fBm, 2=Turbulence, 3=Ridged"),
+            sock("Octaves", "Octaves", SocketType::Int, int32_t(5)),
+            sock("Lacunarity", "Lacunarity", SocketType::Float, 2.0f),
+            sock("Gain", "Gain", SocketType::Float, 0.5f)};
+        d.outputs = {sock("Value", "Value", SocketType::FieldFloat)};
+        d.evaluate = [threeD](NodeEvalContext& c) {
+            using namespace Phantom::Math::Noise;
+            const float scale=c.getFloat("Scale");
+            const Vec3 offset=c.getVec3("Offset");
+            const int mode=c.getInt("FractalMode"), octaves=c.getInt("Octaves");
+            const FractalSettings settings{static_cast<FractalMode>(mode), static_cast<unsigned>(octaves), c.getFloat("Lacunarity"), c.getFloat("Gain")};
+            if (!std::isfinite(scale) || !std::isfinite(offset.x) || !std::isfinite(offset.y) || !std::isfinite(offset.z) ||
+                !evaluateFractal([](float)->std::optional<float>{return 0.0f;}, settings)) {
+                c.fail(DiagCode::InvalidParameter, "Noise: invalid scale, offset or fractal settings"); return;
+            }
+            const FieldPtr position=c.getField("Position");
+            const PerlinNoise noise(randomHash(c.seed(),c.getInt("Seed"),0));
+            c.setOutput("Value",Value(makeFloatField([=](const FieldContext& ctx,std::vector<float>& out) {
+                const auto points=position ? evaluateVectors(position,ctx) : (ctx.mesh ? ctx.mesh->positions : std::vector<Vec3>{});
+                if(ctx.stopped()) return;
+                out.resize(points.size());
+                for(size_t i=0;i<points.size() && !ctx.stopped();++i) {
+                    const float x=points[i].x*scale+offset.x, y=points[i].y*scale+offset.y, z=points[i].z*scale+offset.z;
+                    const auto value=evaluateFractal([&](float f) {return threeD ? noise.sample3D(x*f,y*f,z*f) : noise.sample2D(x*f,z*f);},settings);
+                    if(!value) { if(ctx.evaluation) ctx.evaluation->invalidNoiseCoordinate=true; out.clear(); return; }
+                    out[i]=*value;
+                }
+            })));
+        };
+        r.add(std::move(d));
+    }
+
     {
         NodeDefinition d;
         d.typeId = "Position";

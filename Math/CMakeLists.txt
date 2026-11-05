@@ -28,12 +28,14 @@ cglib_add_test(MathTest SOURCES ${MATHTEST_SOURCES} INCLUDES ${CGLIB_ROOT}/Math/
 
 # Every public Math header must compile on its own (no reliance on include order or a
 # precompiled header). One generated TU per header; nothing is linked or run.
-file(GLOB _math_headers CONFIGURE_DEPENDS RELATIVE ${CGLIB_ROOT}/Math/Core ${CGLIB_ROOT}/Math/Core/*.h)
-list(FILTER _math_headers EXCLUDE REGEX "^(pch|framework)[.]h$")
+file(GLOB _math_headers CONFIGURE_DEPENDS RELATIVE ${CGLIB_ROOT}/Math ${CGLIB_ROOT}/Math/Core/*.h ${CGLIB_ROOT}/Math/Noise/*.h)
+list(FILTER _math_headers EXCLUDE REGEX "(^|/)(pch|framework)[.]h$")
 set(_math_header_tus)
 foreach(_h IN LISTS _math_headers)
     set(_tu ${CMAKE_CURRENT_BINARY_DIR}/MathHeaderCheck/${_h}.cpp)
     set(MATH_HEADER ${_h})
+    get_filename_component(_tu_dir "${_tu}" DIRECTORY)
+    file(MAKE_DIRECTORY "${_tu_dir}")
     configure_file(${CGLIB_ROOT}/cmake/MathHeaderCheck.cpp.in ${_tu} @ONLY)
     list(APPEND _math_header_tus ${_tu})
 endforeach()

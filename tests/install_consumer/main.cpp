@@ -1,5 +1,6 @@
 // Uses only the installed package: headers via "CGLib/...", libraries via CGLib::<Component>.
 #include "CGLib/Math/Core/Ellipse3d.h"
+#include "CGLib/Math/Noise/PerlinNoise.h"
 #include "CGLib/Math/Core/SafeNormalize.h"
 #include "CGLib/Math/Core/Statistics.h"
 #include "CGLib/Math/Core/Vector3d.h"
@@ -25,6 +26,9 @@ int main()
         std::printf("%s: %s\n", ok ? "ok  " : "FAIL", what);
         if (!ok) ++failures;
     };
+
+    const Phantom::Math::Noise::PerlinNoise noise(42);
+    check(noise.sample2D(.3f,.7f).has_value() && noise.sample3D(.3f,.7f,.2f).has_value(), "Math Noise");
 
     const Phantom::Math::Vector3df v(3.0f, 4.0f, 0.0f);
     check(Phantom::Math::getLength(v) > 4.9f, "Math");

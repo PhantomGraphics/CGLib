@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <set>
+#include <limits>
 
 #include "../Core/GeometryOps.h"
 #include "../Core/GraphEvaluator.h"
@@ -296,4 +297,40 @@ TEST(Field, DeepExpressionsAreRejectedAndCancellationPropagates) {
     EXPECT_TRUE(evaluateFloats(f, ctx).empty());
     EXPECT_TRUE(cancelled.cancelled);
     EXPECT_TRUE(cancelled.results.empty());
+}
+
+TEST(Field, NoiseDisplacementAndRoundTrip) {
+    for (const char* type : {"Noise2D", "Noise3D"}) {
+        Jitter j=makeJitter(); j.g.findNode(j.random)->type=type;
+        setParam(*j.g.findNode(j.random),"Scale",.73f);
+        setParam(*j.g.findNode(j.random),"FractalMode",int32_t(1));
+        const auto result=evaluateGraph(j.g,reg(),EvalContext{42});
+        ASSERT_TRUE(result.success);
+        Graph back; ASSERT_TRUE(parseGraph(serializeGraph(j.g),back).ok);
+        const auto restored=evaluateGraph(back,reg(),EvalContext{42});
+        ASSERT_TRUE(restored.success); EXPECT_EQ(result.geometry->positions,restored.geometry->positions);
+        EXPECT_NE(result.geometry->positions,evaluateGraph(j.g,reg(),EvalContext{17}).geometry->positions);
+        setParam(*j.g.findNode(j.random),"Scale",std::numeric_limits<float>::max());
+        const auto invalid=evaluateGraph(j.g,reg(),EvalContext{});
+        EXPECT_FALSE(invalid.success); EXPECT_TRUE(hasCode(invalid.diagnostics,DiagCode::InvalidParameter));
+    }
+}
+
+TEST(Field, NoiseUsesCoordinatesAndOptionalPosition) {
+    const auto* def=reg().find("Noise2D"); ASSERT_NE(def,nullptr);
+    EvalContext eval; eval.seed=42;
+    NodeEvalContext node(eval,1);
+    for(const auto& input:def->inputs) node.inputs[input.id]={input.defaultValue};
+    def->evaluate(node); ASSERT_FALSE(node.failed());
+    auto field=std::get<FieldPtr>(node.outputs().at("Value"));
+    Mesh mesh; mesh.positions={{.31f,0,.47f},{.31f,20,.47f},{.61f,0,.47f}};
+    FieldContext ctx; ctx.mesh=&mesh;
+    const auto values=evaluateFloats(field,ctx); ASSERT_EQ(values.size(),3u);
+    EXPECT_FLOAT_EQ(values[0],values[1]); EXPECT_NE(values[0],values[2]);
+    node.inputs["Position"]={Value(makeVectorField([](const FieldContext& c,std::vector<Vec3>& out){out.assign(c.size(),Vec3{.31f,100,.47f});}))};
+    def->evaluate(node);
+    field=std::get<FieldPtr>(node.outputs().at("Value"));
+    const auto constant=evaluateFloats(field,ctx); ASSERT_EQ(constant.size(),3u);
+    EXPECT_FLOAT_EQ(constant[0],values[0]); EXPECT_FLOAT_EQ(constant[0],constant[2]);
+    node.inputs["Octaves"]={int32_t(0)}; def->evaluate(node); EXPECT_TRUE(node.failed());
 }

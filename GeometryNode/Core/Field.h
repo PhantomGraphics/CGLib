@@ -68,6 +68,7 @@ struct FieldEvaluation {
     size_t depth = 0;
     bool limitExceeded = false;
     bool cancelled = false;
+    bool invalidNoiseCoordinate = false;
 };
 
 // Evaluate helpers. A null or wrongly typed field yields an empty vector.

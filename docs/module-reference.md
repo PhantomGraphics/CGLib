@@ -83,3 +83,9 @@ Math ──┬── Graphics ──┬── File
 - CPU-only modules must not acquire Vulkan dependencies.
 - Tests cover empty, boundary, degenerate, and deterministic-order cases.
 - Regressible viewer behavior belongs in JSON scenarios.
+
+### Noise fields
+
+Math/Noise provides seeded Perlin 2D/3D and normalized fBm, Turbulence and Ridged composition.
+GeometryNode uses Math privately and exposes Noise2D (XZ) and Noise3D point fields through the Studio catalog.
+See Math/Noise/README.md for the API and seed contract.

@@ -1,4 +1,5 @@
 #include "GeometryOps.h"
+#include "Math/Noise/PerlinNoise.h"
 
 // Height-field terrain (docs/todo/PLAN_geometry_node.md section 9). The noise and mesh construction are the
 // algorithm of the former Phantom::Terrain module (generatorVersion 1), moved here unchanged so existing
@@ -6,7 +7,6 @@
 // splitmix32), fBm normalised by the amplitude sum, central-difference normals, buildPlane() topology.
 
 #include <algorithm>
-#include <array>
 #include <cmath>
 #include <cstddef>
 #include <limits>
@@ -14,106 +14,6 @@
 namespace Phantom::GeometryNode {
 
 namespace {
-
-// --- Deterministic PRNG (splitmix32) --------------------------------------
-// Used only to shuffle the permutation table from `seed`. Kept in-module so
-// the permutation, and therefore the noise field, is fixed by the public
-// generatorVersion regardless of platform <random> differences.
-class SplitMix32 {
-public:
-    explicit SplitMix32(uint32_t seed) : state_(seed) {}
-
-    uint32_t next() {
-        state_ += 0x9E3779B9u;
-        uint32_t z = state_;
-        z = (z ^ (z >> 16)) * 0x21F0AAADu;
-        z = (z ^ (z >> 15)) * 0x735A2D97u;
-        return z ^ (z >> 15);
-    }
-
-private:
-    uint32_t state_;
-};
-
-// --- Seeded 2D gradient noise -------------------------------------------------
-// Classic Perlin-style value in roughly [-1, 1]. The seed selects the
-// permutation via a Fisher-Yates shuffle; a plain coordinate offset is
-// deliberately avoided (plan section 3.1).
-class GradientNoise2D {
-public:
-    explicit GradientNoise2D(uint32_t seed) {
-        std::array<uint8_t, 256> p{};
-        for (int i = 0; i < 256; ++i) {
-            p[static_cast<size_t>(i)] = static_cast<uint8_t>(i);
-        }
-        SplitMix32 rng(seed);
-        for (int i = 255; i > 0; --i) {
-            const uint32_t j = rng.next() % static_cast<uint32_t>(i + 1);
-            const uint8_t tmp = p[static_cast<size_t>(i)];
-            p[static_cast<size_t>(i)] = p[j];
-            p[j] = tmp;
-        }
-        for (size_t i = 0; i < 256; ++i) {
-            perm_[i] = perm_[i + 256] = p[i];
-        }
-    }
-
-    float sample(float x, float y) const {
-        const float fx = std::floor(x);
-        const float fy = std::floor(y);
-        const int xi = static_cast<int>(fx) & 255;
-        const int yi = static_cast<int>(fy) & 255;
-        const float xf = x - fx;
-        const float yf = y - fy;
-
-        const float u = fade(xf);
-        const float v = fade(yf);
-
-        const int aa = perm_[static_cast<size_t>(perm_[static_cast<size_t>(xi)] + yi)];
-        const int ab = perm_[static_cast<size_t>(perm_[static_cast<size_t>(xi)] + yi + 1)];
-        const int ba = perm_[static_cast<size_t>(perm_[static_cast<size_t>(xi + 1)] + yi)];
-        const int bb = perm_[static_cast<size_t>(perm_[static_cast<size_t>(xi + 1)] + yi + 1)];
-
-        const float x1 = lerp(grad(aa, xf, yf), grad(ba, xf - 1.0f, yf), u);
-        const float x2 = lerp(grad(ab, xf, yf - 1.0f), grad(bb, xf - 1.0f, yf - 1.0f), u);
-        return lerp(x1, x2, v);
-    }
-
-private:
-    static float fade(float t) { return t * t * t * (t * (t * 6.0f - 15.0f) + 10.0f); }
-    static float lerp(float a, float b, float t) { return a + t * (b - a); }
-    static float grad(int hash, float x, float y) {
-        switch (hash & 7) {
-            case 0: return x + y;
-            case 1: return -x + y;
-            case 2: return x - y;
-            case 3: return -x - y;
-            case 4: return x;
-            case 5: return -x;
-            case 6: return y;
-            default: return -y;
-        }
-    }
-
-    std::array<uint8_t, 512> perm_{};
-};
-
-// fBm normalised by the amplitude sum so heightScale keeps its meaning as the
-// octave count changes (plan section 4.1).
-float fbm(const GradientNoise2D& noise, float x, float y, uint32_t octaves,
-         float lacunarity, float persistence) {
-    float frequency = 1.0f;
-    float amplitude = 1.0f;
-    float sum = 0.0f;
-    float amplitudeSum = 0.0f;
-    for (uint32_t o = 0; o < octaves; ++o) {
-        sum += amplitude * noise.sample(x * frequency, y * frequency);
-        amplitudeSum += amplitude;
-        amplitude *= persistence;
-        frequency *= lacunarity;
-    }
-    return amplitudeSum > 0.0f ? sum / amplitudeSum : 0.0f;
-}
 
 bool isFinite(float v) { return std::isfinite(v); }
 
@@ -167,7 +67,7 @@ OpStatus makeTerrain(const TerrainParams& s, const Limits& limits, Mesh& out) {
     const float dx = s.width / static_cast<float>(sx);
     const float dz = s.depth / static_cast<float>(sz);
 
-    const GradientNoise2D noise(static_cast<uint32_t>(s.seed));
+    const Phantom::Math::Noise::PerlinNoise noise(static_cast<uint32_t>(s.seed));
 
     // Pass 1: heights on the shared grid, so normals use identical neighbour values (no seams).
     std::vector<float> heights(vertexCount);
@@ -175,9 +75,11 @@ OpStatus makeTerrain(const TerrainParams& s, const Limits& limits, Mesh& out) {
         for (uint32_t j = 0; j < nvx; ++j) {
             const float wx = -halfW + static_cast<float>(j) * dx;
             const float wz = -halfD + static_cast<float>(i) * dz;
-            const float h = fbm(noise, wx * s.frequency, wz * s.frequency, static_cast<uint32_t>(s.octaves),
-                                s.lacunarity, s.persistence);
-            heights[static_cast<size_t>(i) * nvx + j] = s.heightOffset + s.heightScale * h;
+            const auto h = Phantom::Math::Noise::evaluateFractal([&](float f) {
+                return noise.sample2D((wx * s.frequency) * f, (wz * s.frequency) * f);
+            }, {Phantom::Math::Noise::FractalMode::FBm, static_cast<unsigned>(s.octaves), s.lacunarity, s.persistence});
+            if (!h) return OpStatus::InvalidArgument;
+            heights[static_cast<size_t>(i) * nvx + j] = s.heightOffset + s.heightScale * *h;
         }
     }
 

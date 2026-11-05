@@ -160,9 +160,10 @@ function(phantom_add_geometrynode_core)
         return()
     endif()
     # Node-graph geometry generation (Phantom::GeometryNode -- CPU-only DAG
-    # evaluation of mesh nodes, docs/todo/PLAN_geometry_node.md). No Math/Vulkan/
+    # evaluation of mesh nodes, docs/todo/PLAN_geometry_node.md). Math dependency is private; no Vulkan/
     # Studio dependency; the graph JSON uses the vendored header-only nlohmann/json
     # (reached by a relative include from GraphTypes.h).
+    phantom_add_math_core()
     add_library(GeometryNodeCore STATIC
         ${CGLIB_ROOT}/GeometryNode/Core/GeometryOps.cpp
         ${CGLIB_ROOT}/GeometryNode/Core/TerrainOps.cpp
@@ -176,6 +177,7 @@ function(phantom_add_geometrynode_core)
         ${CGLIB_ROOT}/GeometryNode/Core/GraphJson.cpp
     )
     target_include_directories(GeometryNodeCore PUBLIC ${REPO_ROOT})
+    target_link_libraries(GeometryNodeCore PRIVATE MathCore)
     target_compile_options(GeometryNodeCore PRIVATE ${PHANTOM_WARN_FLAGS})
     target_compile_features(GeometryNodeCore PUBLIC cxx_std_20)
 endfunction()
