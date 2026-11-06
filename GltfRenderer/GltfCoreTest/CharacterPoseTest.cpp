@@ -4,6 +4,8 @@
 #include "../Gltf/GltfAccessorBuilder.h"
 #include "../Gltf/GltfAnimationEvaluator.h"
 
+#include <glm/gtc/matrix_transform.hpp>
+
 #include <cmath>
 #include <memory>
 
@@ -212,4 +214,87 @@ TEST(CharacterPose, BindPoseBoundsCoverEveryPrimitive) {
     ASSERT_TRUE(computeBindPoseBounds(*doc, lo, hi));
     EXPECT_EQ(glm::vec3(-1.f, 0.f, -5.f), lo);
     EXPECT_EQ(glm::vec3(3.f, 4.f, 2.f), hi);
+}
+
+// ---- node globals and the morph pose, the host pose Phantom.Rendering draws from ---------------------------------------------
+
+TEST(CharacterPose, UnauthoredNodeGlobalsAreTheEvaluatorsExactly) {
+    const auto doc = twoClipChainDoc();
+    CharacterPoseSource src;
+    src.doc = doc.get();
+    src.activeAnimation = 0;
+    const auto mine = evaluateCharacterNodeGlobals(src, 15.0, 30.0);   // half a second into the clip
+    const auto reference = GltfAnimationEvaluator::evaluateNodeGlobalTransforms(*doc, 0, 0.5f);
+    ASSERT_EQ(reference.size(), mine.size());
+    for (size_t n = 0; n < mine.size(); ++n)
+        for (int col = 0; col < 4; ++col)
+            for (int row = 0; row < 4; ++row) EXPECT_EQ(reference[n][col][row], mine[n][col][row]);
+    EXPECT_NEAR(1.f, mine[0][3][0], 1e-6f);   // the root slid half of 2 units along x
+}
+
+TEST(CharacterPose, NodeGlobalsAndSkinMatricesDescribeTheSamePose) {
+    // Bone delta + a cross-faded second clip: every joint's skin matrix is its node global times its inverse bind.
+    const auto doc = twoClipChainDoc();
+    doc->skins[0].inverseBindMatrices = { glm::mat4(1.f), glm::translate(glm::mat4(1.f), glm::vec3(0.f, -1.f, 0.f)) };
+    CharacterAnimation anim;
+    BoneTrack b = bone(1, "Arm");
+    b.pose.rotationEulerDeg = { 0.0, 0.0, 40.0 };
+    anim.bones.push_back(b);
+    anim.blend.clip = 1;
+    anim.blend.fadeStart = 0;
+    anim.blend.fadeFrames = 30;
+    CharacterPoseSource src;
+    src.doc = doc.get();
+    src.activeAnimation = 0;
+    src.authored = &anim;
+    for (double frame : { 0.0, 10.0, 24.0 }) {
+        const auto globals = evaluateCharacterNodeGlobals(src, frame, 30.0);
+        const auto skin = evaluateCharacterSkin(src, 0, frame, 30.0);
+        ASSERT_EQ(doc->nodes.size(), globals.size());
+        ASSERT_EQ(doc->skins[0].joints.size(), skin.size());
+        for (size_t j = 0; j < skin.size(); ++j) {
+            const glm::mat4 expected = globals[doc->skins[0].joints[j]] * doc->skins[0].inverseBindMatrices[j];
+            for (int col = 0; col < 4; ++col)
+                for (int row = 0; row < 4; ++row) EXPECT_NEAR(expected[col][row], skin[j][col][row], 1e-5f) << "frame " << frame << " joint " << j;
+        }
+    }
+    // The delta really is in the pose: without the bone track the child's global differs.
+    CharacterAnimation none = anim;
+    none.bones.clear();
+    CharacterPoseSource plain = src;
+    plain.authored = &none;
+    const auto with = evaluateCharacterNodeGlobals(src, 0.0, 30.0);
+    const auto without = evaluateCharacterNodeGlobals(plain, 0.0, 30.0);
+    EXPECT_GT(glm::length(glm::vec3(with[1][0]) - glm::vec3(without[1][0])), 0.1f);
+}
+
+TEST(CharacterPose, MorphPoseFollowsNodeOrderNotTheFlatMorphNumbering) {
+    // mesh 0 has one target (flat 0), mesh 1 has two (flat 1, 2). Node 0 draws mesh 1, node 1 draws mesh 0, node 2 has none,
+    // and mesh 0's second primitive has no POSITION accessor so it contributes nothing.
+    auto doc = std::make_shared<GltfDocument>();
+    doc->nodes.resize(3);
+    doc->nodes[0].meshIndex = 1;
+    doc->nodes[1].meshIndex = 0;
+    GltfScene scene;
+    scene.nodes = { 0, 1, 2 };
+    doc->scenes.push_back(scene);
+    GltfMesh mesh0, mesh1;
+    GltfPrimitive a; a.positionAccessor = 0; a.targets.resize(1);
+    GltfPrimitive skipped; skipped.positionAccessor = -1; skipped.targets.resize(1);
+    mesh0.primitives = { a, skipped };
+    GltfPrimitive c; c.positionAccessor = 0; c.targets.resize(2);
+    mesh1.primitives = { c };
+    doc->meshes = { mesh0, mesh1 };
+    // Flat numbering: mesh 0 primitive 0 -> 0, mesh 0 primitive 1 (skipped) -> 1, mesh 1 -> 2, 3.
+    const std::vector<float> overrides = { 0.25f, 0.9f, 0.5f, 0.75f };
+    CharacterPoseSource src;
+    src.doc = doc.get();
+    src.morphOverride = &overrides;
+    const auto pose = evaluateCharacterMorphPose(src, 0.0, 30.0);
+    ASSERT_EQ(3u, pose.size());
+    EXPECT_FLOAT_EQ(0.5f, pose[0]);    // node 0: mesh 1, targets 2 and 3
+    EXPECT_FLOAT_EQ(0.75f, pose[1]);
+    EXPECT_FLOAT_EQ(0.25f, pose[2]);   // node 1: mesh 0 primitive 0
+    EXPECT_TRUE(evaluateCharacterMorphPose(CharacterPoseSource{}, 0.0, 30.0).empty());
+    EXPECT_TRUE(evaluateCharacterNodeGlobals(CharacterPoseSource{}, 0.0, 30.0).empty());
 }

@@ -35,6 +35,16 @@ namespace Phantom::Gltf {
 	// Skin matrices (joint global * inverse bind) of doc.skins[skinIndex]; empty if the index is out of range.
 	std::vector<glm::mat4> evaluateCharacterSkin(const CharacterPoseSource& src, int skinIndex, double framePosition, double fps);
 
+	// The document-space global transform of every node at `framePosition`: the placed clip (and blend), then the bone deltas.
+	// The same composition as evaluateCharacterSkin, which takes the joints' entries of it times their inverse binds.
+	// Nodes outside the default scene keep their identity transform (as in GltfAnimationEvaluator). Empty without a document.
+	std::vector<glm::mat4> evaluateCharacterNodeGlobals(const CharacterPoseSource& src, double framePosition, double fps);
+
+	// Every morph primitive's target weights at `framePosition`, concatenated in the order Phantom.Rendering's host pose expects:
+	// nodes in document order, a node's mesh primitives in order, a primitive counted when it has a POSITION accessor and at least
+	// one morph target (the same rule the renderer uses to build its morph list). Each weight is evaluateCharacterMorphWeights.
+	std::vector<float> evaluateCharacterMorphPose(const CharacterPoseSource& src, double framePosition, double fps);
+
 	// Weights of one mesh's `targetCount` morph targets whose first target has flat index `flatBase` (the traversal order of
 	// meshes[] / primitives[] / targets). `nodeIndex` is the node owning the mesh (-1 = none: no clip weights).
 	std::vector<float> evaluateCharacterMorphWeights(const CharacterPoseSource& src, int nodeIndex, int targetCount, int flatBase,

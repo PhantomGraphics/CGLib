@@ -120,6 +120,23 @@ double characterClipTime(const CharacterPoseSource& src, double framePosition, d
 	return clipLocalTime(authoredOf(src).clip, fps > 0.0 ? framePosition / fps : 0.0, fps, characterClipDuration(src));
 }
 
+std::vector<glm::mat4> evaluateCharacterNodeGlobals(const CharacterPoseSource& src, double framePosition, double fps) {
+	if (!src.doc) return {};
+	const GltfDocument& doc = *src.doc;
+	const CharacterAnimation& authored = authoredOf(src);
+	const float clipTime = static_cast<float>(characterClipTime(src, framePosition, fps));
+	std::vector<glm::mat4> globals = GltfAnimationEvaluator::evaluateNodeGlobalTransforms(doc, src.activeAnimation, clipTime);
+	const double blendW = authored.blend.weightAt(framePosition);
+	if (blendW > 0.0) {
+		const auto other = GltfAnimationEvaluator::evaluateNodeGlobalTransforms(doc, authored.blend.clip,
+			static_cast<float>(blendClipTime(src, framePosition, fps)));
+		if (blendW >= 1.0) globals = other;
+		else { std::vector<glm::mat4> mixed; mixGlobals(doc, globals, other, static_cast<float>(blendW), mixed); globals = std::move(mixed); }
+	}
+	if (!authored.bones.empty() || blendW > 0.0) applyBoneDeltas(doc, authored, framePosition, globals);
+	return globals;
+}
+
 std::vector<glm::mat4> evaluateCharacterSkin(const CharacterPoseSource& src, int skinIndex, double framePosition, double fps) {
 	std::vector<glm::mat4> skinMatrices;
 	if (!src.doc) return skinMatrices;
@@ -133,14 +150,7 @@ std::vector<glm::mat4> evaluateCharacterSkin(const CharacterPoseSource& src, int
 	if (authored.bones.empty() && blendW <= 0.0)
 		return GltfAnimationEvaluator::evaluateSkin(doc, src.activeAnimation, skinIndex, clipTime);
 
-	std::vector<glm::mat4> globals = GltfAnimationEvaluator::evaluateNodeGlobalTransforms(doc, src.activeAnimation, clipTime);
-	if (blendW > 0.0) {
-		const auto other = GltfAnimationEvaluator::evaluateNodeGlobalTransforms(doc, authored.blend.clip,
-			static_cast<float>(blendClipTime(src, framePosition, fps)));
-		if (blendW >= 1.0) globals = other;
-		else { std::vector<glm::mat4> mixed; mixGlobals(doc, globals, other, static_cast<float>(blendW), mixed); globals = std::move(mixed); }
-	}
-	applyBoneDeltas(doc, authored, framePosition, globals);
+	const std::vector<glm::mat4> globals = evaluateCharacterNodeGlobals(src, framePosition, fps);
 	const GltfSkin& skin = doc.skins[skinIndex];
 	skinMatrices.resize(skin.joints.size(), glm::mat4(1.f));
 	for (size_t j = 0; j < skin.joints.size(); ++j) {
@@ -179,6 +189,28 @@ std::vector<float> evaluateCharacterMorphWeights(const CharacterPoseSource& src,
 		}
 	}
 	return weights;
+}
+
+std::vector<float> evaluateCharacterMorphPose(const CharacterPoseSource& src, double framePosition, double fps) {
+	std::vector<float> pose;
+	if (!src.doc) return pose;
+	const GltfDocument& doc = *src.doc;
+	// The flat morph index of a primitive's first target counts every target of meshes[] / primitives[] before it.
+	std::vector<std::vector<int>> flatBase(doc.meshes.size());
+	int flat = 0;
+	for (size_t m = 0; m < doc.meshes.size(); ++m)
+		for (const auto& prim : doc.meshes[m].primitives) { flatBase[m].push_back(flat); flat += static_cast<int>(prim.targets.size()); }
+	for (size_t n = 0; n < doc.nodes.size(); ++n) {
+		const int meshIndex = doc.nodes[n].meshIndex;
+		if (meshIndex < 0 || meshIndex >= static_cast<int>(doc.meshes.size())) continue;
+		const auto& prims = doc.meshes[meshIndex].primitives;
+		for (size_t p = 0; p < prims.size(); ++p) {
+			if (prims[p].positionAccessor < 0 || prims[p].targets.empty()) continue;
+			const auto w = evaluateCharacterMorphWeights(src, static_cast<int>(n), static_cast<int>(prims[p].targets.size()), flatBase[meshIndex][p], framePosition, fps);
+			pose.insert(pose.end(), w.begin(), w.end());
+		}
+	}
+	return pose;
 }
 
 bool computeBindPoseBounds(const GltfDocument& doc, glm::vec3& lo, glm::vec3& hi) {
