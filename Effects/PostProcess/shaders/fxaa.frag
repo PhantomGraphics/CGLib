@@ -18,30 +18,39 @@ layout(binding = 0) uniform UBO {
 layout(binding = 1) uniform sampler2D uInput;
 
 float luma(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }
+float edgeValue(vec4 c, bool alphaEdge) { return alphaEdge ? clamp(c.a, 0.0, 1.0) : luma(c.rgb); }
 
 void main()
 {
-    vec3 colorCenter = texture(uInput, inUV).rgb;
+    vec4 centerSample = texture(uInput, inUV);
+    centerSample.a = clamp(centerSample.a, 0.0, 1.0);
+    vec3 colorCenter = centerSample.rgb;
 
-    float lumaN  = luma(textureOffset(uInput, inUV, ivec2( 0,-1)).rgb);
-    float lumaS  = luma(textureOffset(uInput, inUV, ivec2( 0, 1)).rgb);
-    float lumaE  = luma(textureOffset(uInput, inUV, ivec2( 1, 0)).rgb);
-    float lumaW  = luma(textureOffset(uInput, inUV, ivec2(-1, 0)).rgb);
+    vec4 sampleN = textureOffset(uInput, inUV, ivec2(0,-1)), sampleS = textureOffset(uInput, inUV, ivec2(0,1));
+    vec4 sampleE = textureOffset(uInput, inUV, ivec2(1,0)), sampleW = textureOffset(uInput, inUV, ivec2(-1,0));
+    float lumaN=luma(sampleN.rgb), lumaS=luma(sampleS.rgb), lumaE=luma(sampleE.rgb), lumaW=luma(sampleW.rgb);
     float lumaM  = luma(colorCenter);
 
     float lumaMin = min(lumaM, min(min(lumaN, lumaS), min(lumaE, lumaW)));
     float lumaMax = max(lumaM, max(max(lumaN, lumaS), max(lumaE, lumaW)));
+    float alphaMin = clamp(min(centerSample.a,min(min(sampleN.a,sampleS.a),min(sampleE.a,sampleW.a))),0.0,1.0);
+    float alphaMax = clamp(max(centerSample.a,max(max(sampleN.a,sampleS.a),max(sampleE.a,sampleW.a))),0.0,1.0);
+    bool alphaEdge = alphaMax-alphaMin > lumaMax-lumaMin;
+    if (alphaEdge) {
+        lumaN=edgeValue(sampleN,true); lumaS=edgeValue(sampleS,true); lumaE=edgeValue(sampleE,true); lumaW=edgeValue(sampleW,true);
+        lumaM=centerSample.a; lumaMin=alphaMin; lumaMax=alphaMax;
+    }
     float range   = lumaMax - lumaMin;
 
     if (range < max(ubo.contrastThreshold, lumaMax * ubo.relativeThreshold)) {
-        outColor = vec4(colorCenter, 1.0);
+        outColor = centerSample;
         return;
     }
 
-    float lumaNW = luma(textureOffset(uInput, inUV, ivec2(-1,-1)).rgb);
-    float lumaNE = luma(textureOffset(uInput, inUV, ivec2( 1,-1)).rgb);
-    float lumaSW = luma(textureOffset(uInput, inUV, ivec2(-1, 1)).rgb);
-    float lumaSE = luma(textureOffset(uInput, inUV, ivec2( 1, 1)).rgb);
+    float lumaNW = edgeValue(textureOffset(uInput, inUV, ivec2(-1,-1)),alphaEdge);
+    float lumaNE = edgeValue(textureOffset(uInput, inUV, ivec2( 1,-1)),alphaEdge);
+    float lumaSW = edgeValue(textureOffset(uInput, inUV, ivec2(-1, 1)),alphaEdge);
+    float lumaSE = edgeValue(textureOffset(uInput, inUV, ivec2( 1, 1)),alphaEdge);
 
     // Edge direction from the Sobel-like gradient of the 3x3 neighborhood.
     float edgeHoriz = abs(lumaNW + lumaNE - 2.0 * lumaN)
@@ -64,8 +73,9 @@ void main()
     if (isHorizontal) blendUV.y += towards2 ? stepUV : -stepUV;
     else              blendUV.x += towards2 ? stepUV : -stepUV;
 
-    vec3 blended = texture(uInput, blendUV).rgb;
+    vec4 blended = texture(uInput, blendUV);
+    blended.a = clamp(blended.a, 0.0, 1.0);
     float blendAmount = ubo.subpixelBlend * clamp(range / max(lumaMax, 1e-4), 0.0, 1.0);
 
-    outColor = vec4(mix(colorCenter, blended, blendAmount), 1.0);
+    outColor = vec4(mix(colorCenter, blended.rgb, blendAmount), mix(centerSample.a, blended.a, blendAmount));
 }

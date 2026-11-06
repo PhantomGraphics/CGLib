@@ -13,7 +13,9 @@ layout(binding = 2) uniform sampler2D uBloom;
 
 void main()
 {
-    vec3 scene = texture(uScene, inUV).rgb;
+    vec4 scene = texture(uScene, inUV);
+    scene.a = clamp(scene.a, 0.0, 1.0);
     vec3 bloom = texture(uBloom, inUV).rgb;
-    outColor = vec4(scene + bloom * ubo.strength, 1.0);
+    // Bloom changes color within the input matte; it does not invent background coverage.
+    outColor = vec4(scene.rgb + bloom * ubo.strength * scene.a, scene.a);
 }

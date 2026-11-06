@@ -23,6 +23,6 @@ void main()
             sum += texture(uRawAO, inUV + vec2(x, y) * ubo.texelSize).r;
     float ao = sum / 16.0;
 
-    vec3 scene = texture(uScene, inUV).rgb;
-    outColor = vec4(scene * mix(1.0, ao, ubo.strength), 1.0);
+    vec4 scene = texture(uScene, inUV);
+    outColor = vec4(scene.rgb * mix(1.0, ao, ubo.strength), clamp(scene.a, 0.0, 1.0));
 }

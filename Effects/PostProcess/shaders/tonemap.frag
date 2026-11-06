@@ -25,7 +25,11 @@ vec3 acesFilm(vec3 x)
 
 void main()
 {
-    vec3 hdr = texture(uInput, inUV).rgb * ubo.exposure;
+    vec4 sampleColor = texture(uInput, inUV);
+    sampleColor.a = clamp(sampleColor.a, 0.0, 1.0);
+    vec3 hdr = sampleColor.rgb;
+    if (sampleColor.a < 1.0) hdr = sampleColor.a > 0.0 ? hdr / sampleColor.a : vec3(0);
+    hdr *= ubo.exposure;
     vec3 mapped = acesFilm(hdr);
     mapped = pow(mapped, vec3(1.0 / 2.2));
 
@@ -35,5 +39,5 @@ void main()
         mapped *= falloff;
     }
 
-    outColor = vec4(mapped, 1.0);
+    outColor = vec4(mapped * sampleColor.a, sampleColor.a);
 }
