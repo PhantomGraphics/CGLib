@@ -241,6 +241,12 @@ namespace Phantom::Gltf
         // build the line pipelines (see wireframeAvailable()).
         void setWireframe(bool v) { wireframe_ = v; }
         bool getWireframe() const { return wireframe_; }
+
+        // Debug display of the main pass (needs a gltf.frag that declares GlobalUBO::displayMode, such
+        // as CGApp/Realtime/shaders): 0 shaded, 1 solid (neutral grey, non-metal), 2 depth (view distance),
+        // 3 winding (front green, back red; draws both sides), 4 checker (UV checker, lit by N.V).
+        void setDisplayMode(int v) { displayMode_ = v; }
+        int  getDisplayMode() const { return displayMode_; }
         bool wireframeAvailable() const { return mainPipelines_.wireframeAvailable(); }
 
         // --- Skybox (Phase 4B, background display of the environment cubemap) ---
@@ -474,6 +480,7 @@ namespace Phantom::Gltf
         // alpha MASK draws through the opaque pair (the fragment shader discards below cutoff
         // instead, since a MASK'd surface is still either fully opaque or invisible per-fragment).
         bool wireframe_ = false;
+        int  displayMode_ = 0;
         GltfMainPipelines mainPipelines_;
         GltfMainPipelines sampledLightPipelines_;
         Phantom::VKG::VulkanDescriptorSetLayout sampledLightLayout_;

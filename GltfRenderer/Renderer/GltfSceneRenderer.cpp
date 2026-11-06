@@ -664,6 +664,7 @@ void GltfSceneRenderer::onUpdate(uint32_t frameIndex) {
     cam.shadowBias     = shadowBias_;
     cam.shadowStrength = shadowStrength_;
     cam.exposure       = exposure_;
+    cam.displayMode    = displayMode_;
     cam.volumeShadowVP = volumeShadowVP_;
     cam.volumeShadowParams = volumeShadowView_ != VK_NULL_HANDLE ? volumeShadowParams_ : glm::vec4(0.f);
 
@@ -938,7 +939,7 @@ void GltfSceneRenderer::renderPrimitivesWithModel(VkCommandBuffer cmd, uint32_t 
         if (Phantom::VKG::VulkanPipeline* ov = overridePipelineFor(matIdx))
             draw(entry, mat, *ov, true);
         else
-            draw(entry, mat, pipelines.select(false, mat->doubleSided(), wireframe_ && !sampledLight), false);
+            draw(entry, mat, pipelines.select(false, mat->doubleSided() || displayMode_ == 3, wireframe_ && !sampledLight), false);
     }
 
     // Pass 2: alpha BLEND, depth write off, back-to-front (painter's algorithm) so overlapping
@@ -955,7 +956,7 @@ void GltfSceneRenderer::renderPrimitivesWithModel(VkCommandBuffer cmd, uint32_t 
             if (Phantom::VKG::VulkanPipeline* ov = overridePipelineFor(matIdx))
                 draw(entry, mat, *ov, true);
             else
-                draw(entry, mat, mainPipelines_.select(true, mat->doubleSided(), wireframe_), false);
+                draw(entry, mat, mainPipelines_.select(true, mat->doubleSided() || displayMode_ == 3, wireframe_), false);
         }
     }
 }

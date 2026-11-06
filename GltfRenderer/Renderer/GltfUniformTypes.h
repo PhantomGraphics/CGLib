@@ -41,7 +41,10 @@ struct GlobalUBO {
     // declare this field) keeps reading the same byte offsets as before -- see
     // GltfSceneRenderer::setExposure()'s comment. Default 1.0 = old behavior exactly.
     float     exposure = 1.0f;
-    float     _pad[3]  = {};
+    // Debug display (GltfSceneRenderer::setDisplayMode): 0 shaded, 1 solid, 2 depth, 3 winding, 4 checker.
+    // Reuses the first padding word after `exposure`, so the layout does not change.
+    int       displayMode = 0;
+    float     _pad[2]  = {};
     // Volume (participating medium) shadow, e.g. a PBVR cloud's opacity shadow map (binding 7):
     // layered accumulated particle density towards a directional light. The direct light is
     // multiplied by exp(-sigma * density), the expected transmittance of the stochastic particle
