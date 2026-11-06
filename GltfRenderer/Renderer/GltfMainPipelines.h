@@ -31,17 +31,25 @@ namespace Phantom::Gltf {
         // `base` carries shaders, vertex layout, descriptor layouts and push constants; its
         // cullMode/blendEnable/depthWrite are overridden per variant.
         bool create(Phantom::VKG::VulkanContext& ctx, VkRenderPass renderPass,
-                    Phantom::VKG::PipelineConfig base, VkCullModeFlags defaultCull);
+                    Phantom::VKG::PipelineConfig base, VkCullModeFlags defaultCull, bool withWireframe = false);
         void destroy(VkDevice device);
 
         Phantom::VKG::VulkanPipeline& select(bool blend, bool doubleSided) {
             return pipelines_[(blend ? 2 : 0) + (doubleSided ? 1 : 0)];
         }
+        // The same 4 variants rasterized as lines (VK_POLYGON_MODE_LINE). Falls back to the filled
+        // variant when wireframe pipelines were not requested or the device cannot build them.
+        Phantom::VKG::VulkanPipeline& select(bool blend, bool doubleSided, bool wireframe) {
+            return wireframe && wireReady_ ? pipelines_[4 + (blend ? 2 : 0) + (doubleSided ? 1 : 0)] : select(blend, doubleSided);
+        }
+        bool wireframeAvailable() const { return wireReady_; }
         VkPipelineLayout layout() { return pipelines_[0].getLayout(); }
 
     private:
         // index = blend*2 + doubleSided: opaque, opaque 2-sided, blend, blend 2-sided
-        Phantom::VKG::VulkanPipeline pipelines_[4];
+        // 4..7: the same order, polygon mode LINE (only when create(..., withWireframe) succeeded)
+        Phantom::VKG::VulkanPipeline pipelines_[8];
+        bool wireReady_ = false;
     };
 
 }

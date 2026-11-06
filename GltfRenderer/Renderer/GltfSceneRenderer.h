@@ -236,6 +236,13 @@ namespace Phantom::Gltf
         void setUseIBL(bool v) { useIBL_ = v ? 1 : 0; }
         int  getUseIBL() const { return useIBL_; }
 
+        // Draw the main-pass geometry as lines (VK_POLYGON_MODE_LINE). Material-shader (.phmat)
+        // overrides and the sampled-light pass stay filled. No effect when the device cannot
+        // build the line pipelines (see wireframeAvailable()).
+        void setWireframe(bool v) { wireframe_ = v; }
+        bool getWireframe() const { return wireframe_; }
+        bool wireframeAvailable() const { return mainPipelines_.wireframeAvailable(); }
+
         // --- Skybox (Phase 4B, background display of the environment cubemap) ---
         // Draws the same cubemap setEnvironment() bound (IBL and the skybox always show the same
         // environment -- no separate "skybox-only" texture slot) as a background behind all
@@ -466,6 +473,7 @@ namespace Phantom::Gltf
         //            src-alpha/one-minus-src-alpha blend) -- see GltfGpuMaterial::isBlend().
         // alpha MASK draws through the opaque pair (the fragment shader discards below cutoff
         // instead, since a MASK'd surface is still either fully opaque or invisible per-fragment).
+        bool wireframe_ = false;
         GltfMainPipelines mainPipelines_;
         GltfMainPipelines sampledLightPipelines_;
         Phantom::VKG::VulkanDescriptorSetLayout sampledLightLayout_;

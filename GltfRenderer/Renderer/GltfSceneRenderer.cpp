@@ -293,7 +293,7 @@ void GltfSceneRenderer::onInit(Phantom::VKG::VulkanContext& ctx, const Phantom::
     cfg.pushConstantRanges  = { VkPushConstantRange{ VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4) } };
     // 4 variants (blend x double-sided); cull/blend/depthWrite are set per variant -- see
     // gltfFixedFunctionState(). cullMode_ is the single-sided default.
-    if (!mainPipelines_.create(ctx, renderPass, cfg, cullMode_)) {
+    if (!mainPipelines_.create(ctx, renderPass, cfg, cullMode_, true)) {
         std::fprintf(stderr, "[GltfSceneRenderer] main pipeline setup failed\n");
         onCleanup(device);
         return;
@@ -938,7 +938,7 @@ void GltfSceneRenderer::renderPrimitivesWithModel(VkCommandBuffer cmd, uint32_t 
         if (Phantom::VKG::VulkanPipeline* ov = overridePipelineFor(matIdx))
             draw(entry, mat, *ov, true);
         else
-            draw(entry, mat, pipelines.select(false, mat->doubleSided()), false);
+            draw(entry, mat, pipelines.select(false, mat->doubleSided(), wireframe_ && !sampledLight), false);
     }
 
     // Pass 2: alpha BLEND, depth write off, back-to-front (painter's algorithm) so overlapping
@@ -955,7 +955,7 @@ void GltfSceneRenderer::renderPrimitivesWithModel(VkCommandBuffer cmd, uint32_t 
             if (Phantom::VKG::VulkanPipeline* ov = overridePipelineFor(matIdx))
                 draw(entry, mat, *ov, true);
             else
-                draw(entry, mat, mainPipelines_.select(true, mat->doubleSided()), false);
+                draw(entry, mat, mainPipelines_.select(true, mat->doubleSided(), wireframe_), false);
         }
     }
 }
