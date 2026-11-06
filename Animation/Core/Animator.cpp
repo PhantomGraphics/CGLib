@@ -95,10 +95,13 @@ void Animator::computeFK(const Skeleton& skeleton, const AnimationClip& clip, fl
             // zero out that offset and collapse the bone onto its parent. Rotation/scale keys are
             // still used as absolute local values: PMXConverter always sets bind-pose
             // localRotation/localScale to identity, so "absolute" and "relative to bind" coincide.
+            // A kind with no keys keeps the bind value (rotation and scale as well as position): the channel only says what moves.
+            // For an identity bind pose (PMX) this is the same as the old "empty = identity"; a skeleton whose bones carry a
+            // bind rotation or scale (glTF skins, an armature scale folded into a root joint) needs it.
             local = buildLocalTransform(
                 bone.localPosition + interpolatePosition(ch, timeSec),
-                interpolateRotation(ch, timeSec),
-                interpolateScale   (ch, timeSec));
+                ch.rotationKeys.empty() ? bone.localRotation : interpolateRotation(ch, timeSec),
+                ch.scaleKeys.empty()    ? bone.localScale    : interpolateScale   (ch, timeSec));
         } else {
             local = buildLocalTransform(
                 bone.localPosition, bone.localRotation, bone.localScale);
