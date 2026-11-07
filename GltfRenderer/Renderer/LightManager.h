@@ -27,9 +27,10 @@ public:
     struct LightBufferGpu {
         LightGpu   lights[kMaxLights];
         glm::ivec4 countPad; // x = active light count, y = 1 when z holds an ambient factor (float bits), w = 1: no lights means unlit
+        glm::vec4  extras;   // x = depth display near, y = far (<= 0: smooth falloff), z/w unused
     };
     static_assert(sizeof(LightGpu) == 64, "LightGpu layout changed -- keep in sync with any consuming shader");
-    static_assert(sizeof(LightBufferGpu) == kMaxLights * 64 + 16, "LightBufferGpu layout changed");
+    static_assert(sizeof(LightBufferGpu) == kMaxLights * 64 + 32, "LightBufferGpu layout changed");
 
     // Returns the new light's id, or -1 if already at kMaxLights capacity.
     int  addLight(const LightEntry& entry);
@@ -45,6 +46,8 @@ public:
     // "no lights" (with zero lights, shade with the ambient/IBL only instead of the renderer's single default light).
     void setAmbient(float value) { ambientSet_ = true; ambient_ = value; }
     void setUnlit(bool unlit) { unlit_ = unlit; }
+    // Depth display range (extras.x = near, extras.y = far); far <= 0 keeps the shader's smooth falloff.
+    void setDepthRange(float nearDistance, float farDistance) { depthNear_ = nearDistance; depthFar_ = farDistance; }
 
     LightBufferGpu buildGpuBuffer() const;
 
@@ -59,6 +62,7 @@ private:
     bool ambientSet_ = false;
     float ambient_ = 0.f;
     bool unlit_ = false;
+    float depthNear_ = 0.f, depthFar_ = 0.f;
 };
 
 } // namespace Phantom::Gltf

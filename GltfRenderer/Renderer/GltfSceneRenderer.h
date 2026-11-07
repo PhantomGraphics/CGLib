@@ -317,7 +317,7 @@ namespace Phantom::Gltf
         // first real consumer; see Rendering/GltfRenderer.cpp).
         // `ambient` >= 0 replaces the shader's 0.03 ambient factor (ambient * albedo, before IBL); `unlit` makes an empty light list
         // mean "no direct light" rather than the single default light.
-        void setPunctualLights(std::vector<LightEntry> lights, float ambient = -1.f, bool unlit = false);
+        void setPunctualLights(std::vector<LightEntry> lights, float ambient = -1.f, bool unlit = false, float depthNear = 0.f, float depthFar = 0.f);
         int  punctualLightCount() const { return lightManager_.count(); }
 
         // --- Shadow mapping (Phase C) ---

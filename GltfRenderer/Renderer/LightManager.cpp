@@ -59,6 +59,7 @@ LightManager::LightBufferGpu LightManager::buildGpuBuffer() const
     int ambientBits = 0;
     std::memcpy(&ambientBits, &ambient_, sizeof(int));
     buf.countPad = glm::ivec4(n, ambientSet_ ? 1 : 0, ambientSet_ ? ambientBits : 0, unlit_ ? 1 : 0);
+    buf.extras = glm::vec4(depthNear_, depthFar_, 0.f, 0.f);
     return buf;
 }
 
