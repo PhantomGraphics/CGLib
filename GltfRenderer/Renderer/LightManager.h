@@ -48,6 +48,8 @@ public:
     void setUnlit(bool unlit) { unlit_ = unlit; }
     // Depth display range (extras.x = near, extras.y = far); far <= 0 keeps the shader's smooth falloff.
     void setDepthRange(float nearDistance, float farDistance) { depthNear_ = nearDistance; depthFar_ = farDistance; }
+    // Studio viewport shading (extras.z): Lambert diffuse only with a flat ambient, output encoded with an extra pow(1/2.2).
+    void setStudioShading(bool on) { studioShading_ = on; }
 
     LightBufferGpu buildGpuBuffer() const;
 
@@ -63,6 +65,7 @@ private:
     float ambient_ = 0.f;
     bool unlit_ = false;
     float depthNear_ = 0.f, depthFar_ = 0.f;
+    bool studioShading_ = false;
 };
 
 } // namespace Phantom::Gltf
