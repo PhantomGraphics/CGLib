@@ -147,8 +147,9 @@ struct CompileResult {
     uint64_t cacheKey = 0;  // hash of glsl; value-only edits keep it
 };
 
-// Deterministic: the same graph structure yields the same text.
-CompileResult compileGraph(const Graph& g);
+// Deterministic: the same graph structure yields the same text. `descriptorSet` is the Vulkan descriptor set of the SGParams UBO and the
+// sg_tex<N> samplers (1 for the Studio viewport, 2 for a Phantom.Rendering custom material shader).
+CompileResult compileGraph(const Graph& g, int descriptorSet = 1);
 // Packs current parameter values for result.params (4 floats per slot).
 std::vector<float> packParameters(const Graph& g, const CompileResult& r);
 // Maps a GLSL compiler error line back to a node (0 when outside any node).

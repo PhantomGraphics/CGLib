@@ -45,6 +45,20 @@ TEST(ShaderGraphCompile, ExampleGeneratesGlsl) {
     EXPECT_TRUE(r.textures[0].srgb);
 }
 
+TEST(ShaderGraphCompile, DescriptorSetIsConfigurable) {
+    const CompileResult studio = compileGraph(exampleGraph());   // default: set 1 (Studio viewport)
+    const CompileResult rendering = compileGraph(exampleGraph(), 2);
+    ASSERT_TRUE(rendering.ok);
+    EXPECT_NE(studio.glsl.find("layout(std140, set = 1, binding = 0) uniform SGParams"), std::string::npos) << studio.glsl;
+    EXPECT_NE(studio.glsl.find("layout(set = 1, binding = 1) uniform sampler2D sg_tex0;"), std::string::npos);
+    EXPECT_NE(rendering.glsl.find("layout(std140, set = 2, binding = 0) uniform SGParams"), std::string::npos) << rendering.glsl;
+    EXPECT_NE(rendering.glsl.find("layout(set = 2, binding = 1) uniform sampler2D sg_tex0;"), std::string::npos);
+    EXPECT_EQ(rendering.glsl.find("set = 1"), std::string::npos);
+    EXPECT_NE(studio.cacheKey, rendering.cacheKey);              // different text, different pipeline
+    EXPECT_EQ(studio.lineMap.size(), rendering.lineMap.size());   // same structure, same node line ranges
+    for (size_t i = 0; i < studio.lineMap.size(); ++i) EXPECT_EQ(studio.lineMap[i].firstLine, rendering.lineMap[i].firstLine);
+}
+
 TEST(ShaderGraphCompile, Deterministic) {
     EXPECT_EQ(compileGraph(exampleGraph()).glsl, compileGraph(exampleGraph()).glsl);
     EXPECT_EQ(compileGraph(exampleGraph()).cacheKey, compileGraph(exampleGraph()).cacheKey);
