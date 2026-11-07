@@ -1018,7 +1018,9 @@ void GltfSceneRenderer::renderPrimitivesWithModel(VkCommandBuffer cmd, uint32_t 
     // A material with a successful setMaterialShaderOverride() draws through its own pipeline
     // instead of one of the 4 shared variants below (see that method's comment).
     auto overridePipelineFor = [&](int matIdx) -> Phantom::VKG::VulkanPipeline* {
-        if (sampledLight) return nullptr; // the sampled variant uses the standard glTF material
+        // Overrides are surface shaders. Diagnostic and line pipelines must retain their own
+        // rasterization and fragment stages, even when a material has a custom shader.
+        if (sampledLight || wireframe_ || displayMode_ != 0) return nullptr;
         auto it = materialPipelineOverrides_.find(matIdx);
         return it != materialPipelineOverrides_.end() ? it->second : nullptr;
     };
