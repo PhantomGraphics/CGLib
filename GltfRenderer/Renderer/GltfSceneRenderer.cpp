@@ -537,6 +537,7 @@ void GltfSceneRenderer::clearDocumentResources()
     // objects themselves survive for potential reuse by the next document (see
     // materialPipelineVariants_'s comment) and are only destroyed at onCleanup().
     materialPipelineOverrides_.clear();
+    destroyCustomMaterials(device);
 
     descriptors_.destroyMaterialPool(device);
     hasBlendMaterials_ = false;
@@ -751,6 +752,8 @@ bool GltfSceneRenderer::setMaterialShaderOverride(int materialIndex, const std::
         return false;
     }
 
+    if (!ensureCustomMaterial(materialIndex, outError)) return false;
+
     const GltfGpuMaterial& mat = *materials_[materialIndex];
 
     // Mirrors which of the 4 shared pipeline variants this material would otherwise have drawn
@@ -774,7 +777,7 @@ bool GltfSceneRenderer::setMaterialShaderOverride(int materialIndex, const std::
             cfg.bindingDescs = { bd };
             cfg.attrDescs    = GltfGpuMesh::Vertex::getAttributeDescriptions();
         }
-        cfg.descriptorSetLayouts = { descriptors_.globalLayout(), descriptors_.materialLayout() };
+        cfg.descriptorSetLayouts = { descriptors_.globalLayout(), descriptors_.materialLayout(), customLayout_.get() };
         // Must match the push constant
         // range of mainPipelines_' 4 variants exactly (see onInit()'s comment) -- onRender()/renderInstances() push the model
         // matrix once via mainPipelines_.layout() and rely on every pipeline they might bind
@@ -803,6 +806,75 @@ bool GltfSceneRenderer::setMaterialShaderOverride(int materialIndex, const std::
     }
 
     materialPipelineOverrides_[materialIndex] = variant; // non-owning; overwrites any previous entry
+    return true;
+}
+
+bool GltfSceneRenderer::ensureCustomMaterial(int materialIndex, std::string* outError)
+{
+    if (customMaterials_.count(materialIndex)) return true;
+    const VkDevice device = ctx_->getDevice();
+    if (!customLayout_.isValid()) {
+        std::vector<VkDescriptorSetLayoutBinding> bindings(9);
+        for (uint32_t i = 0; i < 9; ++i) {
+            bindings[i] = VkDescriptorSetLayoutBinding{};
+            bindings[i].binding = i;
+            bindings[i].descriptorType = i == 0 ? VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER : VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            bindings[i].descriptorCount = 1;
+            bindings[i].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+        }
+        if (!customLayout_.create(device, bindings)) { if (outError) *outError = "cannot create the material parameter layout"; return false; }
+    }
+    if (!customPool_.isValid()) {
+        if (!customPool_.create(device, { {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 64}, {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 64 * 8} }, 64)) {
+            if (outError) *outError = "cannot create the material parameter pool";
+            return false;
+        }
+    }
+    auto custom = std::make_unique<CustomMaterial>();
+    const VkDeviceSize size = sizeof(float) * 4 * kMaterialShaderParamVec4s;
+    if (!custom->ubo.createMapped(*ctx_, size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT)) { if (outError) *outError = "cannot create the material parameter buffer"; return false; }
+    const std::vector<float> zeros(4 * kMaterialShaderParamVec4s, 0.f);
+    custom->ubo.write(zeros.data(), size);
+    auto sets = customPool_.allocateSets(device, { customLayout_.get() });
+    if (sets.empty()) { custom->ubo.destroy(device); if (outError) *outError = "too many overridden materials (64 at most)"; return false; }
+    custom->set = sets[0];
+    VkDescriptorBufferInfo bufferInfo{ custom->ubo.getBuffer(), 0, size };
+    VkDescriptorImageInfo imageInfo{ fallbackSampler_.get(), fallbackView_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL };
+    std::vector<VkWriteDescriptorSet> writes(9);
+    for (uint32_t i = 0; i < 9; ++i) {
+        writes[i] = VkWriteDescriptorSet{};
+        writes[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        writes[i].dstSet = custom->set; writes[i].dstBinding = i; writes[i].descriptorCount = 1;
+        writes[i].descriptorType = i == 0 ? VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER : VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        if (i == 0) writes[i].pBufferInfo = &bufferInfo; else writes[i].pImageInfo = &imageInfo;
+    }
+    vkUpdateDescriptorSets(device, static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
+    customMaterials_[materialIndex] = std::move(custom);
+    return true;
+}
+
+void GltfSceneRenderer::destroyCustomMaterials(VkDevice device)
+{
+    for (auto& entry : customMaterials_) entry.second->ubo.destroy(device);
+    customMaterials_.clear();   // the sets die with the pool
+    customPool_.destroy(device);
+    customLayout_.destroy(device);
+}
+
+bool GltfSceneRenderer::setMaterialShaderParams(int materialIndex, const float* values, uint32_t floatCount, std::string* outError)
+{
+    auto it = customMaterials_.find(materialIndex);
+    if (it == customMaterials_.end()) {
+        if (outError) *outError = "the material has no shader override (call setMaterialShaderOverride() first)";
+        return false;
+    }
+    if (floatCount > 4 * kMaterialShaderParamVec4s || (floatCount && !values)) {
+        if (outError) *outError = "too many parameters (at most 64 vec4)";
+        return false;
+    }
+    std::vector<float> data(4 * kMaterialShaderParamVec4s, 0.f);
+    for (uint32_t i = 0; i < floatCount; ++i) data[i] = values[i];
+    it->second->ubo.write(data.data(), sizeof(float) * data.size());
     return true;
 }
 
@@ -906,6 +978,11 @@ void GltfSceneRenderer::renderPrimitivesWithModel(VkCommandBuffer cmd, uint32_t 
         VkDescriptorSet ds = mat->descriptorSet(frameIndex);
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
                                 matPipeline.getLayout(), 1, 1, &ds, 0, nullptr);
+        if (isPhmatOverride) {   // set 2: the override shader's parameters
+            auto custom = customMaterials_.find(materialIndexFor(entry));
+            if (custom != customMaterials_.end())
+                vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, matPipeline.getLayout(), 2, 1, &custom->second->set, 0, nullptr);
+        }
 
         VkBuffer     vbuf   = entry->mesh.vertexBuffer();
         VkDeviceSize offset = 0;
@@ -988,6 +1065,7 @@ void GltfSceneRenderer::onCleanup(VkDevice device) {
     materials_.clear();
 
     materialPipelineOverrides_.clear();
+    destroyCustomMaterials(device);
     materialPipelineVariants_.destroyAll(device);
     materialPipelineCache_.destroy(device); // persists to disk first if materialPipelineCacheDir_ is set
 

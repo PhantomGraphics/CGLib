@@ -284,6 +284,14 @@ namespace Phantom::Gltf
         void clearMaterialShaderOverride(int materialIndex);
         bool hasMaterialShaderOverride(int materialIndex) const;
 
+        // User parameters of a material's override shader, read at descriptor set 2 binding 0 as
+        //   layout(std140, set = 2, binding = 0) uniform Params { vec4 p[64]; };
+        // (set 2 bindings 1..8 are sampler2D slots, bound to a 1x1 white fallback for now). `floatCount` floats are copied
+        // (at most 4 * kMaterialShaderParamVec4s); the rest stays zero. Needs setMaterialShaderOverride() to have succeeded for
+        // that material first. The caller must make sure the GPU is not still reading the previous values (wait for the frame).
+        static constexpr uint32_t kMaterialShaderParamVec4s = 64;
+        bool setMaterialShaderParams(int materialIndex, const float* values, uint32_t floatCount, std::string* outError = nullptr);
+
         // --- Phase 4C item 5: pipeline cache persistence for .phmat overrides ---
         // Opt-in directory a persistent VkPipelineCache blob for setMaterialShaderOverride()'s
         // pipelines is loaded from (if present) at onInit() and written back to at onCleanup() --
@@ -560,6 +568,14 @@ namespace Phantom::Gltf
         // "shared, never destroyed individually" lifetime the 4 shared pipeline_/pipelineBlend_/...
         // variants above already have.
         GltfPipelineVariantPool materialPipelineVariants_; // owns every override VkPipeline
+
+        // Set 2 of override pipelines: one parameter UBO + 8 samplers per overridden material (see setMaterialShaderParams()).
+        struct CustomMaterial { Phantom::VKG::VulkanBuffer ubo; VkDescriptorSet set = VK_NULL_HANDLE; };
+        Phantom::VKG::VulkanDescriptorSetLayout customLayout_;
+        Phantom::VKG::VulkanDescriptorPool customPool_;
+        std::unordered_map<int, std::unique_ptr<CustomMaterial>> customMaterials_;
+        bool ensureCustomMaterial(int materialIndex, std::string* outError);
+        void destroyCustomMaterials(VkDevice device);
 
         // Phase 4C item 5 ("pipeline cache"): a real VkPipelineCache passed to every override
         // pipeline's vkCreateGraphicsPipelines() call (see PipelineConfig::pipelineCache) -- always
