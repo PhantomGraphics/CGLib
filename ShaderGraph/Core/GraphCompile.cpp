@@ -23,12 +23,10 @@ std::filesystem::path utf8Path(const std::string& utf8) {
 
 }  // namespace
 
-ShaderCompileOutcome compileShaderGraph(const Graph& graph, bool wantSpirv) {
-    ShaderCompileOutcome out;
-    out.graph = compileGraph(graph);
-    out.diagnostics = out.graph.diagnostics;
-    out.success = out.graph.ok;
-    // A texture file that is not there is not an error (a white texture is used, as everywhere else) but it must be visible.
+namespace {
+
+// Texture files that do not exist are warnings (a white texture is used), never errors.
+void addMissingTextureWarnings(ShaderCompileOutcome& out) {
     for (const TextureBinding& t : out.graph.textures) {
         if (t.path.empty() || t.path.rfind("data:", 0) == 0) continue;
         std::error_code ec;
@@ -36,21 +34,23 @@ ShaderCompileOutcome compileShaderGraph(const Graph& graph, bool wantSpirv) {
             out.diagnostics.push_back({Severity::Warning, t.node, "texture.missing",
                 "texture file not found: " + t.path + " (a white texture is used)"});
     }
-    if (!out.success || !wantSpirv) return out;
-    out.fragment = buildSurfaceFragment(out.graph);
+}
+
+// Runs the runtime compiler over out.fragment.source and maps errors back to graph nodes.
+void compileFragmentSource(ShaderCompileOutcome& out) {
     std::lock_guard<std::mutex> lock(compilerMutex());
     RuntimeCompiler* c = sharedCompiler();
     if (!c) {
         out.spirvStatus = ShaderCompileOutcome::Spirv::Unavailable;
         out.spirvError = "shader compiler unavailable (shaderc_shared not found)";
         out.diagnostics.push_back({Severity::Error, 0, "compiler.unavailable", out.spirvError});
-        return out;
+        return;
     }
     SpirvResult s = c->compileFragment(out.fragment.source);
     if (s.ok) {
         out.spirvStatus = ShaderCompileOutcome::Spirv::Ok;
         out.spirv = std::move(s.spirv);
-        return out;
+        return;
     }
     out.spirvStatus = ShaderCompileOutcome::Spirv::Failed;
     out.spirvError = s.error;
@@ -60,6 +60,53 @@ ShaderCompileOutcome compileShaderGraph(const Graph& graph, bool wantSpirv) {
         break;  // the full message already lists every line
     }
     if (s.errorLines.empty()) out.diagnostics.push_back({Severity::Error, 0, "glsl.error", s.error});
+}
+
+}  // namespace
+
+ShaderCompileOutcome compileShaderGraphInto(const Graph& graph, const std::string& hostSource, int descriptorSet, bool wantSpirv) {
+    ShaderCompileOutcome out;
+    out.graph = compileGraph(graph, descriptorSet);
+    out.diagnostics = out.graph.diagnostics;
+    out.success = out.graph.ok;
+    addMissingTextureWarnings(out);
+    if (!out.success) return out;
+    const std::string marker = "#include \"phantom_graph.glsl\"";
+    const size_t at = hostSource.find(marker);
+    if (at == std::string::npos) {
+        out.success = false;
+        out.diagnostics.push_back({Severity::Error, 0, "host.include", "the host shader has no #include \"phantom_graph.glsl\" line"});
+        return out;
+    }
+    std::string text = hostSource;
+    // The marker line is replaced as a whole (anything after the marker on its line is dropped).
+    size_t lineEnd = text.find('\n', at);
+    if (lineEnd == std::string::npos) lineEnd = text.size();
+    text.replace(at, lineEnd - at, out.graph.glsl);
+    // `#define PHANTOM_GRAPH` goes right after the #version line, which shifts every later line down by one.
+    const size_t version = text.find("#version");
+    size_t afterVersion = version == std::string::npos ? 0 : text.find('\n', version);
+    afterVersion = afterVersion == std::string::npos ? text.size() : afterVersion + 1;
+    text.insert(afterVersion, "#define PHANTOM_GRAPH\n");
+    int linesBefore = 0;
+    for (size_t i = 0; i < text.size() && i < at + std::string("#define PHANTOM_GRAPH\n").size(); ++i) linesBefore += (text[i] == '\n');
+    out.fragment.source = std::move(text);
+    out.fragment.graphLineOffset = linesBefore;   // graph line 1 sits on the line after the preceding newlines
+    if (!wantSpirv) return out;
+    compileFragmentSource(out);
+    return out;
+}
+
+ShaderCompileOutcome compileShaderGraph(const Graph& graph, bool wantSpirv) {
+    ShaderCompileOutcome out;
+    out.graph = compileGraph(graph);
+    out.diagnostics = out.graph.diagnostics;
+    out.success = out.graph.ok;
+    // A texture file that is not there is not an error (a white texture is used, as everywhere else) but it must be visible.
+    addMissingTextureWarnings(out);
+    if (!out.success || !wantSpirv) return out;
+    out.fragment = buildSurfaceFragment(out.graph);
+    compileFragmentSource(out);
     return out;
 }
 

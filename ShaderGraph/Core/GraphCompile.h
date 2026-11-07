@@ -33,6 +33,13 @@ struct ShaderCompileOutcome {
 // A texture file that does not exist is only a "texture.missing" warning (a white texture is used).
 ShaderCompileOutcome compileShaderGraph(const Graph& graph, bool wantSpirv);
 
+// Compiles `graph` into a host fragment shader instead of the built-in Studio template. `hostSource` must contain the line
+// `#include "phantom_graph.glsl"` (inside an `#ifdef PHANTOM_GRAPH`, as Phantom.Rendering's gltf.frag does): that line is replaced by the
+// generated graph code (struct SGSurface, SGParams and sg_tex<N> at `descriptorSet`, sg_evaluate), and `#define PHANTOM_GRAPH` is added after
+// the `#version` line. The host decides lighting; the graph only provides the surface. A host without the include line fails with a
+// "host.include" error diagnostic. Otherwise like compileShaderGraph (`fragment.source` is the spliced text, node line mapping included).
+ShaderCompileOutcome compileShaderGraphInto(const Graph& graph, const std::string& hostSource, int descriptorSet, bool wantSpirv);
+
 // True if the diagnostics contain a problem that makes the graph structurally invalid (duplicate or non-positive ids, links
 // to missing nodes/sockets, type mismatch, several links into one input, cycles). Such an edit is rejected before it is
 // committed; everything else is kept as diagnostics.
