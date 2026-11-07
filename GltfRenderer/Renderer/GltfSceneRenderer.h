@@ -292,6 +292,13 @@ namespace Phantom::Gltf
         static constexpr uint32_t kMaterialShaderParamVec4s = 64;
         bool setMaterialShaderParams(int materialIndex, const float* values, uint32_t floatCount, std::string* outError = nullptr);
 
+        // Binds an image to sampler slot `slot` (0..7 = set 2 binding slot + 1) of a material's override shader: straight RGBA8, rows top
+        // to bottom, `srgb` selects an sRGB view (colour) or UNORM (data). A null `rgba` returns the slot to the 1x1 white fallback. Full
+        // mip chain, linear filtering, repeat. The previous image is destroyed at once, so the GPU must be idle (wait for the frame).
+        static constexpr uint32_t kMaterialShaderTextureSlots = 8;
+        bool setMaterialShaderTexture(int materialIndex, uint32_t slot, const uint8_t* rgba, uint32_t width, uint32_t height, bool srgb,
+                                      std::string* outError = nullptr);
+
         // --- Phase 4C item 5: pipeline cache persistence for .phmat overrides ---
         // Opt-in directory a persistent VkPipelineCache blob for setMaterialShaderOverride()'s
         // pipelines is loaded from (if present) at onInit() and written back to at onCleanup() --
@@ -570,7 +577,15 @@ namespace Phantom::Gltf
         GltfPipelineVariantPool materialPipelineVariants_; // owns every override VkPipeline
 
         // Set 2 of override pipelines: one parameter UBO + 8 samplers per overridden material (see setMaterialShaderParams()).
-        struct CustomMaterial { Phantom::VKG::VulkanBuffer ubo; VkDescriptorSet set = VK_NULL_HANDLE; };
+        struct CustomTexture {
+            VkImage image = VK_NULL_HANDLE; VkDeviceMemory memory = VK_NULL_HANDLE; VkImageView view = VK_NULL_HANDLE;
+            VkSampler sampler = VK_NULL_HANDLE;
+        };
+        struct CustomMaterial {
+            Phantom::VKG::VulkanBuffer ubo; VkDescriptorSet set = VK_NULL_HANDLE;
+            std::array<CustomTexture, 8> textures;
+        };
+        static void destroyCustomTexture(VkDevice device, CustomTexture& texture);
         Phantom::VKG::VulkanDescriptorSetLayout customLayout_;
         Phantom::VKG::VulkanDescriptorPool customPool_;
         std::unordered_map<int, std::unique_ptr<CustomMaterial>> customMaterials_;

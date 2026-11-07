@@ -853,9 +853,64 @@ bool GltfSceneRenderer::ensureCustomMaterial(int materialIndex, std::string* out
     return true;
 }
 
+void GltfSceneRenderer::destroyCustomTexture(VkDevice device, CustomTexture& texture)
+{
+    if (texture.sampler) vkDestroySampler(device, texture.sampler, nullptr);
+    texture.sampler = VK_NULL_HANDLE;
+    if (texture.view) vkDestroyImageView(device, texture.view, nullptr);
+    if (texture.image) vkDestroyImage(device, texture.image, nullptr);
+    if (texture.memory) vkFreeMemory(device, texture.memory, nullptr);
+    texture.view = VK_NULL_HANDLE; texture.image = VK_NULL_HANDLE; texture.memory = VK_NULL_HANDLE;
+}
+
+bool GltfSceneRenderer::setMaterialShaderTexture(int materialIndex, uint32_t slot, const uint8_t* rgba, uint32_t width, uint32_t height, bool srgb,
+                                                 std::string* outError)
+{
+    auto it = customMaterials_.find(materialIndex);
+    if (it == customMaterials_.end()) {
+        if (outError) *outError = "the material has no shader override (call setMaterialShaderOverride() first)";
+        return false;
+    }
+    if (slot >= kMaterialShaderTextureSlots) { if (outError) *outError = "texture slot out of range (0..7)"; return false; }
+    const VkDevice device = ctx_->getDevice();
+    CustomMaterial& custom = *it->second;
+    CustomTexture fresh;
+    VkImageView view = fallbackView_;
+    VkSampler sampler = fallbackSampler_.get();
+    if (rgba) {
+        uint32_t mips = 1;
+        if (width == 0 || height == 0 ||
+            !Phantom::VKG::VulkanImage::createFromPixels(*ctx_, *pool_, rgba, 4, width, height,
+                srgb ? VK_FORMAT_R8G8B8A8_SRGB : VK_FORMAT_R8G8B8A8_UNORM, true, fresh.image, fresh.memory, fresh.view, &mips)) {
+            if (outError) *outError = "cannot upload the texture";
+            return false;
+        }
+        Phantom::VKG::VulkanSampler made;
+        if (!made.create(device, VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, false, 1.f, static_cast<float>(mips))) {
+            destroyCustomTexture(device, fresh);
+            if (outError) *outError = "cannot create the texture sampler";
+            return false;
+        }
+        fresh.sampler = made.get();   // VulkanSampler does not own on destruction: the handle moves into CustomTexture
+        view = fresh.view; sampler = fresh.sampler;
+    }
+    VkDescriptorImageInfo imageInfo{ sampler, view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL };
+    VkWriteDescriptorSet write{};
+    write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    write.dstSet = custom.set; write.dstBinding = slot + 1; write.descriptorCount = 1;
+    write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; write.pImageInfo = &imageInfo;
+    vkUpdateDescriptorSets(device, 1, &write, 0, nullptr);
+    destroyCustomTexture(device, custom.textures[slot]);
+    custom.textures[slot] = fresh;
+    return true;
+}
+
 void GltfSceneRenderer::destroyCustomMaterials(VkDevice device)
 {
-    for (auto& entry : customMaterials_) entry.second->ubo.destroy(device);
+    for (auto& entry : customMaterials_) {
+        for (auto& texture : entry.second->textures) destroyCustomTexture(device, texture);
+        entry.second->ubo.destroy(device);
+    }
     customMaterials_.clear();   // the sets die with the pool
     customPool_.destroy(device);
     customLayout_.destroy(device);
