@@ -26,7 +26,7 @@ public:
     };
     struct LightBufferGpu {
         LightGpu   lights[kMaxLights];
-        glm::ivec4 countPad; // x = active light count, y/z/w unused
+        glm::ivec4 countPad; // x = active light count, y = 1 when z holds an ambient factor (float bits), w = 1: no lights means unlit
     };
     static_assert(sizeof(LightGpu) == 64, "LightGpu layout changed -- keep in sync with any consuming shader");
     static_assert(sizeof(LightBufferGpu) == kMaxLights * 64 + 16, "LightBufferGpu layout changed");
@@ -41,6 +41,11 @@ public:
     std::vector<LightEntry> lights() const;
     int count() const { return static_cast<int>(entries_.size()); }
 
+    // Lighting extras carried in LightBufferGpu::countPad: an ambient factor (ambient * albedo; unset = the shader's 0.03) and
+    // "no lights" (with zero lights, shade with the ambient/IBL only instead of the renderer's single default light).
+    void setAmbient(float value) { ambientSet_ = true; ambient_ = value; }
+    void setUnlit(bool unlit) { unlit_ = unlit; }
+
     LightBufferGpu buildGpuBuffer() const;
 
     // Writes buildGpuBuffer() into a mapped UBO (created via
@@ -51,6 +56,9 @@ private:
     struct Entry { int id; LightEntry data; };
     std::vector<Entry> entries_;
     int nextId_ = 0;
+    bool ambientSet_ = false;
+    float ambient_ = 0.f;
+    bool unlit_ = false;
 };
 
 } // namespace Phantom::Gltf

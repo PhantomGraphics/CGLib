@@ -315,7 +315,9 @@ namespace Phantom::Gltf
         // after onInit() -- takes effect on the next onUpdate(). Every caller that never calls
         // this keeps the single-light behavior unchanged (Universe's own lights() plumbing is the
         // first real consumer; see Rendering/GltfRenderer.cpp).
-        void setPunctualLights(std::vector<LightEntry> lights);
+        // `ambient` >= 0 replaces the shader's 0.03 ambient factor (ambient * albedo, before IBL); `unlit` makes an empty light list
+        // mean "no direct light" rather than the single default light.
+        void setPunctualLights(std::vector<LightEntry> lights, float ambient = -1.f, bool unlit = false);
         int  punctualLightCount() const { return lightManager_.count(); }
 
         // --- Shadow mapping (Phase C) ---

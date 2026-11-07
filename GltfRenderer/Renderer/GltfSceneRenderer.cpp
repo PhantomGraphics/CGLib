@@ -631,9 +631,11 @@ void GltfSceneRenderer::setLight(const glm::vec4& pos, const glm::vec4& color)
     lightColor_ = color;
 }
 
-void GltfSceneRenderer::setPunctualLights(std::vector<LightEntry> lights)
+void GltfSceneRenderer::setPunctualLights(std::vector<LightEntry> lights, float ambient, bool unlit)
 {
     lightManager_ = LightManager{}; // clear (LightManager has no bulk-clear method of its own)
+    if (ambient >= 0.f) lightManager_.setAmbient(ambient);
+    lightManager_.setUnlit(unlit);
     for (const auto& l : lights) {
         if (lightManager_.addLight(l) < 0) {
             std::fprintf(stderr, "[GltfSceneRenderer] setPunctualLights: dropping light(s) beyond "

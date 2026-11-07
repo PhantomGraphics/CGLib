@@ -1,6 +1,7 @@
 #include "LightManager.h"
 
 #include <algorithm>
+#include <cstring>
 
 namespace Phantom::Gltf {
 
@@ -55,7 +56,9 @@ LightManager::LightBufferGpu LightManager::buildGpuBuffer() const
         if (e.type == LightEntry::Type::Area)   // the cone fields are unused by an area light; the shader reads size and roll here
             g.spotAngleShadowPad = glm::vec4(e.areaWidth, e.castShadow ? 1.f : 0.f, e.areaHeight, e.areaRoll);
     }
-    buf.countPad = glm::ivec4(n, 0, 0, 0);
+    int ambientBits = 0;
+    std::memcpy(&ambientBits, &ambient_, sizeof(int));
+    buf.countPad = glm::ivec4(n, ambientSet_ ? 1 : 0, ambientSet_ ? ambientBits : 0, unlit_ ? 1 : 0);
     return buf;
 }
 
