@@ -12,7 +12,7 @@ namespace Phantom::Gltf {
 // carries KHR_lights_punctual lights; every other GltfSceneRenderer consumer leaves this empty
 // and keeps using the single lightPos_/lightColor_ pair in GlobalUBO unchanged.
 struct LightEntry {
-    enum class Type { Directional = 0, Point = 1, Spot = 2 };
+    enum class Type { Directional = 0, Point = 1, Spot = 2, Area = 3 };
 
     Type      type        = Type::Directional;
     glm::vec3 position     = { 0.f, 10.f, 0.f };
@@ -23,6 +23,11 @@ struct LightEntry {
     float     spotAngleDeg = 30.0f;  // Spot only -- the *outer* cone half-angle (fully dark beyond it)
     float     spotInnerAngleDeg = 0.0f; // Spot only -- the *inner* cone half-angle (fully bright within
                                          // it; smoothly falls off between inner and outer). 0 = hard edge.
+    // Area only: a one-sided rectangle centred on `position`, shining along `direction`. Size in world units; `areaRoll` turns the
+    // rectangle's height axis about `direction`, measured from the reference up (world Y, or Z when `direction` is along Y).
+    float     areaWidth    = 1.0f;
+    float     areaHeight   = 1.0f;
+    float     areaRoll     = 0.0f;
     bool      castShadow   = false;
 };
 

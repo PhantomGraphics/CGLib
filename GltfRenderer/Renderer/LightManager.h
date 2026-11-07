@@ -22,7 +22,7 @@ public:
         glm::vec4 positionType;         // xyz = position, w = Type (as float)
         glm::vec4 directionRange;       // xyz = direction, w = range
         glm::vec4 colorIntensity;       // rgb = color, w = intensity
-        glm::vec4 spotAngleShadowPad;   // x = outer spotAngle(rad), y = castShadow(0/1), z = inner spotAngle(rad), w unused
+        glm::vec4 spotAngleShadowPad;   // x = outer spotAngle(rad), y = castShadow(0/1), z = inner spotAngle(rad), w unused. Area: x = width, z = height, w = roll (rad)
     };
     struct LightBufferGpu {
         LightGpu   lights[kMaxLights];

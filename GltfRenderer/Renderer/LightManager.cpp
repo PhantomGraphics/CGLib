@@ -52,6 +52,8 @@ LightManager::LightBufferGpu LightManager::buildGpuBuffer() const
         g.colorIntensity     = glm::vec4(e.color, e.intensity);
         g.spotAngleShadowPad = glm::vec4(glm::radians(e.spotAngleDeg), e.castShadow ? 1.f : 0.f,
                                           glm::radians(e.spotInnerAngleDeg), 0.f);
+        if (e.type == LightEntry::Type::Area)   // the cone fields are unused by an area light; the shader reads size and roll here
+            g.spotAngleShadowPad = glm::vec4(e.areaWidth, e.castShadow ? 1.f : 0.f, e.areaHeight, e.areaRoll);
     }
     buf.countPad = glm::ivec4(n, 0, 0, 0);
     return buf;
