@@ -45,7 +45,8 @@ public:
     ///
     /// Must be called once before any creation method.
     /// @param ctx                Non-owning pointer to the logical device context.
-    /// @param surface            Non-owning surface handle.
+    /// @param surface            Non-owning surface handle. VK_NULL_HANDLE selects offscreen mode:
+    ///                           one color image of the callback's size, no swap chain (getSwapChain() is null).
     /// @param getFramebufferSize Callback that returns the current drawable size in pixels.
     void init(VulkanContext* ctx, VkSurfaceKHR surface,
               FramebufferSizeFunc getFramebufferSize);
@@ -127,6 +128,10 @@ private:
     VkDeviceMemory depthImageMemory_ = VK_NULL_HANDLE;
     VkImageView    depthImageView_   = VK_NULL_HANDLE;
 
+    // Offscreen mode (no surface): the single color target that replaces the swap chain's images.
+    VkImage        offscreenImage_   = VK_NULL_HANDLE;
+    VkDeviceMemory offscreenMemory_  = VK_NULL_HANDLE;
+
     // MSAA color attachment (used only when msaaSamples_ > 1)
     VkSampleCountFlagBits msaaSamples_      = VK_SAMPLE_COUNT_1_BIT;
     VkImage               msaaColorImage_   = VK_NULL_HANDLE;
@@ -134,6 +139,7 @@ private:
     VkImageView           msaaColorView_    = VK_NULL_HANDLE;
 
     bool createSwapChain();
+    bool createOffscreenTarget();   // surface == VK_NULL_HANDLE: one image of the callback's size, no presentation
     bool createImageViews();
     bool createMsaaColorResources();
     bool createDepthResources();

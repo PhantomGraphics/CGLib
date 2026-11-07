@@ -60,7 +60,26 @@ void VulkanSwapChain::destroy() {
 //  Internal creation
 // ============================================================
 
+bool VulkanSwapChain::createOffscreenTarget() {
+    int w = 0, h = 0;
+    getFramebufferSize_(w, h);
+    if (w <= 0 || h <= 0) {
+        std::fprintf(stderr, "[VKG] VulkanSwapChain: offscreen target has a zero size\n");
+        return false;
+    }
+    // Same format the presenting path prefers, so output pixels match an on-screen swap chain.
+    imageFormat_ = VK_FORMAT_B8G8R8A8_SRGB;
+    extent_      = { (uint32_t)w, (uint32_t)h };
+    if (!createImage(extent_.width, extent_.height, imageFormat_, VK_IMAGE_TILING_OPTIMAL,
+                     VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+                     VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, offscreenImage_, offscreenMemory_))
+        return false;
+    images_.assign(1, offscreenImage_);
+    return true;
+}
+
 bool VulkanSwapChain::createSwapChain() {
+    if (surface_ == VK_NULL_HANDLE) return createOffscreenTarget();
     auto support = ctx_->querySwapChainSupport(ctx_->getPhysicalDevice(), surface_);
     if (support.formats.empty()) {
         std::fprintf(stderr, "[VKG] VulkanSwapChain: surface reports no formats\n");
@@ -213,6 +232,9 @@ void VulkanSwapChain::destroySwapChainObjects() {
         vkDestroySwapchainKHR(dev, swapChain_, nullptr);
         swapChain_ = VK_NULL_HANDLE;
     }
+    if (offscreenImage_)  { vkDestroyImage(dev, offscreenImage_, nullptr); offscreenImage_ = VK_NULL_HANDLE; }
+    if (offscreenMemory_) { vkFreeMemory(dev, offscreenMemory_, nullptr);  offscreenMemory_ = VK_NULL_HANDLE; }
+    images_.clear();
 }
 
 // ============================================================

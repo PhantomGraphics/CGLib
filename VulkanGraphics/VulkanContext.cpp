@@ -205,8 +205,11 @@ bool VulkanContext::createLogicalDevice() {
     ci.queueCreateInfoCount    = (uint32_t)queueCIs.size();
     ci.pQueueCreateInfos       = queueCIs.data();
     ci.pEnabledFeatures        = &features;
-    ci.enabledExtensionCount   = surface_ ? (uint32_t)DEVICE_EXTENSIONS.size() : 0;
-    ci.ppEnabledExtensionNames = surface_ ? DEVICE_EXTENSIONS.data() : nullptr;
+    // Offscreen contexts also enable the swap-chain extension when the device has it: render passes that end in
+    // PRESENT_SRC_KHR (the same passes an on-screen target uses) are only valid with it.
+    const bool enableSwapchainExt = surface_ || checkDeviceExtensionSupport(physicalDevice_);
+    ci.enabledExtensionCount   = enableSwapchainExt ? (uint32_t)DEVICE_EXTENSIONS.size() : 0;
+    ci.ppEnabledExtensionNames = enableSwapchainExt ? DEVICE_EXTENSIONS.data() : nullptr;
     // Device Layers are deprecated since Vulkan 1.0; only Instance Layers
     // (see createInstance()) are used for validation.
 
