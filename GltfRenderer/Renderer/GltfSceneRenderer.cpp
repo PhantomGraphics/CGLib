@@ -407,6 +407,53 @@ void GltfSceneRenderer::renderSkinnedShadowCasters(VkCommandBuffer cmd, const gl
     renderShadowCastersWithModel(cmd, lightVP, modelMatrix_, skinnedShadowPipeline_.getLayout());
 }
 
+bool GltfSceneRenderer::createPickPipeline(VkRenderPass pickRenderPass, const std::vector<uint32_t>& vertSpv, const std::vector<uint32_t>& fragSpv)
+{
+    if (!ctx_ || vertSpv.empty() || fragSpv.empty() || pickRenderPass == VK_NULL_HANDLE)
+        return false;
+    pickPipeline_.destroy(ctx_->getDevice());
+
+    Phantom::VKG::PipelineConfig cfg;
+    cfg.vertSpv = vertSpv;
+    cfg.fragSpv = fragSpv;
+    cfg.bindingDescs = { GltfGpuMesh::Vertex::getBindingDescription() };
+    // position (0), joint indices (4), joint weights (5), tangent (3, carries the GPU morph offset): the skinned shadow caster's inputs
+    auto allAttrs = GltfGpuMesh::Vertex::getAttributeDescriptions();
+    cfg.attrDescs = { allAttrs[0], allAttrs[4], allAttrs[5], allAttrs[3] };
+    cfg.descriptorSetLayouts = { descriptors_.globalLayout() };
+    cfg.cullMode    = VK_CULL_MODE_NONE;
+    cfg.blendEnable = false;
+    cfg.pushConstantRanges = { VkPushConstantRange{ VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4) * 2 } };
+    return pickPipeline_.create(*ctx_, pickRenderPass, cfg);
+}
+
+void GltfSceneRenderer::renderPickInstances(VkCommandBuffer cmd, uint32_t frameIndex, const glm::mat4& viewProjection,
+                                            const std::vector<glm::mat4>& modelMatrices, const std::vector<uint32_t>& tokens)
+{
+    if (!ready_ || pickPipeline_.getPipeline() == VK_NULL_HANDLE || primitives_.empty() || modelMatrices.empty())
+        return;
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pickPipeline_.getPipeline());
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pickPipeline_.getLayout(),
+                            0, 1, descriptors_.globalSet(frameIndex), 0, nullptr);
+    for (size_t i = 0; i < modelMatrices.size() && i < tokens.size(); ++i) {
+        if (tokens[i] == 0) continue;
+        const std::array<glm::mat4, 2> push{ viewProjection, modelMatrices[i] };
+        vkCmdPushConstants(cmd, pickPipeline_.getLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(push), push.data());
+        for (auto& entry : primitives_) {
+            if (nodeFilter_ >= 0 && entry->nodeIndex != nodeFilter_) continue;
+            VkBuffer     vbuf   = entry->mesh.vertexBuffer();
+            VkDeviceSize offset = 0;
+            vkCmdBindVertexBuffers(cmd, 0, 1, &vbuf, &offset);
+            if (entry->mesh.hasIndices()) {
+                vkCmdBindIndexBuffer(cmd, entry->mesh.indexBuffer(), 0, entry->mesh.indexType());
+                vkCmdDrawIndexed(cmd, entry->mesh.indexCount(), 1, 0, 0, tokens[i]);
+            } else {
+                vkCmdDraw(cmd, entry->mesh.vertexCount(), 1, 0, tokens[i]);
+            }
+        }
+    }
+}
+
 void GltfSceneRenderer::renderShadowCasters(VkCommandBuffer cmd, const glm::mat4& lightVP)
 {
     if (!ready_ || shadowPipeline_.getPipeline() == VK_NULL_HANDLE || primitives_.empty())
@@ -1113,6 +1160,7 @@ void GltfSceneRenderer::onCleanup(VkDevice device) {
     sampledLightReady_=false;
     shadowPipeline_.destroy(device);
     skinnedShadowPipeline_.destroy(device);
+    pickPipeline_.destroy(device);
     if (skybox_) { skybox_->destroy(device); skybox_.reset(); }
 
     for (auto& entry : primitives_) entry->mesh.destroy(device);
