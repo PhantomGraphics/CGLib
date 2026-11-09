@@ -219,6 +219,25 @@ bool scaleVertices(const EditableMesh& in, const std::vector<uint32_t>& vertices
 	});
 }
 
+bool transformVertices(const EditableMesh& in, const std::vector<uint32_t>& vertices, const std::array<double, 9>& linear,
+                       const std::array<float, 3>& pivot, EditableMesh& out, std::string* error) {
+	if (!finite3(pivot) || !std::all_of(linear.begin(), linear.end(), [](double x) { return std::isfinite(x); })) {
+		fail(error, "the transform is not finite"); return false;
+	}
+	EditableMesh work;
+	if (!editVertices(in, vertices, work, error, [&](float* p) {
+		const double d[3] = { p[0] - double(pivot[0]), p[1] - double(pivot[1]), p[2] - double(pivot[2]) };
+		for (int i = 0; i < 3; ++i)
+			p[i] = static_cast<float>(pivot[i] + linear[i*3] * d[0] + linear[i*3+1] * d[1] + linear[i*3+2] * d[2]);
+	})) return false;
+	const std::set<uint32_t> selected(vertices.begin(), vertices.end());
+	for (auto& face : work.faces)
+		if (std::any_of(face.loop.begin(), face.loop.end(), [&](const EditableCorner& c) { return selected.count(c.vertex) != 0; }))
+			for (auto& corner : face.loop) corner.hasNormal = false;
+	out = std::move(work);
+	return true;
+}
+
 namespace {
 
 // Shared by extrude (inset = 0) and inset (inset > 0, distance = depth along the normal, may be 0): the region's boundary

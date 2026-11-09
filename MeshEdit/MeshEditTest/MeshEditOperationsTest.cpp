@@ -13,6 +13,39 @@
 // layer's own tests stay in PhantomStudio).
 using namespace Phantom::MeshEdit;
 
+TEST(MeshEditOperations, LinearMapKeepsTopologyAndAttributesAndRejectsInvalidGeometry) {
+    auto input = makeEditableBox();
+    input.faces[0].material = 3;
+    input.faces[0].loop[0].hasNormal = true;
+    const auto ids = allElementIds(input, ElementKind::Vertex);
+    EditableMesh output;
+    std::string error;
+    // A shear: x' = x + y about a non-origin pivot.
+    ASSERT_TRUE(transformVertices(input, ids, {1,1,0, 0,1,0, 0,0,1}, {0,.25f,0}, output, &error)) << error;
+    EXPECT_NE(output.revision, input.revision);
+    EXPECT_EQ(output.edges.size(), input.edges.size());
+    EXPECT_EQ(output.faces[0].material, 3u);
+    EXPECT_FLOAT_EQ(output.faces[0].loop[0].uv[0], input.faces[0].loop[0].uv[0]);
+    EXPECT_FALSE(output.faces[0].loop[0].hasNormal);
+    EXPECT_TRUE(input.faces[0].loop[0].hasNormal);
+    for (size_t i = 0; i < input.vertices.size(); ++i) {
+        EXPECT_EQ(output.vertices[i].id, input.vertices[i].id);
+        EXPECT_FLOAT_EQ(output.vertices[i].pos[0], input.vertices[i].pos[0] + input.vertices[i].pos[1] - .25f);
+    }
+    const auto revision = output.revision;
+    EXPECT_FALSE(transformVertices(input, ids, {0,0,0, 0,0,0, 0,0,0}, {}, output, &error));
+    EXPECT_EQ(output.revision, revision);
+    EXPECT_FALSE(transformVertices(input, {99999}, {1,0,0, 0,1,0, 0,0,1}, {}, output, &error));
+    EXPECT_EQ(output.revision, revision);
+    for (auto& face : input.faces) for (auto& corner : face.loop) corner.hasNormal = true;
+    ASSERT_TRUE(transformVertices(input, {input.vertices[0].id}, {1,0,0, 0,1,0, 0,0,1}, {}, output, &error));
+    for (size_t i = 0; i < input.faces.size(); ++i) {
+        const bool affected = std::any_of(input.faces[i].loop.begin(), input.faces[i].loop.end(),
+            [&](const EditableCorner& corner) { return corner.vertex == input.vertices[0].id; });
+        EXPECT_EQ(output.faces[i].loop[0].hasNormal, !affected);
+    }
+}
+
 TEST(MeshArrayOperation, CopiesTopologyAttributesAndNegativeOffset) {
     auto input = makeEditableBox();
     EditableMesh output;

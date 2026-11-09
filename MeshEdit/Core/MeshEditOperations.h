@@ -44,6 +44,11 @@ namespace Phantom::MeshEdit {
 	bool scaleVertices(const EditableMesh& in, const std::vector<uint32_t>& vertices, const std::array<float, 3>& factor,
 	                   const std::array<float, 3>& pivot, EditableMesh& out, std::string* error = nullptr);
 
+	// Applies a row-major linear map about pivot. Supports shear from conjugating a world-space edit by a non-uniform object scale.
+	// Keeps topology, ids, UVs and materials; clears authored normals on affected faces so the deformed surface derives fresh normals.
+	bool transformVertices(const EditableMesh& in, const std::vector<uint32_t>& vertices, const std::array<double, 9>& linear,
+	                       const std::array<float, 3>& pivot, EditableMesh& out, std::string* error = nullptr);
+
 	// Extrudes a connected, coplanar region of faces along its normal by `distance` (negative = into the solid).
 	// Vertices on the region boundary are duplicated (the region's faces move onto the copies and keep their ids and UVs,
 	// so the selection stays valid); vertices strictly inside the region are moved. One quad side wall is created per
