@@ -412,19 +412,25 @@ bool GltfSceneRenderer::createPickPipeline(VkRenderPass pickRenderPass, const st
     if (!ctx_ || vertSpv.empty() || fragSpv.empty() || pickRenderPass == VK_NULL_HANDLE)
         return false;
     pickPipeline_.destroy(ctx_->getDevice());
+    pickPipelineDoubleSided_.destroy(ctx_->getDevice());
 
     Phantom::VKG::PipelineConfig cfg;
     cfg.vertSpv = vertSpv;
     cfg.fragSpv = fragSpv;
     cfg.bindingDescs = { GltfGpuMesh::Vertex::getBindingDescription() };
-    // position (0), joint indices (4), joint weights (5), tangent (3, carries the GPU morph offset): the skinned shadow caster's inputs
+    // position (0), joint indices (4), joint weights (5), tangent (3, carries the GPU morph offset): the skinned shadow caster's inputs;
+    // plus both UV sets (2, 6) and the vertex colour (7) for the alpha test against the material's base colour.
     auto allAttrs = GltfGpuMesh::Vertex::getAttributeDescriptions();
-    cfg.attrDescs = { allAttrs[0], allAttrs[4], allAttrs[5], allAttrs[3] };
-    cfg.descriptorSetLayouts = { descriptors_.globalLayout() };
-    cfg.cullMode    = VK_CULL_MODE_NONE;
+    cfg.attrDescs = { allAttrs[0], allAttrs[2], allAttrs[3], allAttrs[4], allAttrs[5], allAttrs[6], allAttrs[7] };
+    cfg.descriptorSetLayouts = { descriptors_.globalLayout(), descriptors_.materialLayout() };
     cfg.blendEnable = false;
     cfg.pushConstantRanges = { VkPushConstantRange{ VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4) * 2 } };
-    return pickPipeline_.create(*ctx_, pickRenderPass, cfg);
+    // Same culling policy as the main pass (single-sided materials cull like cullMode_, double-sided ones do not),
+    // so clicks cannot reach a face the viewport does not show.
+    cfg.cullMode = cullMode_;
+    if (!pickPipeline_.create(*ctx_, pickRenderPass, cfg)) return false;
+    cfg.cullMode = VK_CULL_MODE_NONE;
+    return pickPipelineDoubleSided_.create(*ctx_, pickRenderPass, cfg);
 }
 
 void GltfSceneRenderer::renderPickInstances(VkCommandBuffer cmd, uint32_t frameIndex, const glm::mat4& viewProjection,
@@ -432,7 +438,9 @@ void GltfSceneRenderer::renderPickInstances(VkCommandBuffer cmd, uint32_t frameI
 {
     if (!ready_ || pickPipeline_.getPipeline() == VK_NULL_HANDLE || primitives_.empty() || modelMatrices.empty())
         return;
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pickPipeline_.getPipeline());
+    // Both variants share one layout (global set 0, material set 1, one push range), so the sets and constants bound once stay valid
+    // while a double-sided primitive switches the pipeline.
+    VkPipeline bound = VK_NULL_HANDLE;
     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pickPipeline_.getLayout(),
                             0, 1, descriptors_.globalSet(frameIndex), 0, nullptr);
     for (size_t i = 0; i < modelMatrices.size() && i < tokens.size(); ++i) {
@@ -441,6 +449,14 @@ void GltfSceneRenderer::renderPickInstances(VkCommandBuffer cmd, uint32_t frameI
         vkCmdPushConstants(cmd, pickPipeline_.getLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(push), push.data());
         for (auto& entry : primitives_) {
             if (nodeFilter_ >= 0 && entry->nodeIndex != nodeFilter_) continue;
+            const int materialIndex = (entry->materialIndex >= 0 && entry->materialIndex < (int)materials_.size()) ? entry->materialIndex : 0;
+            if (materials_.empty()) continue;
+            const GltfGpuMaterial& material = *materials_[materialIndex];
+            const VkPipeline wanted = material.doubleSided()
+                ? pickPipelineDoubleSided_.getPipeline() : pickPipeline_.getPipeline();
+            if (wanted != bound) { vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, wanted); bound = wanted; }
+            VkDescriptorSet materialSet = material.descriptorSet(frameIndex);
+            vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pickPipeline_.getLayout(), 1, 1, &materialSet, 0, nullptr);
             VkBuffer     vbuf   = entry->mesh.vertexBuffer();
             VkDeviceSize offset = 0;
             vkCmdBindVertexBuffers(cmd, 0, 1, &vbuf, &offset);
@@ -1161,6 +1177,7 @@ void GltfSceneRenderer::onCleanup(VkDevice device) {
     shadowPipeline_.destroy(device);
     skinnedShadowPipeline_.destroy(device);
     pickPipeline_.destroy(device);
+    pickPipelineDoubleSided_.destroy(device);
     if (skybox_) { skybox_->destroy(device); skybox_.reset(); }
 
     for (auto& entry : primitives_) entry->mesh.destroy(device);

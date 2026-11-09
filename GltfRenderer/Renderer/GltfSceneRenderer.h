@@ -354,7 +354,8 @@ namespace Phantom::Gltf
         // Object-ID (picking) variant of the skinned shadow caster: the same vertex inputs (skinning + morph from the
         // instance data) with the caller's SPIR-V, drawn into `pickRenderPass` (one integer colour attachment + depth).
         // The fragment stage gets the token through the vertex stage as `gl_InstanceIndex` (the draws use
-        // firstInstance = token), so the push constants stay {viewProjection, model}. Culling is off like the shadow pass.
+        // firstInstance = token), so the push constants stay {viewProjection, model}. Material descriptors supply alpha;
+        // single-sided materials use cullMode_, double-sided materials disable culling, independently of display mode.
         bool createPickPipeline(VkRenderPass pickRenderPass, const std::vector<uint32_t>& vertSpv, const std::vector<uint32_t>& fragSpv);
         bool hasPickPipeline() const { return pickPipeline_.getPipeline() != VK_NULL_HANDLE; }
         // Draws every primitive once per entry of `modelMatrices` with token tokens[i] (0 = skip that entry). Call inside
@@ -524,7 +525,8 @@ namespace Phantom::Gltf
         // Shadow mapping (Phase C)
         Phantom::VKG::VulkanPipeline shadowPipeline_; // depth-only, push-constant lightVP only
         Phantom::VKG::VulkanPipeline skinnedShadowPipeline_; // see createSkinnedShadowPipeline()
-        Phantom::VKG::VulkanPipeline pickPipeline_;          // see createPickPipeline()
+        Phantom::VKG::VulkanPipeline pickPipeline_;          // see createPickPipeline(): single-sided materials (cullMode_)
+        Phantom::VKG::VulkanPipeline pickPipelineDoubleSided_; // double-sided materials (no culling)
         VkImageView shadowView_     = VK_NULL_HANDLE;
         VkSampler   shadowSampler_  = VK_NULL_HANDLE;
         glm::mat4   shadowVP_       = glm::mat4(1.f);
