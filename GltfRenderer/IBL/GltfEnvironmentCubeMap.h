@@ -47,7 +47,7 @@ public:
     bool loadFromHDR(const Phantom::VKG::VulkanContext& ctx, const Phantom::VKG::VulkanCommandPool& pool,
                      const std::string& path,
                      std::vector<uint32_t> equirectVert, std::vector<uint32_t> equirectFrag,
-                     uint32_t cubeSize = 512);
+                     uint32_t cubeSize = 512, float intensity = 1.f);
 
     // Discards whatever cubemap is currently active and rebuilds the flat placeholder tint (same
     // as a fresh create()). No-op-safe to call even if already showing the placeholder.

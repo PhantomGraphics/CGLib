@@ -71,7 +71,7 @@ namespace {
 // temporary equirect texture (it is only needed for the duration of computeEnvironmentCube()'s
 // render pass).
 bool createEquirectTexture(const Phantom::VKG::VulkanContext& ctx, const Phantom::VKG::VulkanCommandPool& pool,
-                           const std::string& path,
+                           const std::string& path, float intensity,
                            VkImage& outImage, VkDeviceMemory& outMem,
                            VkImageView& outView, VkSampler& outSampler)
 {
@@ -88,7 +88,7 @@ bool createEquirectTexture(const Phantom::VKG::VulkanContext& ctx, const Phantom
     const std::vector<float> px = img.getValues(); // flat RGBA, w*h*4 floats (returned by value)
     std::vector<glm::u16vec4> half(static_cast<size_t>(w) * static_cast<size_t>(h));
     for (size_t i = 0; i < half.size(); ++i) {
-        const glm::vec4 c(px[i * 4 + 0], px[i * 4 + 1], px[i * 4 + 2], px[i * 4 + 3]);
+        const glm::vec4 c(px[i * 4 + 0] * intensity, px[i * 4 + 1] * intensity, px[i * 4 + 2] * intensity, px[i * 4 + 3]);
         half[i] = glm::packHalf(c);
     }
 
@@ -121,7 +121,7 @@ bool createEquirectTexture(const Phantom::VKG::VulkanContext& ctx, const Phantom
 bool GltfEnvironmentCubeMap::loadFromHDR(const Phantom::VKG::VulkanContext& ctx, const Phantom::VKG::VulkanCommandPool& pool,
                                          const std::string& path,
                                          std::vector<uint32_t> equirectVert, std::vector<uint32_t> equirectFrag,
-                                         uint32_t cubeSize)
+                                         uint32_t cubeSize, float intensity)
 {
     VkDevice device = ctx.getDevice();
 
@@ -129,7 +129,7 @@ bool GltfEnvironmentCubeMap::loadFromHDR(const Phantom::VKG::VulkanContext& ctx,
     VkDeviceMemory eqMem     = VK_NULL_HANDLE;
     VkImageView    eqView    = VK_NULL_HANDLE;
     VkSampler      eqSampler = VK_NULL_HANDLE;
-    if (!createEquirectTexture(ctx, pool, path, eqImage, eqMem, eqView, eqSampler)) {
+    if (!createEquirectTexture(ctx, pool, path, intensity, eqImage, eqMem, eqView, eqSampler)) {
         if (eqSampler) vkDestroySampler(device, eqSampler, nullptr);
         if (eqView)    vkDestroyImageView(device, eqView, nullptr);
         if (eqImage)   vkDestroyImage(device, eqImage, nullptr);
