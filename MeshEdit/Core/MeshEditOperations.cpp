@@ -1990,4 +1990,54 @@ bool worldVectorToLocal(const std::array<float, 3>& rotationEulerDeg, const std:
 	return true;
 }
 
+namespace {
+bool invertibleScale(const ObjectTransform& object, std::string* error) {
+	for (float k : object.scale)
+		if (!std::isfinite(k) || k == 0.f) { fail(error, "world-space mesh edit requires an invertible object transform"); return false; }
+	return true;
+}
+
+// The object-space linear map that does `change` (a world-space linear map) on world positions: S^-1 * R^T * change * R * S.
+std::array<double, 9> localLinear(const ObjectTransform& object, const Mat3& change) {
+	const Mat3 r = rotationYXZ(object.rotationEulerDeg);
+	Mat3 axes = r, inverse{};
+	for (int row = 0; row < 3; ++row)
+		for (int col = 0; col < 3; ++col) axes[row][col] = r[row][col] * object.scale[col];                      // R * S
+	for (int row = 0; row < 3; ++row)
+		for (int col = 0; col < 3; ++col) inverse[row][col] = r[col][row] / double(object.scale[row]);            // S^-1 * R^T
+	const Mat3 local = mul(inverse, mul(change, axes));
+	std::array<double, 9> linear{};
+	for (int row = 0; row < 3; ++row)
+		for (int col = 0; col < 3; ++col) linear[row * 3 + col] = local[row][col];
+	return linear;
+}
+} // namespace
+
+bool translateVerticesWorld(const EditableMesh& in, const std::vector<uint32_t>& vertices, const std::array<float, 3>& worldDelta, const ObjectTransform& object,
+                            float proportionalRadius, Falloff falloff, EditableMesh& out, std::string* error, size_t* affected) {
+	std::array<float, 3> local{};
+	if (!worldVectorToLocal(object.rotationEulerDeg, object.scale, worldDelta, local, error)) return false;
+	if (proportionalRadius > 0.f) return translateVerticesProportional(in, vertices, local, proportionalRadius, falloff, out, error, affected);
+	return translateVertices(in, vertices, local, out, error);
+}
+
+bool rotateVerticesWorld(const EditableMesh& in, const std::vector<uint32_t>& vertices, const std::array<float, 3>& worldEulerDeg, const ObjectTransform& object,
+                         EditableMesh& out, std::string* error) {
+	if (!finite3(worldEulerDeg)) { fail(error, "the rotation is not finite"); return false; }
+	if (!invertibleScale(object, error)) return false;
+	std::array<float, 3> pivot{};
+	if (!vertexCentroid(in, vertices, pivot)) { fail(error, "the selected vertices do not exist"); return false; }
+	return transformVertices(in, vertices, localLinear(object, rotationYXZ(worldEulerDeg)), pivot, out, error);
+}
+
+bool scaleVerticesWorld(const EditableMesh& in, const std::vector<uint32_t>& vertices, const std::array<float, 3>& worldFactor, const ObjectTransform& object,
+                        EditableMesh& out, std::string* error) {
+	if (!finite3(worldFactor)) { fail(error, "the scale is not finite"); return false; }
+	if (!invertibleScale(object, error)) return false;
+	std::array<float, 3> pivot{};
+	if (!vertexCentroid(in, vertices, pivot)) { fail(error, "the selected vertices do not exist"); return false; }
+	const Mat3 change = {{ { worldFactor[0], 0, 0 }, { 0, worldFactor[1], 0 }, { 0, 0, worldFactor[2] } }};
+	return transformVertices(in, vertices, localLinear(object, change), pivot, out, error);
+}
+
 } // namespace Phantom::MeshEdit

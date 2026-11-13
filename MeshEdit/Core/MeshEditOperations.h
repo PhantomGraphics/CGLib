@@ -206,6 +206,23 @@ namespace Phantom::MeshEdit {
 	bool evaluateModifiers(const EditableMesh& in, const std::vector<MeshModifier>& modifiers, EditableMesh& out,
 	                       std::string* error = nullptr);
 
+	// World-space edits of the selected vertices of an object whose world transform is T * Ry*Rx*Rz * S (the translation is not needed here).
+	// All three fail -- `out` untouched -- for an object transform that is not invertible (a zero scale on an axis).
+	// translateVerticesWorld: moves the vertices by the world-space offset (converted with worldVectorToLocal); `proportionalRadius` > 0 (a local distance, as
+	// translateVerticesProportional) also moves nearby vertices by `falloff`; *affected as there.
+	// rotateVerticesWorld / scaleVerticesWorld: rotate (Euler degrees, Y then X then Z) or scale per world axis about the world-space centre of the vertices, so the
+	// result is the same as turning / scaling the selection in the world even when the object is rotated or non-uniformly scaled.
+	struct ObjectTransform {
+		std::array<float, 3> rotationEulerDeg = { 0.f, 0.f, 0.f };
+		std::array<float, 3> scale = { 1.f, 1.f, 1.f };
+	};
+	bool translateVerticesWorld(const EditableMesh& in, const std::vector<uint32_t>& vertices, const std::array<float, 3>& worldDelta, const ObjectTransform& object,
+	                            float proportionalRadius, Falloff falloff, EditableMesh& out, std::string* error = nullptr, size_t* affected = nullptr);
+	bool rotateVerticesWorld(const EditableMesh& in, const std::vector<uint32_t>& vertices, const std::array<float, 3>& worldEulerDeg, const ObjectTransform& object,
+	                         EditableMesh& out, std::string* error = nullptr);
+	bool scaleVerticesWorld(const EditableMesh& in, const std::vector<uint32_t>& vertices, const std::array<float, 3>& worldFactor, const ObjectTransform& object,
+	                        EditableMesh& out, std::string* error = nullptr);
+
 	// Converts a world-space direction/offset into the object's local space for an object transform
 	// (world = T * Ry*Rx*Rz * S, so local = S^-1 * R^T * world). False if any scale component is zero (not invertible).
 	bool worldVectorToLocal(const std::array<float, 3>& rotationEulerDeg, const std::array<float, 3>& scale,
