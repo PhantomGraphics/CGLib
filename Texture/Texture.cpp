@@ -6,6 +6,7 @@
 #include <map>
 #include <sstream>
 #include <tuple>
+#include <thread>
 #include <nlohmann/json.hpp>
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_STATIC
@@ -106,15 +107,32 @@ static Color over(Color base, Color paint, float alpha) {
     if (a > 0) for (size_t k=0;k<3;++k) c[k]=(paint[k]*alpha+base[k]*base[3]*(1-alpha))/a;
     return c;
 }
-static bool rasterPaint(const Node& node, unsigned size, Image& image, std::string& d, const std::atomic_bool* cancel) {
+template<class F> static void parallelBands(unsigned rows, F work) {
+    const unsigned count=rows<64 ? 1u : std::clamp(std::thread::hardware_concurrency(),1u,8u);
+    std::vector<std::thread> workers;
+    for (unsigned i=1;i<count;++i) workers.emplace_back([&,i]{work(rows*i/count,rows*(i+1)/count);});
+    work(0,rows/count);
+    for (auto& worker:workers) worker.join();
+}
+static uint8_t encode(float value,bool rgb) {
+    value=std::clamp(value,0.0f,1.0f);
+    if (rgb) value=value<=0.0031308f ? value*12.92f : 1.055f*std::pow(value,1.0f/2.4f)-0.055f;
+    return static_cast<uint8_t>(std::lround(value*255));
+}
+static bool rasterPaint(const Node& node, unsigned size, Image& image, std::string& d, const std::atomic_bool* cancel,
+    size_t firstStroke=0,bool keep=false,unsigned top=0,unsigned bottom=0) {
     image.width = image.height = size;
-    image.pixels.assign(size_t(size)*size, Color{0,0,0,0});
-    for (const auto& s : node.strokes) {
+    if (!keep) image.pixels.assign(size_t(size)*size, Color{0,0,0,0});
+    if (!bottom) bottom=size;
+    parallelBands(bottom-top,[&](unsigned begin,unsigned end) {
+      begin+=top; end+=top;
+      for (size_t index=firstStroke;index<node.strokes.size();++index) {
+        const auto& s=node.strokes[index];
         auto dab = [&](float u, float v) {
             if (cancel && cancel->load()) return false;
             float cx=u*size, cy=v*size, radius=s.radius*size;
             int left=std::max(0,int(std::floor(cx-radius))), right=std::min(int(size)-1,int(std::ceil(cx+radius)));
-            int top=std::max(0,int(std::floor(cy-radius))), bottom=std::min(int(size)-1,int(std::ceil(cy+radius)));
+            int top=std::max(int(begin),int(std::floor(cy-radius))), bottom=std::min(int(end)-1,int(std::ceil(cy+radius)));
             for (int y=top;y<=bottom;++y) {
                 if (cancel && cancel->load()) return false;
                 for (int x=left;x<=right;++x) {
@@ -131,7 +149,7 @@ static bool rasterPaint(const Node& node, unsigned size, Image& image, std::stri
             return true;
         };
         const float step=std::max(s.radius*0.25f,0.5f/size);
-        if (!dab(s.samples.front()[0],s.samples.front()[1])) return fail(d,"Evaluation cancelled");
+        if (!dab(s.samples.front()[0],s.samples.front()[1])) return;
         // Carry arc length across samples, so adding collinear mouse samples does
         // not increase opacity. The last point is stamped exactly once.
         float until=step;
@@ -141,28 +159,40 @@ static bool rasterPaint(const Node& node, unsigned size, Image& image, std::stri
             float dx=to[0]-from[0], dy=to[1]-from[1], length=std::sqrt(dx*dx+dy*dy);
             for (float offset=until; offset<=length; offset+=step) {
                 float t=offset/length; last={from[0]+dx*t,from[1]+dy*t};
-                if (!dab(last[0],last[1])) return fail(d,"Evaluation cancelled");
+                if (!dab(last[0],last[1])) return;
             }
             if (length >= until) until=step-std::fmod(length-until,step);
             else until-=length;
         }
         auto end=s.samples.back();
-        if (std::abs(last[0]-end[0])+std::abs(last[1]-end[1])>1e-6f && !dab(end[0],end[1])) return fail(d,"Evaluation cancelled");
-    }
+        if (std::abs(last[0]-end[0])+std::abs(last[1]-end[1])>1e-6f && !dab(end[0],end[1])) return;
+      }
+    });
+    if (cancel && cancel->load()) return fail(d,"Evaluation cancelled");
     return true;
 }
-bool evaluate(const Recipe& r, Image& destination, std::string& d, const std::atomic_bool* cancel) {
+struct Region { unsigned left=0,top=0,right=0,bottom=0; };
+static bool evaluateInto(const Recipe& r, Image* image, ByteImage* bytes, bool blueFirst, std::string& d, const std::atomic_bool* cancel,
+    const std::vector<Image>* prepared=nullptr,const Region* region=nullptr,std::vector<Image>* retain=nullptr) {
     Graph g; if (!prepare(r,g,d)) return false;
     if (cancel && cancel->load()) return fail(d,"Evaluation cancelled");
-    std::map<size_t,Image> paint;
-    for (size_t n=0;n<r.nodes.size();++n) if (r.nodes[n].type==NodeType::Paint)
-        if (!rasterPaint(r.nodes[n],r.resolution,paint[n],d,cancel)) return false;
-    Image image; image.width = image.height = r.resolution;
-    image.pixels.resize(size_t(r.resolution)*r.resolution);
-    std::vector<Color> values(r.nodes.size());
-    for (unsigned y=0;y<r.resolution;++y) {
-        if (cancel && cancel->load()) return fail(d,"Evaluation cancelled");
-        for (unsigned x=0;x<r.resolution;++x) {
+    std::vector<Image> generated;
+    if (!prepared) {
+        generated.resize(r.nodes.size());
+        for (size_t n=0;n<r.nodes.size();++n) if (r.nodes[n].type==NodeType::Paint)
+            if (!rasterPaint(r.nodes[n],r.resolution,generated[n],d,cancel)) return false;
+    }
+    const auto& paint=prepared ? *prepared : generated;
+    if (image) { image->width=image->height=r.resolution; image->pixels.resize(size_t(r.resolution)*r.resolution); }
+    if (bytes && !region) { bytes->width=bytes->height=r.resolution; bytes->pixels.resize(size_t(r.resolution)*r.resolution*4); }
+    const size_t output=g.ids.find(r.output)->second;
+    const Region area=region ? *region : Region{0,0,r.resolution,r.resolution};
+    parallelBands(area.bottom-area.top,[&](unsigned begin,unsigned end) {
+      begin+=area.top; end+=area.top;
+      std::vector<Color> values(r.nodes.size());
+      for (unsigned y=begin;y<end;++y) {
+        if (cancel && cancel->load()) return;
+        for (unsigned x=area.left;x<area.right;++x) {
             float u=(float(x)+0.5f)/r.resolution;
             for (size_t n : g.order) {
                 const auto& node=r.nodes[n]; const auto& in=g.inputs[n]; Color c=node.first;
@@ -186,10 +216,123 @@ bool evaluate(const Recipe& r, Image& destination, std::string& d, const std::at
                 }
                 values[n]=c;
             }
-            image.pixels[size_t(y)*r.resolution+x]=values[g.ids.find(r.output)->second];
+            const size_t at=size_t(y)*r.resolution+x;
+            const auto color=values[output];
+            if (image) image->pixels[at]=color;
+            else {
+                auto* pixel=bytes->pixels.data()+at*4;
+                pixel[0]=encode(color[blueFirst ? 2:0],true); pixel[1]=encode(color[1],true);
+                pixel[2]=encode(color[blueFirst ? 0:2],true); pixel[3]=encode(color[3],false);
+            }
+        }
+      }
+    });
+    if (cancel && cancel->load()) return fail(d,"Evaluation cancelled");
+    if (retain) *retain=std::move(generated);
+    d.clear(); return true;
+}
+bool evaluate(const Recipe& r, Image& destination, std::string& d, const std::atomic_bool* cancel) {
+    Image image;
+    if (!evaluateInto(r,&image,nullptr,false,d,cancel)) return false;
+    destination=std::move(image); d.clear(); return true;
+}
+bool evaluateSrgb8(const Recipe& r, ByteImage& destination, std::string& d, bool blueFirst, const std::atomic_bool* cancel) {
+    ByteImage image;
+    if (!evaluateInto(r,nullptr,&image,blueFirst,d,cancel)) return false;
+    destination=std::move(image); d.clear(); return true;
+}
+struct PreviewEvaluator::State { Recipe recipe; std::vector<Image> paint; ByteImage bytes; };
+PreviewEvaluator::PreviewEvaluator()=default;
+PreviewEvaluator::~PreviewEvaluator()=default;
+static bool sameStroke(const Stroke& a,const Stroke& b) {
+    return a.color==b.color && a.radius==b.radius && a.strength==b.strength && a.hardness==b.hardness && a.erase==b.erase && a.samples==b.samples;
+}
+static bool appendOnly(const Recipe& a,const Recipe& b) {
+    if (a.formatVersion!=b.formatVersion || a.evaluatorVersion!=b.evaluatorVersion || a.resolution!=b.resolution || a.output!=b.output ||
+        a.nodes.size()!=b.nodes.size() || a.connections.size()!=b.connections.size()) return false;
+    for (size_t i=0;i<a.connections.size();++i) {
+        const auto& x=a.connections[i]; const auto& y=b.connections[i];
+        if (x.source!=y.source || x.target!=y.target || x.input!=y.input) return false;
+    }
+    for (size_t i=0;i<a.nodes.size();++i) {
+        const auto& x=a.nodes[i]; const auto& y=b.nodes[i];
+        if (x.id!=y.id || x.type!=y.type || x.first!=y.first || x.second!=y.second || x.seed!=y.seed || x.scale!=y.scale || x.strokes.size()>y.strokes.size()) return false;
+        for (size_t k=0;k<x.strokes.size();++k) if (!sameStroke(x.strokes[k],y.strokes[k])) return false;
+    }
+    return true;
+}
+static Region strokeBounds(const Node& node,size_t first,unsigned size) {
+    float left=1,top=1,right=0,bottom=0;
+    for (size_t i=first;i<node.strokes.size();++i) {
+        const auto& s=node.strokes[i];
+        for (const auto& uv:s.samples) {
+            left=std::min(left,uv[0]-s.radius); right=std::max(right,uv[0]+s.radius);
+            top=std::min(top,uv[1]-s.radius); bottom=std::max(bottom,uv[1]+s.radius);
         }
     }
-    destination=std::move(image); d.clear(); return true;
+    auto lower=[&](float v){return unsigned(std::clamp(std::floor(v*size),0.0f,float(size)));};
+    auto upper=[&](float v){return unsigned(std::clamp(std::ceil(v*size)+1,0.0f,float(size)));};
+    return {lower(left),lower(top),upper(right),upper(bottom)};
+}
+bool PreviewEvaluator::evaluate(const Recipe& recipe,ByteImage& destination,std::string& d,const std::atomic_bool* cancel) {
+    if (!validate(recipe,d)) return false;
+    if (cancel && cancel->load()) return fail(d,"Evaluation cancelled");
+    if (state_ && appendOnly(state_->recipe,recipe)) {
+        struct Backup { size_t node; Region area; std::vector<Color> pixels; };
+        std::vector<Backup> backups;
+        Region dirty{recipe.resolution,recipe.resolution,0,0};
+        for (size_t n=0;n<recipe.nodes.size();++n) {
+            const size_t first=state_->recipe.nodes[n].strokes.size();
+            if (first==recipe.nodes[n].strokes.size()) continue;
+            const auto area=strokeBounds(recipe.nodes[n],first,recipe.resolution);
+            if (area.left>=area.right || area.top>=area.bottom) continue;
+            Backup backup{n,area,{}};
+            const size_t width=area.right-area.left;
+            backup.pixels.reserve(width*(area.bottom-area.top));
+            for (unsigned y=area.top;y<area.bottom;++y) {
+                const auto* row=state_->paint[n].pixels.data()+size_t(y)*recipe.resolution+area.left;
+                backup.pixels.insert(backup.pixels.end(),row,row+width);
+            }
+            backups.push_back(std::move(backup));
+            dirty.left=std::min(dirty.left,area.left); dirty.top=std::min(dirty.top,area.top);
+            dirty.right=std::max(dirty.right,area.right); dirty.bottom=std::max(dirty.bottom,area.bottom);
+        }
+        const bool changed=dirty.left<dirty.right && dirty.top<dirty.bottom;
+        std::vector<uint8_t> oldBytes;
+        const size_t rowBytes=changed ? size_t(dirty.right-dirty.left)*4 : 0;
+        if (changed) {
+            oldBytes.reserve(rowBytes*(dirty.bottom-dirty.top));
+            for (unsigned y=dirty.top;y<dirty.bottom;++y) {
+                const auto* row=state_->bytes.pixels.data()+(size_t(y)*recipe.resolution+dirty.left)*4;
+                oldBytes.insert(oldBytes.end(),row,row+rowBytes);
+            }
+        }
+        auto restore=[&] {
+            for (const auto& backup:backups) {
+                const size_t width=backup.area.right-backup.area.left;
+                for (unsigned y=backup.area.top;y<backup.area.bottom;++y)
+                    std::copy_n(backup.pixels.data()+size_t(y-backup.area.top)*width,width,
+                        state_->paint[backup.node].pixels.data()+size_t(y)*recipe.resolution+backup.area.left);
+            }
+            if (changed) for (unsigned y=dirty.top;y<dirty.bottom;++y)
+                std::copy_n(oldBytes.data()+size_t(y-dirty.top)*rowBytes,rowBytes,
+                    state_->bytes.pixels.data()+(size_t(y)*recipe.resolution+dirty.left)*4);
+        };
+        for (const auto& backup:backups) {
+            const size_t first=state_->recipe.nodes[backup.node].strokes.size();
+            if (!rasterPaint(recipe.nodes[backup.node],recipe.resolution,state_->paint[backup.node],d,cancel,first,true,backup.area.top,backup.area.bottom)) { restore(); return false; }
+        }
+        if (changed && !evaluateInto(recipe,nullptr,&state_->bytes,true,d,cancel,&state_->paint,&dirty)) { restore(); return false; }
+        ByteImage result=state_->bytes;
+        if (cancel && cancel->load()) { restore(); return fail(d,"Evaluation cancelled"); }
+        state_->recipe=recipe; destination=std::move(result); d.clear(); return true;
+    }
+    auto next=std::make_unique<State>();
+    if (!evaluateInto(recipe,nullptr,&next->bytes,true,d,cancel,nullptr,nullptr,&next->paint)) return false;
+    if (cancel && cancel->load()) return fail(d,"Evaluation cancelled");
+    next->recipe=recipe;
+    destination=next->bytes;
+    state_=std::move(next); d.clear(); return true;
 }
 bool serialize(const Recipe& r, std::string& result, std::string& d) {
     if (!validate(r,d)) return false;
@@ -268,9 +411,7 @@ bool writePng(const std::filesystem::path& path, const Image& image, std::string
     std::vector<unsigned char> bytes; bytes.reserve(image.pixels.size()*4);
     for (auto c:image.pixels) for (size_t k=0;k<4;++k) {
         if (!std::isfinite(c[k])) return fail(d,"Non-finite image color");
-        float v=std::clamp(c[k],0.0f,1.0f);
-        if(k<3) v=v<=0.0031308f ? v*12.92f : 1.055f*std::pow(v,1.0f/2.4f)-0.055f;
-        bytes.push_back(static_cast<unsigned char>(std::lround(v*255)));
+        bytes.push_back(encode(c[k],k<3));
     }
     std::ofstream f(path,std::ios::binary); if (!f) return fail(d,"Cannot open PNG");
     auto callback=[](void* ctx,void* data,int size){static_cast<std::ofstream*>(ctx)->write(static_cast<char*>(data),size);};

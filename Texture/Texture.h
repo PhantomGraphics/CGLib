@@ -3,6 +3,7 @@
 #include <atomic>
 #include <cstdint>
 #include <filesystem>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -34,9 +35,26 @@ struct Recipe {
     std::string output;
 };
 struct Image { unsigned width = 0, height = 0; std::vector<Color> pixels; };
+struct ByteImage { unsigned width = 0, height = 0; std::vector<uint8_t> pixels; };
 // Failure preserves destination objects. Cancellation is checked once per row.
 bool validate(const Recipe&, std::string& diagnostic);
 bool evaluate(const Recipe&, Image&, std::string& diagnostic, const std::atomic_bool* cancel = nullptr);
+// Packed straight-alpha sRGB bytes. blueFirst selects BGRA for display consumers.
+// Uses the same evaluation and encoding as PNG export without a float result copy.
+bool evaluateSrgb8(const Recipe&, ByteImage&, std::string& diagnostic, bool blueFirst = false, const std::atomic_bool* cancel = nullptr);
+// Optional memory-only BGRA8 display cache. Appended strokes update only their bounds;
+// all other semantic edits rebuild. Not thread safe; callers serialize access.
+class PreviewEvaluator {
+public:
+    PreviewEvaluator();
+    ~PreviewEvaluator();
+    PreviewEvaluator(const PreviewEvaluator&)=delete;
+    PreviewEvaluator& operator=(const PreviewEvaluator&)=delete;
+    bool evaluate(const Recipe&,ByteImage&,std::string&,const std::atomic_bool* cancel=nullptr);
+private:
+    struct State;
+    std::unique_ptr<State> state_;
+};
 bool serialize(const Recipe&, std::string& json, std::string& diagnostic);
 bool deserialize(const std::string& json, Recipe&, std::string& diagnostic);
 bool save(const std::filesystem::path&, const Recipe&, std::string& diagnostic);

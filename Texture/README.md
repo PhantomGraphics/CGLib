@@ -28,7 +28,7 @@ UTF-8 JSON stores `format_version`, `evaluator_version`, square `resolution` (51
 
 All ordinary sources produce linear RGBA color; Base Color is terminal and cannot be connected as a source. The catalog exposes names and required socket counts. Validation rejects unknown types, duplicate IDs/connections, invalid parameters, missing inputs and cycles across the entire graph (including unused nodes). Graphs are limited to 256 nodes. Evaluation uses a topological order and one pixel's intermediate colors rather than an image per node. Optional cancellation is checked each row and preserves the previous image.
 
-PNG output converts linear RGB to sRGB and keeps alpha linear. There is no persistent image cache in this phase: each evaluation regenerates pixels from the recipe. The example and tests use synthetic data only.
+PNG output converts linear RGB to sRGB and keeps alpha linear. Stateless evaluation regenerates pixels from the recipe. The optional preview context retains only derived memory; no disk cache is required. Examples and tests use synthetic data only.
 
 ## Paint (recipe/evaluator version 2)
 
@@ -48,5 +48,21 @@ No raster cache is serialized. Existing version 1 serialization is unchanged.
 
 Managed editing/history, Native C ABI/Interop, WPF node editing and 2D paint UI are
 implemented under `CGApp/TextureStudio` in the parent workspace. UV/color transform
-nodes, image input, persistent cache, progress callbacks and PhantomStudio integration
-remain for subsequent work.
+nodes, image input, persistent disk cache and progress callbacks remain for subsequent
+work. PhantomStudio integration is implemented in the parent workspace.
+
+## Packed and incremental previews
+
+`evaluateSrgb8` directly returns packed sRGB RGBA8 or BGRA8 using the PNG encoder's
+rounding, avoiding a float-result transfer. `PreviewEvaluator::evaluate` returns BGRA8
+and caches the last successful recipe, paint layers and output in memory. Appending
+strokes replays their bounds and reevaluates the affected rectangle. Changing previous
+strokes, graph semantics or resolution rebuilds. Placement-only changes preserve pixels.
+Changed rectangles are backed up and restored on cancellation/failure; both the
+caller's result and previous cache remain valid. Destroying the evaluator releases its cache.
+
+Evaluation and painting use up to eight independent row-band workers. Each pixel keeps
+the original node/stroke arithmetic order. Tests compare packed bytes against PNGs
+from float evaluation and incremental results against complete replay, including erase,
+clipping, cancellation, undo-like removal and resolution changes. Recipe/evaluator
+versions are unchanged because these paths produce the same pixels.

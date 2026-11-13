@@ -3,6 +3,8 @@
 #include <fstream>
 #include <algorithm>
 #include <iterator>
+#include <chrono>
+#include <thread>
 #define STB_IMAGE_IMPLEMENTATION
 #define STBI_ONLY_PNG
 #include "../ThirdParty/stb/stb_image.h"
@@ -102,4 +104,78 @@ TEST(TexturePaint, RoundTripResolutionAndInvalidStrokes) {
     loaded=r; loaded.formatVersion=loaded.evaluatorVersion=1; EXPECT_FALSE(validate(loaded,d));
     loaded=r; loaded.nodes[0].type=NodeType::Solid; EXPECT_FALSE(validate(loaded,d));
     auto old=second.pixels; std::atomic_bool cancel=true; EXPECT_FALSE(evaluate(r,second,d,&cancel)); EXPECT_EQ(old,second.pixels);
+}
+
+TEST(TexturePreview, PackedBytesMatchFloatEvaluationPngAndCancellation) {
+    auto r=example(); r.formatVersion=r.evaluatorVersion=2; r.resolution=1024;
+    Node paint; paint.id="paint"; paint.type=NodeType::Paint;
+    Stroke stroke; stroke.color={0.2f,0.6f,0.9f,0.7f}; stroke.radius=0.08f; stroke.strength=0.6f; stroke.samples={{0.1f,0.2f},{0.9f,0.8f}};
+    paint.strokes={stroke};
+    Node mask; mask.id="mask"; mask.first={1,1,1,1};
+    Node blend; blend.id="blend"; blend.type=NodeType::Blend;
+    r.nodes.push_back(paint); r.nodes.push_back(mask); r.nodes.push_back(blend);
+    r.connections={{"pattern","blend",0},{"paint","blend",1},{"mask","blend",2},{"blend","base",0}};
+    Image linear; ByteImage preview,rgba; std::string d;
+    ASSERT_TRUE(evaluate(r,linear,d))<<d;
+    ASSERT_TRUE(evaluateSrgb8(r,preview,d,true))<<d;
+    ASSERT_TRUE(evaluateSrgb8(r,rgba,d,false))<<d;
+    auto path=std::filesystem::temp_directory_path()/"cglib-texture-preview.png";
+    ASSERT_TRUE(writePng(path,linear,d));
+    std::ifstream file(path,std::ios::binary); std::vector<unsigned char> bytes((std::istreambuf_iterator<char>(file)),{}); file.close();
+    int w=0,h=0,channels=0;
+    auto* decoded=stbi_load_from_memory(bytes.data(),int(bytes.size()),&w,&h,&channels,4);
+    ASSERT_NE(decoded,nullptr); ASSERT_EQ(w,1024); ASSERT_EQ(h,1024);
+    std::vector<uint8_t> expected(decoded,decoded+size_t(w)*h*4); stbi_image_free(decoded);
+    EXPECT_EQ(rgba.pixels,expected);
+    for(size_t p=0;p<expected.size();p+=4) std::swap(expected[p],expected[p+2]);
+    EXPECT_EQ(preview.pixels,expected);
+    auto original=preview.pixels; std::atomic_bool cancel=true;
+    EXPECT_FALSE(evaluateSrgb8(r,preview,d,true,&cancel)); EXPECT_EQ(original,preview.pixels);
+    r.resolution=17; EXPECT_FALSE(evaluateSrgb8(r,preview,d)); EXPECT_EQ(original,preview.pixels);
+    std::filesystem::remove(path);
+}
+
+TEST(TexturePreview, IncrementalCacheMatchesFullReplayAndInvalidates) {
+    auto r=example(); r.formatVersion=r.evaluatorVersion=2; r.resolution=1024;
+    r.nodes[0].type=NodeType::Paint;
+    PreviewEvaluator cache; ByteImage actual,expected; std::string d;
+    auto compare=[&] {
+        ASSERT_TRUE(cache.evaluate(r,actual,d))<<d;
+        ASSERT_TRUE(evaluateSrgb8(r,expected,d,true))<<d;
+        EXPECT_EQ(actual.width,expected.width); EXPECT_EQ(actual.pixels,expected.pixels);
+    };
+    compare();
+    Stroke s; s.color={0.1f,0.4f,0.8f,0.7f}; s.strength=0.35f; s.radius=0.035f; s.samples={{-0.02f,0.1f},{0.5f,0.5f},{1.1f,0.9f}};
+    r.nodes[0].strokes.push_back(s); compare();
+    s.erase=true; s.samples={{0.5f,0.5f}}; r.nodes[0].strokes.push_back(s); compare();
+    s.erase=false; s.samples={{-0.9f,-0.9f}}; r.nodes[0].strokes.push_back(s); compare(); // outside, no changed pixels
+    auto previous=actual.pixels; std::atomic_bool cancel=true;
+    s.samples={{0.6f,0.2f}}; r.nodes[0].strokes.push_back(s);
+    EXPECT_FALSE(cache.evaluate(r,actual,d,&cancel)); EXPECT_EQ(previous,actual.pixels);
+    compare(); // cancelled work did not advance cache
+    r.nodes[0].strokes[0].color={0.9f,0.2f,0.4f,0.5f}; compare(); // edited stroke rebuilds
+    r.nodes[0].strokes.pop_back(); compare(); // undo rebuilds
+    r.nodes[0].strokes.push_back(s); compare(); // redo / append
+    r.nodes[0].x=200; compare(); // placement does not affect evaluation
+    r.resolution=512; compare();
+    r.nodes[0].strokes.clear(); r.nodes[0].type=NodeType::Noise; compare(); // topology and parameters rebuild
+    r.nodes[0].seed=123; compare();
+    auto saved=actual.pixels; r.connections.clear(); EXPECT_FALSE(cache.evaluate(r,actual,d)); EXPECT_EQ(saved,actual.pixels);
+}
+
+TEST(TexturePreview, CancellationDuringWorkRollsBackCachedPaint) {
+    auto r=example(); r.formatVersion=r.evaluatorVersion=2; r.resolution=2048; r.nodes[0].type=NodeType::Paint;
+    PreviewEvaluator cache; ByteImage preview,expected; std::string d;
+    ASSERT_TRUE(cache.evaluate(r,preview,d)); const auto original=preview.pixels;
+    auto heavy=r; Stroke fill; fill.radius=0.4f; fill.strength=0.2f; fill.color={0,1,0,0.8f};
+    fill.samples={{0.1f,0.1f},{0.9f,0.9f},{0.1f,0.9f},{0.9f,0.1f}}; heavy.nodes[0].strokes.push_back(fill);
+    std::atomic_bool cancel=false;
+    std::thread request([&]{std::this_thread::sleep_for(std::chrono::milliseconds(10));cancel.store(true);});
+    const bool completed=cache.evaluate(heavy,preview,d,&cancel); request.join();
+    EXPECT_FALSE(completed); EXPECT_EQ(original,preview.pixels);
+    // A subsequent translucent stroke reveals corruption of the retained paint
+    // layer even if cancellation had restored the packed output alone.
+    Stroke small; small.color={1,0,0,0.3f}; small.radius=0.05f; small.samples={{0.5f,0.5f}};
+    r.nodes[0].strokes.push_back(small);
+    ASSERT_TRUE(cache.evaluate(r,preview,d)); ASSERT_TRUE(evaluateSrgb8(r,expected,d,true)); EXPECT_EQ(preview.pixels,expected.pixels);
 }
