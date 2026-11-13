@@ -114,6 +114,13 @@ namespace Phantom::MeshEdit {
 	bool markSeams(const EditableMesh& in, const std::vector<uint32_t>& edgeIds, bool mark, EditableMesh& out,
 	               std::string* error = nullptr, size_t* changed = nullptr);
 
+	// Edits the corner UVs of the selected faces about the centre of their UV bounds. Move adds (a, b) to every UV; Rotate turns them by `a` degrees
+	// (counter-clockwise); Scale multiplies the offset from the centre by (a, b). Geometry, topology and the other faces are untouched; the revision is renewed.
+	// Fails -- `out` untouched -- when a selected face does not exist, no face is selected, or a parameter is not finite (a scale factor of 0 is refused too).
+	enum class UvTransform { Move, Rotate, Scale };
+	bool transformFaceUvs(const EditableMesh& in, const std::vector<uint32_t>& faceIds, UvTransform mode, float a, float b, EditableMesh& out,
+	                      std::string* error = nullptr);
+
 	// Deletes the selected elements together with the faces that depend on them: a face deletes itself; an edge deletes the
 	// faces using it; a vertex deletes the faces around it. Vertices left without any face are removed too (a face delete
 	// never leaves isolated vertices behind that it created). The result may be empty. Ids are never reused.

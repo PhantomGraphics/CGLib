@@ -1150,6 +1150,43 @@ bool markSeams(const EditableMesh& in, const std::vector<uint32_t>& edgeIds, boo
 	return true;
 }
 
+bool transformFaceUvs(const EditableMesh& in, const std::vector<uint32_t>& faceIds, UvTransform mode, float a, float b, EditableMesh& out,
+                      std::string* error) {
+	if (faceIds.empty()) { fail(error, "no faces selected"); return false; }
+	if (!std::isfinite(a) || !std::isfinite(b)) { fail(error, "the UV parameters must be finite"); return false; }
+	if (mode == UvTransform::Scale && (a == 0.f || b == 0.f)) { fail(error, "uv scale factors must not be zero"); return false; }
+	const std::set<uint32_t> selected(faceIds.begin(), faceIds.end());
+	EditableMesh work = in;
+	float lo[2] = { 1e30f, 1e30f }, hi[2] = { -1e30f, -1e30f };
+	size_t found = 0;
+	for (const auto& f : work.faces) {
+		if (!selected.count(f.id)) continue;
+		++found;
+		for (const auto& c : f.loop)
+			for (int k = 0; k < 2; ++k) { lo[k] = std::min(lo[k], c.uv[k]); hi[k] = std::max(hi[k], c.uv[k]); }
+	}
+	if (found != selected.size()) { fail(error, "a selected face does not exist"); return false; }
+	const float pu = 0.5f * (lo[0] + hi[0]), pv = 0.5f * (lo[1] + hi[1]);
+	const float rad = (mode == UvTransform::Rotate ? a : 0.f) * 3.14159265358979f / 180.f, cs = std::cos(rad), sn = std::sin(rad);
+	for (auto& f : work.faces) {
+		if (!selected.count(f.id)) continue;
+		for (auto& c : f.loop) {
+			if (mode == UvTransform::Move) { c.uv[0] += a; c.uv[1] += b; }
+			else if (mode == UvTransform::Rotate) {
+				const float x = c.uv[0] - pu, y = c.uv[1] - pv;
+				c.uv[0] = pu + x * cs - y * sn;
+				c.uv[1] = pv + x * sn + y * cs;
+			} else {
+				c.uv[0] = pu + (c.uv[0] - pu) * a;
+				c.uv[1] = pv + (c.uv[1] - pv) * b;
+			}
+		}
+	}
+	work.revision = nextEditableRevision();
+	out = std::move(work);
+	return true;
+}
+
 bool shadeFaces(const EditableMesh& in, const std::vector<uint32_t>& faceIds, bool smooth, float angleDeg, EditableMesh& out,
                 std::string* error, size_t* changedCorners) {
 	if (faceIds.empty()) { fail(error, "no faces selected"); return false; }
