@@ -95,4 +95,9 @@ OpStatus makeTerrain(const TerrainParams& params, const Limits& limits, Mesh& ou
 // Area-weighted vertex normals (zero-area vertices get +Y).
 std::vector<Vec3> computeSmoothNormals(const Mesh& mesh);
 
+// A point set has no triangles, so nothing would reach a viewport or an export. Every point becomes a small octahedron
+// (6 vertices, 8 triangles, smooth normals) whose radius is 0.5% of the bounds diagonal (at least 0.002). A display
+// policy only: the evaluated geometry stays a point set.
+Mesh makePointMarkers(const Mesh& points);
+
 }  // namespace Phantom::GeometryNode

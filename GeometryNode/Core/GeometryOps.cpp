@@ -445,4 +445,25 @@ OpStatus realizeInstances(const Mesh& in, const Limits& limits, const std::atomi
     return joinMeshes(parts, limits, out);
 }
 
+Mesh makePointMarkers(const Mesh& points) {
+    const Bounds b = computeBounds(points);
+    const double dx = b.max.x - b.min.x, dy = b.max.y - b.min.y, dz = b.max.z - b.min.z;
+    const float r = static_cast<float>(std::max(0.005 * std::sqrt(dx * dx + dy * dy + dz * dz), 0.002));
+    static const Vec3 corner[6] = {{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}};
+    static const uint32_t tri[24] = {0, 2, 4, 4, 2, 1, 1, 2, 5, 5, 2, 0, 4, 3, 0, 1, 3, 4, 5, 3, 1, 0, 3, 5};
+    Mesh m;
+    m.positions.reserve(points.positions.size() * 6);
+    m.normals.reserve(points.positions.size() * 6);
+    m.indices.reserve(points.positions.size() * 24);
+    for (const Vec3& p : points.positions) {
+        const uint32_t base = static_cast<uint32_t>(m.positions.size());
+        for (const Vec3& c : corner) {
+            m.positions.push_back({p.x + c.x * r, p.y + c.y * r, p.z + c.z * r});
+            m.normals.push_back(c);
+        }
+        for (uint32_t i : tri) m.indices.push_back(base + i);
+    }
+    return m;
+}
+
 }  // namespace Phantom::GeometryNode
