@@ -222,6 +222,10 @@ namespace Phantom::MeshEdit {
 	                         EditableMesh& out, std::string* error = nullptr);
 	bool scaleVerticesWorld(const EditableMesh& in, const std::vector<uint32_t>& vertices, const std::array<float, 3>& worldFactor, const ObjectTransform& object,
 	                        EditableMesh& out, std::string* error = nullptr);
+	// knifePlaneWorld: cuts along a plane given in world space. `pointFromOrigin` is the plane's point minus the object's world translation, `worldNormal` its normal.
+	// In object space the point is S^-1 * R^T * p and the normal S * R^T * n (the transpose of the object matrix), as in knifePlane. Fails for a non-invertible transform.
+	bool knifePlaneWorld(const EditableMesh& in, const std::array<float, 3>& pointFromOrigin, const std::array<float, 3>& worldNormal, const ObjectTransform& object,
+	                     EditableMesh& out, std::string* error = nullptr, std::vector<uint32_t>* cutVertices = nullptr, size_t* splitFaces = nullptr);
 
 	// Converts a world-space direction/offset into the object's local space for an object transform
 	// (world = T * Ry*Rx*Rz * S, so local = S^-1 * R^T * world). False if any scale component is zero (not invertible).

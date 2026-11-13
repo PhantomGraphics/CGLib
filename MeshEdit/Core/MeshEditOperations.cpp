@@ -2040,4 +2040,15 @@ bool scaleVerticesWorld(const EditableMesh& in, const std::vector<uint32_t>& ver
 	return transformVertices(in, vertices, localLinear(object, change), pivot, out, error);
 }
 
+bool knifePlaneWorld(const EditableMesh& in, const std::array<float, 3>& pointFromOrigin, const std::array<float, 3>& worldNormal, const ObjectTransform& object,
+                     EditableMesh& out, std::string* error, std::vector<uint32_t>* cutVertices, size_t* splitFaces) {
+	if (!finite3(pointFromOrigin) || !finite3(worldNormal)) { fail(error, "the knife plane is not finite"); return false; }
+	std::array<float, 3> localPoint{}, localNormal{};
+	if (!worldVectorToLocal(object.rotationEulerDeg, object.scale, pointFromOrigin, localPoint, error) ||
+	    !worldVectorToLocal(object.rotationEulerDeg, object.scale, worldNormal, localNormal, error))
+		return false;
+	for (int i = 0; i < 3; ++i) localNormal[i] *= object.scale[i] * object.scale[i];
+	return knifePlane(in, localPoint, localNormal, out, error, cutVertices, splitFaces);
+}
+
 } // namespace Phantom::MeshEdit
