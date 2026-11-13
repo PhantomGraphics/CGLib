@@ -105,6 +105,7 @@ add_subdirectory(GeometryNode)
 add_subdirectory(MeshEdit)
 add_subdirectory(PBR)
 add_subdirectory(ShaderGraph)
+add_subdirectory(Texture)
 add_subdirectory(AssetCore)
 add_subdirectory(SceneRuntime)
 # GltfCore (CPU-only glTF evaluation / character pose) and its test; the Vulkan renderer in GltfRenderer/ links it.
