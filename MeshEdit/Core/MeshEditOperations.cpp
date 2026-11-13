@@ -2040,6 +2040,36 @@ bool scaleVerticesWorld(const EditableMesh& in, const std::vector<uint32_t>& ver
 	return transformVertices(in, vertices, localLinear(object, change), pivot, out, error);
 }
 
+bool bevelEdgesWorld(const EditableMesh& in, const std::vector<uint32_t>& edgeIds, float worldWidth, const ObjectTransform& object, EditableMesh& out,
+                     std::string* error, std::vector<uint32_t>* createdFaces) {
+	if (!std::isfinite(worldWidth)) { fail(error, "mesh bevel requires width=<number>"); return false; }
+	if (!invertibleScale(object, error)) return false;
+	const Mat3 r = rotationYXZ(object.rotationEulerDeg);
+	Mat3 toWorld{}, toLocal{};
+	for (int row = 0; row < 3; ++row)
+		for (int col = 0; col < 3; ++col) {
+			toWorld[row][col] = r[row][col] * object.scale[col];                    // R * S
+			toLocal[row][col] = r[col][row] / double(object.scale[row]);            // S^-1 * R^T
+		}
+	const bool reflected = double(object.scale[0]) * object.scale[1] * object.scale[2] < 0.0;   // det(R) = 1
+	const auto map = [](EditableMesh& m, const Mat3& matrix) {
+		for (auto& v : m.vertices) {
+			const double p[3] = { v.pos[0], v.pos[1], v.pos[2] };
+			for (int i = 0; i < 3; ++i) v.pos[i] = static_cast<float>(matrix[i][0] * p[0] + matrix[i][1] * p[1] + matrix[i][2] * p[2]);
+		}
+	};
+	EditableMesh measured = in;
+	map(measured, toWorld);
+	if (reflected) for (auto& f : measured.faces) std::reverse(f.loop.begin(), f.loop.end());
+	EditableMesh result;
+	if (!bevelEdges(measured, edgeIds, worldWidth, result, error, createdFaces)) return false;
+	map(result, toLocal);
+	if (reflected) for (auto& f : result.faces) std::reverse(f.loop.begin(), f.loop.end());
+	if (!result.validate(error)) return false;
+	out = std::move(result);
+	return true;
+}
+
 bool extrudeFacesWorld(const EditableMesh& in, const std::vector<uint32_t>& faceIds, float worldDistance, const ObjectTransform& object, EditableMesh& out,
                        std::string* error, size_t* sideFaces) {
 	if (!std::isfinite(worldDistance)) { fail(error, "distance must be a number"); return false; }

@@ -227,6 +227,11 @@ namespace Phantom::MeshEdit {
 	// are corrected once each. Fails -- `out` untouched -- for a non-invertible transform, a face without a normal or a distance that cannot be applied.
 	bool extrudeFacesWorld(const EditableMesh& in, const std::vector<uint32_t>& faceIds, float worldDistance, const ObjectTransform& object, EditableMesh& out,
 	                       std::string* error = nullptr, size_t* sideFaces = nullptr);
+	// bevelEdgesWorld: bevelEdges with the width measured in world units. The mesh is measured in the world (positions mapped by R*S, faces reversed when the
+	// transform mirrors), beveled, and mapped back, so a rotated, non-uniformly scaled or mirrored object gets the world width. *createdFaces as bevelEdges.
+	// Fails -- `out` untouched -- for a non-invertible transform or a result that does not validate.
+	bool bevelEdgesWorld(const EditableMesh& in, const std::vector<uint32_t>& edgeIds, float worldWidth, const ObjectTransform& object, EditableMesh& out,
+	                     std::string* error = nullptr, std::vector<uint32_t>* createdFaces = nullptr);
 	// knifePlaneWorld: cuts along a plane given in world space. `pointFromOrigin` is the plane's point minus the object's world translation, `worldNormal` its normal.
 	// In object space the point is S^-1 * R^T * p and the normal S * R^T * n (the transpose of the object matrix), as in knifePlane. Fails for a non-invertible transform.
 	bool knifePlaneWorld(const EditableMesh& in, const std::array<float, 3>& pointFromOrigin, const std::array<float, 3>& worldNormal, const ObjectTransform& object,
