@@ -222,6 +222,11 @@ namespace Phantom::MeshEdit {
 	                         EditableMesh& out, std::string* error = nullptr);
 	bool scaleVerticesWorld(const EditableMesh& in, const std::vector<uint32_t>& vertices, const std::array<float, 3>& worldFactor, const ObjectTransform& object,
 	                        EditableMesh& out, std::string* error = nullptr);
+	// extrudeFacesWorld: extrudeFaces by a distance measured in the world along the world-space normal of the first face (M = R*S, so the object-space move is
+	// d * S^-2 n / |S^-1 n| for the face's object-space normal n; scaling the distance alone would add a tangential world offset on oblique faces). The region's vertices
+	// are corrected once each. Fails -- `out` untouched -- for a non-invertible transform, a face without a normal or a distance that cannot be applied.
+	bool extrudeFacesWorld(const EditableMesh& in, const std::vector<uint32_t>& faceIds, float worldDistance, const ObjectTransform& object, EditableMesh& out,
+	                       std::string* error = nullptr, size_t* sideFaces = nullptr);
 	// knifePlaneWorld: cuts along a plane given in world space. `pointFromOrigin` is the plane's point minus the object's world translation, `worldNormal` its normal.
 	// In object space the point is S^-1 * R^T * p and the normal S * R^T * n (the transpose of the object matrix), as in knifePlane. Fails for a non-invertible transform.
 	bool knifePlaneWorld(const EditableMesh& in, const std::array<float, 3>& pointFromOrigin, const std::array<float, 3>& worldNormal, const ObjectTransform& object,

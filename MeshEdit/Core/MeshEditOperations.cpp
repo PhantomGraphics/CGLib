@@ -2040,6 +2040,35 @@ bool scaleVerticesWorld(const EditableMesh& in, const std::vector<uint32_t>& ver
 	return transformVertices(in, vertices, localLinear(object, change), pivot, out, error);
 }
 
+bool extrudeFacesWorld(const EditableMesh& in, const std::vector<uint32_t>& faceIds, float worldDistance, const ObjectTransform& object, EditableMesh& out,
+                       std::string* error, size_t* sideFaces) {
+	if (!std::isfinite(worldDistance)) { fail(error, "distance must be a number"); return false; }
+	if (!invertibleScale(object, error)) return false;
+	const EditableFace* face = faceIds.empty() ? nullptr : in.findFace(faceIds.front());
+	float n[3] = { 0.f, 0.f, 0.f };
+	if (!face || newellNormal(in, *face, n) <= 0.f) { fail(error, "the selected face has no normal"); return false; }
+	const double len = std::sqrt(double(n[0]) * n[0] + double(n[1]) * n[1] + double(n[2]) * n[2]);
+	const auto& sc = object.scale;
+	const double fx = n[0] / len / sc[0], fy = n[1] / len / sc[1], fz = n[2] / len / sc[2];
+	const float factor = static_cast<float>(std::sqrt(fx * fx + fy * fy + fz * fz));
+	const float localDistance = worldDistance * factor;
+	if (!std::isfinite(localDistance) || localDistance == 0.f) { fail(error, "the world-space extrude distance cannot be applied to this transform"); return false; }
+	double correction[3] = {};
+	for (int k = 0; k < 3; ++k)
+		correction[k] = double(worldDistance) * (n[k] / len) / (double(sc[k]) * sc[k] * factor) - double(localDistance) * n[k] / len;
+	EditableMesh result;
+	if (!extrudeFaces(in, faceIds, localDistance, result, error, sideFaces)) return false;
+	// Region face IDs survive extrusion; their vertices include both copied boundary vertices and moved interior vertices. Correct each only once.
+	std::set<uint32_t> top;
+	for (uint32_t id : faceIds)
+		for (const auto& c : result.findFace(id)->loop) top.insert(c.vertex);
+	for (auto& v : result.vertices) if (top.count(v.id))
+		for (int k = 0; k < 3; ++k) v.pos[k] = static_cast<float>(v.pos[k] + correction[k]);
+	if (!result.validate(error)) return false;
+	out = std::move(result);
+	return true;
+}
+
 bool knifePlaneWorld(const EditableMesh& in, const std::array<float, 3>& pointFromOrigin, const std::array<float, 3>& worldNormal, const ObjectTransform& object,
                      EditableMesh& out, std::string* error, std::vector<uint32_t>* cutVertices, size_t* splitFaces) {
 	if (!finite3(pointFromOrigin) || !finite3(worldNormal)) { fail(error, "the knife plane is not finite"); return false; }
