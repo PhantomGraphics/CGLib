@@ -227,6 +227,11 @@ namespace Phantom::MeshEdit {
 	// are corrected once each. Fails -- `out` untouched -- for a non-invertible transform, a face without a normal or a distance that cannot be applied.
 	bool extrudeFacesWorld(const EditableMesh& in, const std::vector<uint32_t>& faceIds, float worldDistance, const ObjectTransform& object, EditableMesh& out,
 	                       std::string* error = nullptr, size_t* sideFaces = nullptr);
+	// transformMeshAffine: maps the whole mesh by the affine map p' = A*p + t given as 12 floats in row-major 3x4 order {a00 a01 a02 tx, a10 a11 a12 ty, a20 a21 a22 tz}
+	// (column-vector convention). Positions are mapped, stored corner normals by the inverse transpose (renormalised), and the faces are reversed when the map mirrors
+	// (a negative determinant) so they stay counter-clockwise. This is how a mesh is brought into another object's space before join / boolean
+	// (relative = inverse(A's world) * B's world). Fails -- `out` untouched -- for a non-finite or singular map.
+	bool transformMeshAffine(const EditableMesh& in, const std::array<float, 12>& affine, EditableMesh& out, std::string* error = nullptr);
 	// bevelEdgesWorld: bevelEdges with the width measured in world units. The mesh is measured in the world (positions mapped by R*S, faces reversed when the
 	// transform mirrors), beveled, and mapped back, so a rotated, non-uniformly scaled or mirrored object gets the world width. *createdFaces as bevelEdges.
 	// Fails -- `out` untouched -- for a non-invertible transform or a result that does not validate.

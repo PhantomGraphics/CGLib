@@ -2040,6 +2040,39 @@ bool scaleVerticesWorld(const EditableMesh& in, const std::vector<uint32_t>& ver
 	return transformVertices(in, vertices, localLinear(object, change), pivot, out, error);
 }
 
+bool transformMeshAffine(const EditableMesh& in, const std::array<float, 12>& affine, EditableMesh& out, std::string* error) {
+	for (float f : affine)
+		if (!std::isfinite(f)) { fail(error, "the transform is not finite"); return false; }
+	double a[3][3], t[3];
+	for (int i = 0; i < 3; ++i) { for (int j = 0; j < 3; ++j) a[i][j] = affine[i * 4 + j]; t[i] = affine[i * 4 + 3]; }
+	// Cofactor matrix: (A^-1)^T = cofactor / det, which is the normal matrix.
+	double cof[3][3];
+	for (int i = 0; i < 3; ++i)
+		for (int j = 0; j < 3; ++j) {
+			const int i1 = (i + 1) % 3, i2 = (i + 2) % 3, j1 = (j + 1) % 3, j2 = (j + 2) % 3;
+			cof[i][j] = a[i1][j1] * a[i2][j2] - a[i1][j2] * a[i2][j1];
+		}
+	const double det = a[0][0] * cof[0][0] + a[0][1] * cof[0][1] + a[0][2] * cof[0][2];
+	if (!std::isfinite(det) || std::abs(det) < 1e-12) { fail(error, "the transform is singular (a zero scale)"); return false; }
+	EditableMesh result = in;
+	for (auto& v : result.vertices) {
+		const double p[3] = { v.pos[0], v.pos[1], v.pos[2] };
+		for (int i = 0; i < 3; ++i) v.pos[i] = static_cast<float>(a[i][0] * p[0] + a[i][1] * p[1] + a[i][2] * p[2] + t[i]);
+	}
+	for (auto& f : result.faces)
+		for (auto& c : f.loop)
+			if (c.hasNormal) {
+				const double n[3] = { c.normal[0], c.normal[1], c.normal[2] };
+				double m[3];
+				for (int i = 0; i < 3; ++i) m[i] = (cof[i][0] * n[0] + cof[i][1] * n[1] + cof[i][2] * n[2]) / det;
+				const double length = std::sqrt(m[0] * m[0] + m[1] * m[1] + m[2] * m[2]);
+				if (length > 0.0) for (int i = 0; i < 3; ++i) c.normal[i] = static_cast<float>(m[i] / length);
+			}
+	if (det < 0.0) for (auto& f : result.faces) std::reverse(f.loop.begin(), f.loop.end());
+	out = std::move(result);
+	return true;
+}
+
 bool bevelEdgesWorld(const EditableMesh& in, const std::vector<uint32_t>& edgeIds, float worldWidth, const ObjectTransform& object, EditableMesh& out,
                      std::string* error, std::vector<uint32_t>* createdFaces) {
 	if (!std::isfinite(worldWidth)) { fail(error, "mesh bevel requires width=<number>"); return false; }
