@@ -5,10 +5,81 @@
 #include <iterator>
 #include <chrono>
 #include <thread>
+#include "../Math/Noise/PerlinNoise.h"
 #define STB_IMAGE_IMPLEMENTATION
 #define STBI_ONLY_PNG
 #include "../ThirdParty/stb/stb_image.h"
 using namespace Phantom::Texture;
+TEST(TextureProcedural, RoundTripPreviewAndCacheInvalidation) {
+    std::string d, json, again;
+    for (auto type : {NodeType::Perlin,NodeType::Mandelbrot,NodeType::Julia}) {
+        auto r=example(); r.formatVersion=r.evaluatorVersion=3;
+        auto& node=r.nodes[0]; node.type=type; node.first={0,0,0,1}; node.second={1,1,1,1};
+        if (type==NodeType::Julia) node.escape.centerReal=0;
+        ASSERT_TRUE(serialize(r,json,d))<<d;
+        Recipe loaded; ASSERT_TRUE(deserialize(json,loaded,d))<<d;
+        ASSERT_TRUE(serialize(loaded,again,d)); EXPECT_EQ(json,again);
+        Image image, replay; ASSERT_TRUE(evaluate(r,image,d))<<d; ASSERT_TRUE(evaluate(loaded,replay,d));
+        EXPECT_EQ(image.pixels,replay.pixels);
+        PreviewEvaluator evaluator; ByteImage cached, full;
+        ASSERT_TRUE(evaluator.evaluate(r,cached,d)); ASSERT_TRUE(evaluateSrgb8(r,full,d,true)); EXPECT_EQ(cached.pixels,full.pixels);
+        const auto path=std::filesystem::temp_directory_path()/"texture-procedural-parity.png";
+        ASSERT_TRUE(writePng(path,image,d));
+        std::ifstream png(path,std::ios::binary);
+        std::vector<unsigned char> encoded((std::istreambuf_iterator<char>(png)),{}); png.close();
+        int w=0,h=0,channels=0;
+        auto* decoded=stbi_load_from_memory(encoded.data(),int(encoded.size()),&w,&h,&channels,4);
+        ASSERT_NE(decoded,nullptr); ASSERT_EQ(w,512); ASSERT_EQ(h,512);
+        bool same=true;
+        for(size_t i=0;i<image.pixels.size();++i) {
+            for(size_t k=0;k<4;++k) {
+                const size_t source=k==0 ? 2 : k==2 ? 0 : k;
+                if(cached.pixels[i*4+k]!=decoded[i*4+source]) same=false;
+            }
+        }
+        EXPECT_TRUE(same); stbi_image_free(decoded); std::filesystem::remove(path);
+        auto compare=[&] {
+            ASSERT_TRUE(evaluator.evaluate(r,cached,d))<<d;
+            ASSERT_TRUE(evaluateSrgb8(r,full,d,true))<<d; EXPECT_EQ(cached.pixels,full.pixels);
+        };
+        if (type==NodeType::Perlin) {
+            for (unsigned mode=0;mode<=4;++mode) { node.noise.mode=mode; compare(); }
+            ++node.seed; compare(); node.noise.octaves=2; compare(); node.noise.lacunarity=3; compare();
+            node.noise.gain=0.7f; compare(); node.noise.ridgeOffset=0.8f; compare(); node.noise.ridgeFeedback=1; compare();
+        } else {
+            node.escape.centerReal+=0.25; compare(); node.escape.centerImaginary+=0.25; compare();
+            node.escape.width=2; compare(); node.escape.iterations=32; compare();
+            node.escape.constantReal=-0.5; compare(); node.escape.constantImaginary=0.5; compare();
+        }
+        const auto previous=cached.pixels; std::atomic_bool cancel=true;
+        EXPECT_FALSE(evaluator.evaluate(r,cached,d,&cancel)); EXPECT_EQ(previous,cached.pixels);
+        r.evaluatorVersion=r.formatVersion=2; EXPECT_FALSE(validate(r,d));
+    }
+}
+TEST(TextureProcedural, SamplingAndValidation) {
+    auto r=example(); r.formatVersion=r.evaluatorVersion=3;
+    auto& n=r.nodes[0]; n.type=NodeType::Perlin; n.first={0,0,0,1}; n.second={1,1,1,1};
+    Image image; std::string d; ASSERT_TRUE(evaluate(r,image,d));
+    const auto value=Phantom::Math::Noise::PerlinNoise(n.seed).sample2D(0.5f/512*n.scale,0.5f/512*n.scale);
+    ASSERT_TRUE(value); EXPECT_FLOAT_EQ(image.pixels[0][0],0.5f*(*value)+0.5f);
+    n.noise.octaves=0; EXPECT_FALSE(validate(r,d)); n.noise.octaves=5;
+    n.noise.mode=5; EXPECT_FALSE(validate(r,d)); n.noise.mode=1;
+    n.noise.lacunarity=1e20f; EXPECT_FALSE(validate(r,d));
+    n.type=NodeType::Mandelbrot; n.escape.width=0; EXPECT_FALSE(validate(r,d));
+    n.escape.width=3.5; n.escape.iterations=4097; EXPECT_FALSE(validate(r,d));
+    n.escape.iterations=256; n.escape.centerReal=1e7; EXPECT_FALSE(validate(r,d));
+}
+TEST(TextureProcedural, LegacyPixelsAndSerializationRemainUnchanged) {
+    std::string a,b,d;
+    auto legacy=example(); legacy.nodes[0].type=NodeType::Noise;
+    Image oldImage,newImage;
+    ASSERT_TRUE(serialize(legacy,a,d)); EXPECT_EQ(a.find("\"escape\""),std::string::npos); EXPECT_EQ(a.find("\"noise\" :"),std::string::npos);
+    ASSERT_TRUE(evaluate(legacy,oldImage,d));
+    legacy.formatVersion=legacy.evaluatorVersion=3;
+    ASSERT_TRUE(evaluate(legacy,newImage,d)); EXPECT_EQ(oldImage.pixels,newImage.pixels);
+    legacy.formatVersion=legacy.evaluatorVersion=1;
+    ASSERT_TRUE(serialize(legacy,b,d)); EXPECT_EQ(a,b);
+}
 TEST(TextureRecipe, StableRoundTrip) {
     auto r=example(); std::string a,b,d; ASSERT_TRUE(serialize(r,a,d))<<d;
     Recipe loaded; ASSERT_TRUE(deserialize(a,loaded,d))<<d;

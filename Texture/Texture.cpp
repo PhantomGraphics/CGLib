@@ -1,4 +1,6 @@
 #include "Texture.h"
+#include "../Math/Noise/PerlinNoise.h"
+#include "../Math/Fractal/EscapeTime.h"
 #include <algorithm>
 #include <cmath>
 #include <fstream>
@@ -30,7 +32,8 @@ static unsigned integer(const Json& v) {
 const std::vector<NodeInfo>& catalog() {
     static const std::vector<NodeInfo> items{{NodeType::Solid,"solid",0},{NodeType::Noise,"noise",0},
         {NodeType::Gradient,"gradient",0},{NodeType::Checker,"checker",0},
-        {NodeType::Blend,"blend",3},{NodeType::BaseColor,"base_color",1},{NodeType::Paint,"paint",0}};
+        {NodeType::Blend,"blend",3},{NodeType::BaseColor,"base_color",1},{NodeType::Paint,"paint",0},{NodeType::Perlin,"perlin",0},
+        {NodeType::Mandelbrot,"mandelbrot",0},{NodeType::Julia,"julia",0}};
     return items;
 }
 static const NodeInfo* info(NodeType type) {
@@ -38,13 +41,18 @@ static const NodeInfo* info(NodeType type) {
     return nullptr;
 }
 static bool fail(std::string& d, const char* message) { d = message; return false; }
+static Math::Noise::FractalSettings fractalSettings(const NoiseSettings& s) {
+    return {static_cast<Math::Noise::FractalMode>(s.mode),s.octaves,s.lacunarity,s.gain,s.ridgeOffset,s.ridgeFeedback};
+}
+static bool bounded(double v) { return std::isfinite(v) && std::abs(v)<=1000000; }
+static bool procedural(NodeType t) { return t==NodeType::Perlin || t==NodeType::Mandelbrot || t==NodeType::Julia; }
 struct Graph {
     std::map<std::string, size_t> ids;
     std::vector<std::vector<size_t>> inputs;
     std::vector<size_t> order;
 };
 static bool prepare(const Recipe& r, Graph& g, std::string& d) {
-    if ((r.formatVersion != 1 && r.formatVersion != 2) || r.evaluatorVersion != r.formatVersion) return fail(d,"Unsupported recipe/evaluator version");
+    if ((r.formatVersion != 1 && r.formatVersion != 2 && r.formatVersion != 3) || r.evaluatorVersion != r.formatVersion) return fail(d,"Unsupported recipe/evaluator version");
     if (r.resolution != 512 && r.resolution != 1024 && r.resolution != 2048 && r.resolution != 4096)
         return fail(d,"Resolution must be 512, 1024, 2048 or 4096");
     if (r.nodes.empty() || r.nodes.size() > 256) return fail(d,"Graph must contain 1..256 nodes");
@@ -58,6 +66,23 @@ static bool prepare(const Recipe& r, Graph& g, std::string& d) {
             if (!std::isfinite(v) || v < 0 || v > 1) return fail(d,"Colors must be finite linear RGBA in [0,1]");
         if (node.type == NodeType::Paint && r.formatVersion < 2) return fail(d,"Paint requires recipe version 2");
         if (node.type != NodeType::Paint && !node.strokes.empty()) return fail(d,"Strokes require a paint node");
+        if (procedural(node.type) && r.formatVersion<3) return fail(d,"Procedural nodes require recipe version 3");
+        if (node.type==NodeType::Perlin) {
+            const auto settings=fractalSettings(node.noise);
+            if (!Math::Noise::validateFractalSettings(settings)) return fail(d,"Invalid Perlin settings");
+            // Reject settings that cannot evaluate the entire canvas safely.
+            const auto probe=Math::Noise::evaluateFractal([&](float frequency)->std::optional<float> {
+                if (!Math::Noise::PerlinNoise::validCoordinate(node.scale*frequency)) return std::nullopt;
+                return 0.0f;
+            },settings);
+            if (!probe) return fail(d,"Perlin frequency or ridge settings overflow");
+        }
+        if (node.type==NodeType::Mandelbrot || node.type==NodeType::Julia) {
+            const auto& s=node.escape;
+            if (!bounded(s.centerReal) || !bounded(s.centerImaginary) || !bounded(s.constantReal) || !bounded(s.constantImaginary) ||
+                !std::isfinite(s.width) || s.width<1e-9 || s.width>1e6 || s.iterations<1 || s.iterations>4096)
+                return fail(d,"Invalid escape-time settings");
+        }
         strokeCount += node.strokes.size();
         for (const auto& s : node.strokes) {
             if (!std::isfinite(s.radius) || s.radius < 0.00025f || s.radius > 1 ||
@@ -182,6 +207,9 @@ static bool evaluateInto(const Recipe& r, Image* image, ByteImage* bytes, bool b
         for (size_t n=0;n<r.nodes.size();++n) if (r.nodes[n].type==NodeType::Paint)
             if (!rasterPaint(r.nodes[n],r.resolution,generated[n],d,cancel)) return false;
     }
+    std::vector<std::optional<Math::Noise::PerlinNoise>> noises(r.nodes.size());
+    for (size_t n=0;n<r.nodes.size();++n) if (r.nodes[n].type==NodeType::Perlin) noises[n].emplace(r.nodes[n].seed);
+    std::atomic_bool failed=false;
     const auto& paint=prepared ? *prepared : generated;
     if (image) { image->width=image->height=r.resolution; image->pixels.resize(size_t(r.resolution)*r.resolution); }
     if (bytes && !region) { bytes->width=bytes->height=r.resolution; bytes->pixels.resize(size_t(r.resolution)*r.resolution*4); }
@@ -203,6 +231,27 @@ static bool evaluateInto(const Recipe& r, Image* image, ByteImage* bytes, bool b
                 case NodeType::Noise: {
                     auto a=uint32_t(uint64_t(x)*node.scale/r.resolution), b=uint32_t(uint64_t(y)*node.scale/r.resolution);
                     c=mix(node.first,node.second,float(hash(node.seed ^ hash(a) ^ hash(b+0x9e3779b9u))>>8)/16777215.0f); break;
+                }
+                case NodeType::Perlin: {
+                    const float v=(float(y)+0.5f)/r.resolution;
+                    auto value=Math::Noise::evaluateFractal([&](float f) { return noises[n]->sample2D(u*node.scale*f,v*node.scale*f); },fractalSettings(node.noise));
+                    if (!value) { failed=true; return; }
+                    float t=*value;
+                    if (node.noise.mode<=1) t=0.5f*t+0.5f;
+                    c=mix(node.first,node.second,std::clamp(t,0.0f,1.0f)); break;
+                }
+                case NodeType::Mandelbrot:
+                case NodeType::Julia: {
+                    const auto& s=node.escape;
+                    const double real=s.centerReal+((double(x)+0.5)/r.resolution-0.5)*s.width;
+                    const double imaginary=s.centerImaginary+(0.5-(double(y)+0.5)/r.resolution)*s.width;
+                    const bool julia=node.type==NodeType::Julia;
+                    const auto value=Math::Fractal::evaluate(julia ? real : 0,julia ? imaginary : 0,
+                        julia ? s.constantReal : real,julia ? s.constantImaginary : imaginary,s.iterations,
+                        [&] { return !cancel || !cancel->load(); });
+                    if (!value) { failed=true; return; }
+                    const float t=value->escaped ? float(value->iterations)/s.iterations : 0;
+                    c=mix(node.first,node.second,t); break;
                 }
                 case NodeType::Blend: {
                     auto base=values[in[0]], over=values[in[1]];
@@ -228,6 +277,7 @@ static bool evaluateInto(const Recipe& r, Image* image, ByteImage* bytes, bool b
       }
     });
     if (cancel && cancel->load()) return fail(d,"Evaluation cancelled");
+    if (failed) return fail(d,"Procedural evaluation failed");
     if (retain) *retain=std::move(generated);
     d.clear(); return true;
 }
@@ -256,7 +306,7 @@ static bool appendOnly(const Recipe& a,const Recipe& b) {
     }
     for (size_t i=0;i<a.nodes.size();++i) {
         const auto& x=a.nodes[i]; const auto& y=b.nodes[i];
-        if (x.id!=y.id || x.type!=y.type || x.first!=y.first || x.second!=y.second || x.seed!=y.seed || x.scale!=y.scale || x.strokes.size()>y.strokes.size()) return false;
+        if (x.id!=y.id || x.type!=y.type || x.first!=y.first || x.second!=y.second || x.seed!=y.seed || x.scale!=y.scale || x.noise!=y.noise || x.escape!=y.escape || x.strokes.size()>y.strokes.size()) return false;
         for (size_t k=0;k<x.strokes.size();++k) if (!sameStroke(x.strokes[k],y.strokes[k])) return false;
     }
     return true;
@@ -342,6 +392,16 @@ bool serialize(const Recipe& r, std::string& result, std::string& d) {
     for (const auto& n:nodes) {
         Json v={{"id",n.id},{"type",info(n.type)->name},{"first",n.first},{"second",n.second},
             {"seed",n.seed},{"scale",n.scale},{"position",{n.x,n.y}}};
+        if (n.type==NodeType::Perlin) {
+            const auto& s=n.noise;
+            v["noise"]={{"mode",s.mode},{"octaves",s.octaves},{"lacunarity",s.lacunarity},{"gain",s.gain},
+                {"ridge_offset",s.ridgeOffset},{"ridge_feedback",s.ridgeFeedback}};
+        }
+        if (n.type==NodeType::Mandelbrot || n.type==NodeType::Julia) {
+            const auto& s=n.escape;
+            v["escape"]={{"center_real",s.centerReal},{"center_imaginary",s.centerImaginary},{"width",s.width},{"iterations",s.iterations},
+                {"constant_real",s.constantReal},{"constant_imaginary",s.constantImaginary}};
+        }
         if (n.type==NodeType::Paint) {
             v["strokes"]=Json::array();
             for (const auto& s:n.strokes) v["strokes"].push_back({{"color",s.color},{"radius",s.radius},{"strength",s.strength},
@@ -373,6 +433,16 @@ bool deserialize(const std::string& text, Recipe& destination, std::string& d) {
             if (v.at("seed").get<uint64_t>()>UINT32_MAX) return fail(d,"Invalid seed");
             n.seed=integer(v.at("seed")); n.scale=integer(v.at("scale"));
             n.x=v.at("position").at(0).get<float>(); n.y=v.at("position").at(1).get<float>();
+            if (n.type==NodeType::Perlin) {
+                const auto& s=v.at("noise");
+                n.noise={integer(s.at("mode")),integer(s.at("octaves")),s.at("lacunarity").get<float>(),s.at("gain").get<float>(),
+                    s.at("ridge_offset").get<float>(),s.at("ridge_feedback").get<float>()};
+            }
+            if (n.type==NodeType::Mandelbrot || n.type==NodeType::Julia) {
+                const auto& s=v.at("escape");
+                n.escape={s.at("center_real").get<double>(),s.at("center_imaginary").get<double>(),s.at("width").get<double>(),
+                    integer(s.at("iterations")),s.at("constant_real").get<double>(),s.at("constant_imaginary").get<double>()};
+            }
             if (v.contains("strokes")) {
                 if (!v.at("strokes").is_array()) return fail(d,"Invalid strokes");
                 for (const auto& item:v.at("strokes")) {

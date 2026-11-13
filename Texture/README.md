@@ -66,3 +66,32 @@ the original node/stroke arithmetic order. Tests compare packed bytes against PN
 from float evaluation and incremental results against complete replay, including erase,
 clipping, cancellation, undo-like removal and resolution changes. Recipe/evaluator
 versions are unchanged because these paths produce the same pixels.
+
+## Procedural sources (recipe/evaluator version 3)
+
+Version 3 adds zero-input RGBA nodes `perlin`, `mandelbrot`, and `julia`.
+Existing v1/v2 recipes and the integer-hash `noise` node keep their behavior and serialization.
+Only adding a new procedural node upgrades a TextureStudio recipe; adding paint cannot downgrade it.
+The common native evaluator also makes these recipes usable in PhantomStudio.
+
+All source nodes retain `first`/`second` linear RGBA. Perlin uses pixel-center UV times
+`scale`, with a seed-prepared Math PerlinNoise instance. Its `noise` object contains
+`mode` (0 None, 1 fBm, 2 Turbulence, 3 Ridged, 4 RidgedMultifractal), `octaves` (1..12,
+default 5), `lacunarity` (>1, default 2), `gain` (0..1, default 0.5), `ridge_offset`
+(positive, default 1), and `ridge_feedback` (nonnegative, default 2).
+Mode defaults to None. Ridge parameters apply only to mode 4. Frequencies must remain
+in Math's supported coordinate range. None/fBm map signed n to 0.5*n+0.5;
+other modes use n directly. Clamp to [0,1] and interpolate first/second.
+
+Both sets use an `escape` object: `center_real`, `center_imaginary`, `width`,
+`iterations`, `constant_real`, `constant_imaginary`. Defaults: center (-0.5,0) for
+Mandelbrot or (0,0) for Julia, width 3.5, iterations 256, Julia constant (-0.8,0.156).
+Centers/constants must be finite and within +/-1e6, width 1e-9..1e6, iterations 1..4096.
+Pixel centers map onto the complex plane with imaginary positive upward.
+Mandelbrot starts z=0 and uses the coordinate as c; Julia starts z at the coordinate.
+Iterate z=z*z+c and escape when squared magnitude exceeds 4. Interior uses first;
+escaped points interpolate first/second by iterations/limit. No smooth coloring is applied.
+
+New settings serialize only for the corresponding node type. Preview cache comparisons
+include all new settings. Cancellation is checked per row and every 64 escape iterations;
+failed or cancelled work cannot publish pixels or advance the cache.

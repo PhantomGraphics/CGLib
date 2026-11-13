@@ -45,3 +45,10 @@ are selected by name in Studio, with numeric command and saved values retained.
 The geometry_fractal.json scenario creates Ridged and Warped comparison objects
 and saves scenarios/_out/geometry_fractal.cgstudio for interactive inspection.
 Integer socket choice metadata travels with the catalog; it is not scene data.
+
+Fractal composition is declared in `FractalNoise.h`; `PerlinNoise.h` includes it for
+source compatibility. `Math/Fractal/EscapeTime.h` separately exposes checked double
+precision `mandelbrot` and `julia` functions returning optional EscapeResult
+(escaped, iterations). The generic `evaluate` function accepts a continuation callback,
+checked every 64 iterations. Limits are 1..4096; invalid/nonfinite inputs or cancellation
+return nullopt. No image or color dependency is introduced.

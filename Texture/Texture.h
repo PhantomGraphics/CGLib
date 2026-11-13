@@ -9,7 +9,18 @@
 
 namespace Phantom::Texture {
 using Color = std::array<float, 4>; // Straight alpha, linear RGB.
-enum class NodeType { Solid, Noise, Gradient, Checker, Blend, BaseColor, Paint };
+enum class NodeType { Solid, Noise, Gradient, Checker, Blend, BaseColor, Paint, Perlin, Mandelbrot, Julia };
+struct NoiseSettings {
+    unsigned mode = 0, octaves = 5;
+    float lacunarity = 2, gain = 0.5f, ridgeOffset = 1, ridgeFeedback = 2;
+    bool operator==(const NoiseSettings&) const = default;
+};
+struct EscapeSettings {
+    double centerReal = -0.5, centerImaginary = 0, width = 3.5;
+    unsigned iterations = 256;
+    double constantReal = -0.8, constantImaginary = 0.156;
+    bool operator==(const EscapeSettings&) const = default;
+};
 struct Stroke {
     Color color{1, 0, 0, 1};
     float radius = 0.025f, strength = 1, hardness = 0.8f;
@@ -24,6 +35,8 @@ struct Node {
     Color first{0, 0, 0, 1}, second{1, 1, 1, 1};
     uint32_t seed = 0;
     unsigned scale = 8;
+    NoiseSettings noise;
+    EscapeSettings escape;
     float x = 0, y = 0; // Editor placement, not evaluation coordinates.
     std::vector<Stroke> strokes;
 };
