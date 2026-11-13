@@ -69,3 +69,37 @@ TEST(TextureEvaluator, GradientCheckerAndSrgbPng) {
     auto pos=json.find("\"resolution\": 512"); ASSERT_NE(pos,std::string::npos);
     json.replace(pos,17,"\"resolution\": 512.5"); EXPECT_FALSE(deserialize(json,loaded,d));
 }
+
+TEST(TexturePaint, InterpolationEraseAndClip) {
+    auto r=example(); r.formatVersion=r.evaluatorVersion=2; r.nodes[0].type=NodeType::Paint;
+    Stroke s; s.radius=0.04f; s.hardness=1; s.samples={{0.1f,0.5f},{0.9f,0.5f}};
+    r.nodes[0].strokes={s}; Image image; std::string d;
+    ASSERT_TRUE(evaluate(r,image,d))<<d;
+    for (unsigned x=52;x<460;++x) EXPECT_FLOAT_EQ(image.pixels[256*512+x][3],1);
+    EXPECT_EQ(image.pixels[0],(Color{0,0,0,0}));
+    Stroke eraser=s; eraser.erase=true; eraser.radius=0.08f; eraser.samples={{0.5f,0.5f}};
+    r.nodes[0].strokes.push_back(eraser); ASSERT_TRUE(evaluate(r,image,d));
+    EXPECT_FLOAT_EQ(image.pixels[256*512+256][3],0);
+    EXPECT_FLOAT_EQ(image.pixels[256*512+100][3],1);
+    s.samples={{-0.1f,0},{0.5f,0}}; r.nodes[0].strokes={s};
+    ASSERT_TRUE(evaluate(r,image,d)); EXPECT_FLOAT_EQ(image.pixels[0][3],1);
+    EXPECT_FLOAT_EQ(image.pixels[511*512][3],0);
+}
+TEST(TexturePaint, RoundTripResolutionAndInvalidStrokes) {
+    auto r=example(); r.formatVersion=r.evaluatorVersion=2; r.nodes[0].type=NodeType::Paint;
+    Stroke s; s.radius=0.08f; s.hardness=0; s.strength=0.5f; s.samples={{0.5f,0.5f}};
+    r.nodes[0].strokes={s}; std::string text,again,d; Recipe loaded; Image first,second;
+    ASSERT_TRUE(serialize(r,text,d)); ASSERT_TRUE(deserialize(text,loaded,d));
+    ASSERT_TRUE(serialize(loaded,again,d)); EXPECT_EQ(text,again);
+    ASSERT_TRUE(evaluate(r,first,d)); ASSERT_TRUE(evaluate(loaded,second,d)); EXPECT_EQ(first.pixels,second.pixels);
+    EXPECT_NEAR(first.pixels[256*512+256][3],0.5f,0.015f);
+    EXPECT_GT(first.pixels[256*512+260][3],first.pixels[256*512+285][3]);
+    loaded.resolution=1024; ASSERT_TRUE(evaluate(loaded,second,d));
+    EXPECT_NEAR(first.pixels[256*512+256][3],second.pixels[512*1024+512][3],0.01f);
+    auto painted=std::find_if(loaded.nodes.begin(),loaded.nodes.end(),[](const Node& n){return n.type==NodeType::Paint;});
+    ASSERT_NE(painted,loaded.nodes.end()); painted->strokes[0].radius=0; EXPECT_FALSE(validate(loaded,d));
+    loaded=r; loaded.nodes[0].strokes[0].samples.clear(); EXPECT_FALSE(validate(loaded,d));
+    loaded=r; loaded.formatVersion=loaded.evaluatorVersion=1; EXPECT_FALSE(validate(loaded,d));
+    loaded=r; loaded.nodes[0].type=NodeType::Solid; EXPECT_FALSE(validate(loaded,d));
+    auto old=second.pixels; std::atomic_bool cancel=true; EXPECT_FALSE(evaluate(r,second,d,&cancel)); EXPECT_EQ(old,second.pixels);
+}

@@ -8,7 +8,13 @@
 
 namespace Phantom::Texture {
 using Color = std::array<float, 4>; // Straight alpha, linear RGB.
-enum class NodeType { Solid, Noise, Gradient, Checker, Blend, BaseColor };
+enum class NodeType { Solid, Noise, Gradient, Checker, Blend, BaseColor, Paint };
+struct Stroke {
+    Color color{1, 0, 0, 1};
+    float radius = 0.025f, strength = 1, hardness = 0.8f;
+    bool erase = false;
+    std::vector<std::array<float, 2>> samples; // UV; outside [-1,2] is rejected.
+};
 struct NodeInfo { NodeType type; const char* name; unsigned inputs; };
 const std::vector<NodeInfo>& catalog();
 struct Node {
@@ -18,6 +24,7 @@ struct Node {
     uint32_t seed = 0;
     unsigned scale = 8;
     float x = 0, y = 0; // Editor placement, not evaluation coordinates.
+    std::vector<Stroke> strokes;
 };
 struct Connection { std::string source, target; unsigned input = 0; };
 struct Recipe {

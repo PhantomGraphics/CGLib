@@ -1,4 +1,4 @@
-# Texture phase 1
+# Texture recipe evaluation
 
 CPU-only C++20 texture recipe evaluation. No WPF, Vulkan, PhantomStudio or image inputs are required.
 
@@ -30,4 +30,23 @@ All ordinary sources produce linear RGBA color; Base Color is terminal and canno
 
 PNG output converts linear RGB to sRGB and keeps alpha linear. There is no persistent image cache in this phase: each evaluation regenerates pixels from the recipe. The example and tests use synthetic data only.
 
-Managed editing/history, ABI/Interop, UV/color transform nodes, image input, stroke/paint storage, progress callbacks, WPF and PhantomStudio integration belong to subsequent phases. This phase's schema deliberately supports only the six implemented node types and rejects unsupported versions/dependencies.
+## Paint (recipe/evaluator version 2)
+
+Version 1 remains supported. Version 2 adds `paint`, a zero-input linear RGBA source
+with a `strokes` array. Each stroke stores `color` (four floats), `radius` (fraction
+of canvas width, 0.00025..1), `strength` and `hardness` (0..1), `erase` (bool), and
+`samples` (UV pairs). UVs in -1..2 permit captured pointer motion outside the canvas;
+dabs clip rather than wrap. Strokes are limited to 10,000 and samples to 100,000 per
+recipe. Paint is forbidden in version 1, as are nonempty strokes on ordinary nodes.
+
+Evaluation interpolates dabs at quarter-radius spacing (minimum half a pixel),
+carrying arc length across samples. Hardness controls the linear edge falloff.
+Brushes compose in linear straight-alpha; erasing reduces layer alpha and reveals
+the background when used as a blend foreground. Re-evaluation at another resolution
+replays the normalized samples. Row/dab cancellation preserves the caller's image.
+No raster cache is serialized. Existing version 1 serialization is unchanged.
+
+Managed editing/history, Native C ABI/Interop, WPF node editing and 2D paint UI are
+implemented under `CGApp/TextureStudio` in the parent workspace. UV/color transform
+nodes, image input, persistent cache, progress callbacks and PhantomStudio integration
+remain for subsequent work.

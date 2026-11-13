@@ -29,7 +29,7 @@ static unsigned integer(const Json& v) {
 const std::vector<NodeInfo>& catalog() {
     static const std::vector<NodeInfo> items{{NodeType::Solid,"solid",0},{NodeType::Noise,"noise",0},
         {NodeType::Gradient,"gradient",0},{NodeType::Checker,"checker",0},
-        {NodeType::Blend,"blend",3},{NodeType::BaseColor,"base_color",1}};
+        {NodeType::Blend,"blend",3},{NodeType::BaseColor,"base_color",1},{NodeType::Paint,"paint",0}};
     return items;
 }
 static const NodeInfo* info(NodeType type) {
@@ -43,17 +43,31 @@ struct Graph {
     std::vector<size_t> order;
 };
 static bool prepare(const Recipe& r, Graph& g, std::string& d) {
-    if (r.formatVersion != 1 || r.evaluatorVersion != 1) return fail(d,"Unsupported recipe/evaluator version");
+    if ((r.formatVersion != 1 && r.formatVersion != 2) || r.evaluatorVersion != r.formatVersion) return fail(d,"Unsupported recipe/evaluator version");
     if (r.resolution != 512 && r.resolution != 1024 && r.resolution != 2048 && r.resolution != 4096)
         return fail(d,"Resolution must be 512, 1024, 2048 or 4096");
     if (r.nodes.empty() || r.nodes.size() > 256) return fail(d,"Graph must contain 1..256 nodes");
     g.inputs.resize(r.nodes.size());
+    size_t sampleCount = 0, strokeCount = 0;
     for (size_t n = 0; n < r.nodes.size(); ++n) {
         const auto& node = r.nodes[n]; const auto* i = info(node.type);
         if (!i || node.id.empty() || !g.ids.emplace(node.id,n).second) return fail(d,"Unknown type, empty or duplicate node ID");
         if (!node.scale || node.scale > 4096 || !std::isfinite(node.x) || !std::isfinite(node.y)) return fail(d,"Invalid node parameters");
         for (auto c : {node.first,node.second}) for (float v : c)
             if (!std::isfinite(v) || v < 0 || v > 1) return fail(d,"Colors must be finite linear RGBA in [0,1]");
+        if (node.type == NodeType::Paint && r.formatVersion < 2) return fail(d,"Paint requires recipe version 2");
+        if (node.type != NodeType::Paint && !node.strokes.empty()) return fail(d,"Strokes require a paint node");
+        strokeCount += node.strokes.size();
+        for (const auto& s : node.strokes) {
+            if (!std::isfinite(s.radius) || s.radius < 0.00025f || s.radius > 1 ||
+                !std::isfinite(s.strength) || s.strength < 0 || s.strength > 1 ||
+                !std::isfinite(s.hardness) || s.hardness < 0 || s.hardness > 1 || s.samples.empty()) return fail(d,"Invalid brush parameters");
+            for (float v : s.color) if (!std::isfinite(v) || v < 0 || v > 1) return fail(d,"Invalid brush color");
+            sampleCount += s.samples.size();
+            for (const auto& uv : s.samples) for (float v : uv)
+                if (!std::isfinite(v) || v < -1 || v > 2) return fail(d,"Invalid stroke sample");
+        }
+        if (strokeCount > 10000 || sampleCount > 100000) return fail(d,"Stroke/sample limit exceeded");
         g.inputs[n].assign(i->inputs, r.nodes.size());
     }
     auto out = g.ids.find(r.output);
@@ -86,8 +100,63 @@ static Color mix(Color a, Color b, float t) {
     return a;
 }
 static uint32_t hash(uint32_t v) { v ^= v>>16; v *= 0x7feb352du; v ^= v>>15; v *= 0x846ca68bu; return v^(v>>16); }
+static Color over(Color base, Color paint, float alpha) {
+    float a = alpha + base[3] * (1-alpha);
+    Color c{0,0,0,a};
+    if (a > 0) for (size_t k=0;k<3;++k) c[k]=(paint[k]*alpha+base[k]*base[3]*(1-alpha))/a;
+    return c;
+}
+static bool rasterPaint(const Node& node, unsigned size, Image& image, std::string& d, const std::atomic_bool* cancel) {
+    image.width = image.height = size;
+    image.pixels.assign(size_t(size)*size, Color{0,0,0,0});
+    for (const auto& s : node.strokes) {
+        auto dab = [&](float u, float v) {
+            if (cancel && cancel->load()) return false;
+            float cx=u*size, cy=v*size, radius=s.radius*size;
+            int left=std::max(0,int(std::floor(cx-radius))), right=std::min(int(size)-1,int(std::ceil(cx+radius)));
+            int top=std::max(0,int(std::floor(cy-radius))), bottom=std::min(int(size)-1,int(std::ceil(cy+radius)));
+            for (int y=top;y<=bottom;++y) {
+                if (cancel && cancel->load()) return false;
+                for (int x=left;x<=right;++x) {
+                    float dx=(x+0.5f-cx)/radius, dy=(y+0.5f-cy)/radius;
+                    float distance=std::sqrt(dx*dx+dy*dy);
+                    if (distance >= 1) continue;
+                    float coverage=distance <= s.hardness ? 1 : (1-distance)/(1-s.hardness);
+                    float alpha=coverage*s.strength*s.color[3];
+                    auto& pixel=image.pixels[size_t(y)*size+x];
+                    if (s.erase) { pixel[3]*=1-alpha; if (pixel[3]==0) pixel={0,0,0,0}; }
+                    else pixel=over(pixel,s.color,alpha);
+                }
+            }
+            return true;
+        };
+        const float step=std::max(s.radius*0.25f,0.5f/size);
+        if (!dab(s.samples.front()[0],s.samples.front()[1])) return fail(d,"Evaluation cancelled");
+        // Carry arc length across samples, so adding collinear mouse samples does
+        // not increase opacity. The last point is stamped exactly once.
+        float until=step;
+        auto last=s.samples.front();
+        for (size_t i=1;i<s.samples.size();++i) {
+            auto from=s.samples[i-1], to=s.samples[i];
+            float dx=to[0]-from[0], dy=to[1]-from[1], length=std::sqrt(dx*dx+dy*dy);
+            for (float offset=until; offset<=length; offset+=step) {
+                float t=offset/length; last={from[0]+dx*t,from[1]+dy*t};
+                if (!dab(last[0],last[1])) return fail(d,"Evaluation cancelled");
+            }
+            if (length >= until) until=step-std::fmod(length-until,step);
+            else until-=length;
+        }
+        auto end=s.samples.back();
+        if (std::abs(last[0]-end[0])+std::abs(last[1]-end[1])>1e-6f && !dab(end[0],end[1])) return fail(d,"Evaluation cancelled");
+    }
+    return true;
+}
 bool evaluate(const Recipe& r, Image& destination, std::string& d, const std::atomic_bool* cancel) {
     Graph g; if (!prepare(r,g,d)) return false;
+    if (cancel && cancel->load()) return fail(d,"Evaluation cancelled");
+    std::map<size_t,Image> paint;
+    for (size_t n=0;n<r.nodes.size();++n) if (r.nodes[n].type==NodeType::Paint)
+        if (!rasterPaint(r.nodes[n],r.resolution,paint[n],d,cancel)) return false;
     Image image; image.width = image.height = r.resolution;
     image.pixels.resize(size_t(r.resolution)*r.resolution);
     std::vector<Color> values(r.nodes.size());
@@ -113,6 +182,7 @@ bool evaluate(const Recipe& r, Image& destination, std::string& d, const std::at
                     break;
                 }
                 case NodeType::BaseColor: c=values[in[0]]; break;
+                case NodeType::Paint: c=paint[n].pixels[size_t(y)*r.resolution+x]; break;
                 }
                 values[n]=c;
             }
@@ -126,8 +196,16 @@ bool serialize(const Recipe& r, std::string& result, std::string& d) {
     Json j={{"format_version",r.formatVersion},{"evaluator_version",r.evaluatorVersion},{"resolution",r.resolution},{"output",r.output},
         {"nodes",Json::array()},{"connections",Json::array()},{"external_dependencies",Json::array()}};
     auto nodes=r.nodes; std::sort(nodes.begin(),nodes.end(),[](const Node& a,const Node& b){return a.id<b.id;});
-    for (const auto& n:nodes) j["nodes"].push_back({{"id",n.id},{"type",info(n.type)->name},{"first",n.first},{"second",n.second},
-        {"seed",n.seed},{"scale",n.scale},{"position",{n.x,n.y}}});
+    for (const auto& n:nodes) {
+        Json v={{"id",n.id},{"type",info(n.type)->name},{"first",n.first},{"second",n.second},
+            {"seed",n.seed},{"scale",n.scale},{"position",{n.x,n.y}}};
+        if (n.type==NodeType::Paint) {
+            v["strokes"]=Json::array();
+            for (const auto& s:n.strokes) v["strokes"].push_back({{"color",s.color},{"radius",s.radius},{"strength",s.strength},
+                {"hardness",s.hardness},{"erase",s.erase},{"samples",s.samples}});
+        }
+        j["nodes"].push_back(std::move(v));
+    }
     auto edges=r.connections; std::sort(edges.begin(),edges.end(),[](const Connection& a,const Connection& b){return std::tie(a.target,a.input,a.source)<std::tie(b.target,b.input,b.source);});
     for (const auto& c:edges) j["connections"].push_back({{"source",c.source},{"target",c.target},{"input",c.input}});
     result=j.dump(2)+'\n'; d.clear(); return true;
@@ -151,7 +229,16 @@ bool deserialize(const std::string& text, Recipe& destination, std::string& d) {
             if (!v.at("seed").is_number_unsigned() && (!v.at("seed").is_number_integer() || v.at("seed").get<int64_t>()<0)) return fail(d,"Invalid seed");
             if (v.at("seed").get<uint64_t>()>UINT32_MAX) return fail(d,"Invalid seed");
             n.seed=integer(v.at("seed")); n.scale=integer(v.at("scale"));
-            n.x=v.at("position").at(0).get<float>(); n.y=v.at("position").at(1).get<float>(); r.nodes.push_back(n);
+            n.x=v.at("position").at(0).get<float>(); n.y=v.at("position").at(1).get<float>();
+            if (v.contains("strokes")) {
+                if (!v.at("strokes").is_array()) return fail(d,"Invalid strokes");
+                for (const auto& item:v.at("strokes")) {
+                    Stroke s; s.color=item.at("color").get<Color>(); s.radius=item.at("radius").get<float>();
+                    s.strength=item.at("strength").get<float>(); s.hardness=item.at("hardness").get<float>(); s.erase=item.at("erase").get<bool>();
+                    s.samples=item.at("samples").get<std::vector<std::array<float,2>>>(); n.strokes.push_back(std::move(s));
+                }
+            }
+            r.nodes.push_back(std::move(n));
         }
         for (const auto& c:j.at("connections")) r.connections.push_back({c.at("source").get<std::string>(),c.at("target").get<std::string>(),integer(c.at("input"))});
         if (!validate(r,d)) return false;
