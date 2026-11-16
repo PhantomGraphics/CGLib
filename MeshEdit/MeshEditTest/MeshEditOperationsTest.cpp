@@ -904,6 +904,35 @@ TEST(KnifePlane, UvIsInterpolatedAndNothingToCutIsRefused) {
     EXPECT_FALSE(knifePlane(box, { 0.f, 0.5f, 0.f }, { 0.f, 1.f, 0.f }, untouched, &error)) << "a plane along the top face touches no face on both sides";
 }
 
+TEST(AssignMaterial, GivesTheSelectedFacesTheSlotAndLeavesTheRestAlone) {
+    const EditableMesh box = makeEditableBox(0.5f);
+    ASSERT_GE(box.faces.size(), 3u);
+    const uint32_t a = box.faces[0].id, b = box.faces[2].id;
+    EditableMesh out;
+    std::string error;
+    size_t changed = 0;
+    ASSERT_TRUE(assignMaterial(box, { a, b }, 2, out, &error, &changed)) << error;
+    EXPECT_EQ(2u, changed);
+    for (const auto& f : out.faces) EXPECT_EQ(f.id == a || f.id == b ? 2u : 0u, f.material) << "face " << f.id;
+    EXPECT_NE(box.revision, out.revision);                        // a changed slot renews the revision
+    EXPECT_EQ(box.vertices.size(), out.vertices.size());          // geometry and topology are untouched
+    EXPECT_TRUE(out.validate(&error)) << error;
+
+    // Assigning the slot the faces already have changes nothing: an unchanged copy, the same revision.
+    EditableMesh again;
+    ASSERT_TRUE(assignMaterial(out, { a }, 2, again, &error, &changed)) << error;
+    EXPECT_EQ(0u, changed);
+    EXPECT_EQ(out.revision, again.revision);
+
+    // Refusals leave `out` untouched.
+    EditableMesh untouched;
+    untouched.revision = 12345;
+    EXPECT_FALSE(assignMaterial(box, {}, 1, untouched, &error)) << "no face selected";
+    EXPECT_FALSE(assignMaterial(box, { 9999 }, 1, untouched, &error)) << "a face that does not exist";
+    EXPECT_NE(std::string::npos, error.find("9999"));
+    EXPECT_EQ(12345u, untouched.revision);
+}
+
 TEST(MarkSeams, SeamsSeparateChartsEvenAtAWideAngleAndFollowTheirEdges) {
     const EditableMesh box = makeEditableBox(0.5f);
     std::vector<uint32_t> all;

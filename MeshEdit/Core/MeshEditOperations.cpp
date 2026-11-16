@@ -1150,6 +1150,30 @@ bool markSeams(const EditableMesh& in, const std::vector<uint32_t>& edgeIds, boo
 	return true;
 }
 
+bool assignMaterial(const EditableMesh& in, const std::vector<uint32_t>& faceIds, uint32_t slot, EditableMesh& out,
+                    std::string* error, size_t* changed) {
+	if (faceIds.empty()) { fail(error, "no faces selected"); return false; }
+	const std::set<uint32_t> wanted(faceIds.begin(), faceIds.end());
+	EditableMesh work = in;
+	size_t found = 0, count = 0;
+	for (auto& f : work.faces) {
+		if (!wanted.count(f.id)) continue;
+		++found;
+		if (f.material != slot) { f.material = slot; ++count; }
+	}
+	if (found != wanted.size()) {
+		for (uint32_t id : wanted) {
+			bool exists = false;
+			for (const auto& f : in.faces) if (f.id == id) { exists = true; break; }
+			if (!exists) { fail(error, "face " + std::to_string(id) + " does not exist"); return false; }
+		}
+	}
+	if (count > 0) work.revision = nextEditableRevision();   // a changed slot must redraw (the render mesh is split by slot)
+	out = std::move(work);
+	if (changed) *changed = count;
+	return true;
+}
+
 bool transformFaceUvs(const EditableMesh& in, const std::vector<uint32_t>& faceIds, UvTransform mode, float a, float b, EditableMesh& out,
                       std::string* error) {
 	if (faceIds.empty()) { fail(error, "no faces selected"); return false; }

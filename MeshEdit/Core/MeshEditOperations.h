@@ -114,6 +114,12 @@ namespace Phantom::MeshEdit {
 	bool markSeams(const EditableMesh& in, const std::vector<uint32_t>& edgeIds, bool mark, EditableMesh& out,
 	               std::string* error = nullptr, size_t* changed = nullptr);
 
+	// Gives the selected faces the material slot `slot` (EditableFace::material). The module does not know how many slots the object has: the caller checks that.
+	// Geometry and topology do not change; the revision is renewed only when a face changed. *changed receives how many faces changed slot (0 = every face already had
+	// it: `out` is an unchanged copy). Fails -- `out` untouched -- when no face is selected or an id does not exist.
+	bool assignMaterial(const EditableMesh& in, const std::vector<uint32_t>& faceIds, uint32_t slot, EditableMesh& out,
+	                    std::string* error = nullptr, size_t* changed = nullptr);
+
 	// Edits the corner UVs of the selected faces about the centre of their UV bounds. Move adds (a, b) to every UV; Rotate turns them by `a` degrees
 	// (counter-clockwise); Scale multiplies the offset from the centre by (a, b). Geometry, topology and the other faces are untouched; the revision is renewed.
 	// Fails -- `out` untouched -- when a selected face does not exist, no face is selected, or a parameter is not finite (a scale factor of 0 is refused too).
