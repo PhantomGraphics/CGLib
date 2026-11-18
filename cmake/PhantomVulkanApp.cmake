@@ -314,7 +314,6 @@ function(phantom_add_gltfrenderer_core)
     phantom_add_vkrenderer_core() # VkSkyBoxRenderer, reused for GltfSceneRenderer's skybox
     set(_gltfr_root ${CGLIB_ROOT}/GltfRenderer)
     add_library(GltfRendererCore STATIC
-        ${_gltfr_root}/Gltf/GltfReader.cpp
         ${_gltfr_root}/Gltf/GltfBounds.cpp
         ${_gltfr_root}/Gltf/GltfLightsCameras.cpp
         ${_gltfr_root}/Gltf/SkeletonGltfConverter.cpp

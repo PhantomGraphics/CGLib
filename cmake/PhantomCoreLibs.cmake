@@ -213,15 +213,17 @@ function(phantom_add_gltf_core)
     if(TARGET GltfCore)
         return()
     endif()
-    # CPU-only glTF evaluation (Phantom::Gltf): accessor reading, node transforms, animation / morph evaluation, the character
+    # CPU-only glTF reading and evaluation (Phantom::Gltf): GltfReader, accessor reading, node transforms, animation / morph evaluation, the character
     # pose (clip placement + blend + authored bone / morph data) and its CPU bake. Depends only on GltfDocument, Animation's
     # track types and Graphics' CPU MeshData -- no Vulkan, so the pose can be used (and tested) without a GPU. GltfRendererCore
     # links this and keeps the renderer / reader / converters.
     phantom_add_math_core()
     phantom_add_graphics_core()
     phantom_add_animation_core()
+    phantom_add_file_core()       # GltfReader parses the file with FileCore
     set(_gltf_root ${CGLIB_ROOT}/GltfRenderer/Gltf)
     add_library(GltfCore STATIC
+        ${_gltf_root}/GltfReader.cpp
         ${_gltf_root}/GltfAccessorView.cpp
         ${_gltf_root}/GltfNodeTransform.cpp
         ${_gltf_root}/GltfAnimationEvaluator.cpp
@@ -230,7 +232,7 @@ function(phantom_add_gltf_core)
         ${_gltf_root}/CharacterPoseBake.cpp
     )
     target_include_directories(GltfCore PUBLIC ${REPO_ROOT} ${CGLIB_ROOT}/ThirdParty/glm)
-    target_link_libraries(GltfCore PUBLIC MathCore GraphicsCore AnimationCore)
+    target_link_libraries(GltfCore PUBLIC MathCore GraphicsCore AnimationCore FileCore)
     target_compile_options(GltfCore PRIVATE ${PHANTOM_WARN_FLAGS})
     target_compile_features(GltfCore PUBLIC cxx_std_20)
 endfunction()
