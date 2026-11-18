@@ -46,6 +46,7 @@ if(PHANTOM_GTEST_FOUND)
             ${ANIMATION_ROOT}/AnimationTest/RigMirrorTest.cpp
             ${ANIMATION_ROOT}/AnimationTest/RigIKTest.cpp
             ${ANIMATION_ROOT}/AnimationTest/RigSkinningTest.cpp
+            ${ANIMATION_ROOT}/AnimationTest/RigPickTest.cpp
             ${ANIMATION_ROOT}/AnimationTest/BVHConverterTest.cpp
             ${ANIMATION_ROOT}/AnimationTest/IKSolverTest.cpp
             ${ANIMATION_ROOT}/AnimationTest/MorphAnimatorTest.cpp

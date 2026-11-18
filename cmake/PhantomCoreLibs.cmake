@@ -380,6 +380,7 @@ function(phantom_add_animation_core)
         ${CGLIB_ROOT}/Animation/Core/PMXConverter.cpp
         ${CGLIB_ROOT}/Animation/Core/RigMirror.cpp
         ${CGLIB_ROOT}/Animation/Core/RigIK.cpp
+        ${CGLIB_ROOT}/Animation/Core/RigPick.cpp
         ${CGLIB_ROOT}/Animation/Core/RigSkinning.cpp
         ${CGLIB_ROOT}/Animation/Core/SkinningCpu.cpp
         ${CGLIB_ROOT}/Animation/Core/Skeleton.cpp
