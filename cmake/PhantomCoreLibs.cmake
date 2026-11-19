@@ -213,7 +213,7 @@ function(phantom_add_gltf_core)
     if(TARGET GltfCore)
         return()
     endif()
-    # CPU-only glTF reading and evaluation (Phantom::Gltf): GltfReader, accessor reading, node transforms, animation / morph evaluation, the character
+    # CPU-only glTF reading, rig conversion and evaluation (Phantom::Gltf): GltfReader, SkeletonGltfConverter (the rig document; its texture decode uses the stb_image symbols GraphicsCore carries), accessor reading, node transforms, animation / morph evaluation, the character
     # pose (clip placement + blend + authored bone / morph data) and its CPU bake. Depends only on GltfDocument, Animation's
     # track types and Graphics' CPU MeshData -- no Vulkan, so the pose can be used (and tested) without a GPU. GltfRendererCore
     # links this and keeps the renderer / reader / converters.
@@ -224,6 +224,7 @@ function(phantom_add_gltf_core)
     set(_gltf_root ${CGLIB_ROOT}/GltfRenderer/Gltf)
     add_library(GltfCore STATIC
         ${_gltf_root}/GltfReader.cpp
+        ${_gltf_root}/SkeletonGltfConverter.cpp
         ${_gltf_root}/GltfAccessorView.cpp
         ${_gltf_root}/GltfNodeTransform.cpp
         ${_gltf_root}/GltfAnimationEvaluator.cpp
