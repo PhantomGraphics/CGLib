@@ -104,6 +104,8 @@ function(phantom_add_volume_core)
     endif()
     phantom_add_math_core()
     phantom_add_space_core()
+    # Metaball.h (public) includes Graphics' CPU MeshData, so Graphics is a PUBLIC dependency.
+    phantom_add_graphics_core()
     add_library(VolumeCore STATIC
         ${CGLIB_ROOT}/Volume/Core/LevelSet.cpp
         ${CGLIB_ROOT}/Volume/Core/MCSurfaceBuilder.cpp
@@ -113,7 +115,7 @@ function(phantom_add_volume_core)
         ${CGLIB_ROOT}/Volume/Core/VolumeScattering.cpp
     )
     target_include_directories(VolumeCore PUBLIC ${REPO_ROOT})
-    target_link_libraries(VolumeCore PUBLIC MathCore SpaceCore)
+    target_link_libraries(VolumeCore PUBLIC MathCore SpaceCore GraphicsCore)
     target_compile_options(VolumeCore PRIVATE ${PHANTOM_WARN_FLAGS})
     target_compile_features(VolumeCore PUBLIC cxx_std_20)
 endfunction()

@@ -32,10 +32,14 @@ GPU_MODULES = {"Renderer", "VkAppBase", "VulkanGraphics", "UIWidgets", "GltfRend
 # Util is header-only and travels with the repo include root.
 HEADER_ONLY = {"Util"}
 
-links = {}
-for t in TARGETS:
-    m = re.search(r"target_link_libraries\(%s\s+PUBLIC\s+([^)]*)\)" % t, CMAKE)
-    links[t] = [x for x in (m.group(1).split() if m else []) if x in TARGETS]
+def declared_links(t, scope):
+    m = re.search(r"target_link_libraries\(%s\s+%s\s+([^)]*)\)" % (t, scope), CMAKE)
+    return [x for x in (m.group(1).split() if m else []) if x in TARGETS]
+
+# PUBLIC links form the transitive closure that consumers see; PRIVATE links satisfy
+# dependencies reached only from this target's own .cpp files.
+links = {t: declared_links(t, "PUBLIC") for t in TARGETS}
+private_links = {t: declared_links(t, "PRIVATE") for t in TARGETS}
 
 def closure(t, seen=None):
     seen = seen if seen is not None else set()
@@ -81,8 +85,11 @@ for t, (mod, d) in TARGETS.items():
     own = {mod, "ThirdParty"} | HEADER_ONLY
     have = {MODULE_OF_TARGET[x] for x in closure(t)}
     miss_pub = sorted(m for m in pub - own - have if m in mod_to_target or m in GPU_MODULES)
-    miss_priv = sorted(m for m in priv - pub - own - have if m in mod_to_target or m in GPU_MODULES)
-    direct = {MODULE_OF_TARGET[x] for x in links[t]}
+    have_priv = have | {MODULE_OF_TARGET[x] for x in private_links[t]}
+    for x in private_links[t]:
+        have_priv |= {MODULE_OF_TARGET[y] for y in closure(x)}
+    miss_priv = sorted(m for m in priv - pub - own - have_priv if m in mod_to_target or m in GPU_MODULES)
+    direct = {MODULE_OF_TARGET[x] for x in links[t] + private_links[t]}
     extra = sorted(direct - (pub | priv))
     print(f"{t:18} links={sorted(direct)}")
     if miss_pub: print(f"   MISSING (public header, needs PUBLIC): {miss_pub}"); rc = 1
