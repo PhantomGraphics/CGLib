@@ -316,8 +316,6 @@ function(phantom_add_gltfrenderer_core)
     add_library(GltfRendererCore STATIC
         ${_gltfr_root}/Gltf/GltfBounds.cpp
         ${_gltfr_root}/Gltf/GltfLightsCameras.cpp
-        ${_gltfr_root}/Gltf/MmdAnimationBaker.cpp
-        ${_gltfr_root}/Gltf/MmdToGltfConverter.cpp
         ${_gltfr_root}/Gltf/ObjToGltfConverter.cpp
         ${_gltfr_root}/Gltf/StlToGltfConverter.cpp
         ${_gltfr_root}/Vrm/VrmExtensionParser.cpp
